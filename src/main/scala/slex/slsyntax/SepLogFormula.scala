@@ -1,5 +1,7 @@
 package slex.slsyntax
 
+import slex.Combinators
+
 /**
   * Created by jkatelaa on 9/30/16.
   */
@@ -80,4 +82,12 @@ case class SepCon(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormul
   override def isSymbolicHeap: Boolean = phi.isSymbolicHeap && psi.isSymbolicHeap
 
   override def toSymbolicHeap: Option[SymbolicHeap] = SymbolicHeap.combineHeaps(phi.toSymbolicHeap, psi.toSymbolicHeap)
+}
+
+object SepLogFormula {
+
+  def fromPureAtoms(atoms : Seq[PureAtom]) : PureFormula = Combinators.iteratedBinOp[PureFormula](PureAnd, True())(atoms)
+
+  def fromSpatialAtoms(atoms : Seq[SpatialAtom]) : SepLogFormula = Combinators.iteratedBinOp[SepLogFormula](SepCon, Emp())(atoms)
+
 }

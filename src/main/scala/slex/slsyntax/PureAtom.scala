@@ -3,16 +3,20 @@ package slex.slsyntax
 /**
   * Created by jkatelaa on 10/3/16.
   */
-sealed trait PureAtom extends SepLogFormula {
+sealed trait PureAtom extends SepLogFormula with PureFormula {
 
-  def isSpatial = false
+  override def isSpatial = false
 
-  def isPure = true
+  override def isPure = true
 
-  def isSymbolicHeap = true
+  override def isSymbolicHeap = true
 
-  def toSymbolicHeap = Some(SymbolicHeap(Seq(this), Seq(), Seq()))
+  override def toSymbolicHeap = Some(SymbolicHeap(Seq(this), Seq(), Seq()))
 
+}
+
+case class True() extends PureAtom {
+  override def toString = "true"
 }
 
 case class IxEq(l : IntExpr, r : IntExpr) extends PureAtom {
@@ -25,6 +29,14 @@ case class IxGT(l : IntExpr, r : IntExpr) extends PureAtom {
 
 case class IxLT(l : IntExpr, r : IntExpr) extends PureAtom {
   override def toString = l + " < " + r
+}
+
+case class IxLEq(l : IntExpr, r : IntExpr) extends PureAtom {
+  override def toString = l + " \u2264 " + r
+}
+
+case class IxGEq(l : IntExpr, r : IntExpr) extends PureAtom {
+  override def toString = l + " \u2265 " + r
 }
 
 case class IntNEq(l : IntExpr, r : IntExpr) extends PureAtom {

@@ -5,13 +5,13 @@ package slex.slsyntax
   */
 sealed trait SpatialAtom extends SepLogFormula {
 
-  def isSpatial = true
+  override def isSpatial = true
 
-  def isPure = false
+  override def isPure = false
 
-  def isSymbolicHeap = true
+  override def isSymbolicHeap = true
 
-  def toSymbolicHeap = Some(SymbolicHeap(Seq(), Seq(this), Seq()))
+  override def toSymbolicHeap = Some(SymbolicHeap(Seq(), Seq(this), Seq()))
 
 }
 
