@@ -1,7 +1,7 @@
 package slex.main
 
-import slex.main.main.examples.UFExample
-import slex.slex.slsyntax.SepLogAxioms
+import slex.main.main.examples.{SymbolicHeapExamples, UFExample}
+import slex.slsyntax.SepLogAxioms
 import slex.smtinteraction.{NaiveZ3Wrapper, SmtWrapper}
 
 /**
@@ -21,6 +21,11 @@ object Slex {
 
     println("Look, we can write SL definitions! With indices! Here's one for list segments:")
     println(SepLogAxioms.LSegDef)
+
+    println("We also support the restriction to symbolic heaps such as")
+    println(SymbolicHeapExamples.SingleList)
+    println(SymbolicHeapExamples.SplitList)
+    println(SymbolicHeapExamples.LassoList)
   }
 
 }

@@ -1,4 +1,4 @@
-package slex.slex.slsyntax
+package slex.slsyntax
 
 /**
   * Created by jkatelaa on 9/30/16.
@@ -7,7 +7,7 @@ object SepLogAxioms {
 
   val LSegDef = SepLogDef(
     //lseg(x, z, n) =
-    LSeg("x", "z", "n"),
+    IxLSeg("x", "z", "n"),
     Or(
       // (x = z ∧ n != 0 ∧ emp)
       And(PtrEq("x", "z"),
@@ -17,7 +17,7 @@ object SepLogAxioms {
       And(PtrNEq("x", "z"),
         And(IxGT("n", 0),
           Exists("y", SepCon(PointsTo("x", "y"),
-                      LSeg("y", "z", Minus("n", 1)) )))
+                      IxLSeg("y", "z", Minus("n", 1)) )))
       )
     )
   )
