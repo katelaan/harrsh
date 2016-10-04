@@ -21,4 +21,17 @@ object SymbolicHeapExamples {
   lazy val Entailment1Right = SepCon(IxLSeg("p", "q", "i"),
                                      IxLSeg("q", NullPtr(), Minus("n", "i"))).toSymbolicHeap
 
+  // Like the first one, but with special interpretation of null
+  lazy val Entailment2Left = And(IxEq("i", Plus("iX",1)),
+    SepCon(
+      PointsTo(NullPtr(), NullPtr()),
+      SepCon(IxLSeg("p", "qX", "iX"),
+        SepCon(PointsTo("qX", "q"),
+          IxLSeg("q", NullPtr(), Minus(Minus("n", "iX"), 1)))))).toSymbolicHeap
+
+  lazy val Entailment2Right = SepCon(
+      PointsTo(NullPtr(), NullPtr()),
+      SepCon(IxLSeg("p", "q", "i"),
+           IxLSeg("q", NullPtr(), Minus("n", "i")))).toSymbolicHeap
+
 }

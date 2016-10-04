@@ -13,7 +13,7 @@ sealed trait PtrExpr {
   }
 
   def getIdent : Option[String] = this match {
-    case NullPtr() => Some("null") // FIXME Currently we handle null by declaring it as an ordinary constant. Might want to fix this at some point
+    case NullPtr() => Some("null") // FIXME [NULL-TREATMENT] Currently we handle null by declaring it as an ordinary constant. Might want to fix this at some point
     case PtrVar(id) => Some(id)
   }
 

@@ -11,7 +11,7 @@ import scala.annotation.tailrec
 
 /**
   * Model-driven entailment checker
-  * FIXME I'm currently not convinced the non-symmetrical subtraction operator is correct. E.g. the entailment ls(x,y,n) /\ Pi |= ls(x,z,l) * ls(z,y,m) /\ Pi' should hold (where z,l,m are implicitly existentially). Or do we disallow existential quantification over index variables? But then the fragment would be entirely useless? Apparently the problem is that lseg describes acyclic list segments, so the entailment indeed does not hold. (The right hand side might describe two acyclic list segments which combined yield a cyclic list; see example below Proposition 2). If we allowed cyclicity, we would indeed need symmetrical subtraction!
+  * TODO Think again about non-symmetrical nature of match. Is it really sufficient in the acyclic case? E.g. the entailment ls(x,y,n) /\ Pi |= ls(x,z,l) * ls(z,y,m) /\ Pi' should hold (where z,l,m are implicitly existentially). Or do we disallow existential quantification over index variables? But then the fragment would be entirely useless? Apparently the problem is that lseg describes acyclic list segments, so the entailment indeed does not hold. (The right hand side might describe two acyclic list segments which combined yield a cyclic list; see example below Proposition 2). If we allowed cyclicity, we would indeed need symmetrical subtraction!
   * TODO Can be extended to array separation logic in a straightforward manner
   * TODO Extension to byte-precise separation logic with block predicates?
   * TODO Do we want special treatment of nil? Currently there is none, so we would have to add ∗ next(nil, nil) to regain it
@@ -32,9 +32,7 @@ case class MDEC(val solver : SmtWrapper) {
     val res = solver.runSmtQuery(cmds)
     println(res)
 
-    // TODO Extract result
-
-    false
+    res._1.isSat
   }
 
 
@@ -49,11 +47,9 @@ case class MDEC(val solver : SmtWrapper) {
     println(cmds.mkString("\n"))
 
     val res = solver.runSmtQuery(cmds)
-    println(res)
+    println("Solver result: " + res)
 
-    // TODO Extract model from result output
-
-    None
+    res._2
   }
 
   private def commandsForFormula(phi : PureFormula) : Seq[SmtCommand] = {
@@ -180,7 +176,7 @@ case class MDEC(val solver : SmtWrapper) {
         true match {
           case _ if leftAddr == rightAddr =>
             // Found a matching
-            Some(remLeft.head, accLeft ++ remLeft.tail, remRight.head, accRight ++ accRight.tail)
+            Some(remLeft.head, accLeft ++ remLeft.tail, remRight.head, accRight ++ remRight.tail)
           case _ if leftAddr < rightAddr =>
             // The first left address is smaller than all right addresses => Drop it and continued matching
             orderedMatch(remLeft.tail, remRight, accLeft ++ Seq(remLeft.head), accRight)

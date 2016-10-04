@@ -7,6 +7,6 @@ import slex.smtsyntax.SmtCommand
   */
 trait SmtWrapper {
 
-  def runSmtQuery(query : Seq[SmtCommand]) : String
+  def runSmtQuery(query : Seq[SmtCommand]) : SmtOutput
 
 }

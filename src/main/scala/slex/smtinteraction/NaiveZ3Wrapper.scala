@@ -15,7 +15,7 @@ class NaiveZ3Wrapper(pathToZ3 : Option[String]) extends SmtWrapper {
 
   private val path = pathToZ3 getOrElse Defaults.PathToZ3
 
-  override def runSmtQuery(query : Seq[SmtCommand]) : String = {
+  override def runSmtQuery(query : Seq[SmtCommand]) : SmtOutput = {
     writeSmtFile(query)
     val command = path + " " + FileName
     val process = Process(command)
@@ -27,14 +27,17 @@ class NaiveZ3Wrapper(pathToZ3 : Option[String]) extends SmtWrapper {
 
     try {
       val res = process.!!(logger)
-      println("Z3 returned result: " + res)
-      res
+      Z3ResultParser.run(res).getOrElse{
+        println("Z3 returned unparsable result: " + res)
+        println("PARSE ERROR")
+        (SmtError(), None)
+      };
     } catch {
       case e : RuntimeException =>
-        println("Damn it, " + e)
+        println("ERROR IN INTERACTION WITH Z3, " + e)
         println("Output: " + msgs.mkString("\n"))
         println("Errors: " + errors.mkString("\n"))
-        "error"
+        (SmtError(), None)
     }
   }
 
