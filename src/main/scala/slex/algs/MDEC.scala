@@ -1,6 +1,6 @@
 package slex.algs
 
-import slex.slsyntax.{Emp, IxEq, IxLEq, IxLSeg, IxLT, LSeg, NullPtr, PointsTo, PtrEq, PtrExpr, PtrNEq, PtrVar, PureAnd, PureFormula, PureNeg, PureOr, SepCon, SepLogFormula, SpatialAtom, SymbolicHeap, True}
+import slex.slsyntax.{Emp, IxEq, IxLEq, IxLSeg, IxLT, LSeg, Minus, NullPtr, PointsTo, PtrEq, PtrExpr, PtrNEq, PtrVar, PureAnd, PureFormula, PureNeg, PureOr, SepCon, SepLogFormula, SpatialAtom, SymbolicHeap, True}
 import slex.Sorts._
 import slex.Combinators._
 import sun.reflect.generics.reflectiveObjects.NotImplementedException
@@ -9,8 +9,10 @@ import scala.annotation.tailrec
 
 /**
   * Model-driven entailment checker
+  * FIXME I'm currently not convinced the non-symmetrical subtraction operator is correct. E.g. the entailment ls(x,y,n) /\ Pi |= ls(x,z,l) * ls(z,y,m) /\ Pi' should hold (where z,l,m are implicitly existentially). Or do we disallow existential quantification over index variables? But then the fragment would be entirely useless? Apparently the problem is that lseg describes acyclic list segments, so the entailment indeed does not hold. (The right hand side might describe two acyclic list segments which combined yield a cyclic list; see example below Proposition 2). If we allowed cyclicity, we would indeed need symmetrical subtraction!
   * TODO Can be extended to array separation logic in a straightforward manner
   * TODO Extension to byte-precise separation logic with block predicates?
+  * TODO Do we want special treatment of nil? Currently there is none, so we would have to add ∗ next(nil, nil) to regain it
   */
 case class MDEC(val left : SymbolicHeap, val right : SymbolicHeap) {
 
@@ -59,6 +61,14 @@ case class MDEC(val left : SymbolicHeap, val right : SymbolicHeap) {
     }
   }
 
+  /**
+    * Maatching-based entailment proof under the given stack model
+    * @param s Stack evaluation (model returned by SMT solver)
+    * @param delta Describes which locations must be allocated
+    * @param left Left-hand side of the entailment
+    * @param right Right-hand side of the entailment
+    * @return
+    */
   private def matchSHs(s : Stack, delta : AllocTemplate, left : Seq[SpatialAtom], right : Seq[SpatialAtom]) : PureFormula = {
     // Try to remove an empty formula on the left
     removeEmpty(s, left) match {
@@ -76,9 +86,9 @@ case class MDEC(val left : SymbolicHeap, val right : SymbolicHeap) {
 
             findMatchingPair(s, left, right) match {
               case Some((leftElem, leftRem, rightElem, rightRem)) =>
-                // TODO: Shouldn't we also support the symmetrical case where there is only a partial match on the left?
+                // TODO: Shouldn't we also support the symmetrical case where there is only a partial match on the left? Answer: Only if we supported acyclic list segments -- see also comment near the top
                 // Subtraction returns the left-over part of the right matching partner, plus a pure formula expressing the additional constraint
-                val (partial, pure) = subtract(delta, right, left)
+                val (partial, pure) = subtract(delta, rightElem, leftElem)
                 val condition = PureAnd(sound(partial), pure)
                 if (Evaluator.eval(s, condition)) {
                   val conjunct : PureFormula = PureAnd(PureNeg(separated(leftElem, rightElem)), condition)
@@ -87,7 +97,9 @@ case class MDEC(val left : SymbolicHeap, val right : SymbolicHeap) {
                   val newRightSide : Seq[SpatialAtom] = Seq(partial) ++ rightRem
                   PureAnd(conjunct, matchSHs(s, delta, leftRem, newRightSide))
                 } else {
-                  throw new Throwable("What do we do in this degenerate case?")
+                  // The condition is a necessary condition for the entailment, so we can abort here
+                  // TODO Verify that this is true (compare Proposition 2)
+                  PureNeg(True())
                 }
 
               case None =>
@@ -145,8 +157,23 @@ case class MDEC(val left : SymbolicHeap, val right : SymbolicHeap) {
     orderedMatch(orderedLeft, orderedRight, Seq(), Seq())
   }
 
-  private def subtract(delta : AllocTemplate, right : Seq[SpatialAtom], left : Seq[SpatialAtom]) : (SpatialAtom, PureFormula) = ???
+  private def subtract(delta : AllocTemplate, large : SpatialAtom, small : SpatialAtom) : (SpatialAtom, PureFormula) = (large, small) match {
+    case (PointsTo(_, y), PointsTo(_, b)) =>
+      (Emp(), PtrEq(y, b))
+    case (IxLSeg(_, y, n), PointsTo(_, b)) =>
+      (IxLSeg(b, y, Minus(n, 1)), True())
+    case (PointsTo(_, y), IxLSeg(_, b, m)) =>
+      (Emp(), PureAnd(PtrEq(y, b), IxEq(m, 1)))
+    case (IxLSeg(_, y, n), IxLSeg(_, b, m)) =>
+      // FIXME I'm currently not convinced by the following condition. Don't we want to say that *b must be allocated if there is a non-empty part left over*? Currently we're saying that the location at the end of the (truly) larger list must be allocated, unless the shorter list has length exactly 1?! Sounds really strange to me
+      val pure = PureOr(PtrEq(y, b), PureOr(delta(y), IxEq(m, 1)))
+      // val pure = PureOr(PtrEq(y, b), delta(b))) // FIXME this seems to make more sense to me
+      (IxLSeg(b, y, Minus(n, m)), pure)
+    case p =>
+      throw new Throwable("Subtraction mechanism not defined on pair " + p)
+  }
 
+  // TODO This extracts all empty parts at the same time -- keep this for possible reimplementation that does not introduce new predicates with empty interpretation
   //    def extractEmpty(spatial : List[SpatialAtom]) : (List[SpatialAtom], PureFormula) = {
   //      val init : (List[SpatialAtom], PureFormula) = (List(), True())
   //
