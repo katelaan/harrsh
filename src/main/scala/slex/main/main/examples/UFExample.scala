@@ -8,7 +8,7 @@ import slex.smtsyntax.{Assert, _}
 object UFExample {
 
 
-  lazy val Example : Seq[SmtFormula] = Seq(
+  lazy val Example : Seq[SmtCommand] = Seq(
     //(declare-const a Int)
     DeclareConst("a", "Int"),
     //(declare-fun f (Int Bool) Int)

@@ -1,12 +1,12 @@
 package slex.smtinteraction
 
-import slex.smtsyntax.SmtFormula
+import slex.smtsyntax.SmtCommand
 
 /**
   * Created by jkatelaa on 9/30/16.
   */
 trait SmtWrapper {
 
-  def runSmtQuery(query : Seq[SmtFormula]) : String
+  def runSmtQuery(query : Seq[SmtCommand]) : String
 
 }

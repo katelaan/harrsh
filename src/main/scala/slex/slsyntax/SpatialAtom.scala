@@ -20,7 +20,7 @@ case class Emp() extends SpatialAtom {
 }
 
 case class PointsTo(from : PtrExpr, to : PtrExpr) extends SpatialAtom {
-  override def toString = from + " \u2192 " + to
+  override def toString = from + " \u21a6 " + to
 }
 
 case class LSeg(from : PtrExpr, to : PtrExpr) extends SpatialAtom {

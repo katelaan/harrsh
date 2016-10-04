@@ -13,4 +13,12 @@ object SymbolicHeapExamples {
 
   lazy val LassoList = Exists("y", And(SepCon(LSeg("x", "y"), LSeg("y", "y")), PtrNEq("x", "y"))).toSymbolicHeap
 
+  lazy val Entailment1Left = And(IxEq("i", Plus("iX",1)),
+    SepCon(IxLSeg("p", "qX", "iX"),
+      SepCon(PointsTo("qX", "q"),
+             IxLSeg("q", NullPtr(), Minus(Minus("n", "iX"), 1))))).toSymbolicHeap
+
+  lazy val Entailment1Right = SepCon(IxLSeg("p", "q", "i"),
+                                     IxLSeg("q", NullPtr(), Minus("n", "i"))).toSymbolicHeap
+
 }

@@ -1,5 +1,6 @@
 package slex.main
 
+import slex.algs.MDEC
 import slex.main.main.examples.{SymbolicHeapExamples, UFExample}
 import slex.slsyntax.SepLogAxioms
 import slex.smtinteraction.{NaiveZ3Wrapper, SmtWrapper}
@@ -26,6 +27,10 @@ object Slex {
     println(SymbolicHeapExamples.SingleList)
     println(SymbolicHeapExamples.SplitList)
     println(SymbolicHeapExamples.LassoList)
+
+    println("Let's test the model-driven entailment checker...")
+    val res2= new MDEC(wrapper).prove(SymbolicHeapExamples.Entailment1Left.get, SymbolicHeapExamples.Entailment1Right.get)
+    println("Result: " + res2)
   }
 
 }

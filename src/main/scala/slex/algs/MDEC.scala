@@ -3,6 +3,8 @@ package slex.algs
 import slex.slsyntax.{Emp, IxEq, IxLEq, IxLSeg, IxLT, LSeg, Minus, NullPtr, PointsTo, PtrEq, PtrExpr, PtrNEq, PtrVar, PureAnd, PureFormula, PureNeg, PureOr, SepCon, SepLogFormula, SpatialAtom, SymbolicHeap, True}
 import slex.Sorts._
 import slex.Combinators._
+import slex.smtinteraction.SmtWrapper
+import slex.smtsyntax.{CheckSat, _}
 import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 import scala.annotation.tailrec
@@ -14,7 +16,7 @@ import scala.annotation.tailrec
   * TODO Extension to byte-precise separation logic with block predicates?
   * TODO Do we want special treatment of nil? Currently there is none, so we would have to add ∗ next(nil, nil) to regain it
   */
-case class MDEC(val left : SymbolicHeap, val right : SymbolicHeap) {
+case class MDEC(val solver : SmtWrapper) {
 
   type AllocTemplate = PtrExpr => PureFormula
 
@@ -23,12 +25,49 @@ case class MDEC(val left : SymbolicHeap, val right : SymbolicHeap) {
   type VerificationResult = Either[CounterExample, ValidityProof]
 
   def checkSat(phi : PureFormula) : Boolean = {
-    ???
+    val cmds = commandsForFormula(phi)
+    println("SMT2 input ")
+    println(cmds.mkString("\n"))
+
+    val res = solver.runSmtQuery(cmds)
+    println(res)
+
+    // TODO Extract result
+
+    false
   }
 
-  def findStackModel(pi: PureFormula) : Option[Stack] = ???
+
+
+  def findStackModel(phi: PureFormula) : Option[Stack] = {
+
+    println("Getting model for " + phi)
+
+    val cmds = commandsForFormula(phi) ++ Seq(GetModel())
+
+    println("SMT2 input ")
+    println(cmds.mkString("\n"))
+
+    val res = solver.runSmtQuery(cmds)
+    println(res)
+
+    // TODO Extract model from result output
+
+    None
+  }
+
+  private def commandsForFormula(phi : PureFormula) : Seq[SmtCommand] = {
+    println("Checking SAT for " + phi)
+
+    val constants = PureFormula.collectIdentifiers(phi)
+    val declarations : Set[SmtCommand] = constants map (id => DeclareConst(id, "Int"))
+
+    Seq(SetLogic("QF_LIA")) ++ declarations.toSeq ++ Seq(Assert(phi.toSmtExpr), CheckSat())
+  }
 
   def prove(left : SymbolicHeap, right : SymbolicHeap) : VerificationResult = {
+    println("Trying to prove entailment " + left + " |= " + right)
+
     val sigmaL = left.spatial
     val piL = SepLogFormula.fromPureAtoms(left.pure)
     val sigmaR = right.spatial
