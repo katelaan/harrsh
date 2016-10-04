@@ -1,11 +1,16 @@
 package slex.algs
 
-import slex.slsyntax.{Emp, IxEq, IxLEq, IxLSeg, IxLT, LSeg, NullPtr, PointsTo, PtrEq, PtrExpr, PtrNEq, PureAnd, PureFormula, PureNeg, PureOr, SepLogFormula, SpatialAtom, SymbolicHeap, True}
+import slex.slsyntax.{Emp, IxEq, IxLEq, IxLSeg, IxLT, LSeg, NullPtr, PointsTo, PtrEq, PtrExpr, PtrNEq, PtrVar, PureAnd, PureFormula, PureNeg, PureOr, SepCon, SepLogFormula, SpatialAtom, SymbolicHeap, True}
 import slex.Sorts._
 import slex.Combinators._
+import sun.reflect.generics.reflectiveObjects.NotImplementedException
+
+import scala.annotation.tailrec
 
 /**
   * Model-driven entailment checker
+  * TODO Can be extended to array separation logic in a straightforward manner
+  * TODO Extension to byte-precise separation logic with block predicates?
   */
 case class MDEC(val left : SymbolicHeap, val right : SymbolicHeap) {
 
@@ -38,7 +43,8 @@ case class MDEC(val left : SymbolicHeap, val right : SymbolicHeap) {
       proofLoop(sigmaL, piL, sigmaR, piR, delta)(gamma)
   }
 
-  def proofLoop(sigmaL : Seq[SpatialAtom], piL : PureFormula, sigmaR : Seq[SpatialAtom], piR : PureFormula, delta : AllocTemplate)(gamma : PureFormula) : VerificationResult = {
+  @tailrec
+  private def proofLoop(sigmaL : Seq[SpatialAtom], piL : PureFormula, sigmaR : Seq[SpatialAtom], piR : PureFormula, delta : AllocTemplate)(gamma : PureFormula) : VerificationResult = {
     val stackModel = findStackModel(gamma)
     stackModel match {
       case None => Right(Unit) // TODO: What to return in successful case?
@@ -46,12 +52,117 @@ case class MDEC(val left : SymbolicHeap, val right : SymbolicHeap) {
         val M = matchSHs(stack, delta, sigmaL, sigmaR)
         if (!Evaluator.eval(stack, M))
           Left(M)
-        else
-          proofLoop(sigmaL, piL, sigmaR, piR, delta)(PureAnd(gamma, PureNeg(M)))
+        else {
+          val extended = PureAnd(gamma, PureNeg(M))
+          proofLoop(sigmaL, piL, sigmaR, piR, delta)(extended)
+        }
     }
   }
 
-  def matchSHs(s : Stack, delta : AllocTemplate, left : Seq[SpatialAtom], right : Seq[SpatialAtom]) : PureFormula = ???
+  private def matchSHs(s : Stack, delta : AllocTemplate, left : Seq[SpatialAtom], right : Seq[SpatialAtom]) : PureFormula = {
+    // Try to remove an empty formula on the left
+    removeEmpty(s, left) match {
+      case Some((leftRem, pure)) =>
+        PureAnd(pure, matchSHs(s, delta, leftRem, right))
+      case None =>
+
+        // Try to remove an empty formula on the right
+        removeEmpty(s, right) match {
+          case Some((rightRem, pure)) =>
+            PureAnd(pure, matchSHs(s, delta, left, rightRem))
+          case None =>
+            // Currently everything is non-empty. (Might change again through subtraction.)
+            // Try to find a matching between non-empty parts
+
+            findMatchingPair(s, left, right) match {
+              case Some((leftElem, leftRem, rightElem, rightRem)) =>
+                // TODO: Shouldn't we also support the symmetrical case where there is only a partial match on the left?
+                // Subtraction returns the left-over part of the right matching partner, plus a pure formula expressing the additional constraint
+                val (partial, pure) = subtract(delta, right, left)
+                val condition = PureAnd(sound(partial), pure)
+                if (Evaluator.eval(s, condition)) {
+                  val conjunct : PureFormula = PureAnd(PureNeg(separated(leftElem, rightElem)), condition)
+                  // Since it might have been a partial match, we might have to add a remainder to the right side of the entailment
+                  // TODO We could check for emptiness here to improve efficiency. That would allow us to get rid of all empty formulas in advance. In addition, it would then also make sense to keep the non-empty parts ordered for more efficient matching
+                  val newRightSide : Seq[SpatialAtom] = Seq(partial) ++ rightRem
+                  PureAnd(conjunct, matchSHs(s, delta, leftRem, newRightSide))
+                } else {
+                  throw new Throwable("What do we do in this degenerate case?")
+                }
+
+              case None =>
+                // No matching pair found =>
+                // Entailment only holds if we've already matched everything
+                // TODO This is only true in a strict semantics. If we want to support an intuistionistic semantics here, only right needs to empty at the endof the matching?
+                if (left.isEmpty && right.isEmpty) True() else PureNeg(True())
+            }
+        }
+    }
+  }
+
+  private def removeEmpty(s : Stack, spatial : Seq[SpatialAtom]) : Option[(Seq[SpatialAtom], PureFormula)] =
+    if (spatial.isEmpty)
+      None
+    else {
+      val (head, tail) = (spatial.head, spatial.tail)
+      if (Evaluator.eval(s, empty(head)))
+        Some((tail, empty(head)))
+      else
+        removeEmpty(s, tail) map {
+          case (seq, formula) => ((head :: seq.toList), formula)
+        }
+    }
+
+  // TODO: Could do this more efficiently...
+  private def findMatchingPair(s : Stack, left : Seq[SpatialAtom], right : Seq[SpatialAtom]) : Option[(SpatialAtom, Seq[SpatialAtom], SpatialAtom, Seq[SpatialAtom])] = {
+    def orderByAddr(spatial : Seq[SpatialAtom]) = spatial.sortBy(evalAddr(s, _))
+
+    // Finds the first matching addresses in the two ordered sequences of spatial atoms
+    // The accumulators store the procesed but unmatched parts of the sequences, to include them in the remainder sequence in the result
+    @tailrec
+    def orderedMatch(remLeft : Seq[SpatialAtom], remRight : Seq[SpatialAtom], accLeft : Seq[SpatialAtom], accRight : Seq[SpatialAtom]) : Option[(SpatialAtom, Seq[SpatialAtom], SpatialAtom, Seq[SpatialAtom])] =
+      if (remLeft.isEmpty || remRight.isEmpty)
+        None
+      else {
+        val leftAddr = evalAddr(s, remLeft.head)
+        val rightAddr = evalAddr(s, remLeft.head)
+        true match {
+          case _ if leftAddr == rightAddr =>
+            // Found a matching
+            Some(remLeft.head, accLeft ++ remLeft.tail, remRight.head, accRight ++ accRight.tail)
+          case _ if leftAddr < rightAddr =>
+            // The first left address is smaller than all right addresses => Drop it and continued matching
+            orderedMatch(remLeft.tail, remRight, accLeft ++ Seq(remLeft.head), accRight)
+          case _ if leftAddr > rightAddr =>
+            // The first right address is smaller than all left addresses => Drop it and continued matching
+            orderedMatch(remLeft, remRight.tail, accLeft, accRight ++ Seq(remRight.head))
+        }
+      }
+
+    // Order by addresses
+    val orderedLeft = orderByAddr(left)
+    val orderedRight = orderByAddr(right)
+    orderedMatch(orderedLeft, orderedRight, Seq(), Seq())
+  }
+
+  private def subtract(delta : AllocTemplate, right : Seq[SpatialAtom], left : Seq[SpatialAtom]) : (SpatialAtom, PureFormula) = ???
+
+  //    def extractEmpty(spatial : List[SpatialAtom]) : (List[SpatialAtom], PureFormula) = {
+  //      val init : (List[SpatialAtom], PureFormula) = (List(), True())
+  //
+  //      spatial.foldRight(init){
+  //        case (sig, (nonempty,phi)) =>
+  //          if (Evaluator.eval(s, empty(sig)))
+  //            (nonempty,PureAnd(empty(sig), phi))
+  //          else
+  //            (sig :: nonempty, phi)
+  //      }
+  //    }
+
+  def evalAddr(s : Stack, sig : SpatialAtom) : Location = addr(sig) match {
+    case NullPtr() => 0
+    case p : PtrVar => s(p)
+  }
 
   /**
     * Returns the set of addresses that are definitely allocated based on stack interpretation s
