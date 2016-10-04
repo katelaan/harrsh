@@ -19,7 +19,7 @@ class NaiveZ3Wrapper(pathToZ3 : Option[String]) extends SmtWrapper {
     writeSmtFile(query)
     val command = path + " " + FileName
     val process = Process(command)
-    println("Will run: " + process.toString)
+    //println("Will run: " + process.toString)
 
     var errors : List[String] = Nil
     var msgs : List[String] = Nil

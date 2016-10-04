@@ -13,15 +13,13 @@ object Slex {
   def main(args : Array[String]) = {
     println("This is slexy!")
 
-    println("Let's test the Z3 result parser")
-
     mdecExample
   }
 
   def mdecExample() : Unit = {
     println("Let's test the model-driven entailment checker...")
     val wrapper: SmtWrapper = new NaiveZ3Wrapper(None)
-    val res = new MDEC(wrapper).prove(SymbolicHeapExamples.Entailment2Left.get, SymbolicHeapExamples.Entailment2Right.get)
+    val res = new MDEC(wrapper).prove(SymbolicHeapExamples.Entailment1Left.get, SymbolicHeapExamples.Entailment1Right.get)
     println("Result: " + res)
   }
 

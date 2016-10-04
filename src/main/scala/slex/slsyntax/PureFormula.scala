@@ -37,6 +37,17 @@ case class PureAnd(phi : PureFormula, psi : PureFormula) extends PureFormula {
   override def toSmtExpr: SmtExpr = andExpr(phi.toSmtExpr, psi.toSmtExpr)
 }
 
+//case class PureImplies(phi : PureFormula, psi : PureFormula) extends PureFormula {
+//
+//  override def toString = "(" + phi + " => " + psi + ")"
+//
+//  override def isSymbolicHeap: Boolean = false
+//
+//  override def toSymbolicHeap: Option[SymbolicHeap] = None
+//
+//  override def toSmtExpr: SmtExpr = impliesExpr(phi.toSmtExpr, psi.toSmtExpr)
+//}
+
 case class PureOr(phi : PureFormula, psi : PureFormula) extends PureFormula {
 
   override def toString = "(" + phi + " \u2228 " + psi + ")"
@@ -53,9 +64,11 @@ object PureFormula {
   def collectIdentifiers(phi : PureFormula) : Set[String] = phi match {
     case PureNeg(phi) => collectIdentifiers(phi)
     case PureAnd(phi, psi) => collectIdentifiers(phi) union collectIdentifiers(psi)
+    //case PureImplies(phi, psi) => collectIdentifiers(phi) union collectIdentifiers(psi)
     case PureOr(phi, psi) => collectIdentifiers(phi) union collectIdentifiers(psi)
     case a : PureAtom => a match {
       case True() => Set()
+      case False() => Set()
       case IxEq(l, r) => l.collectIdents ++ r.collectIdents
       case IxGT(l, r) => l.collectIdents ++ r.collectIdents
       case IxLT(l, r) => l.collectIdents ++ r.collectIdents

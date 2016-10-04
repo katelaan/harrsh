@@ -24,6 +24,12 @@ case class True() extends PureAtom {
   override def toSmtExpr: SmtExpr = "true"
 }
 
+case class False() extends PureAtom {
+  override def toString = "false"
+
+  override def toSmtExpr: SmtExpr = "false"
+}
+
 case class IxEq(l : IntExpr, r : IntExpr) extends PureAtom {
   override def toString = l + " \u2248 " + r
 

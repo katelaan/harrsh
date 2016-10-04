@@ -1,6 +1,6 @@
 package slex.algs
 
-import slex.slsyntax.{IntConst, IntExpr, IntNEq, IntVar, IxEq, IxGEq, IxGT, IxLEq, IxLT, Minus, NullPtr, Plus, PtrEq, PtrExpr, PtrNEq, PtrVar, PureAnd, PureAtom, PureFormula, PureNeg, PureOr, True}
+import slex.slsyntax._
 
 /**
   * Created by jkatelaa on 10/3/16.
@@ -12,8 +12,8 @@ object Evaluator {
     case PureAnd(phi, psi) => eval(s, phi) && eval(s, psi)
     case PureOr(phi, psi) => eval(s, phi) || eval(s, psi)
     case a: PureAtom => a match {
-      // FIXME Evaluation of pure atoms
       case True() => true
+      case False() => false
       case IxEq(l, r) => eval(s, l) == eval(s, r)
       case IxGT(l, r) => eval(s, l) > eval(s, r)
       case IxLT(l, r) => eval(s, l) < eval(s, r)
