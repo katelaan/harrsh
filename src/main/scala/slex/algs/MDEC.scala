@@ -98,7 +98,9 @@ case class MDEC(val solver : SmtWrapper) {
       Left(query)
     }
     else {
-      proofLoop(sigmaL, piL, sigmaR, piR, delta)(1, Seq(gamma))
+      println("Unfolded " + gamma)
+      println("  Folded " + gamma.foldConstants)
+      proofLoop(sigmaL, piL, sigmaR, piR, delta)(1, Seq(gamma.foldConstants))
     }
   }
 
@@ -122,7 +124,9 @@ case class MDEC(val solver : SmtWrapper) {
           Left(M)
         }
         else {
-          val extended = constraints :+ PureNeg(M)
+          println("Unfolded " + PureNeg(M))
+          println("  Folded " + PureNeg(M).foldConstants)
+          val extended = constraints :+ PureNeg(M).foldConstants
           proofLoop(sigmaL, piL, sigmaR, piR, delta)(i+1, extended)
         }
     }

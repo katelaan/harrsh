@@ -6,7 +6,7 @@ import slex.smtsyntax.SmtExpr._
 /**
   * Created by jkatelaa on 9/30/16.
   */
-sealed trait IntExpr {
+sealed trait IntExpr extends Expr {
 
   def collectIdents : Set[String] = this match {
     case IntConst(n) => Set()
@@ -20,6 +20,19 @@ sealed trait IntExpr {
     case IntVar(id) => id
     case Plus(l, r) => plusExpr(l.toSmtExpr, r.toSmtExpr)
     case Minus(l, r) => minusExpr(l.toSmtExpr, r.toSmtExpr)
+  }
+
+  def constantEval : Option[Int] = this match {
+    case IntConst(n) => Some(n)
+    case IntVar(id) => None
+    case Plus(l, r) => for {
+      cl <- l.constantEval
+      cr <- r.constantEval
+    } yield cl + cr
+    case Minus(l, r) => for {
+      cl <- l.constantEval
+      cr <- r.constantEval
+    } yield cl - cr
   }
 
 }

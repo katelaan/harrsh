@@ -5,7 +5,7 @@ import slex.smtsyntax.SmtExpr
 /**
   * Created by jkatelaa on 9/30/16.
   */
-sealed trait PtrExpr {
+sealed trait PtrExpr extends Expr {
 
   override def toString = this match {
     case NullPtr() => "null"
