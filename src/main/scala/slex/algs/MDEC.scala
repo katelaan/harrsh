@@ -3,9 +3,8 @@ package slex.algs
 import slex.slsyntax.{Emp, False, IxEq, IxLEq, IxLSeg, IxLT, LSeg, Minus, NullPtr, PointsTo, PtrEq, PtrExpr, PtrNEq, PtrVar, PureAnd, PureFormula, PureNeg, PureOr, SepCon, SepLogFormula, SpatialAtom, SymbolicHeap, True}
 import slex.Sorts._
 import slex.Combinators._
-import slex.smtinteraction.SmtWrapper
-import slex.smtsyntax.{CheckSat, _}
-import sun.reflect.generics.reflectiveObjects.NotImplementedException
+import slex.smtinteraction.{ErrorStatus, SmtError, SmtWrapper}
+import slex.smtsyntax.{CheckSat, GetModel, _}
 
 import scala.annotation.tailrec
 
@@ -25,7 +24,7 @@ case class MDEC(val solver : SmtWrapper) {
   type VerificationResult = Either[CounterExample, ValidityProof]
 
   def checkSat(phi : PureFormula) : Boolean = {
-    val cmds = commandsForFormula(phi)
+    val cmds = commandsForFormulas(Seq(phi))
 
     //println("SMT2 input ")
     //println(cmds.mkString("\n"))
@@ -38,11 +37,11 @@ case class MDEC(val solver : SmtWrapper) {
 
 
 
-  def findStackModel(phi: PureFormula) : Option[Stack] = {
+  def findStackModel(constraints: Seq[PureFormula]) : Option[Stack] = {
 
-    println("Getting model for " + phi)
+    println("Getting model for " + constraints.mkString(" and "))
 
-    val cmds = commandsForFormula(phi) ++ Seq(GetModel())
+    val cmds = commandsForFormulas(constraints)
 
     //println("SMT2 input ")
     //println(cmds.mkString("\n"))
@@ -50,18 +49,30 @@ case class MDEC(val solver : SmtWrapper) {
     val res = solver.runSmtQuery(cmds)
     println("Solver result: " + res)
 
-    res._2
+    if (res._1.isSat) {
+      val resModel = solver.runSmtQuery(cmds :+ GetModel())
+      println("Returned model: " + resModel)
+      resModel._2
+    } else {
+      if (res._1.isError)
+        throw new SmtError(cmds)
+      else {
+        println("Formula unsatisfiable, can't return stack model")
+        None
+      }
+    }
   }
 
-  private def commandsForFormula(phi : PureFormula) : Seq[SmtCommand] = {
+  private def commandsForFormulas(phis : Seq[PureFormula]) : Seq[SmtCommand] = {
 
-    val constants = PureFormula.collectIdentifiers(phi)
+    val constants : Set[String] = phis.toSet[PureFormula] flatMap (PureFormula.collectIdentifiers(_))
+
     val declarations : Set[SmtCommand] = constants map (id => DeclareConst(id, "Int"))
 
-    val coreQuery = Assert(phi.toSmtExpr)
-    println("Checking SAT for " + coreQuery)
+    val coreQueries = phis map (phi => Assert(phi.toSmtExpr))
+    println("Checking SAT for " + coreQueries.mkString(" and \n"))
 
-    Seq(SetLogic("QF_LIA")) ++ declarations.toSeq ++ Seq(coreQuery, CheckSat())
+    Seq(SetLogic("QF_LIA")) ++ declarations.toSeq ++ coreQueries ++ Seq(CheckSat())
   }
 
   def prove(left : SymbolicHeap, right : SymbolicHeap) : VerificationResult = {
@@ -83,20 +94,20 @@ case class MDEC(val solver : SmtWrapper) {
 
     val query = PureAnd(gamma, PureNeg(piR))
     if (checkSat(query)) {
-      println("Found contradiction in preprocessing, aborting")
+      println("Constraints imposed by the spatial antecedent " + sigmaL + " contradict the pure consequent " + piR + ", entailment disproved")
       Left(query)
     }
     else {
-      proofLoop(sigmaL, piL, sigmaR, piR, delta)(1, gamma)
+      proofLoop(sigmaL, piL, sigmaR, piR, delta)(1, Seq(gamma))
     }
   }
 
   @tailrec
-  private def proofLoop(sigmaL : Seq[SpatialAtom], piL : PureFormula, sigmaR : Seq[SpatialAtom], piR : PureFormula, delta : AllocTemplate)(i : Int, gamma : PureFormula) : VerificationResult = {
+  private def proofLoop(sigmaL : Seq[SpatialAtom], piL : PureFormula, sigmaR : Seq[SpatialAtom], piR : PureFormula, delta : AllocTemplate)(i : Int, constraints : Seq[PureFormula]) : VerificationResult = {
     println('\n' + "*" * 80)
-    println("Proof loop, iteration #" + i + " : Processing " + gamma)
+    println("Proof loop, iteration #" + i + " : Processing " + constraints.mkString(" and "))
     println("*" * 80 + '\n')
-    val stackModel = findStackModel(gamma)
+    val stackModel = findStackModel(constraints)
     stackModel match {
       case None =>
         println("Successfully finished entailment proof")
@@ -111,7 +122,7 @@ case class MDEC(val solver : SmtWrapper) {
           Left(M)
         }
         else {
-          val extended = PureAnd(gamma, PureNeg(M))
+          val extended = constraints :+ PureNeg(M)
           proofLoop(sigmaL, piL, sigmaR, piR, delta)(i+1, extended)
         }
     }

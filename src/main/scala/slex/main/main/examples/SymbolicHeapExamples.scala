@@ -18,14 +18,12 @@ object SymbolicHeapExamples {
     SepCon(PointsTo("x", "y"), PointsTo("y", "z"))).toSymbolicHeap
 
   lazy val Entailment0Right = IxLSeg("x", "z", 2).toSymbolicHeap
-
-
-  // Entailment ( x -> y * y -> z : { x != z } |= lseg(x, z, 2) ; EXPECTED RESULT: false -- lhs might be cyclic, since y = z not excluded
+  
+  // Entailment ( x -> y * y -> z : { x != z, y != z } |= lseg(x, z, 2) ; EXPECTED RESULT: false -- lhs might be cyclic, since y = z not excluded
   lazy val Entailment1Left = And(PtrNEq("y", "z"), And(PtrNEq("x", "z"),
     SepCon(PointsTo("x", "y"), PointsTo("y", "z")))).toSymbolicHeap
 
-  lazy val Entailment1Right = And(PtrNEq("x", "z"),
-    SepCon(PointsTo("x", "y"), PointsTo("y", "z"))).toSymbolicHeap
+  lazy val Entailment1Right = IxLSeg("x", "z", 2).toSymbolicHeap
 
   // Entailment example from the paper
   lazy val Entailment2Left = And(IxEq("i", Plus("iX",1)),

@@ -10,8 +10,13 @@ sealed trait SatStatus {
     case _ => false
   }
 
+  def isError : Boolean = this match {
+    case ErrorStatus() => true
+    case _ => false
+  }
+
 }
 
 case class Sat() extends SatStatus
 case class UnSat() extends SatStatus
-case class SmtError() extends SatStatus
+case class ErrorStatus() extends SatStatus

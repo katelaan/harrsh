@@ -30,14 +30,14 @@ class NaiveZ3Wrapper(pathToZ3 : Option[String]) extends SmtWrapper {
       Z3ResultParser.run(res).getOrElse{
         println("Z3 returned unparsable result: " + res)
         println("PARSE ERROR")
-        (SmtError(), None)
+        (ErrorStatus(), None)
       };
     } catch {
       case e : RuntimeException =>
         println("ERROR IN INTERACTION WITH Z3, " + e)
         println("Output: " + msgs.mkString("\n"))
         println("Errors: " + errors.mkString("\n"))
-        (SmtError(), None)
+        (ErrorStatus(), None)
     }
   }
 
