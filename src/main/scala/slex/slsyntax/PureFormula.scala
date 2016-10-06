@@ -1,12 +1,13 @@
 package slex.slsyntax
 
+import slex.main.SlexLogging
 import slex.smtsyntax.SmtExpr
 import slex.smtsyntax.SmtExpr._
 
 /**
   * Created by jkatelaa on 10/3/16.
   */
-trait PureFormula extends SepLogFormula {
+trait PureFormula extends SepLogFormula with SlexLogging {
 
   override def isPure = true
 
@@ -32,10 +33,13 @@ case class PureNeg(phi : PureFormula) extends PureFormula {
   override def constantEval: Option[Boolean] = phi.constantEval map (b => !b)
 
   override def foldConstants: PureFormula = {
-    println("Folding constants of " + this)
+    logger.debug("Folding constants of " + this)
     phi.constantEval match {
       case Some(b) => if (b) False() else True()
-      case None => PureNeg(phi.foldConstants)
+      case None =>
+        val res = PureNeg(phi.foldConstants)
+        logger.debug("Simplifying argument of " + this + ", yielding " + res)
+        res
     }
   }
 }
@@ -50,27 +54,36 @@ case class PureAnd(phi : PureFormula, psi : PureFormula) extends PureFormula {
 
   override def toSmtExpr: SmtExpr = andExpr(phi.toSmtExpr, psi.toSmtExpr)
 
-  override def constantEval: Option[Boolean] = for {
-    l <- phi.constantEval
-    r <- psi.constantEval
-  } yield l && r
+  override def constantEval: Option[Boolean] = {
+    (phi.constantEval, psi.constantEval) match {
+      case (Some(bl), Some(br)) => Some(bl && br)
+      case (Some(false), _) => Some(false)
+      case (_, Some(false)) => Some(false)
+      case _ => None
+    }
+  }
 
   override def foldConstants: PureFormula = {
-    println("Folding constants of " + this)
+    logger.debug("Folding constants of " + this)
     (phi.constantEval, psi.constantEval) match {
       case (Some(true), _) =>
-        println("Discarding first argument")
-        psi.foldConstants
+        val res = psi.foldConstants
+        logger.debug("Discarding first argument, yielding " + res)
+        res
       case (Some(false), _) =>
-        println("Yielding false")
+        logger.debug("Yielding false")
         False()
       case (_, Some(true)) =>
-        println("Discarding second argument")
-        phi.foldConstants
+        val res = phi.foldConstants
+        logger.debug("Discarding second argument, yielding " + res)
+        res
       case (_, Some(false)) =>
-        println("Yielding false")
+        logger.debug("Yielding false")
         False()
-      case (None, None) => PureAnd(phi.foldConstants, psi.foldConstants)
+      case (None, None) =>
+        val res = PureAnd(phi.foldConstants, psi.foldConstants)
+        logger.debug("Simplifying arguments of " + this + ", yielding " + res)
+        res
     }
   }
 }
@@ -96,27 +109,36 @@ case class PureOr(phi : PureFormula, psi : PureFormula) extends PureFormula {
 
   override def toSmtExpr: SmtExpr = orExpr(phi.toSmtExpr, psi.toSmtExpr)
 
-  override def constantEval: Option[Boolean] = for {
-    l <- phi.constantEval
-    r <- psi.constantEval
-  } yield l || r
+  override def constantEval: Option[Boolean] = {
+    (phi.constantEval, psi.constantEval) match {
+      case (Some(bl), Some(br)) => Some(bl || br)
+      case (Some(true), _) => Some(true)
+      case (_, Some(true)) => Some(true)
+      case _ => None
+    }
+  }
 
   override def foldConstants: PureFormula = {
-    println("Folding constants of " + this)
+    logger.debug("Folding constants of " + this)
     (phi.constantEval, psi.constantEval) match {
       case (Some(false), _) =>
-        println("Discarding first argument")
-        psi.foldConstants
+        val res = psi.foldConstants
+        logger.debug("Discarding first argument, yielding " + res)
+        res
       case (Some(true), _) =>
-        println("Yielding true")
+        logger.debug("Yielding true")
         True()
       case (_, Some(false)) =>
-        println("Discarding second argument")
-        phi.foldConstants
+        val res = phi.foldConstants
+        logger.debug("Discarding second argument, yielding " + res)
+        res
       case (_, Some(true)) =>
-        println("Yielding true")
+        logger.debug("Yielding true")
         True()
-      case (None, None) => PureOr(phi.foldConstants, psi.foldConstants)
+      case (None, None) =>
+        val res = PureOr(phi.foldConstants, psi.foldConstants)
+        logger.debug("Simplifying arguments of " + this + ", yielding " + res)
+        res
     }
   }
 }

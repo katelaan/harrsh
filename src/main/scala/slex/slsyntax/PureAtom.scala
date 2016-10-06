@@ -2,13 +2,14 @@ package slex.slsyntax
 
 import slex.Sorts.Location
 import slex.algs.{Evaluator, Stack}
+import slex.main.SlexLogging
 import slex.smtsyntax.SmtExpr
 import slex.smtsyntax.SmtExpr._
 
 /**
   * Created by jkatelaa on 10/3/16.
   */
-sealed trait PureAtom extends SepLogFormula with PureFormula {
+sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
 
   override def isSpatial = false
 
@@ -38,26 +39,21 @@ sealed trait PureAtom extends SepLogFormula with PureFormula {
   }
 
   override def constantEval: Option[Boolean] = {
-    //println("Trying to eval " + this + " to a constant")
     try {
       // Try to evaluate on constant stack. If that's possible, we have a constant value...
       val res = Evaluator.eval(dummyStack, this)
-      //println("Constant eval " + this + " --> " + res)
       Some(res)
     } catch {
       case _ : DummyException =>
         // ...otherwise we also have a constant value if the two arguments of a binary atom are synactically equal
         // TODO Of course richer rewriting rules than just checking for equality would also be possible here. Is that worth exploring?
         val res = syntaxBasedConstantEval
-//        res map {
-//          b => println("Syntax-based constant eval of " + this + " to " + b)
-//        }
         res
     }
   }
 
   def foldConstants : PureFormula = {
-    println("Trying to eval " + this + " to a constant yielding " + constantEval)
+    logger.debug("Trying to eval " + this + " to a constant yielding " + constantEval)
     PureAtom.replaceByConstIfDefined(this, constantEval)
   }
 
@@ -138,15 +134,5 @@ object PureAtom {
     case Some(false) => True()
     case None => pf
   }
-
-//  def tryConstantFolding(op : (Int, Int) => Boolean)(l : IntExpr, r : IntExpr, ifSyntaxEqual : => Boolean) = {
-//    if (l == r)
-//      ifSyntaxEqual
-//    else
-//      for {
-//        cl <- l.constantEval
-//        cr <- r.constantEval
-//      } yield op(cl, cr)
-//  }
 
 }

@@ -3,6 +3,7 @@ package slex.algs
 import slex.slsyntax.{Emp, False, IxEq, IxLEq, IxLSeg, IxLT, LSeg, Minus, NullPtr, PointsTo, PtrEq, PtrExpr, PtrNEq, PtrVar, PureAnd, PureFormula, PureNeg, PureOr, SepCon, SepLogFormula, SpatialAtom, SymbolicHeap, True}
 import slex.Sorts._
 import slex.Combinators._
+import slex.main.SlexLogging
 import slex.smtinteraction.{ErrorStatus, SmtError, SmtWrapper}
 import slex.smtsyntax.{CheckSat, GetModel, _}
 
@@ -15,7 +16,7 @@ import scala.annotation.tailrec
   * TODO Extension to byte-precise separation logic with block predicates?
   * TODO Do we want special treatment of nil? Currently there is none, so we would have to add ∗ next(nil, nil) to regain it
   */
-case class MDEC(val solver : SmtWrapper) {
+case class MDEC(val solver : SmtWrapper) extends SlexLogging {
 
   type AllocTemplate = PtrExpr => PureFormula
 
@@ -26,11 +27,10 @@ case class MDEC(val solver : SmtWrapper) {
   def checkSat(phi : PureFormula) : Boolean = {
     val cmds = commandsForFormulas(Seq(phi))
 
-    //println("SMT2 input ")
-    //println(cmds.mkString("\n"))
+    //logger.debug("SMT2 input " + cmds.mkString("\n"))
 
     val res = solver.runSmtQuery(cmds)
-    println(res)
+    logger.debug("SMT Result " + res)
 
     res._1.isSat
   }
@@ -39,25 +39,24 @@ case class MDEC(val solver : SmtWrapper) {
 
   def findStackModel(constraints: Seq[PureFormula]) : Option[Stack] = {
 
-    println("Getting model for " + constraints.mkString(" and "))
+    logger.debug("Getting model for " + constraints.mkString(" and "))
 
     val cmds = commandsForFormulas(constraints)
 
-    //println("SMT2 input ")
-    //println(cmds.mkString("\n"))
+    //logger.debug("SMT2 input " + cmds.mkString("\n"))
 
     val res = solver.runSmtQuery(cmds)
-    println("Solver result: " + res)
+    logger.debug("Solver result: " + res)
 
     if (res._1.isSat) {
       val resModel = solver.runSmtQuery(cmds :+ GetModel())
-      println("Returned model: " + resModel)
+      logger.debug("Returned model: " + resModel)
       resModel._2
     } else {
       if (res._1.isError)
         throw new SmtError(cmds)
       else {
-        println("Formula unsatisfiable, can't return stack model")
+        logger.debug("Formula unsatisfiable, can't return stack model")
         None
       }
     }
@@ -70,17 +69,13 @@ case class MDEC(val solver : SmtWrapper) {
     val declarations : Set[SmtCommand] = constants map (id => DeclareConst(id, "Int"))
 
     val coreQueries = phis map (phi => Assert(phi.toSmtExpr))
-    println("Checking SAT for " + coreQueries.mkString(" and \n"))
+    logger.debug("Checking SAT for " + coreQueries.mkString(" and \n"))
 
     Seq(SetLogic("QF_LIA")) ++ declarations.toSeq ++ coreQueries ++ Seq(CheckSat())
   }
 
   def prove(left : SymbolicHeap, right : SymbolicHeap) : VerificationResult = {
-    println("*" * 80)
-    println("Trying to prove entailment " + left + " |= " + right)
-    println()
-    println("Preprocessing")
-    println("*" * 80)
+    logger.info("\n" + ("*" * 80) + "\nTrying to prove entailment " + left + " |= " + right + "\n" + ("*" * 80))
 
     val sigmaL = left.spatial
     val piL = SepLogFormula.fromPureAtoms(left.pure)
@@ -88,44 +83,44 @@ case class MDEC(val solver : SmtWrapper) {
     val piR = SepLogFormula.fromPureAtoms(right.pure)
 
     val gamma : PureFormula = PureAnd(piL, wellFormed(sigmaL))
-    println("Purification of lhs: " + gamma)
+    logger.info("Purification of lhs: " + gamma)
 
     val delta = alloc(sigmaL)_
 
     val query = PureAnd(gamma, PureNeg(piR))
     if (checkSat(query)) {
-      println("Constraints imposed by the spatial antecedent " + sigmaL + " contradict the pure consequent " + piR + ", entailment disproved")
+      logger.info("Constraints imposed by the spatial antecedent " + sigmaL + " contradict the pure consequent " + piR + ", entailment disproved")
       Left(query)
     }
     else {
-      println("Unfolded " + gamma)
-      println("  Folded " + gamma.foldConstants)
-      proofLoop(sigmaL, piL, sigmaR, piR, delta)(1, Seq(gamma.foldConstants))
+      val folded = gamma.foldConstants
+      logger.debug("Unfolded " + gamma)
+      logger.debug("  Folded " + folded)
+      proofLoop(sigmaL, piL, sigmaR, piR, delta)(1, Seq(folded))
     }
   }
 
   @tailrec
   private def proofLoop(sigmaL : Seq[SpatialAtom], piL : PureFormula, sigmaR : Seq[SpatialAtom], piR : PureFormula, delta : AllocTemplate)(i : Int, constraints : Seq[PureFormula]) : VerificationResult = {
-    println('\n' + "*" * 80)
-    println("Proof loop, iteration #" + i + " : Processing " + constraints.mkString(" and "))
-    println("*" * 80 + '\n')
+    logger.info("\n" + ("*" * 80) + "\nProof loop, iteration #" + i + " : Processing\n  " + constraints.mkString(" and\n  ") + "\n" + ("*" * 80))
     val stackModel = findStackModel(constraints)
     stackModel match {
       case None =>
-        println("Successfully finished entailment proof")
+        logger.info("Successfully finished entailment proof")
         Right(Unit) // TODO: What to return in successful case?
       case Some(stack) =>
-        println("Matching " + sigmaL + " against " + sigmaR)
+        logger.info("Matching " + sigmaL + " against " + sigmaR)
         val M = matchSHs(stack, delta, sigmaL, sigmaR, 1)
-        println("Match result combined condition: " + M)
+        logger.info("Match result combined condition: " + M)
 
         if (!Evaluator.eval(stack, M)) {
-          println("Refutation of entailment: Unsatisfiable soundness constraint " + M)
+          logger.info("Refutation of entailment: Unsatisfiable soundness constraint " + M)
           Left(M)
         }
         else {
-          println("Unfolded " + PureNeg(M))
-          println("  Folded " + PureNeg(M).foldConstants)
+          val folded = PureNeg(M).foldConstants
+          logger.debug("Unfolded " + PureNeg(M))
+          logger.debug("  Folded " + folded)
           val extended = constraints :+ PureNeg(M).foldConstants
           proofLoop(sigmaL, piL, sigmaR, piR, delta)(i+1, extended)
         }
@@ -142,37 +137,37 @@ case class MDEC(val solver : SmtWrapper) {
     */
   private def matchSHs(s : Stack, delta : AllocTemplate, left : Seq[SpatialAtom], right : Seq[SpatialAtom], step : Int) : PureFormula = {
     def stepInfo = "Matching step #"+step+":  "
-    println(stepInfo + left + " onto " + right)
+    logger.info(stepInfo + left + " onto " + right)
 
     // Try to remove an empty formula on the left
     removeEmpty(s, left) match {
       case Some((leftRem, pure)) =>
-        println(stepInfo + "Found emtpy atom on the left side, recursing")
+        logger.debug(stepInfo + "Found emtpy atom on the left side, recursing")
         PureAnd(pure, matchSHs(s, delta, leftRem, right, step+1))
       case None =>
 
         // Try to remove an empty formula on the right
         removeEmpty(s, right) match {
           case Some((rightRem, pure)) =>
-            println(stepInfo + "Found emtpy atom on the right side, recursing")
+            logger.debug(stepInfo + "Found emtpy atom on the right side, recursing")
             PureAnd(pure, matchSHs(s, delta, left, rightRem, step+1))
           case None =>
             // Currently everything is non-empty. (Might change again through subtraction.)
             // Try to find a matching between non-empty parts
-            println(stepInfo + "Only non-empty atoms, trying subtraction")
+            logger.debug(stepInfo + "Only non-empty atoms, trying subtraction")
 
             findMatchingPair(s, left, right) match {
               case Some((leftElem, leftRem, rightElem, rightRem)) =>
-                println(stepInfo + "Found (partial) match " + leftElem + " onto " + rightElem)
+                logger.debug(stepInfo + "Found (partial) match " + leftElem + " onto " + rightElem)
 
                 // TODO: Shouldn't we also support the symmetrical case where there is only a partial match on the left? Answer: Only if we supported acyclic list segments -- see also comment near the top
                 // Subtraction returns the left-over part of the right matching partner, plus a pure formula expressing the additional constraint
                 val (partial, pure) = subtract(delta, rightElem, leftElem)
-                println(stepInfo + "Subtraction result " + partial + " with side condition " + pure)
+                logger.debug(stepInfo + "Subtraction result " + partial + " with side condition " + pure)
 
                 val condition = PureAnd(sound(partial), pure)
                 if (Evaluator.eval(s, condition)) {
-                  println(stepInfo + " Partial match sound; will remember condition " + condition + " and recurse")
+                  logger.debug(stepInfo + " Partial match sound; will remember condition " + condition + " and recurse")
 
                   val conjunct : PureFormula = PureAnd(PureNeg(separated(leftElem, rightElem)), condition)
                   // Since it might have been a partial match, we might have to add a remainder to the right side of the entailment
@@ -180,13 +175,14 @@ case class MDEC(val solver : SmtWrapper) {
                   val newRightSide : Seq[SpatialAtom] = Seq(partial) ++ rightRem
                   PureAnd(conjunct, matchSHs(s, delta, leftRem, newRightSide, step+1))
                 } else {
-                  println(stepInfo + "Failed to satisfy " + condition + ", aborting match => Entailment disproved")
+                  logger.info(stepInfo + "Failed to satisfy " + condition + ", aborting match => Entailment disproved")
                   // The condition is a necessary condition for the entailment, so we can abort here
                   // TODO Could simply return false here, but have to think about diagnostic info in general. (E.g., distinguish between match unsoundness, as here, preprocessing error in prove() etc.)
                   condition
                 }
 
               case None =>
+                logger.info(stepInfo + "No further matching of " + left + " onto " + right + " possible")
                 // No matching pair found =>
                 // Entailment only holds if we've already matched everything
                 // TODO This is only true in a strict semantics. If we want to support an intuistionistic semantics here, only right needs to empty at the endof the matching?
