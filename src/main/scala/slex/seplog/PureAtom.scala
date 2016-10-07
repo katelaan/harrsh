@@ -20,7 +20,22 @@ sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
 
   override def toSymbolicHeap = Some(SymbolicHeap(Seq(this), Seq(), Seq()))
 
+  def negate : PureAtom = this match {
+    case True() => False()
+    case False() => True()
 
+    case IxEq(l, r) => IxNEq(l, r)
+    case IxNEq(l, r) => IxEq(l, r)
+
+    case IxGT(l, r) => IxLEq(l, r)
+    case IxLEq(l, r) => IxGT(l, r)
+
+    case IxLT(l, r) => IxGEq(l, r)
+    case IxGEq(l, r) => IxLT(l, r)
+
+    case PtrEq(l, r) => PtrNEq(l, r)
+    case PtrNEq(l, r) => PtrEq(l, r)
+  }
 
   private def syntaxBasedConstantEval : Option[Boolean] = {
     def foldIfSyntacticallyEqual(res : => Boolean, l : Expr, r : Expr) : Option[Boolean] = if (l == r) Some(res) else None
@@ -33,7 +48,7 @@ sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
       case IxLT(l, r) => foldIfSyntacticallyEqual(false, l, r)
       case IxLEq(l, r) => foldIfSyntacticallyEqual(true, l, r)
       case IxGEq(l, r) => foldIfSyntacticallyEqual(true, l, r)
-      case IntNEq(l, r) => foldIfSyntacticallyEqual(false, l, r)
+      case IxNEq(l, r) => foldIfSyntacticallyEqual(false, l, r)
       case PtrEq(l, r) => foldIfSyntacticallyEqual(true, l, r)
       case PtrNEq(l, r) => foldIfSyntacticallyEqual(false, l, r)
     }
@@ -53,7 +68,7 @@ sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
     }
   }
 
-  def foldConstants : PureFormula = {
+  def simplify : PureFormula = {
     logger.debug("Trying to eval " + this + " to a constant yielding " + constantEval)
     PureAtom.replaceByConstIfDefined(this, constantEval)
   }
@@ -109,7 +124,7 @@ case class IxGEq(l : IntExpr, r : IntExpr) extends PureAtom {
   override def toSmtExpr: SmtExpr = geqExpr(l.toSmtExpr, r.toSmtExpr)
 }
 
-case class IntNEq(l : IntExpr, r : IntExpr) extends PureAtom {
+case class IxNEq(l : IntExpr, r : IntExpr) extends PureAtom {
   override def toString = l + " \u2249 " + r
 
   override def toSmtExpr: SmtExpr = neqExpr(l.toSmtExpr, r.toSmtExpr)

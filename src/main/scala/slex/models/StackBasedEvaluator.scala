@@ -19,7 +19,7 @@ object StackBasedEvaluator {
       case IxLT(l, r) => eval(s, l) < eval(s, r)
       case IxLEq(l, r) => eval(s, l) <= eval(s, r)
       case IxGEq(l, r) => eval(s, l) >= eval(s, r)
-      case IntNEq(l, r) => eval(s, l) != eval(s, r)
+      case IxNEq(l, r) => eval(s, l) != eval(s, r)
       case PtrEq(l, r) => eval(s, l) == eval(s, r)
       case PtrNEq(l, r) => eval(s, l) != eval(s, r)
     }

@@ -17,7 +17,11 @@ trait PureFormula extends SepLogFormula with SlexLogging {
 
   def constantEval : Option[Boolean]
 
-  def foldConstants : PureFormula
+  /**
+    * Simplify the formula
+    * @return Formula where constant subformulas have been evaluated and negations pushed into atoms, but without more aggressive simplifications
+    */
+  def simplify : PureFormula
 }
 
 case class PureNeg(phi : PureFormula) extends PureFormula {
@@ -32,13 +36,22 @@ case class PureNeg(phi : PureFormula) extends PureFormula {
 
   override def constantEval: Option[Boolean] = phi.constantEval map (b => !b)
 
-  override def foldConstants: PureFormula = {
+  override def simplify: PureFormula = {
     logger.debug("Folding constants of " + this)
     phi.constantEval match {
       case Some(b) => if (b) False() else True()
       case None =>
-        val res = PureNeg(phi.foldConstants)
+        val simplifiedArg = phi.simplify
+
+        val res = if (simplifiedArg.isInstanceOf[PureAtom]) {
+          simplifiedArg.asInstanceOf[PureAtom].negate
+        }
+        else {
+          PureNeg(simplifiedArg)
+        }
+
         logger.debug("Simplifying argument of " + this + ", yielding " + res)
+
         res
     }
   }
@@ -63,25 +76,25 @@ case class PureAnd(phi : PureFormula, psi : PureFormula) extends PureFormula {
     }
   }
 
-  override def foldConstants: PureFormula = {
+  override def simplify: PureFormula = {
     logger.debug("Folding constants of " + this)
     (phi.constantEval, psi.constantEval) match {
       case (Some(true), _) =>
-        val res = psi.foldConstants
+        val res = psi.simplify
         logger.debug("Discarding first argument, yielding " + res)
         res
       case (Some(false), _) =>
         logger.debug("Yielding false")
         False()
       case (_, Some(true)) =>
-        val res = phi.foldConstants
+        val res = phi.simplify
         logger.debug("Discarding second argument, yielding " + res)
         res
       case (_, Some(false)) =>
         logger.debug("Yielding false")
         False()
       case (None, None) =>
-        val res = PureAnd(phi.foldConstants, psi.foldConstants)
+        val res = PureAnd(phi.simplify, psi.simplify)
         logger.debug("Simplifying arguments of " + this + ", yielding " + res)
         res
     }
@@ -118,25 +131,25 @@ case class PureOr(phi : PureFormula, psi : PureFormula) extends PureFormula {
     }
   }
 
-  override def foldConstants: PureFormula = {
+  override def simplify: PureFormula = {
     logger.debug("Folding constants of " + this)
     (phi.constantEval, psi.constantEval) match {
       case (Some(false), _) =>
-        val res = psi.foldConstants
+        val res = psi.simplify
         logger.debug("Discarding first argument, yielding " + res)
         res
       case (Some(true), _) =>
         logger.debug("Yielding true")
         True()
       case (_, Some(false)) =>
-        val res = phi.foldConstants
+        val res = phi.simplify
         logger.debug("Discarding second argument, yielding " + res)
         res
       case (_, Some(true)) =>
         logger.debug("Yielding true")
         True()
       case (None, None) =>
-        val res = PureOr(phi.foldConstants, psi.foldConstants)
+        val res = PureOr(phi.simplify, psi.simplify)
         logger.debug("Simplifying arguments of " + this + ", yielding " + res)
         res
     }
@@ -158,7 +171,7 @@ object PureFormula {
       case IxLT(l, r) => l.collectIdents ++ r.collectIdents
       case IxLEq(l, r) => l.collectIdents ++ r.collectIdents
       case IxGEq(l, r) => l.collectIdents ++ r.collectIdents
-      case IntNEq(l, r) => l.collectIdents ++ r.collectIdents
+      case IxNEq(l, r) => l.collectIdents ++ r.collectIdents
       case PtrEq(l, r) => Set() ++ l.getIdent ++ r.getIdent
       case PtrNEq(l, r) => Set() ++ l.getIdent ++ r.getIdent
     }

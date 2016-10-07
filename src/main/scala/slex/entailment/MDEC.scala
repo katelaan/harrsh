@@ -94,7 +94,7 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
       Left(query)
     }
     else {
-      val folded = gamma.foldConstants
+      val folded = gamma.simplify
       logger.debug("Unfolded " + gamma)
       logger.debug("  Folded " + folded)
       proofLoop(sigmaL, piL, sigmaR, piR, delta)(1, Seq(folded))
@@ -119,10 +119,10 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
           Left(M)
         }
         else {
-          val folded = PureNeg(M).foldConstants
+          val folded = PureNeg(M).simplify
           logger.debug("Unfolded " + PureNeg(M))
           logger.debug("  Folded " + folded)
-          val extended = constraints :+ PureNeg(M).foldConstants
+          val extended = constraints :+ PureNeg(M).simplify
           proofLoop(sigmaL, piL, sigmaR, piR, delta)(i+1, extended)
         }
     }
