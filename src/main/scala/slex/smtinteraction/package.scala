@@ -1,6 +1,6 @@
 package slex
 
-import slex.algs.Stack
+import slex.models.Stack
 
 /**
   * Created by jkatelaa on 10/4/16.

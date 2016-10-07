@@ -1,4 +1,4 @@
-package slex.slsyntax
+package slex.seplog
 
 import slex.Combinators
 

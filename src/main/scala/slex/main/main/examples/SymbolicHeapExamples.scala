@@ -1,6 +1,6 @@
 package slex.main.main.examples
 
-import slex.slsyntax._
+import slex.seplog._
 
 /**
   * Created by jkatelaa on 10/3/16.

@@ -1,11 +1,11 @@
-package slex.algs
+package slex.models
 
-import slex.slsyntax._
+import slex.seplog._
 
 /**
   * Created by jkatelaa on 10/3/16.
   */
-object Evaluator {
+object StackBasedEvaluator {
 
   def eval(s: Stack, phi: PureFormula): Boolean = phi match {
     case PureNeg(phi) => !eval(s, phi)

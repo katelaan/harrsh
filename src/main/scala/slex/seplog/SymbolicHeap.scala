@@ -1,4 +1,4 @@
-package slex.slsyntax
+package slex.seplog
 
 /**
   * Created by jkatelaa on 10/3/16.

@@ -1,7 +1,7 @@
-package slex.algs
+package slex.models
 
-import slex.slsyntax.{IntExpr, PtrExpr}
 import slex.Sorts._
+import slex.seplog.{IntExpr, PtrExpr}
 
 /**
   * Created by jkatelaa on 10/3/16.

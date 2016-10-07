@@ -1,4 +1,4 @@
-package slex.slsyntax
+package slex.seplog
 
 import slex.smtsyntax.SmtExpr
 import slex.smtsyntax.SmtExpr._

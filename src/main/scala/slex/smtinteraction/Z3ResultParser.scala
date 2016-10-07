@@ -1,6 +1,6 @@
 package slex.smtinteraction
 
-import slex.algs.{MapStack, Stack}
+import slex.models.{MapStack, Stack}
 
 import scala.util.parsing.combinator.JavaTokenParsers
 

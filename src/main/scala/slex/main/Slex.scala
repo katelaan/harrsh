@@ -1,8 +1,8 @@
 package slex.main
 
-import slex.algs.MDEC
+import slex.entailment.MDEC
 import slex.main.main.examples.{SymbolicHeapExamples, UFExample}
-import slex.slsyntax.SepLogAxioms
+import slex.seplog.SepLogAxioms
 import slex.smtinteraction.{NaiveZ3Wrapper, SmtWrapper, Z3ResultParser}
 
 /**

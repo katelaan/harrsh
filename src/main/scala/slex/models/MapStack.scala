@@ -1,7 +1,7 @@
-package slex.algs
+package slex.models
 
 import slex.Sorts.Location
-import slex.slsyntax.{IntConst, IntExpr, IntVar, Minus, NullPtr, Plus, PtrExpr, PtrVar}
+import slex.seplog.{IntExpr, IntVar, NullPtr, PtrExpr, PtrVar}
 
 /**
   * Created by jkatelaa on 10/3/16.

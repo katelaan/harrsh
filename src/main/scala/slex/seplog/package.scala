@@ -3,7 +3,7 @@ package slex
 /**
   * Created by jkatelaa on 9/30/16.
   */
-package object slsyntax {
+package object seplog {
 
   implicit def stringToPtrExpr(s : String) : PtrExpr = PtrVar(s)
 
