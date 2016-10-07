@@ -4,7 +4,10 @@ import slex.seplog.{Emp, False, IxEq, IxLEq, IxLSeg, IxLT, LSeg, Minus, NullPtr,
 import slex.Sorts._
 import slex.Combinators._
 import slex.main.SlexLogging
+<<<<<<< HEAD:src/main/scala/slex/entailment/MDEC.scala
 import slex.models.{StackBasedEvaluator, Stack}
+=======
+>>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/algs/MDEC.scala
 import slex.smtinteraction.{ErrorStatus, SmtError, SmtWrapper}
 import slex.smtsyntax.{CheckSat, GetModel, _}
 
@@ -94,7 +97,11 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
       Left(query)
     }
     else {
+<<<<<<< HEAD:src/main/scala/slex/entailment/MDEC.scala
       val folded = gamma.simplify
+=======
+      val folded = gamma.foldConstants
+>>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/algs/MDEC.scala
       logger.debug("Unfolded " + gamma)
       logger.debug("  Folded " + folded)
       proofLoop(sigmaL, piL, sigmaR, piR, delta)(1, Seq(folded))
@@ -114,15 +121,26 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
         val M = matchSHs(stack, delta, sigmaL, sigmaR, 1)
         logger.info("Match result combined condition: " + M)
 
+<<<<<<< HEAD:src/main/scala/slex/entailment/MDEC.scala
         if (!StackBasedEvaluator.eval(stack, M)) {
+=======
+        if (!Evaluator.eval(stack, M)) {
+>>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/algs/MDEC.scala
           logger.info("Refutation of entailment: Unsatisfiable soundness constraint " + M)
           Left(M)
         }
         else {
+<<<<<<< HEAD:src/main/scala/slex/entailment/MDEC.scala
           val folded = PureNeg(M).simplify
           logger.debug("Unfolded " + PureNeg(M))
           logger.debug("  Folded " + folded)
           val extended = constraints :+ PureNeg(M).simplify
+=======
+          val folded = PureNeg(M).foldConstants
+          logger.debug("Unfolded " + PureNeg(M))
+          logger.debug("  Folded " + folded)
+          val extended = constraints :+ PureNeg(M).foldConstants
+>>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/algs/MDEC.scala
           proofLoop(sigmaL, piL, sigmaR, piR, delta)(i+1, extended)
         }
     }
@@ -167,7 +185,11 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
                 logger.debug(stepInfo + "Subtraction result " + partial + " with side condition " + pure)
 
                 val condition = PureAnd(sound(partial), pure)
+<<<<<<< HEAD:src/main/scala/slex/entailment/MDEC.scala
                 if (StackBasedEvaluator.eval(s, condition)) {
+=======
+                if (Evaluator.eval(s, condition)) {
+>>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/algs/MDEC.scala
                   logger.debug(stepInfo + " Partial match sound; will remember condition " + condition + " and recurse")
 
                   val conjunct : PureFormula = PureAnd(PureNeg(separated(leftElem, rightElem)), condition)
