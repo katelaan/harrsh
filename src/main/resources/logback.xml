@@ -13,11 +13,6 @@
     <root level="INFO">
         <appender-ref ref="STDOUT" />
     </root>
-<<<<<<< HEAD
     <logger name="slex.entailment.MDEC" level="DEBUG" />
     <logger name="slex.seplog" level="INFO" />
-=======
-    <logger name="slex.algs.MDEC" level="DEBUG" />
-    <logger name="slex.slsyntax" level="INFO" />
->>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5
 </configuration>
