@@ -38,14 +38,10 @@ case class PureNeg(phi : PureFormula) extends PureFormula {
 
 <<<<<<< HEAD:src/main/scala/slex/seplog/PureFormula.scala
   override def simplify: PureFormula = {
-=======
-  override def foldConstants: PureFormula = {
->>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/slsyntax/PureFormula.scala
     logger.debug("Folding constants of " + this)
     phi.constantEval match {
       case Some(b) => if (b) False() else True()
       case None =>
-<<<<<<< HEAD:src/main/scala/slex/seplog/PureFormula.scala
         val simplifiedArg = phi.simplify
 
         val res = if (simplifiedArg.isInstanceOf[PureAtom]) {
@@ -57,10 +53,6 @@ case class PureNeg(phi : PureFormula) extends PureFormula {
 
         logger.debug("Simplifying argument of " + this + ", yielding " + res)
 
-=======
-        val res = PureNeg(phi.foldConstants)
-        logger.debug("Simplifying argument of " + this + ", yielding " + res)
->>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/slsyntax/PureFormula.scala
         res
     }
   }
@@ -85,41 +77,25 @@ case class PureAnd(phi : PureFormula, psi : PureFormula) extends PureFormula {
     }
   }
 
-<<<<<<< HEAD:src/main/scala/slex/seplog/PureFormula.scala
   override def simplify: PureFormula = {
     logger.debug("Folding constants of " + this)
     (phi.constantEval, psi.constantEval) match {
       case (Some(true), _) =>
         val res = psi.simplify
-=======
-  override def foldConstants: PureFormula = {
-    logger.debug("Folding constants of " + this)
-    (phi.constantEval, psi.constantEval) match {
-      case (Some(true), _) =>
-        val res = psi.foldConstants
->>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/slsyntax/PureFormula.scala
         logger.debug("Discarding first argument, yielding " + res)
         res
       case (Some(false), _) =>
         logger.debug("Yielding false")
         False()
       case (_, Some(true)) =>
-<<<<<<< HEAD:src/main/scala/slex/seplog/PureFormula.scala
         val res = phi.simplify
-=======
-        val res = phi.foldConstants
->>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/slsyntax/PureFormula.scala
         logger.debug("Discarding second argument, yielding " + res)
         res
       case (_, Some(false)) =>
         logger.debug("Yielding false")
         False()
       case (None, None) =>
-<<<<<<< HEAD:src/main/scala/slex/seplog/PureFormula.scala
         val res = PureAnd(phi.simplify, psi.simplify)
-=======
-        val res = PureAnd(phi.foldConstants, psi.foldConstants)
->>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/slsyntax/PureFormula.scala
         logger.debug("Simplifying arguments of " + this + ", yielding " + res)
         res
     }
@@ -156,41 +132,25 @@ case class PureOr(phi : PureFormula, psi : PureFormula) extends PureFormula {
     }
   }
 
-<<<<<<< HEAD:src/main/scala/slex/seplog/PureFormula.scala
   override def simplify: PureFormula = {
     logger.debug("Folding constants of " + this)
     (phi.constantEval, psi.constantEval) match {
       case (Some(false), _) =>
         val res = psi.simplify
-=======
-  override def foldConstants: PureFormula = {
-    logger.debug("Folding constants of " + this)
-    (phi.constantEval, psi.constantEval) match {
-      case (Some(false), _) =>
-        val res = psi.foldConstants
->>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/slsyntax/PureFormula.scala
         logger.debug("Discarding first argument, yielding " + res)
         res
       case (Some(true), _) =>
         logger.debug("Yielding true")
         True()
       case (_, Some(false)) =>
-<<<<<<< HEAD:src/main/scala/slex/seplog/PureFormula.scala
         val res = phi.simplify
-=======
-        val res = phi.foldConstants
->>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/slsyntax/PureFormula.scala
         logger.debug("Discarding second argument, yielding " + res)
         res
       case (_, Some(true)) =>
         logger.debug("Yielding true")
         True()
       case (None, None) =>
-<<<<<<< HEAD:src/main/scala/slex/seplog/PureFormula.scala
         val res = PureOr(phi.simplify, psi.simplify)
-=======
-        val res = PureOr(phi.foldConstants, psi.foldConstants)
->>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/slsyntax/PureFormula.scala
         logger.debug("Simplifying arguments of " + this + ", yielding " + res)
         res
     }

@@ -1,14 +1,8 @@
 package slex.seplog
 
 import slex.Sorts.Location
-<<<<<<< HEAD:src/main/scala/slex/seplog/PureAtom.scala
-import slex.models.Stack
-import slex.main.SlexLogging
 import slex.models.{StackBasedEvaluator, Stack}
-=======
-import slex.algs.{Evaluator, Stack}
 import slex.main.SlexLogging
->>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/slsyntax/PureAtom.scala
 import slex.smtsyntax.SmtExpr
 import slex.smtsyntax.SmtExpr._
 
@@ -62,11 +56,7 @@ sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
   override def constantEval: Option[Boolean] = {
     try {
       // Try to evaluate on constant stack. If that's possible, we have a constant value...
-<<<<<<< HEAD:src/main/scala/slex/seplog/PureAtom.scala
       val res = StackBasedEvaluator.eval(dummyStack, this)
-=======
-      val res = Evaluator.eval(dummyStack, this)
->>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/slsyntax/PureAtom.scala
       Some(res)
     } catch {
       case _ : DummyException =>
@@ -77,11 +67,7 @@ sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
     }
   }
 
-<<<<<<< HEAD:src/main/scala/slex/seplog/PureAtom.scala
   def simplify : PureFormula = {
-=======
-  def foldConstants : PureFormula = {
->>>>>>> e812e170355888a34e8a0b9ce63098b9a95a3fc5:src/main/scala/slex/slsyntax/PureAtom.scala
     logger.debug("Trying to eval " + this + " to a constant yielding " + constantEval)
     PureAtom.replaceByConstIfDefined(this, constantEval)
   }
