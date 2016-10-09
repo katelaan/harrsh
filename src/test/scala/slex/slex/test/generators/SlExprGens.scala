@@ -7,7 +7,7 @@ import slex.seplog._
 /**
   * Created by jkatelaa on 10/7/16.
   */
-object SlExprGenerators {
+object SlExprGens {
 
   def intExprGen(vars : Set[String], vals : Set[Int]) : Gen[IntExpr] = intExprGen(vars.toSeq, vals.toSeq)
 

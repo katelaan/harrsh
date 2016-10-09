@@ -10,7 +10,7 @@ import slex.models.{MapStack, Stack}
 /**
   * Created by jkatelaa on 10/7/16.
   */
-object StackGenerators {
+object StackGens {
 
   private def pairGen(vals : Seq[Location])(key : String) : Gen[(String, Location)] = Gen.oneOf(vals) map (v => (key,v))
 
