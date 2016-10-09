@@ -33,11 +33,20 @@ object SlExprGens {
       right <- intExprGen(vars, vals)
     } yield Minus(left, right)
 
+//  private def intExprGen(vars : Seq[String], vals : Seq[Int]) : Gen[IntExpr] = Gen.oneOf(1 to 100) flatMap {
+//    _ match {
+//      case x if x <= 30 => intConst(vals)
+//      case x if x <= 60 => intVar(vars)
+//      case x if x <= 80 => intPlus(vars, vals)
+//      case _ => intMinus(vars, vals)
+//    }
+//  }
+
   private def intExprGen(vars : Seq[String], vals : Seq[Int]) : Gen[IntExpr] = Gen.frequency(
-    (3, intConst(vals)),
-    (3, intVar(vars)),
-    (2, intPlus(vars, vals)),
-    (2, intMinus(vars, vals))
+    (30, intConst(vals)),
+    (30, intVar(vars)),
+    (30, Gen.lzy(intPlus(vars, vals))),
+    (20, Gen.lzy(intMinus(vars, vals)))
   )
 
   /*

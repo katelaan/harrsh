@@ -46,9 +46,9 @@ case class IntVar(id : String) extends IntExpr {
 }
 
 case class Plus(l : IntExpr, r : IntExpr) extends IntExpr {
-  override def toString = l + "+" + r
+  override def toString = "(" + l + "+" + r + ")"
 }
 
 case class Minus(l : IntExpr, r : IntExpr) extends IntExpr {
-  override def toString = l + "-" + r
+  override def toString = "(" + l + "-" + r + ")"
 }
