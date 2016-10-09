@@ -36,7 +36,6 @@ case class PureNeg(phi : PureFormula) extends PureFormula {
 
   override def constantEval: Option[Boolean] = phi.constantEval map (b => !b)
 
-<<<<<<< HEAD:src/main/scala/slex/seplog/PureFormula.scala
   override def simplify: PureFormula = {
     logger.debug("Folding constants of " + this)
     phi.constantEval match {
