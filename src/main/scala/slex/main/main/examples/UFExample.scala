@@ -16,11 +16,7 @@ object UFExample {
     //(assert (> a 10))
     Assert(appExpr(">", "a", "10")),
     //(assert (< (f a true) 100))
-    Assert(appExpr("<", appExpr("f", "a", "true"), "100")),
-    //(check-sat)
-    CheckSat(),
-    //(get-model)
-    GetModel()
+    Assert(appExpr("<", appExpr("f", "a", "true"), "100"))
     )
 
 }

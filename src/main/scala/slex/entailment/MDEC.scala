@@ -25,56 +25,6 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
   type ValidityProof = Unit
   type VerificationResult = Either[CounterExample, ValidityProof]
 
-  def checkSat(phi : PureFormula) : Boolean = {
-    val cmds = commandsForFormulas(Seq(phi))
-
-    //logger.debug("SMT2 input " + cmds.mkString("\n"))
-
-    val res = solver.runSmtQuery(cmds)
-    logger.debug("SMT Result " + res)
-
-    res._1.isSat
-  }
-
-
-
-  def findStackModel(constraints: Seq[PureFormula]) : Option[Stack] = {
-
-    logger.debug("Getting model for " + constraints.mkString(" and "))
-
-    val cmds = commandsForFormulas(constraints)
-
-    //logger.debug("SMT2 input " + cmds.mkString("\n"))
-
-    val res = solver.runSmtQuery(cmds)
-    logger.debug("Solver result: " + res)
-
-    if (res._1.isSat) {
-      val resModel = solver.runSmtQuery(cmds :+ GetModel())
-      logger.debug("Returned model: " + resModel)
-      resModel._2
-    } else {
-      if (res._1.isError)
-        throw new SmtError(cmds)
-      else {
-        logger.debug("Formula unsatisfiable, can't return stack model")
-        None
-      }
-    }
-  }
-
-  private def commandsForFormulas(phis : Seq[PureFormula]) : Seq[SmtCommand] = {
-
-    val constants : Set[String] = phis.toSet[PureFormula] flatMap (PureFormula.collectIdentifiers(_))
-
-    val declarations : Set[SmtCommand] = constants map (id => DeclareConst(id, "Int"))
-
-    val coreQueries = phis map (phi => Assert(phi.toSmtExpr))
-    logger.debug("Checking SAT for " + coreQueries.mkString(" and \n"))
-
-    Seq(SetLogic("QF_LIA")) ++ declarations.toSeq ++ coreQueries ++ Seq(CheckSat())
-  }
-
   def prove(left : SymbolicHeap, right : SymbolicHeap) : VerificationResult = {
     logger.info("\n" + ("*" * 80) + "\nTrying to prove entailment " + left + " |= " + right + "\n" + ("*" * 80))
 
@@ -272,14 +222,6 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
     case p : PtrVar => s(p)
   }
 
-  /**
-    * Returns the set of addresses that are definitely allocated based on stack interpretation s
-    */
-//  def alloc(s : Stack, spatial : Seq[SpatialAtom]) : Set[Location] = {
-//    val nonEmpty = spatial filterNot (sig => Evaluator.eval(s, empty(sig)))
-//    Set() ++ (nonEmpty map (sig => s(addr(sig))))
-//  }
-
   def alloc(spatial : Seq[SpatialAtom])(x : PtrExpr) : PureFormula = {
     val allocs = spatial map (sig => PureAnd(PureNeg(empty(sig)), PtrEq(x, addr(sig))))
     iteratedBinOp[PureFormula](PureOr, False())(allocs)
@@ -339,6 +281,62 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
     case PointsTo(from, to) => False()
     case LSeg(from, to) => PtrEq(from, to)
     case IxLSeg(from, to, lngth) => PtrEq(from, to)
+  }
+
+  /*
+   * SOLVER INTERACTION
+   */
+
+  private def checkSat(phi : PureFormula) : Boolean = {
+    val cmds = commandsForFormulas(Seq(phi))
+
+    //logger.debug("SMT2 input " + cmds.mkString("\n"))
+
+    solver.restart()
+    solver.addCommands(cmds)
+    val res = solver.checkSat
+    logger.debug("SMT Result " + res)
+
+    res._1.isSat
+  }
+
+  private def findStackModel(constraints: Seq[PureFormula]) : Option[Stack] = {
+
+    logger.debug("Getting model for " + constraints.mkString(" and "))
+
+    val cmds = commandsForFormulas(constraints)
+
+    //logger.debug("SMT2 input " + cmds.mkString("\n"))
+
+    solver.restart()
+    solver.addCommands(cmds)
+    val res = solver.checkSat
+    logger.debug("Solver result: " + res)
+
+    if (res._1.isSat) {
+      val resModel = solver.getModel
+      logger.debug("Returned model: " + resModel)
+      resModel._2
+    } else {
+      if (res._1.isError)
+        throw new SmtError(cmds)
+      else {
+        logger.debug("Formula unsatisfiable, can't return stack model")
+        None
+      }
+    }
+  }
+
+  private def commandsForFormulas(phis : Seq[PureFormula]) : Seq[SmtCommand] = {
+
+    val constants : Set[String] = phis.toSet[PureFormula] flatMap (PureFormula.collectIdentifiers(_))
+
+    val declarations : Set[SmtCommand] = constants map (id => DeclareConst(id, "Int"))
+
+    val coreQueries = phis map (phi => Assert(phi.toSmtExpr))
+    logger.debug("Checking SAT for " + coreQueries.mkString(" and \n"))
+
+    Seq(SetLogic("QF_LIA")) ++ declarations.toSeq ++ coreQueries
   }
 
 }

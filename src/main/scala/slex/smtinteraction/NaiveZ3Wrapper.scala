@@ -2,50 +2,62 @@ package slex.smtinteraction
 
 import java.io.{BufferedWriter, File, FileWriter}
 
-import slex.main.Defaults
-import slex.smtsyntax.SmtCommand
+import slex.main.{Defaults, SlexLogging}
+import slex.smtsyntax.{CheckSat, GetModel, SmtCommand}
+
 import sys.process._
 
 /**
+  * A Z3 wrapper that writes all currently active commands to a file, calls Z3 on that file and parses the result.
+  * Incredibly inefficient, as it does not support incremental queries, but possibly useful for debugging,
+  * as the file(s) survive the execution of the program and can thus be tried with "standalone" Z3 later.
+  *
   * Created by jkatelaa on 9/30/16.
   */
-class NaiveZ3Wrapper(pathToZ3 : Option[String]) extends SmtWrapper {
+class NaiveZ3Wrapper(pathToZ3 : String = Defaults.PathToZ3, fileName : String = "tmp.smt2") extends SmtWrapper with SlexLogging {
 
-  private val FileName = "tmp.smt2"
+  private var commandStack : Seq[SmtCommand] = Seq()
 
-  private val path = pathToZ3 getOrElse Defaults.PathToZ3
+  override def restart(): Unit = {
+    commandStack = Seq()
+  }
 
-  override def runSmtQuery(query : Seq[SmtCommand]) : SmtOutput = {
+  override def close(): Unit = {
+    // Nothing to close
+  }
+
+  override def addCommands(query: Seq[SmtCommand]): Unit = {
+    commandStack ++= query
+  }
+
+  override def checkSat(): SmtOutput= runSmtQuery(commandStack :+ CheckSat())
+
+  override def getModel(): SmtOutput = runSmtQuery(commandStack :+ CheckSat() :+ GetModel())
+
+  private def runSmtQuery(query : Seq[SmtCommand]) : SmtOutput = {
     writeSmtFile(query)
-    val command = path + " " + FileName
+    val command = pathToZ3 + " " + fileName
     val process = Process(command)
     //println("Will run: " + process.toString)
 
-    var errors : List[String] = Nil
-    var msgs : List[String] = Nil
-    val logger = ProcessLogger(x =>  msgs = msgs ++ List(x), x => errors = errors ++ List(x))
-
     try {
-      val res = process.!!(logger)
+      val res = process.!!
       Z3ResultParser.run(res).getOrElse{
-        println("Z3 returned unparsable result: " + res)
-        println("PARSE ERROR")
+        logger.info("Z3 returned unparsable result: " + res)
+        logger.info("PARSE ERROR")
         (ErrorStatus(), None)
       };
     } catch {
       case e : RuntimeException =>
-        println("ERROR IN INTERACTION WITH Z3, " + e)
-        println("Output: " + msgs.mkString("\n"))
-        println("Errors: " + errors.mkString("\n"))
+        logger.info("ERROR IN INTERACTION WITH Z3, " + e)
         (ErrorStatus(), None)
     }
   }
 
   private def writeSmtFile(input : Seq[SmtCommand]): Unit = {
-    val file = new File(FileName)
+    val file = new File(fileName)
     val bw = new BufferedWriter(new FileWriter(file))
     bw.write(input.mkString("\n"))
     bw.close()
   }
-
 }

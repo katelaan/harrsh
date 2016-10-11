@@ -31,6 +31,10 @@ case class Assert(expr : SmtExpr) extends SmtCommand {
   override def toString = app("assert", expr.toString)
 }
 
+case class Reset() extends SmtCommand {
+  override def toString = app("reset")
+}
+
 case class CheckSat() extends SmtCommand {
   override def toString = app("check-sat")
 }
