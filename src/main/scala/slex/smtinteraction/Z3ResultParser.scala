@@ -9,13 +9,13 @@ import scala.util.parsing.combinator.JavaTokenParsers
   */
 object Z3ResultParser extends JavaTokenParsers {
 
-  def run(input : String) : Option[SmtOutput] = parseAll(parseZ3Result, input) match {
+  def run(input : String) : Option[(SatStatus,Option[Stack])] = parseAll(parseZ3Result, input) match {
     case Success(result, next) => Some(result)
     case Failure(msg,_) => println("FAILURE: " + msg); None
     case Error(msg,_) => println("ERROR: " + msg); None
   }
 
-  def parseZ3Result : Parser[SmtOutput] = statusParser ~ opt(modelParser) ^^ {
+  def parseZ3Result : Parser[(SatStatus,Option[Stack])] = statusParser ~ opt(modelParser) ^^ {
     case a ~ b => (a,b)
   }
 

@@ -39,7 +39,7 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
     val delta = alloc(sigmaL)_
 
     val query = PureAnd(gamma, PureNeg(piR))
-    if (checkSat(query)) {
+    if (checkSatInNewSession(query)) {
       logger.info("Constraints imposed by the spatial antecedent " + sigmaL + " contradict the pure consequent " + piR + ", entailment disproved")
       Left(query)
     }
@@ -47,14 +47,16 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
       val folded = gamma.simplify
       logger.debug("Unfolded " + gamma)
       logger.debug("  Folded " + folded)
-      proofLoop(sigmaL, piL, sigmaR, piR, delta)(1, Seq(folded))
+      solver.restart()
+      proofLoop(sigmaL, piL, sigmaR, piR, delta)(1, Seq(folded), Set())
     }
   }
 
   @tailrec
-  private def proofLoop(sigmaL : Seq[SpatialAtom], piL : PureFormula, sigmaR : Seq[SpatialAtom], piR : PureFormula, delta : AllocTemplate)(i : Int, constraints : Seq[PureFormula]) : VerificationResult = {
+  private def proofLoop(sigmaL : Seq[SpatialAtom], piL : PureFormula, sigmaR : Seq[SpatialAtom], piR : PureFormula, delta : AllocTemplate)(i : Int, constraints : Seq[PureFormula], declaredConsts : Set[String]) : VerificationResult = {
     logger.info("\n" + ("*" * 80) + "\nProof loop, iteration #" + i + " : Processing\n  " + constraints.mkString(" and\n  ") + "\n" + ("*" * 80))
-    val stackModel = findStackModel(constraints)
+    logger.debug("Getting model for " + constraints.mkString(" and "))
+    val (stackModel,newConsts) = findStackModelWithAdditionalConstraint(constraints.last, declaredConsts)
     stackModel match {
       case None =>
         logger.info("Successfully finished entailment proof")
@@ -73,7 +75,7 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
           logger.debug("Unfolded " + PureNeg(M))
           logger.debug("  Folded " + folded)
           val extended = constraints :+ PureNeg(M).simplify
-          proofLoop(sigmaL, piL, sigmaR, piR, delta)(i+1, extended)
+          proofLoop(sigmaL, piL, sigmaR, piR, delta)(i+1, extended, declaredConsts union newConsts)
         }
     }
   }
@@ -287,56 +289,58 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
    * SOLVER INTERACTION
    */
 
-  private def checkSat(phi : PureFormula) : Boolean = {
-    val cmds = commandsForFormulas(Seq(phi))
-
-    //logger.debug("SMT2 input " + cmds.mkString("\n"))
+  private def checkSatInNewSession(phi : PureFormula) : Boolean = {
+    val (cmds, _) = commandsForFormulas(Seq(phi), Set())
 
     solver.restart()
     solver.addCommands(cmds)
     val res = solver.checkSat
     logger.debug("SMT Result " + res)
 
-    res._1.isSat
+    res.isSat
   }
 
-  private def findStackModel(constraints: Seq[PureFormula]) : Option[Stack] = {
+  private def findStackModelWithAdditionalConstraint(constraint: PureFormula, declaredConsts : Set[String]) : (Option[Stack],Set[String]) = {
 
-    logger.debug("Getting model for " + constraints.mkString(" and "))
+    val (cmds, newConsts) = commandsForFormulas(Seq(constraint), declaredConsts)
+    val allConsts = declaredConsts union newConsts
 
-    val cmds = commandsForFormulas(constraints)
-
-    //logger.debug("SMT2 input " + cmds.mkString("\n"))
-
-    solver.restart()
     solver.addCommands(cmds)
-    val res = solver.checkSat
-    logger.debug("Solver result: " + res)
+    val resStatus = solver.checkSat
+    logger.debug("Solver result: " + resStatus)
 
-    if (res._1.isSat) {
+    if (resStatus.isSat) {
       val resModel = solver.getModel
       logger.debug("Returned model: " + resModel)
-      resModel._2
+      (resModel, allConsts)
     } else {
-      if (res._1.isError)
+      if (resStatus.isError)
         throw new SmtError(cmds)
       else {
         logger.debug("Formula unsatisfiable, can't return stack model")
-        None
+        (None, allConsts)
       }
     }
   }
 
-  private def commandsForFormulas(phis : Seq[PureFormula]) : Seq[SmtCommand] = {
+  /**
+    * Generate a sequence of SMT2 commands for the given sequence of formulas, only including declarations for constants
+    * that are not in the set declaredConsts
+    * @param phis Formulas to translate to SMT2
+    * @param declaredConsts Constants that have already been declared in the current solver session
+    * @return Pair of translated formulas and new constants
+    */
+  private def commandsForFormulas(phis : Seq[PureFormula], declaredConsts: Set[String]) : (Seq[SmtCommand], Set[String]) = {
 
     val constants : Set[String] = phis.toSet[PureFormula] flatMap (PureFormula.collectIdentifiers(_))
+    val newConstants : Set[String] = constants -- declaredConsts
 
-    val declarations : Set[SmtCommand] = constants map (id => DeclareConst(id, "Int"))
+    val declarations : Set[SmtCommand] = newConstants map (id => DeclareConst(id, "Int"))
 
     val coreQueries = phis map (phi => Assert(phi.toSmtExpr))
-    logger.debug("Checking SAT for " + coreQueries.mkString(" and \n"))
+    logger.debug("New commands: " + coreQueries.mkString(" and \n"))
 
-    Seq(SetLogic("QF_LIA")) ++ declarations.toSeq ++ coreQueries
+    (declarations.toSeq ++ coreQueries, newConstants)
   }
 
 }

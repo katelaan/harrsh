@@ -3,6 +3,7 @@ import java.io._
 import java.util.Scanner
 
 import slex.main.{Defaults, SlexLogging}
+import slex.models.Stack
 import slex.smtsyntax.{CheckSat, GetModel, RawCommand, Reset, SmtCommand}
 
 
@@ -42,11 +43,11 @@ class SimpleZ3Wrapper(pathToZ3 : String = Defaults.PathToZ3) extends SmtWrapper 
     sendToZ3(query)
   }
 
-  override def checkSat(): SmtOutput = runSmtQuery(Seq(CheckSat(), DoneCommand))
+  override def checkSat(): SatStatus = runSmtQuery(Seq(CheckSat(), DoneCommand))._1
 
-  override def getModel(): SmtOutput = runSmtQuery(Seq(CheckSat(), GetModel(), DoneCommand))
+  override def getModel(): Option[Stack] = runSmtQuery(Seq(CheckSat(), GetModel(), DoneCommand))._2
 
-  private def runSmtQuery(query: Seq[SmtCommand]): SmtOutput = {
+  private def runSmtQuery(query: Seq[SmtCommand]): (SatStatus,Option[Stack]) = {
     sendToZ3(query)
 
     val scanner = new Scanner(stdout)

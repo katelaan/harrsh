@@ -3,6 +3,7 @@ package slex.smtinteraction
 import java.io.{BufferedWriter, File, FileWriter}
 
 import slex.main.{Defaults, SlexLogging}
+import slex.models.Stack
 import slex.smtsyntax.{CheckSat, GetModel, SmtCommand}
 
 import sys.process._
@@ -15,6 +16,8 @@ import sys.process._
   * Created by jkatelaa on 9/30/16.
   */
 class NaiveZ3Wrapper(pathToZ3 : String = Defaults.PathToZ3, fileName : String = "tmp.smt2") extends SmtWrapper with SlexLogging {
+
+  private lazy val ErrorResult : (SatStatus, Option[Stack]) = (ErrorStatus(), None)
 
   private var commandStack : Seq[SmtCommand] = Seq()
 
@@ -30,11 +33,11 @@ class NaiveZ3Wrapper(pathToZ3 : String = Defaults.PathToZ3, fileName : String = 
     commandStack ++= query
   }
 
-  override def checkSat(): SmtOutput= runSmtQuery(commandStack :+ CheckSat())
+  override def checkSat(): SatStatus= runSmtQuery(commandStack :+ CheckSat())._1
 
-  override def getModel(): SmtOutput = runSmtQuery(commandStack :+ CheckSat() :+ GetModel())
+  override def getModel(): Option[Stack] = runSmtQuery(commandStack :+ CheckSat() :+ GetModel())._2
 
-  private def runSmtQuery(query : Seq[SmtCommand]) : SmtOutput = {
+  private def runSmtQuery(query : Seq[SmtCommand]) : (SatStatus, Option[Stack]) = {
     writeSmtFile(query)
     val command = pathToZ3 + " " + fileName
     val process = Process(command)
@@ -42,15 +45,15 @@ class NaiveZ3Wrapper(pathToZ3 : String = Defaults.PathToZ3, fileName : String = 
 
     try {
       val res = process.!!
-      Z3ResultParser.run(res).getOrElse{
+      Z3ResultParser.run(res).getOrElse {
         logger.info("Z3 returned unparsable result: " + res)
         logger.info("PARSE ERROR")
-        (ErrorStatus(), None)
-      };
+        ErrorResult
+      }
     } catch {
       case e : RuntimeException =>
         logger.info("ERROR IN INTERACTION WITH Z3, " + e)
-        (ErrorStatus(), None)
+        ErrorResult
     }
   }
 

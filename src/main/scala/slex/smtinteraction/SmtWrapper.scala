@@ -1,5 +1,6 @@
 package slex.smtinteraction
 
+import slex.models.Stack
 import slex.smtsyntax.SmtCommand
 
 /**
@@ -13,8 +14,8 @@ trait SmtWrapper {
 
   def addCommands(query : Seq[SmtCommand]) : Unit
 
-  def checkSat() : SmtOutput
+  def checkSat() : SatStatus
 
-  def getModel() : SmtOutput
+  def getModel() : Option[Stack]
 
 }
