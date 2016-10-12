@@ -146,7 +146,7 @@ object PureAtom {
 
   def replaceByConstIfDefined(pf : PureFormula, const : Option[Boolean]) : PureFormula = const match {
     case Some(true) => True()
-    case Some(false) => True()
+    case Some(false) => False()
     case None => pf
   }
 

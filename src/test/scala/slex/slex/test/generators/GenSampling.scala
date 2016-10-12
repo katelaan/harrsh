@@ -1,18 +1,24 @@
-package slex.slex.seplog
+package slex.slex.test.generators
 
-import org.scalatest.Matchers
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import slex.SlexTest
+import slex.models.Stack
 import slex.seplog.{IntExpr, PtrExpr, PureAtom, PureFormula}
-import slex.slex.test.generators.{PureAtomGens, PureFormulaGen, SlExprGens}
 
 /**
-  * Created by jkatelaa on 10/7/16.
+  * This object just samples the various generators.
+  * Run to get a feeling for the kind of objects that the generators produce.
   */
-class PureAtomTest extends SlexTest with GeneratorDrivenPropertyChecks with Matchers {
+object GenSampling extends SlexTest with GeneratorDrivenPropertyChecks {
 
   val Vars = Set("x","y","z")
   val Vals = Set(1, 2, 3, 4, 5)
+
+  println("Stacks")
+  forAll(StackGens.stackGen(Vars, Vals)) {
+    (s : Stack) =>
+      println(s)
+  }
 
   println("Int Expressions")
   forAll(SlExprGens.intExprGen(Vars, Vals)) {
@@ -37,5 +43,6 @@ class PureAtomTest extends SlexTest with GeneratorDrivenPropertyChecks with Matc
     (a : PureFormula) =>
       println(a)
   }
+
 
 }
