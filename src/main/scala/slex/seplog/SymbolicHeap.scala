@@ -3,7 +3,11 @@ package slex.seplog
 /**
   * Created by jkatelaa on 10/3/16.
   */
-case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], qvars : Seq[String]) {
+case class SymbolicHeap(val pure : Seq[PureAtom], spatial: Seq[SpatialAtom], qvars : Seq[String]) {
+
+  def this(pure : Seq[PureAtom], spatial: Seq[SpatialAtom]) = this(pure, spatial, Seq())
+
+  def this(spatial: Seq[SpatialAtom]) = this(Seq(), spatial, Seq())
 
   override def toString = {
     val prefix = qvars map ("\u2203"+_) mkString(" ")
@@ -15,6 +19,10 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], qvars :
 }
 
 object SymbolicHeap {
+
+  def apply(pure : Seq[PureAtom], spatial: Seq[SpatialAtom]) = new SymbolicHeap(pure, spatial)
+
+  def apply(spatial: Seq[SpatialAtom]) = new SymbolicHeap(spatial)
 
   def combineHeaps(phi : Option[SymbolicHeap], psi : Option[SymbolicHeap]) : Option[SymbolicHeap] = {
     for {

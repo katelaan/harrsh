@@ -19,3 +19,19 @@ trait SmtWrapper {
   def getModel() : Option[Stack]
 
 }
+
+object SmtWrapper {
+
+  /**
+    * Apply wrapper to f, then close the wrapper.
+    * @param wrapper
+    * @param f
+    */
+  def withWrapper(wrapper : SmtWrapper)(f : SmtWrapper => Unit) = {
+    f(wrapper)
+    wrapper.close()
+  }
+
+  def withZ3 = withWrapper(new SimpleZ3Wrapper())_
+
+}

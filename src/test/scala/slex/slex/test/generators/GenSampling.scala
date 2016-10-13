@@ -9,7 +9,7 @@ import slex.seplog.{IntExpr, PtrExpr, PureAtom, PureFormula}
   * This object just samples the various generators.
   * Run to get a feeling for the kind of objects that the generators produce.
   */
-object GenSampling extends SlexTest with GeneratorDrivenPropertyChecks {
+class GenSampling extends SlexTest with GeneratorDrivenPropertyChecks {
 
   val Vars = Set("x","y","z")
   val Vals = Set(1, 2, 3, 4, 5)

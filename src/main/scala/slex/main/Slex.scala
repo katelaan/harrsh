@@ -3,7 +3,7 @@ package slex.main
 import slex.entailment.MDEC
 import slex.main.main.examples.{SymbolicHeapExamples, UFExample}
 import slex.seplog.SepLogAxioms
-import slex.smtinteraction.{NaiveZ3Wrapper, SimpleZ3Wrapper, SmtWrapper, Z3ResultParser}
+import slex.smtinteraction.SmtWrapper
 
 /**
   * Created by jkatelaa on 9/30/16.
@@ -18,23 +18,23 @@ object Slex {
 
   def mdecExample() : Unit = {
     println("Let's test the model-driven entailment checker...")
-    val wrapper: SmtWrapper = new SimpleZ3Wrapper()
-    val res = new MDEC(wrapper).prove(SymbolicHeapExamples.Entailment1Left.get, SymbolicHeapExamples.Entailment1Right.get)
-    println("Result: " + res)
-    wrapper.close()
+    SmtWrapper.withZ3 { z3 =>
+      val res = new MDEC(z3).prove(SymbolicHeapExamples.PaperExampleEntailmentLeft, SymbolicHeapExamples.PaperExampleEntailmentRight)
+      println("Result: " + res)
+    }
   }
 
   private def callSmtExample() : Unit = {
-    val wrapper : SmtWrapper = new NaiveZ3Wrapper()
-    val example = UFExample.Example
-    println("Will run the following example:")
-    println(example.mkString("\n"))
-    println("Running Z3 now...")
-    wrapper.restart()
-    wrapper.addCommands(example)
-    val res = wrapper.getModel
-    println(res)
-    wrapper.close()
+    SmtWrapper.withZ3 { z3 =>
+      val example = UFExample.Example
+      println("Will run the following example:")
+      println(example.mkString("\n"))
+      println("Running Z3 now...")
+      z3.restart()
+      z3.addCommands(example)
+      val res = z3.getModel
+      println(res)
+    }
   }
 
 
