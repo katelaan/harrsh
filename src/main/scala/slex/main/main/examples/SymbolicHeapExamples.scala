@@ -7,11 +7,12 @@ import slex.seplog._
   */
 object SymbolicHeapExamples {
 
-  lazy val SingleList = LSeg("x", "y").toSymbolicHeap
+  lazy val SingleList = IxLSeg("x", "y", "n").toSymbolicHeap
 
-  lazy val SplitList = Exists("y", SepCon(LSeg("x", "y"), LSeg("y", "z"))).toSymbolicHeap
+  lazy val SplitList = Exists("y", SepCon(IxLSeg("x", "y", "n"), IxLSeg("y", "z", "m"))).toSymbolicHeap
 
-  lazy val LassoList = Exists("y", And(SepCon(LSeg("x", "y"), LSeg("y", "y")), PtrNEq("x", "y"))).toSymbolicHeap
+  // Note: The following is unsound if m>0, because IxLSeg denotes acyclic list segments
+  lazy val LassoList = Exists("y", And(SepCon(IxLSeg("x", "y", "n"), IxLSeg("y", "y", "m")), PtrNEq("x", "y"))).toSymbolicHeap
 
   // Entailment example from the paper (lseg(p, qj, j) * qj ↦ q * lseg(q, null, ((n-j)-1)) : {i ≈ (j+1)} |= lseg(p, q, i) * lseg(q, null, (n-i))),
   // but with special "sink"/self-cycle constraint for null to enforce proper null treatment.

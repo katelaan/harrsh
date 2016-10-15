@@ -16,4 +16,6 @@
     <logger name="slex.entailment.MDEC" level="DEBUG" />
     <logger name="slex.smtinteraction.SimpleZ3Wrapper" level="DEBUG" />
     <logger name="slex.seplog" level="INFO" />
+    <logger name="slex.heapautomata" level="DEBUG" />
+    <logger name="slex.heapautomata.ExampleAutomata" level="INFO" />
 </configuration>

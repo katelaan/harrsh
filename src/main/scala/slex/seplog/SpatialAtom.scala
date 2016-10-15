@@ -13,6 +13,16 @@ sealed trait SpatialAtom extends SepLogFormula {
 
   override def toSymbolicHeap = Some(SymbolicHeap(Seq(), Seq(this), Seq()))
 
+  def isInductiveCall: Boolean = this match {
+    case _ : PredCall => true
+    case _ => false
+  }
+
+  def getPredicateName: Option[String] = this match {
+    case p : PredCall => Some(p.name)
+    case _ => None
+  }
+
 }
 
 case class Emp() extends SpatialAtom {
@@ -23,10 +33,21 @@ case class PointsTo(from : PtrExpr, to : PtrExpr) extends SpatialAtom {
   override def toString = from + " \u21a6 " + to
 }
 
-case class LSeg(from : PtrExpr, to : PtrExpr) extends SpatialAtom {
-  override def toString = "lseg(" + from + ", " + to + ")"
-}
-
+/**
+  * Length-indexed acyclic list segment
+  * @param from
+  * @param to
+  * @param lngth
+  */
 case class IxLSeg(from : PtrExpr, to : PtrExpr, lngth : IntExpr) extends SpatialAtom {
   override def toString = "lseg(" + from + ", " + to + ", " +  lngth + ")"
+}
+
+/**
+  * Inductive spatial predicate, whose semantics is given by a SID
+  * @param name Name of the predicate
+  * @param args Nonempty sequence of arguments
+  */
+case class PredCall(name : String, args : PtrExpr*) extends SpatialAtom {
+  override def toString = name + "(" + args.mkString(",") + ")"
 }

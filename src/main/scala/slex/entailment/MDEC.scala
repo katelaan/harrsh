@@ -1,10 +1,10 @@
 package slex.entailment
 
-import slex.seplog.{Emp, False, IxEq, IxLEq, IxLSeg, IxLT, LSeg, Minus, NullPtr, PointsTo, PtrEq, PtrExpr, PtrNEq, PtrVar, PureAnd, PureFormula, PureNeg, PureOr, SepCon, SepLogFormula, SpatialAtom, SymbolicHeap, True}
+import slex.seplog.{Emp, False, PredCall, IxEq, IxLEq, IxLSeg, IxLT, Minus, NullPtr, PointsTo, PtrEq, PtrExpr, PtrNEq, PtrVar, PureAnd, PureFormula, PureNeg, PureOr, SepCon, SepLogFormula, SpatialAtom, SymbolicHeap, True}
 import slex.Sorts._
 import slex.Combinators._
 import slex.main.SlexLogging
-import slex.models.{StackBasedEvaluator, Stack}
+import slex.models.{Stack, StackBasedEvaluator}
 import slex.smtinteraction.{ErrorStatus, SmtError, SmtWrapper}
 import slex.smtsyntax.{CheckSat, GetModel, _}
 
@@ -285,15 +285,14 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
 
   def addr(sig : SpatialAtom) : PtrExpr = sig match {
     case Emp() => NullPtr()
-    case PointsTo(from, to) => from
-    case LSeg(from, to) => from
-    case IxLSeg(from, to, lngth) => from
+    case PointsTo(from, _) => from
+    case IxLSeg(from, _, _) => from
+    case i : PredCall => i.args.head
   }
 
   def sound(sig : SpatialAtom) : PureFormula = sig match {
     case Emp() => True()
-    case PointsTo(from, to) => True()
-    case LSeg(from, to) => True()
+    case p : PointsTo => True()
     case IxLSeg(x, y, n) =>
       PureAnd(
         IxLEq(0, n),
@@ -302,13 +301,14 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
           PureOr(PtrEq(x, y), IxLT(0, n)),
           PureOr(PtrNEq(x, y), IxEq(0, n))
         ))
+    case i : PredCall => True()
   }
 
   def empty(sig : SpatialAtom) : PureFormula = sig match {
     case Emp() => True()
     case PointsTo(from, to) => False()
-    case LSeg(from, to) => PtrEq(from, to) // TODO: If we allow cyclic lists, this is wrong
     case IxLSeg(from, to, lngth) => PtrEq(from, to) // TODO: If we allow cyclic lists, this is wrong
+    case i : PredCall => throw new Throwable("MDEC not defined for arbitrary inductive calls")
   }
 
   /*

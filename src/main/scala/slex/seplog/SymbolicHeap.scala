@@ -16,6 +16,10 @@ case class SymbolicHeap(val pure : Seq[PureAtom], spatial: Seq[SpatialAtom], qva
     prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString
   }
 
+  def hasPointer: Boolean = spatial.find((_.isInstanceOf[PointsTo])).isDefined
+
+  def calledPreds: Seq[String] = spatial filter (_.isInductiveCall) map (_.getPredicateName.get)
+
 }
 
 object SymbolicHeap {
