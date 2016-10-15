@@ -20,6 +20,8 @@ case class SymbolicHeap(val pure : Seq[PureAtom], spatial: Seq[SpatialAtom], qva
 
   def calledPreds: Seq[String] = spatial filter (_.isInductiveCall) map (_.getPredicateName.get)
 
+  def removeCalls : SymbolicHeap = copy(spatial = spatial.filter(!_.isInductiveCall))
+
 }
 
 object SymbolicHeap {
@@ -37,5 +39,8 @@ object SymbolicHeap {
       if (combinedVars.distinct == combinedVars)
     } yield SymbolicHeap(pure ++ pure2, spatial ++ spatial2, combinedVars)
   }
+
+  // TODO More efficient implementation, e.g. by a fold
+  def combineAllHeaps(heaps : Seq[SymbolicHeap]) : SymbolicHeap = if (heaps.isEmpty) SymbolicHeap(Seq()) else combineHeaps(Some(heaps.head), Some(combineAllHeaps(heaps.tail))).get
 
 }
