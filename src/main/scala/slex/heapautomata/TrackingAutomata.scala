@@ -31,73 +31,14 @@ object TrackingAutomata {
     if (left < right) new FVEquality(left, right, isEqual) else new FVEquality(right, left, isEqual)
   }
 
-  // TODO This method is ridiculously inefficient, because we compute one copy of each eq class for each member of the class
-  def computeRepresentationsInClosure(pure : Set[FVEquality]) : FV => Boolean = i => {
-
-    var mapToClasses : Map[FV,Set[FV]] = Map()
-
-    def extendEntry(key : FV, newVal : FV) = {
-      val eqClass = if (mapToClasses.isDefinedAt(key)) {
-        // Class is already defined, just add the new value
-        mapToClasses(key) + newVal
-      } else {
-        // Key not in any known eq class yet
-        // Either have to extend class for val, if known already, or create new class
-        if (mapToClasses.isDefinedAt(newVal)) mapToClasses(newVal) + key else Set(key, newVal)
-      }
-
-      // Extend entry for all members of the eq class
-      for {
-        classMember <- eqClass
-      } {
-        mapToClasses = mapToClasses + (classMember -> eqClass)
-      }
-    }
-
-    for {
-      FVEquality(left, right, isEqual) <- pure
-      if isEqual
-    } {
-      extendEntry(left, right)
-
-      //      println("Inserting " + left + " -> " + right)
-      //      for {
-      //        (key, vals) <- mapToClasses
-      //      } println(key + " --> " + vals)
-    }
-
-    // If the EQ class is defined, check if i is the representation = the minimum of that class
-    // Otherwise, no equality for i has been set, so i is the unique and hence minimal element, so it is the representation
-    if (mapToClasses.isDefinedAt(i)) mapToClasses(i).min == i else true
-  }
-
-  def allFVEqualities(numFV : Int) : Set[FVEquality] = {
-    for {
-      i <- Set() ++ (1 to numFV)
-      j <- Set() ++ (0 to numFV)
-      if i > j
-      eq <- Set(true, false)
-    } yield FVEquality(i, j, eq)
-  }
-
-  def powerSet[A](set : Set[A]) : Set[Set[A]] = {
-    val seq = set.toSeq
-
-    // TODO: Rewrite to tailrec
-    def powerSet(elems : Seq[A]) : Set[Set[A]] = {
-      if (elems.isEmpty)
-        Set(Set())
-      else {
-        val newelem = elems.head
-        val smaller = powerSet(elems.tail)
-        smaller flatMap (set => Set(set, set + newelem))
-      }
-    }
-
-    powerSet(seq)
-  }
-
-  def trackingAutomaton(numFV : Int, alloc : Set[FV], pure : Set[FVEquality]) = new HeapAutomaton with SlexLogging {
+  /**
+    * Get tracking automaton for the given number of free variables, whose target states are defined by alloc and pure.
+    * @param numFV
+    * @param alloc
+    * @param pure
+    * @return
+    */
+  def apply(numFV : Int, alloc : Set[FV], pure : Set[FVEquality]) = new HeapAutomaton with SlexLogging {
 
     override val description: String = "TRACK(" + numFV + ")"
 
@@ -146,10 +87,14 @@ object TrackingAutomata {
     }
 
     override def isTransitionDefined(src: Seq[State], trg: State, lab: SymbolicHeap): Boolean = {
+      if (src.length != lab.calledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.calledPreds.length + " does not match arity of source state sequence " + src.length)
+
+      // FIXME: Renaming of parameters into args necessary!
       val shrunk = shrink(lab, src)
       logger.debug("Shrunk " + lab + " into " + shrunk)
 
       // Compute allocation set and equalities for shrunk and compare to target
+      // FIXME: Should we have sanity checks that they are all distinct?
       val allocExplicit: Seq[FV] = shrunk.pointers map (p => unFV(p.from.toString))
       val pureExplicit : Set[FVEquality] =  Set() ++ shrunk.ptrEqs map {
         case PtrEq(l, r) => makeFVEquality(l, r, true)
@@ -178,6 +123,74 @@ object TrackingAutomata {
     }
 
   }
+
+  // TODO This method is ridiculously inefficient, because we compute one copy of each eq class for each member of the class
+  def computeRepresentationsInClosure(pure : Set[FVEquality]) : FV => Boolean = i => {
+
+    var mapToClasses : Map[FV,Set[FV]] = Map()
+
+    def extendEntry(key : FV, newVal : FV) = {
+      val eqClass = if (mapToClasses.isDefinedAt(key)) {
+        // Class is already defined, just add the new value
+        mapToClasses(key) + newVal
+      } else {
+        // Key not in any known eq class yet
+        // Either have to extend class for val, if known already, or create new class
+        if (mapToClasses.isDefinedAt(newVal)) mapToClasses(newVal) + key else Set(key, newVal)
+      }
+
+      // Extend entry for all members of the eq class
+      for {
+        classMember <- eqClass
+      } {
+        mapToClasses = mapToClasses + (classMember -> eqClass)
+      }
+    }
+
+    for {
+      FVEquality(left, right, isEqual) <- pure
+      if isEqual
+    } {
+      extendEntry(left, right)
+
+      //      println("Inserting " + left + " -> " + right)
+      //      for {
+      //        (key, vals) <- mapToClasses
+      //      } println(key + " --> " + vals)
+    }
+
+    // If the EQ class is defined, check if i is the representation = the minimum of that class
+    // Otherwise, no equality for i has been set, so i is the unique and hence minimal element, so it is the representation
+    if (mapToClasses.isDefinedAt(i)) mapToClasses(i).min == i else true
+  }
+
+  def allFVEqualities(numFV : Int) : Set[FVEquality] = {
+    for {
+      i <- Set() ++ (1 to numFV)
+      j <- Set() ++ (0 to numFV)
+      if i > j
+      eq <- Set(true, false)
+    } yield makeFVEquality(i, j, eq)
+  }
+
+  def powerSet[A](set : Set[A]) : Set[Set[A]] = {
+    val seq = set.toSeq
+
+    // TODO: Rewrite to tailrec
+    def powerSet(elems : Seq[A]) : Set[Set[A]] = {
+      if (elems.isEmpty)
+        Set(Set())
+      else {
+        val newelem = elems.head
+        val smaller = powerSet(elems.tail)
+        smaller flatMap (set => Set(set, set + newelem))
+      }
+    }
+
+    powerSet(seq)
+  }
+
+
 
   @tailrec
   private def propagateConstraints(from : Set[FVEquality]): Set[FVEquality] = {
