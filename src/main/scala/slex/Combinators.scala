@@ -19,4 +19,15 @@ object Combinators {
     }
   }
 
+  // TODO: Do this more efficiently?
+  /**
+    * Computes all ordered pairs (a,b) with seq.indexOf(a) < seq.indexOf(b)
+    * @param seq
+    * @tparam A
+    * @return
+    */
+  def square[A](seq : Seq[A]) : Seq[(A,A)] =
+  if (seq.isEmpty || seq.tail.isEmpty) Nil
+  else (seq.tail map (rhs => (seq.head, rhs))) ++ square(seq.tail)
+
 }

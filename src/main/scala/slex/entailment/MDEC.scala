@@ -1,6 +1,7 @@
 package slex.entailment
 
-import slex.seplog.{Emp, False, PredCall, IxEq, IxLEq, IxLSeg, IxLT, Minus, NullPtr, PointsTo, PtrEq, PtrExpr, PtrNEq, PtrVar, PureAnd, PureFormula, PureNeg, PureOr, SepCon, SepLogFormula, SpatialAtom, SymbolicHeap, True}
+import slex.Combinators
+import slex.seplog.{Emp, False, IxEq, IxLEq, IxLSeg, IxLT, Minus, NullPtr, PointsTo, PredCall, PtrEq, PtrExpr, PtrNEq, PtrVar, PureAnd, PureFormula, PureNeg, PureOr, SepCon, SepLogFormula, SpatialAtom, SymbolicHeap, True}
 import slex.Sorts._
 import slex.Combinators._
 import slex.main.SlexLogging
@@ -252,14 +253,8 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
     * An iterated separating conjunction is well-formed if all its atoms are sound and all atoms are pair-wise separated (i.e., atoms' "starting" addresses are pair-wise different)
     */
   def wellFormed(sig : Seq[SpatialAtom]) : PureFormula = {
-
-    // TODO: Do this more efficiently?
-    def square[A](seq : Seq[A]) : Seq[(A,A)] =
-      if (seq.isEmpty || seq.tail.isEmpty) Nil
-      else (seq.tail map (rhs => (seq.head, rhs))) ++ square(seq.tail)
-
     val sounds = sig map sound
-    val seps = square(sig) map { case (x,y) => separated(x,y) }
+    val seps = Combinators.square(sig) map { case (x,y) => separated(x,y) }
 
     val soundness : PureFormula = iteratedBinOp[PureFormula](PureAnd, True())(sounds)
     val separation : PureFormula = iteratedBinOp[PureFormula](PureAnd, True())(seps)

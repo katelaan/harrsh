@@ -20,6 +20,10 @@ case class SymbolicHeap(val pure : Seq[PureAtom], spatial: Seq[SpatialAtom], qva
 
   def calledPreds: Seq[String] = spatial filter (_.isInductiveCall) map (_.getPredicateName.get)
 
+  def pointers : Seq[PointsTo] = spatial filter (_.isInstanceOf[PointsTo]) map (_.asInstanceOf[PointsTo])
+
+  def ptrEqs : Seq[PureAtom] = pure filter (a => a.isInstanceOf[PtrEq] || a.isInstanceOf[PtrNEq])
+
   def removeCalls : SymbolicHeap = copy(spatial = spatial.filter(!_.isInductiveCall))
 
 }
