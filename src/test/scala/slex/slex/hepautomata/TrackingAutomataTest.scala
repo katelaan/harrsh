@@ -32,11 +32,11 @@ class TrackingAutomataTest extends SlexTest with TableDrivenPropertyChecks {
 
   forAll(fveqs) {
     (eqs : Set[PureAtom], results : Seq[Boolean]) =>
-      val isRep = TrackingAutomata.computeKernelFromEqualities(eqs)
+      val closure = new Closure(eqs)
 
       for (i <- 1 to 5) {
-        println("Representation of " + eqs + " applied to " + i + " should yield " + results(i-1))
-        isRep(fv(i)) should be(results(i - 1))
+        println(fv(i) + (if (results(i-1)) " should be " else " should NOT be ") + "the minimal element in an equality class of " + eqs)
+        closure.isMinimumInItsClass(fv(i)) should be(results(i - 1))
       }
   }
 

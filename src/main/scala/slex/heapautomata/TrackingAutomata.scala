@@ -2,7 +2,7 @@ package slex.heapautomata
 
 import slex.Combinators
 import slex.main._
-import slex.seplog.{NullPtr, PointsTo, PureAtom, SpatialAtom, SymbolicHeap, PtrExpr}
+import slex.seplog.{NullPtr, PointsTo, PureAtom, SpatialAtom, SymbolicHeap}
 
 import scala.annotation.tailrec
 
@@ -29,8 +29,9 @@ object TrackingAutomata {
 
     override lazy val states: Set[State] = {
       for {
-        alloc <- powerSet(Set() ++ ((1 to numFV) map fv))
-        pure <- powerSet(allEQs)
+        // TODO: This also computes plenty (but not all) inconsistent states
+        alloc <- Combinators.powerSet(Set() ++ ((1 to numFV) map fv))
+        pure <- Combinators.powerSet(allEQs)
       } yield (alloc, pure)
     }
 
@@ -43,9 +44,9 @@ object TrackingAutomata {
 
       val pure = s._2
 
-      val isInKernel = computeKernelFromEqualities(s._2)
+      val closure = new Closure(s._2)
 
-      val nonredundantAlloc = s._1 filter (isInKernel(_))
+      val nonredundantAlloc = s._1 filter (closure.isMinimumInItsClass(_))
 
       val alloc : Set[SpatialAtom] = nonredundantAlloc map (p => PointsTo(p, NullPtr()))
 
@@ -67,13 +68,13 @@ object TrackingAutomata {
       if (src.length != lab.calledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.calledPreds.length + " does not match arity of source state sequence " + src.length)
 
       // FIXME: Renaming of parameters into args necessary!
-      val shrunk = compress(lab, src)
-      logger.debug("Shrunk " + lab + " into " + shrunk)
+      val compressed = compress(lab, src)
+      logger.debug("Compressed " + lab + " into " + compressed)
 
-      // Compute allocation set and equalities for shrunk and compare to target
+      // Compute allocation set and equalities for compressed SH and compare to target
       // FIXME: Should we have sanity checks that they are all distinct?
-      val allocExplicit: Seq[FV] = shrunk.pointers map (_.from)
-      val pureExplicit : Set[PureAtom] =  Set() ++ shrunk.ptrEqs map orderedAtom
+      val allocExplicit: Seq[FV] = compressed.pointers map (_.from)
+      val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrEqs map orderedAtom
 
       // Add inequalities for allocated variables
       val inequalitiesFromAlloc : Seq[PureAtom] = Combinators.square(allocExplicit) map {
@@ -97,75 +98,12 @@ object TrackingAutomata {
 
   }
 
-  // TODO This method is ridiculously inefficient, because we compute one copy of each eq class for each member of the class
-  def computeKernelFromEqualities(pure : Set[PureAtom]) : FV => Boolean = fv => {
-
-    var mapToClasses : Map[FV,Set[FV]] = Map()
-
-    def extendEntry(key : FV, newVal : FV) = {
-      val eqClass = if (mapToClasses.isDefinedAt(key)) {
-        // Class is already defined, just add the new value
-        mapToClasses(key) + newVal
-      } else {
-        // Key not in any known eq class yet
-        // Either have to extend class for val, if known already, or create new class
-        if (mapToClasses.isDefinedAt(newVal)) mapToClasses(newVal) + key else Set(key, newVal)
-      }
-
-      // Extend entry for all members of the eq class
-      for {
-        classMember <- eqClass
-      } {
-        mapToClasses = mapToClasses + (classMember -> eqClass)
-      }
-    }
-
-    // TODO Is this the right way now that we have switched to ordinary atoms?
-    for {
-      atom <- pure
-      (left, right, isEqual) = unwrapAtom(atom)
-      if isEqual
-    } {
-      extendEntry(left, right)
-
-      //      println("Inserting " + left + " -> " + right)
-      //      for {
-      //        (key, vals) <- mapToClasses
-      //      } println(key + " --> " + vals)
-    }
-
-    // If the EQ class is defined, check if i is the representation = the minimum of that class
-    // Otherwise, no equality for i has been set, so i is the unique and hence minimal element, so it is the representation
-    if (mapToClasses.isDefinedAt(fv)) {
-      mapToClasses(fv).min(Ordering.fromLessThan[PtrExpr]({
-        case p  => p._1 < p._2
-      })) == fv
-    } else true
-  }
-
-  def allFVEqualities(numFV : Int) : Set[PureAtom] = {
+  private def allFVEqualities(numFV : Int) : Set[PureAtom] = {
     for {
       i <- Set() ++ (0 to numFV-1)
       j <- Set() ++ (i+1 to numFV)
       eq <- Set(true, false)
     } yield orderedAtom(fv(i), fv(j), eq)
-  }
-
-  def powerSet[A](set : Set[A]) : Set[Set[A]] = {
-    val seq = set.toSeq
-
-    // TODO: Rewrite to tailrec
-    def powerSet(elems : Seq[A]) : Set[Set[A]] = {
-      if (elems.isEmpty)
-        Set(Set())
-      else {
-        val newelem = elems.head
-        val smaller = powerSet(elems.tail)
-        smaller flatMap (set => Set(set, set + newelem))
-      }
-    }
-
-    powerSet(seq)
   }
 
   @tailrec

@@ -19,9 +19,9 @@ object Combinators {
     }
   }
 
-  // TODO: Do this more efficiently?
   /**
     * Computes all ordered pairs (a,b) with seq.indexOf(a) < seq.indexOf(b)
+    * TODO: Do this more efficiently?
     * @param seq
     * @tparam A
     * @return
@@ -29,5 +29,25 @@ object Combinators {
   def square[A](seq : Seq[A]) : Seq[(A,A)] =
   if (seq.isEmpty || seq.tail.isEmpty) Nil
   else (seq.tail map (rhs => (seq.head, rhs))) ++ square(seq.tail)
+
+  /**
+    * Returns the powerset of the given set
+    */
+  def powerSet[A](set : Set[A]) : Set[Set[A]] = {
+    val seq = set.toSeq
+
+    // TODO: Rewrite to tailrec
+    def powerSet(elems : Seq[A]) : Set[Set[A]] = {
+      if (elems.isEmpty)
+        Set(Set())
+      else {
+        val newelem = elems.head
+        val smaller = powerSet(elems.tail)
+        smaller flatMap (set => Set(set, set + newelem))
+      }
+    }
+
+    powerSet(seq)
+  }
 
 }
