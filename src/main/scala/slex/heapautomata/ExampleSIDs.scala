@@ -31,7 +31,7 @@ object ExampleSIDs {
     ("dll", SymbolicHeap(Seq(), Seq(ptr(fv(1), "u", fv(2)), call("dll", "u", fv(1), fv(3), fv(4))), Seq("u")))
   )
 
-  lazy val Tll = SID("dll",
+  lazy val Tll = SID("tll",
     "Tree with linked leaves",
     // tll <= a → (nil nil c) : { a = b }
     ("tll", SymbolicHeap( Seq(ptreq(fv(1), fv(2))), Seq(ptr(fv(1),nil,nil,fv(3))) )),

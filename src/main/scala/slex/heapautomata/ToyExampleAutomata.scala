@@ -14,7 +14,7 @@ object ToyExampleAutomata {
     */
   lazy val HasPointerAutomaton = new HeapAutomaton with SlexLogging {
 
-    override val description: String = "At least one points-to assertion"
+    override val description: String = "Contains-a-pointer example automaton"
 
     override type State = Boolean
 

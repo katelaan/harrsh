@@ -44,4 +44,11 @@ trait HeapAutomaton {
     } yield (src, trg)
   }
 
+  /**
+    * Does this automaton implement direct target computation, i.e., can it compute target states from a given sequence of source states and a given symbolic heap?
+    */
+  def implementsTargetComputation: Boolean = false
+
+  def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = throw new NotImplementedError("No smart target computation for this heap automaton")
+
 }

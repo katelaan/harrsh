@@ -20,9 +20,9 @@ object RefinementAlgorithms extends SlexLogging {
     * @return True iff there is no RSH in the refinement of sid by ha
     */
   def onTheFlyEmptinessCheck(sid : SID, ha : HeapAutomaton) : Boolean = {
-    logger.debug("On the fly emptiness check for:")
-    logger.debug("HA '" + ha.description + "' with states: " + ha.states)
-    logger.debug("SID: " + sid)
+    //logger.debug("On the fly emptiness check for:")
+    //logger.debug("HA '" + ha.description)
+    //logger.debug("SID: " + sid)
 
     computeRefinementFixedPoint(sid, sid.startPred, ha)(Set())
   }
@@ -44,19 +44,34 @@ object RefinementAlgorithms extends SlexLogging {
       }
     }
 
+    def performSingleIteration: Set[(String, ha.State)] = {
+      if (ha.implementsTargetComputation) {
+        for {
+          (head, body) <- sid.rules
+          src <- allDefinedSources(r, body.calledPreds)
+          // FIXME: Only go on if we haven't computed this before
+          trg <- ha.getTargetsFor(src, body)
+        } yield (head, trg)
+      } else {
+        // No dedicated target computation, need to brute-force
+        for {
+          trg <- ha.states
+          (head, body) <- sid.rules
+          src <- allDefinedSources(r, body.calledPreds)
+          if (ha.isTransitionDefined(src, trg, body))
+        } yield (head, trg)
+      }
+    }
+
     // TODO: This would be more efficient if we used a more clever data structure for r
     val discoveredStartPredicate = r.find(p => p._1 == pred && ha.isFinal(p._2))
+
     if (discoveredStartPredicate.isDefined) {
       // There is a derivation that reaches a final state, refined language nonempty
       logger.debug("Reached " + discoveredStartPredicate.get + ", language non-empty")
       false
     } else {
-      val newPairs : Set[(String, ha.State)] = for {
-        trg <- ha.states
-        (head, body) <- sid.rules
-        src <- allDefinedSources(r, body.calledPreds)
-        if (ha.isTransitionDefined(src, trg, body))
-      } yield (head, trg)
+      val newPairs: Set[(String, ha.State)] = performSingleIteration
 
       logger.debug("Discovered predicates: " + newPairs.mkString((", ")))
 

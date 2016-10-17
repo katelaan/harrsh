@@ -20,7 +20,7 @@ object TrackingAutomata extends SlexLogging {
     */
   def apply(numFV : Int, alloc : Set[FV], pure : Set[PureAtom]) = new HeapAutomaton with SlexLogging {
 
-    override val description: String = "TRACK(" + numFV + ")"
+    override val description: String = "TRACK_" + numFV + "(" +alloc + ", " + pure + ")"
 
     private lazy val allFVs = 0 to numFV
     private lazy val allEQs = allEqualitiesOverFVs(numFV)
@@ -41,7 +41,16 @@ object TrackingAutomata extends SlexLogging {
     override def isDefinedOn(lab: SymbolicHeap): Boolean = true
 
     override def isTransitionDefined(src: Seq[State], trg: State, lab: SymbolicHeap): Boolean = {
-      logger.debug("Evaluating transition " + src.mkString(", ") + "--[" + lab + "]-->" + trg)
+      val targets = getTargetsFor(src, lab)
+      val res = targets.contains(trg)
+      logger.debug("Transition " + src.mkString(", ") + " --[" + lab + "]--> " + trg + " : " + res)
+      res
+    }
+
+    override def implementsTargetComputation: Boolean = true
+
+    override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
+      logger.debug("Computing possible targets " + src.mkString(", ") + " --[" + lab + "]--> ???")
       if (src.length != lab.calledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.calledPreds.length + " does not match arity of source state sequence " + src.length)
 
       val compressed = compress(lab, src)
@@ -67,12 +76,11 @@ object TrackingAutomata extends SlexLogging {
       logger.debug("State for compressed SH: " + stateWithClosure)
       // Break state down to only the free variables; the other information is not kept in the state space
       val computedTrg : State = EqualityUtils.dropNonFreeVariables(stateWithClosure._1, stateWithClosure._2)
-      logger.debug("State after forgetting bound variables: " + computedTrg)
+      if (stateWithClosure != computedTrg) // TODO: Note that this is quite an expensive comparison that should be removed for evaluation
+        logger.debug("State after forgetting bound variables: " + computedTrg)
 
-      // The transition is enabled iff the target state is equal to the state computed for the compressed SH
-      val res = computedTrg == trg
-      logger.debug("Transition " + src.mkString(", ") + "--[" + lab + "]-->" + trg + " : " + res)
-      res
+      // There is a unique target state because we always compute the congruence closure
+      Set(computedTrg)
     }
 
   }
