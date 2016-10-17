@@ -13,6 +13,13 @@ sealed trait SpatialAtom extends SepLogFormula {
 
   override def toSymbolicHeap = Some(SymbolicHeap(Seq(), Seq(this), Seq()))
 
+  override def renameVars(f : String => String) : SpatialAtom = this match {
+    case e : Emp => e
+    case PointsTo(from, to) => PointsTo(from.renameVars(f), to.renameVars(f))
+    case IxLSeg(from, to, lngth) => IxLSeg(from.renameVars(f), to.renameVars(f), lngth.renameVars(f))
+    case call : PredCall => call.copy(args = call.args map (_.renameVars(f)))
+  }
+
   def isInductiveCall: Boolean = this match {
     case _ : PredCall => true
     case _ => false
@@ -48,6 +55,6 @@ case class IxLSeg(from : PtrExpr, to : PtrExpr, lngth : IntExpr) extends Spatial
   * @param name Name of the predicate
   * @param args Nonempty sequence of arguments
   */
-case class PredCall(name : String, args : PtrExpr*) extends SpatialAtom {
+case class PredCall(name : String, args : Seq[PtrExpr]) extends SpatialAtom {
   override def toString = name + "(" + args.mkString(",") + ")"
 }

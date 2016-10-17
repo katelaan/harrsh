@@ -172,7 +172,6 @@ object TrackingAutomata {
   private def propagateConstraints(from : Set[PureAtom]): Set[PureAtom] = {
     // TODO This function is inefficient
 
-
     val newEqs : Seq[PureAtom] = (Combinators.square(from.toIndexedSeq) map {
       case (l,r) => transitiveConstraint(l ,r)
     } filter(_.isDefined) map(_.get))
@@ -189,7 +188,6 @@ object TrackingAutomata {
 
     if (isEqualA || isEqualB) {
       // If at least one is an equality, and one end of the eqs coincides, we can propagate
-
       val newPair: Option[(FV, FV)] =
         if (leftA == leftB) Some((rightA, rightB))
         else if (leftA == rightB) Some((rightA, leftB))

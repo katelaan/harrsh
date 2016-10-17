@@ -67,6 +67,19 @@ sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
     }
   }
 
+  override def renameVars(f: String => String): PureAtom = this match {
+    case t : True => t
+    case f : False => f
+    case IxEq(l, r) => IxEq(l.renameVars(f), r.renameVars(f))
+    case IxGT(l, r) => IxGT(l.renameVars(f), r.renameVars(f))
+    case IxLT(l, r) => IxLT(l.renameVars(f), r.renameVars(f))
+    case IxLEq(l, r) => IxLEq(l.renameVars(f), r.renameVars(f))
+    case IxGEq(l, r) => IxGEq(l.renameVars(f), r.renameVars(f))
+    case IxNEq(l, r) => IxNEq(l.renameVars(f), r.renameVars(f))
+    case PtrEq(l, r) => PtrEq(l.renameVars(f), r.renameVars(f))
+    case PtrNEq(l, r) => PtrNEq(l.renameVars(f), r.renameVars(f))
+  }
+
   def simplify : PureFormula = {
     logger.debug("Trying to eval " + this + " to a constant yielding " + constantEval)
     PureAtom.replaceByConstIfDefined(this, constantEval)

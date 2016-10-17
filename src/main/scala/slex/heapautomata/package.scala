@@ -1,6 +1,6 @@
 package slex
 
-import slex.seplog.{NullPtr, PtrExpr, PtrVar, PureAtom, PtrEq, PtrNEq}
+import seplog.{NullPtr, PtrExpr, PtrVar, PureAtom, PtrEq, PtrNEq}
 
 /**
   * Created by jkatelaa on 10/17/16.

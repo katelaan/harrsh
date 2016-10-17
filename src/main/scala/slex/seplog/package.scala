@@ -11,4 +11,6 @@ package object seplog {
 
   implicit def intToIntExpr(i : Int) : IntExpr = IntConst(i)
 
+  def call(name : String, args : PtrExpr*) : PredCall = PredCall(name, args)
+
 }
