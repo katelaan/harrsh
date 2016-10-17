@@ -7,15 +7,22 @@ import seplog.{NullPtr, PtrExpr, PtrVar, PureAtom, PtrEq, PtrNEq}
   */
 package object heapautomata {
 
+  val HeapAutomataSafeModeEnabled : Boolean = true
+
   type FV = PtrExpr
 
   val FVPrefix = "x"
 
   def fv(i : Int) : FV = if (i == 0) NullPtr() else PtrVar(FVPrefix + i)
 
+  def isFV(fv : FV) = fv match {
+    case NullPtr() => true
+    case PtrVar(id) => id.startsWith(FVPrefix) // TODO: Should have a more sophisticated for "FV-ness" check here?
+  }
+
   def unfv(fv : FV) : Int = fv match {
     case NullPtr() => 0
-    case PtrVar(v) => ???
+    case PtrVar(v) => Integer.parseInt(v.drop(FVPrefix.length))
   }
 
   def allEqualitiesOverFVs(numFV : Int) : Set[PureAtom] = {

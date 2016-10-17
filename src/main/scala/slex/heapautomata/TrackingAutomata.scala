@@ -10,7 +10,7 @@ import scala.annotation.tailrec
 /**
   * Created by jens on 10/16/16.
   */
-object TrackingAutomata {
+object TrackingAutomata extends SlexLogging {
 
   /**
     * Get tracking automaton for the given number of free variables, whose target states are defined by alloc and pure.
@@ -48,8 +48,12 @@ object TrackingAutomata {
       logger.debug("Compressed " + lab + " into " + compressed)
 
       // Compute allocation set and equalities for compressed SH and compare to target
-      // FIXME: Should we have sanity checks that they are all distinct?
       val allocExplicit: Seq[FV] = compressed.pointers map (_.from)
+      if (HeapAutomataSafeModeEnabled) {
+        if (allocExplicit.distinct != allocExplicit) throw new IllegalStateException(allocExplicit + " contains duplicates")
+      }
+
+      // FIXME: Can we already assume that constraints returned by compression are ordered and thus drop this step?
       val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrEqs map orderedAtom
 
       // Add inequalities for allocated variables
@@ -59,8 +63,11 @@ object TrackingAutomata {
       val pureWithAlloc : Set[PureAtom] = pureExplicit ++ inequalitiesFromAlloc
 
       // Compute fixed point of inequalities and fill up alloc info accordingly
-      val computedTrg : State = EqualityUtils.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
-      logger.debug("State for compressed SH: " + computedTrg)
+      val stateWithClosure : State = EqualityUtils.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
+      logger.debug("State for compressed SH: " + stateWithClosure)
+      // Break state down to only the free variables; the other information is not kept in the state space
+      val computedTrg : State = EqualityUtils.dropNonFreeVariables(stateWithClosure._1, stateWithClosure._2)
+      logger.debug("State after forgetting bound variables: " + computedTrg)
 
       // The transition is enabled iff the target state is equal to the state computed for the compressed SH
       val res = computedTrg == trg
@@ -68,33 +75,38 @@ object TrackingAutomata {
       res
     }
 
-
-    private def kernel(s : State) : SymbolicHeap = {
-
-      val pure = s._2
-
-      // FIXME: Here we now assume that the state already contains a closure. If this is not the case, the following does not work.
-      //val closure = new ClosureOfAtomSet(pure)
-      val closure = UnsafeAtomsAsClosure(pure)
-
-      val nonredundantAlloc = s._1 filter (closure.isMinimumInItsClass(_))
-
-      val alloc : Set[SpatialAtom] = nonredundantAlloc map (p => PointsTo(p, NullPtr()))
-
-      val res = SymbolicHeap(pure.toSeq, alloc.toSeq)
-
-      logger.debug("Converting " + s + " to " + res)
-
-      res
-    }
-
-    private def compress(sh : SymbolicHeap, qs : Seq[State]) : SymbolicHeap = {
-      val shFiltered = sh.removeCalls
-      val newHeaps = qs map kernel
-      val combined = SymbolicHeap.combineAllHeaps(shFiltered +: newHeaps)
-      combined
-    }
-
   }
+
+
+  def compress(sh : SymbolicHeap, qs : Seq[(Set[FV], Set[PureAtom])]) : SymbolicHeap = {
+    val shFiltered = sh.removeCalls
+    val newHeaps = qs map kernel
+    val stateHeapPairs = sh.getCalls zip newHeaps
+    val renamedHeaps : Seq[SymbolicHeap] = stateHeapPairs map {
+      case (call, sh) =>
+        // Rename the free variables of SH to the actual arguments of the predicate calls,
+        // i.e. replace the i-th FV with the call argument at index i-1
+        val rename : String => String = x => call.args(unfv(x) - 1).toString
+        sh.renameVars(rename)
+    }
+    val combined = SymbolicHeap.combineAllHeaps(shFiltered +: newHeaps)
+    combined
+  }
+
+  def kernel(s : (Set[FV], Set[PureAtom])) : SymbolicHeap = {
+    // FIXME: Here we now assume that the state already contains a closure. If this is not the case, the following does not work.
+    //val closure = new ClosureOfAtomSet(pure)
+    val closure = UnsafeAtomsAsClosure(s._2)
+
+    val nonredundantAlloc = s._1 filter (closure.isMinimumInItsClass(_))
+
+    val alloc : Set[SpatialAtom] = nonredundantAlloc map (p => PointsTo(p, NullPtr()))
+
+    val res = SymbolicHeap(s._2.toSeq, alloc.toSeq)
+    logger.debug("Converting " + s + " to " + res)
+    res
+  }
+
+
 
 }

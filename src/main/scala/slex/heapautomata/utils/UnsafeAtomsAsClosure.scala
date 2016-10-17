@@ -8,9 +8,7 @@ import slex.seplog.PureAtom
   */
 case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends Closure {
 
-  val CheckSafety = true
-
-  if (CheckSafety) {
+  if (HeapAutomataSafeModeEnabled) {
     val computedClosure = new ClosureOfAtomSet(closure).asSetOfAtoms
     if (closure != computedClosure)
       throw new IllegalStateException("Assumed " + closure + " is closure, but actual closure is" + computedClosure)

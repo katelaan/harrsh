@@ -11,6 +11,15 @@ import scala.annotation.tailrec
   */
 object EqualityUtils {
 
+  def dropNonFreeVariables(alloc : Set[FV], pure : Set[PureAtom]) : (Set[FV], Set[PureAtom]) = {
+    (alloc.filter(isFV(_)),
+      pure.filter({
+        case atom =>
+          val (l, r, _) = unwrapAtom(atom)
+          isFV(l) && isFV(r)
+      }))
+  }
+
   def propagateConstraints(alloc : Set[FV], pure : Set[PureAtom]) : (Set[FV], Set[PureAtom]) = {
 
     val allPure = propagateConstraints(pure)
