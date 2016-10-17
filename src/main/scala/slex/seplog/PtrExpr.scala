@@ -29,7 +29,7 @@ sealed trait PtrExpr extends Expr {
     case (PtrVar(l), PtrVar(r)) => l < r
   }
 
-  def renameVars(f : String => String) : PtrExpr = this match {
+  def renameVars(f : Renaming) : PtrExpr = this match {
     case n : NullPtr => n
     case PtrVar(id) => PtrVar(f(id))
   }

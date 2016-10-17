@@ -13,7 +13,7 @@ sealed trait SpatialAtom extends SepLogFormula {
 
   override def toSymbolicHeap = Some(SymbolicHeap(Seq(), Seq(this), Seq()))
 
-  override def renameVars(f : String => String) : SpatialAtom = this match {
+  override def renameVars(f : Renaming) : SpatialAtom = this match {
     case e : Emp => e
     case PointsTo(from, to) => PointsTo(from.renameVars(f), to.renameVars(f))
     case IxLSeg(from, to, lngth) => IxLSeg(from.renameVars(f), to.renameVars(f), lngth.renameVars(f))

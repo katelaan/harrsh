@@ -15,8 +15,7 @@ trait SepLogFormula {
 
   def toSymbolicHeap : Option[SymbolicHeap]
 
-  // TODO: This renames both free and bound variables. Might need something more sophisticated like proper alpha conversion in the future. (See Exists)
-  def renameVars(f : String => String) : SepLogFormula
+  def renameVars(f : Renaming) : SepLogFormula
 }
 
 case class Neg(phi : SepLogFormula) extends SepLogFormula {
@@ -31,7 +30,7 @@ case class Neg(phi : SepLogFormula) extends SepLogFormula {
 
   override def toSymbolicHeap: Option[SymbolicHeap] = None
 
-  override def renameVars(f : String => String) = Neg(phi.renameVars(f))
+  override def renameVars(f : Renaming) = Neg(phi.renameVars(f))
 }
 
 case class And(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormula {
@@ -46,7 +45,7 @@ case class And(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormula {
 
   override def toSymbolicHeap: Option[SymbolicHeap] = SymbolicHeap.combineHeaps(phi.toSymbolicHeap, psi.toSymbolicHeap)
 
-  override def renameVars(f : String => String) = And(phi.renameVars(f), psi.renameVars(f))
+  override def renameVars(f : Renaming) = And(phi.renameVars(f), psi.renameVars(f))
 }
 
 case class Or(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormula {
@@ -61,7 +60,7 @@ case class Or(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormula {
 
   override def toSymbolicHeap: Option[SymbolicHeap] = None
 
-  override def renameVars(f : String => String) = Or(phi.renameVars(f), psi.renameVars(f))
+  override def renameVars(f : Renaming) = Or(phi.renameVars(f), psi.renameVars(f))
 }
 
 case class Exists(varid : String, phi : SepLogFormula) extends SepLogFormula {
@@ -77,8 +76,10 @@ case class Exists(varid : String, phi : SepLogFormula) extends SepLogFormula {
     case SymbolicHeap(pure, spatial, qvars) => SymbolicHeap(pure, spatial, varid :: qvars.toList)
   }
 
-  // TODO Note that we transform bound variables as well. Might have to change that in the future
-  override def renameVars(f : String => String) = Exists(f(varid), phi.renameVars(f))
+  override def renameVars(f : Renaming) = {
+    val extended = f.withOptionalAlphaConversion(varid)
+    Exists(extended(varid), phi.renameVars(extended))
+  }
 }
 
 case class SepCon(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormula {
@@ -94,7 +95,7 @@ case class SepCon(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormul
 
   override def toSymbolicHeap: Option[SymbolicHeap] = SymbolicHeap.combineHeaps(phi.toSymbolicHeap, psi.toSymbolicHeap)
 
-  override def renameVars(f : String => String) = SepCon(phi.renameVars(f), psi.renameVars(f))
+  override def renameVars(f : Renaming) = SepCon(phi.renameVars(f), psi.renameVars(f))
 }
 
 object SepLogFormula {

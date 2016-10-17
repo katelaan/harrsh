@@ -17,7 +17,7 @@ trait PureFormula extends SepLogFormula with SlexLogging {
 
   def constantEval : Option[Boolean]
 
-  override def renameVars(f: String => String): PureFormula
+  override def renameVars(f: Renaming): PureFormula
 
   /**
     * Simplify the formula
@@ -58,7 +58,7 @@ case class PureNeg(phi : PureFormula) extends PureFormula {
     }
   }
 
-  override def renameVars(f: String => String): PureFormula = PureNeg(phi.renameVars(f))
+  override def renameVars(f: Renaming): PureFormula = PureNeg(phi.renameVars(f))
 }
 
 case class PureAnd(phi : PureFormula, psi : PureFormula) extends PureFormula {
@@ -104,7 +104,7 @@ case class PureAnd(phi : PureFormula, psi : PureFormula) extends PureFormula {
     }
   }
 
-  override def renameVars(f: String => String): PureFormula = PureAnd(phi.renameVars(f), psi.renameVars(f))
+  override def renameVars(f: Renaming): PureFormula = PureAnd(phi.renameVars(f), psi.renameVars(f))
 }
 
 //case class PureImplies(phi : PureFormula, psi : PureFormula) extends PureFormula {
@@ -161,7 +161,7 @@ case class PureOr(phi : PureFormula, psi : PureFormula) extends PureFormula {
     }
   }
 
-  override def renameVars(f: String => String): PureFormula = PureOr(phi.renameVars(f), psi.renameVars(f))
+  override def renameVars(f: Renaming): PureFormula = PureOr(phi.renameVars(f), psi.renameVars(f))
 }
 
 object PureFormula {

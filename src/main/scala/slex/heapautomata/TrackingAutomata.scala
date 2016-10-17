@@ -3,9 +3,7 @@ package slex.heapautomata
 import slex.Combinators
 import slex.heapautomata.utils.{EqualityUtils, UnsafeAtomsAsClosure}
 import slex.main._
-import slex.seplog.{NullPtr, PointsTo, PureAtom, SpatialAtom, SymbolicHeap}
-
-import scala.annotation.tailrec
+import slex.seplog.{MapBasedRenaming, NullPtr, PointsTo, PureAtom, SpatialAtom, SymbolicHeap}
 
 /**
   * Created by jens on 10/16/16.
@@ -86,8 +84,9 @@ object TrackingAutomata extends SlexLogging {
       case (call, sh) =>
         // Rename the free variables of SH to the actual arguments of the predicate calls,
         // i.e. replace the i-th FV with the call argument at index i-1
-        val rename : String => String = x => call.args(unfv(x) - 1).toString
-        sh.renameVars(rename)
+        val pairs : Seq[(String,String)] = ((1 to call.args.length) map (x => fv(x).toString)) zip (call.args map (_.toString))
+        val map : Map[String,String] = Map() ++ pairs
+        sh.renameVars(MapBasedRenaming(map))
     }
     val combined = SymbolicHeap.combineAllHeaps(shFiltered +: newHeaps)
     combined

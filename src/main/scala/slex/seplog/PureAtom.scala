@@ -67,7 +67,7 @@ sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
     }
   }
 
-  override def renameVars(f: String => String): PureAtom = this match {
+  override def renameVars(f: Renaming): PureAtom = this match {
     case t : True => t
     case f : False => f
     case IxEq(l, r) => IxEq(l.renameVars(f), r.renameVars(f))

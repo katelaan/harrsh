@@ -35,7 +35,7 @@ sealed trait IntExpr extends Expr {
     } yield cl - cr
   }
 
-  def renameVars(f : String => String): IntExpr = this match {
+  def renameVars(f : Renaming): IntExpr = this match {
     case c : IntConst => c
     case IntVar(id) => IntVar(f(id))
     case Plus(l, r) => Plus(l.renameVars(f), r.renameVars(f))

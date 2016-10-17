@@ -29,7 +29,16 @@ case class SymbolicHeap(val pure : Seq[PureAtom], spatial: Seq[SpatialAtom], qva
   def removeCalls : SymbolicHeap = copy(spatial = spatial.filter(!_.isInductiveCall))
 
   // TODO: Renames both free and bound vars. This might need to change in the future (e.g. alpha conversion)
-  def renameVars(f : String => String) = SymbolicHeap(pure map (_.renameVars(f)), spatial map (_.renameVars(f)), qvars map f)
+  def renameVars(f : Renaming) = {
+    // Rename bound variables if applicable
+    val (qvarsRenamed, extendedF) : (Seq[String], Renaming) = qvars.foldRight((Seq[String](), f))({
+      case (v, (seq, f)) =>
+        val extended = f.withOptionalAlphaConversion(v)
+        (extended(v) +: seq, extended)
+    })
+
+    SymbolicHeap(pure map (_.renameVars(extendedF)), spatial map (_.renameVars(extendedF)), qvarsRenamed)
+  }
 
 }
 
