@@ -7,8 +7,6 @@ import slex.seplog.{Emp, PredCall, PointsTo, PtrEq, SID, SymbolicHeap}
   */
 object ExampleSIDs {
 
-  def fv(ix : Int) : String = "x" + ix
-
   lazy val Sll = SID("sll",
     "Singly-linked list",
     ("sll", SymbolicHeap(Seq(PtrEq(fv(1), fv(2))), Seq(Emp()))),

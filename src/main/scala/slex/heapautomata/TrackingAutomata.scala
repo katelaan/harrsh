@@ -2,7 +2,7 @@ package slex.heapautomata
 
 import slex.Combinators
 import slex.main._
-import slex.seplog.{NullPtr, PointsTo, PtrEq, PtrExpr, PtrNEq, SpatialAtom, SymbolicHeap}
+import slex.seplog.{NullPtr, PointsTo, PureAtom, SpatialAtom, SymbolicHeap, PtrExpr}
 
 import scala.annotation.tailrec
 
@@ -11,26 +11,6 @@ import scala.annotation.tailrec
   */
 object TrackingAutomata {
 
-  type FV = Int
-
-  def fv(ix : Int) = ExampleSIDs.fv(ix)
-
-  def unFV(x : String) : Int = if (x == NullPtr().toString) 0 else Integer.valueOf(x.tail)
-
-  case class FVEquality(left : FV, right : FV, isEqual : Boolean) {
-
-    if (left >= right) throw new IllegalStateException("FVEquality invariant " + left + " < " + right + "violated")
-
-    override def toString = left + (if (isEqual) " \u2248 " else " \u2249 ") + right
-
-  }
-
-  def makeFVEquality(left : PtrExpr, right : PtrExpr, isEqual : Boolean): FVEquality = makeFVEquality(unFV(left.toString), unFV(right.toString), isEqual)
-
-  def makeFVEquality(left : FV, right : FV, isEqual : Boolean): FVEquality = {
-    if (left < right) new FVEquality(left, right, isEqual) else new FVEquality(right, left, isEqual)
-  }
-
   /**
     * Get tracking automaton for the given number of free variables, whose target states are defined by alloc and pure.
     * @param numFV
@@ -38,18 +18,18 @@ object TrackingAutomata {
     * @param pure
     * @return
     */
-  def apply(numFV : Int, alloc : Set[FV], pure : Set[FVEquality]) = new HeapAutomaton with SlexLogging {
+  def apply(numFV : Int, alloc : Set[FV], pure : Set[PureAtom]) = new HeapAutomaton with SlexLogging {
 
     override val description: String = "TRACK(" + numFV + ")"
 
     private lazy val allFVs = 0 to numFV
     private lazy val allEQs = allFVEqualities(numFV)
 
-    override type State = (Set[FV], Set[FVEquality])
+    override type State = (Set[FV], Set[PureAtom])
 
     override lazy val states: Set[State] = {
       for {
-        alloc <- powerSet(Set() ++ (1 to numFV))
+        alloc <- powerSet(Set() ++ ((1 to numFV) map fv))
         pure <- powerSet(allEQs)
       } yield (alloc, pure)
     }
@@ -59,18 +39,15 @@ object TrackingAutomata {
     // TODO Restriction regarding number of FVs
     override def isDefinedOn(lab: SymbolicHeap): Boolean = true
 
-    private def representationSH(s : State) : SymbolicHeap = {
+    private def kernel(s : State) : SymbolicHeap = {
 
-      val pure = s._2 map {
-        case FVEquality(left, right, isEqual) =>
-          if (isEqual) PtrEq(fv(left), fv(right)) else PtrNEq(fv(left), fv(right))
-      }
+      val pure = s._2
 
-      val isRepresentant = computeRepresentationsInClosure(s._2)
+      val isInKernel = computeKernelFromEqualities(s._2)
 
-      val nonredundantAlloc = s._1 filter (isRepresentant(_))
+      val nonredundantAlloc = s._1 filter (isInKernel(_))
 
-      val alloc : Set[SpatialAtom] = nonredundantAlloc map (i => PointsTo(fv(i), NullPtr()))
+      val alloc : Set[SpatialAtom] = nonredundantAlloc map (p => PointsTo(p, NullPtr()))
 
       val res = SymbolicHeap(pure.toSeq, alloc.toSeq)
 
@@ -79,9 +56,9 @@ object TrackingAutomata {
       res
     }
 
-    private def shrink(sh : SymbolicHeap, qs : Seq[State]) : SymbolicHeap = {
+    private def compress(sh : SymbolicHeap, qs : Seq[State]) : SymbolicHeap = {
       val shFiltered = sh.removeCalls
-      val newHeaps = qs map representationSH
+      val newHeaps = qs map kernel
       val combined = SymbolicHeap.combineAllHeaps(shFiltered +: newHeaps)
       combined
     }
@@ -90,23 +67,19 @@ object TrackingAutomata {
       if (src.length != lab.calledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.calledPreds.length + " does not match arity of source state sequence " + src.length)
 
       // FIXME: Renaming of parameters into args necessary!
-      val shrunk = shrink(lab, src)
+      val shrunk = compress(lab, src)
       logger.debug("Shrunk " + lab + " into " + shrunk)
 
       // Compute allocation set and equalities for shrunk and compare to target
       // FIXME: Should we have sanity checks that they are all distinct?
-      val allocExplicit: Seq[FV] = shrunk.pointers map (p => unFV(p.from.toString))
-      val pureExplicit : Set[FVEquality] =  Set() ++ shrunk.ptrEqs map {
-        case PtrEq(l, r) => makeFVEquality(l, r, true)
-        case PtrNEq(l, r) => makeFVEquality(l, r, false)
-        case _ => throw new IllegalStateException("Filtering on pointers failed")
-      }
+      val allocExplicit: Seq[FV] = shrunk.pointers map (_.from)
+      val pureExplicit : Set[PureAtom] =  Set() ++ shrunk.ptrEqs map orderedAtom
 
       // Add inequalities for allocated variables
-      val inequalitiesFromAlloc : Seq[FVEquality] = Combinators.square(allocExplicit) map {
-        case (l,r) => makeFVEquality(l, r, false)
+      val inequalitiesFromAlloc : Seq[PureAtom] = Combinators.square(allocExplicit) map {
+        case (l,r) => orderedAtom(l, r, false)
       }
-      val pureWithAlloc : Set[FVEquality] = pureExplicit ++ inequalitiesFromAlloc
+      val pureWithAlloc : Set[PureAtom] = pureExplicit ++ inequalitiesFromAlloc
 
       // Compute fixed point of inequalities
       val allPure = propagateConstraints(pureWithAlloc)
@@ -125,7 +98,7 @@ object TrackingAutomata {
   }
 
   // TODO This method is ridiculously inefficient, because we compute one copy of each eq class for each member of the class
-  def computeRepresentationsInClosure(pure : Set[FVEquality]) : FV => Boolean = i => {
+  def computeKernelFromEqualities(pure : Set[PureAtom]) : FV => Boolean = fv => {
 
     var mapToClasses : Map[FV,Set[FV]] = Map()
 
@@ -147,8 +120,10 @@ object TrackingAutomata {
       }
     }
 
+    // TODO Is this the right way now that we have switched to ordinary atoms?
     for {
-      FVEquality(left, right, isEqual) <- pure
+      atom <- pure
+      (left, right, isEqual) = unwrapAtom(atom)
       if isEqual
     } {
       extendEntry(left, right)
@@ -161,16 +136,19 @@ object TrackingAutomata {
 
     // If the EQ class is defined, check if i is the representation = the minimum of that class
     // Otherwise, no equality for i has been set, so i is the unique and hence minimal element, so it is the representation
-    if (mapToClasses.isDefinedAt(i)) mapToClasses(i).min == i else true
+    if (mapToClasses.isDefinedAt(fv)) {
+      mapToClasses(fv).min(Ordering.fromLessThan[PtrExpr]({
+        case p  => p._1 < p._2
+      })) == fv
+    } else true
   }
 
-  def allFVEqualities(numFV : Int) : Set[FVEquality] = {
+  def allFVEqualities(numFV : Int) : Set[PureAtom] = {
     for {
-      i <- Set() ++ (1 to numFV)
-      j <- Set() ++ (0 to numFV)
-      if i > j
+      i <- Set() ++ (0 to numFV-1)
+      j <- Set() ++ (i+1 to numFV)
       eq <- Set(true, false)
-    } yield makeFVEquality(i, j, eq)
+    } yield orderedAtom(fv(i), fv(j), eq)
   }
 
   def powerSet[A](set : Set[A]) : Set[Set[A]] = {
@@ -190,13 +168,12 @@ object TrackingAutomata {
     powerSet(seq)
   }
 
-
-
   @tailrec
-  private def propagateConstraints(from : Set[FVEquality]): Set[FVEquality] = {
-    // TODO This is inefficient as well
+  private def propagateConstraints(from : Set[PureAtom]): Set[PureAtom] = {
+    // TODO This function is inefficient
 
-    val newEqs : Seq[FVEquality] = (Combinators.square(from.toIndexedSeq) map {
+
+    val newEqs : Seq[PureAtom] = (Combinators.square(from.toIndexedSeq) map {
       case (l,r) => transitiveConstraint(l ,r)
     } filter(_.isDefined) map(_.get))
 
@@ -205,19 +182,22 @@ object TrackingAutomata {
 
   }
 
-  private def transitiveConstraint(fv1 : FVEquality, fv2 : FVEquality) : Option[FVEquality] = {
+  private def transitiveConstraint(fvA : PureAtom, fvB : PureAtom) : Option[PureAtom] = {
 
-    if (fv1.isEqual || fv2.isEqual) {
+    val (leftA, rightA, isEqualA) = unwrapAtom(fvA)
+    val (leftB, rightB, isEqualB) = unwrapAtom(fvB)
+
+    if (isEqualA || isEqualB) {
       // If at least one is an equality, and one end of the eqs coincides, we can propagate
 
       val newPair: Option[(FV, FV)] =
-        if (fv1.left == fv2.left) Some((fv1.right, fv2.right))
-        else if (fv1.left == fv2.right) Some((fv1.right, fv2.left))
-        else if (fv1.right == fv2.left) Some((fv1.left, fv2.right))
-        else if (fv1.right == fv2.right) Some((fv1.left, fv2.left))
+        if (leftA == leftB) Some((rightA, rightB))
+        else if (leftA == rightB) Some((rightA, leftB))
+        else if (rightA == leftB) Some((leftA, rightB))
+        else if (rightA == rightB) Some((leftA, leftB))
         else None
 
-      newPair map (p => makeFVEquality(p._1, p._2, fv1.isEqual && fv2.isEqual))
+      newPair map (p => orderedAtom(p._1, p._2, isEqualA && isEqualB))
     }
     else {
       // Can't infer anything if both are inequalities
@@ -226,10 +206,11 @@ object TrackingAutomata {
 
   }
 
-  private def propagateEqualitiesToAlloc(explicit: Set[FV], allPure: Set[FVEquality]): Set[FV] = {
+  private def propagateEqualitiesToAlloc(explicit: Set[FV], allPure: Set[PureAtom]): Set[FV] = {
     // TODO This is inefficient as well
     val propagated : Set[FV] = (for {
-      FVEquality(l, r, isEq) <- allPure
+      atom <- allPure
+      (l, r, isEq) = unwrapAtom(atom)
       if isEq
       if explicit.contains(l) || explicit.contains(r)
     } yield Set(l,r)).flatten
