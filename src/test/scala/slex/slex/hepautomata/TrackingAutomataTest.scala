@@ -1,10 +1,10 @@
 package slex.slex.hepautomata
 
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.prop.Tables.Table
 import slex.SlexTest
-import slex.heapautomata.{ExampleSIDs, RefinementAlgorithms, ToyExampleAutomata, TrackingAutomata}
+import slex.heapautomata.TrackingAutomata
 import slex.heapautomata._
+import slex.heapautomata.utils.{ClosureOfAtomSet}
 import slex.seplog.{NullPtr, PointsTo, PtrEq, PureAtom, SymbolicHeap, call}
 
 /**
@@ -32,7 +32,7 @@ class TrackingAutomataTest extends SlexTest with TableDrivenPropertyChecks {
 
   forAll(fveqs) {
     (eqs : Set[PureAtom], results : Seq[Boolean]) =>
-      val closure = new Closure(eqs)
+      val closure = new ClosureOfAtomSet(eqs)
 
       for (i <- 1 to 5) {
         println(fv(i) + (if (results(i-1)) " should be " else " should NOT be ") + "the minimal element in an equality class of " + eqs)

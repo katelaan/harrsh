@@ -1,11 +1,12 @@
-package slex.heapautomata
+package slex.heapautomata.utils
 
+import slex.heapautomata._
 import slex.seplog.{PtrExpr, PureAtom}
 
 /**
   * Created by jkatelaa on 10/17/16.
   */
-class Closure(pure : Set[PureAtom]) {
+class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
 
   // FIXME: This closure class is ridiculously inefficient, having one copy of each equivalence class per member
   var mapToClasses : Map[FV,Set[FV]] = Map()
@@ -23,9 +24,9 @@ class Closure(pure : Set[PureAtom]) {
     //      } println(key + " --> " + vals)
   }
 
-  def getEqualityClass(fv : FV) : Set[FV] = mapToClasses.getOrElse(fv, Set(fv))
+  override def getEqualityClass(fv : FV) : Set[FV] = mapToClasses.getOrElse(fv, Set(fv))
 
-  def isMinimumInItsClass(fv : FV) : Boolean = {
+  override def isMinimumInItsClass(fv : FV) : Boolean = {
     // If the EQ class is defined, check if i is the representation = the minimum of that class
     // Otherwise, no equality for i has been set, so i is the unique and hence minimal element, so it is the representation
     if (mapToClasses.isDefinedAt(fv)) {
@@ -54,5 +55,7 @@ class Closure(pure : Set[PureAtom]) {
       mapToClasses = mapToClasses + (classMember -> eqClass)
     }
   }
+
+  override lazy val asSetOfAtoms: Set[PureAtom] = EqualityUtils.propagateConstraints(pure)
 
 }

@@ -18,6 +18,14 @@ package object heapautomata {
     case PtrVar(v) => ???
   }
 
+  def allEqualitiesOverFVs(numFV : Int) : Set[PureAtom] = {
+    for {
+      i <- Set() ++ (0 to numFV-1)
+      j <- Set() ++ (i+1 to numFV)
+      eq <- Set(true, false)
+    } yield orderedAtom(fv(i), fv(j), eq)
+  }
+
   def unwrapAtom(atom : PureAtom) : (FV, FV, Boolean) = atom match {
     case PtrEq(l, r) => (l, r, true)
     case PtrNEq(l, r) => (l, r, false)
