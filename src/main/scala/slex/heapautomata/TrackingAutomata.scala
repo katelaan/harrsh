@@ -3,10 +3,11 @@ package slex.heapautomata
 import slex.Combinators
 import slex.heapautomata.utils.{EqualityUtils, UnsafeAtomsAsClosure}
 import slex.main._
-import slex.seplog.{MapBasedRenaming, NullPtr, PointsTo, PureAtom, SpatialAtom, SymbolicHeap}
+import slex.seplog._
 
 /**
   * Created by jens on 10/16/16.
+  * TODO: Should we deal with inconsistent states in a dedicated way, like we do in the paper (i.e., work with a single/unique inconsistent state)?
   */
 object TrackingAutomata extends SlexLogging {
 
@@ -40,6 +41,7 @@ object TrackingAutomata extends SlexLogging {
     override def isDefinedOn(lab: SymbolicHeap): Boolean = true
 
     override def isTransitionDefined(src: Seq[State], trg: State, lab: SymbolicHeap): Boolean = {
+      logger.debug("Evaluating transition " + src.mkString(", ") + "--[" + lab + "]-->" + trg)
       if (src.length != lab.calledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.calledPreds.length + " does not match arity of source state sequence " + src.length)
 
       val compressed = compress(lab, src)
@@ -88,7 +90,7 @@ object TrackingAutomata extends SlexLogging {
         val map : Map[String,String] = Map() ++ pairs
         sh.renameVars(MapBasedRenaming(map))
     }
-    val combined = SymbolicHeap.combineAllHeaps(shFiltered +: newHeaps)
+    val combined = SymbolicHeap.combineAllHeaps(shFiltered +: renamedHeaps)
     combined
   }
 
@@ -99,7 +101,7 @@ object TrackingAutomata extends SlexLogging {
 
     val nonredundantAlloc = s._1 filter (closure.isMinimumInItsClass(_))
 
-    val alloc : Set[SpatialAtom] = nonredundantAlloc map (p => PointsTo(p, NullPtr()))
+    val alloc : Set[SpatialAtom] = nonredundantAlloc map (p => ptr(p, nil))
 
     val res = SymbolicHeap(s._2.toSeq, alloc.toSeq)
     logger.debug("Converting " + s + " to " + res)

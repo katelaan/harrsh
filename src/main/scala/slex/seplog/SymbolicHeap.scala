@@ -33,7 +33,7 @@ case class SymbolicHeap(val pure : Seq[PureAtom], spatial: Seq[SpatialAtom], qva
     // Rename bound variables if applicable
     val (qvarsRenamed, extendedF) : (Seq[String], Renaming) = qvars.foldRight((Seq[String](), f))({
       case (v, (seq, f)) =>
-        val extended = f.withOptionalAlphaConversion(v)
+        val extended = f.addBoundVarWithOptionalAlphaConversion(v)
         (extended(v) +: seq, extended)
     })
 

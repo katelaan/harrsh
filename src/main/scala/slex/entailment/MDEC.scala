@@ -208,11 +208,11 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
     * @return result of subtraction + side condition guaranteeing that subtraction is allowed
     */
   private def subtract(delta : AllocTemplate, large : SpatialAtom, small : SpatialAtom) : (SpatialAtom, PureFormula) = (large, small) match {
-    case (PointsTo(_, z), PointsTo(_, y)) =>
+    case (PointsTo(_, Seq(z)), PointsTo(_, Seq(y))) =>
       (Emp(), PtrEq(z, y))
-    case (IxLSeg(_, z, n), PointsTo(_, y)) =>
+    case (IxLSeg(_, z, n), PointsTo(_, Seq(y))) =>
       (IxLSeg(y, z, Minus(n, 1)), True())
-    case (PointsTo(_, z), IxLSeg(_, y, n)) =>
+    case (PointsTo(_, Seq(z)), IxLSeg(_, y, n)) =>
       (Emp(), PureAnd(PtrEq(y, z), IxEq(n, 1)))
     case (IxLSeg(_, z, n), IxLSeg(_, y, m)) =>
       // We may only perform the subtraction if this does not lose information about the possible cyclicity of a model of the smaller list combined with a model of the remainder. If such a cycle is possible, the larger list is not entailed by the spatial conjunction of the two smaller lists.

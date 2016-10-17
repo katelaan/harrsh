@@ -16,7 +16,7 @@ object SepLogAxioms {
       //∨ (x != z ∧ n > 0 ∧ ∃y. next(x, y) ∗ lseg(y, z, n − 1))
       And(PtrNEq("x", "z"),
         And(IxGT("n", 0),
-          Exists("y", SepCon(PointsTo("x", "y"),
+          Exists("y", SepCon(ptr("x", "y"),
                       IxLSeg("y", "z", Minus("n", 1)) )))
       )
     )

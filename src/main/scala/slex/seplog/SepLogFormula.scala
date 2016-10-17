@@ -77,7 +77,7 @@ case class Exists(varid : String, phi : SepLogFormula) extends SepLogFormula {
   }
 
   override def renameVars(f : Renaming) = {
-    val extended = f.withOptionalAlphaConversion(varid)
+    val extended = f.addBoundVarWithOptionalAlphaConversion(varid)
     Exists(extended(varid), phi.renameVars(extended))
   }
 }

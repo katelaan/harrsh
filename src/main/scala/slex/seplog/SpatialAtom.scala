@@ -15,7 +15,7 @@ sealed trait SpatialAtom extends SepLogFormula {
 
   override def renameVars(f : Renaming) : SpatialAtom = this match {
     case e : Emp => e
-    case PointsTo(from, to) => PointsTo(from.renameVars(f), to.renameVars(f))
+    case PointsTo(from, to) => PointsTo(from.renameVars(f), to map (_.renameVars(f)))
     case IxLSeg(from, to, lngth) => IxLSeg(from.renameVars(f), to.renameVars(f), lngth.renameVars(f))
     case call : PredCall => call.copy(args = call.args map (_.renameVars(f)))
   }
@@ -36,8 +36,8 @@ case class Emp() extends SpatialAtom {
   override def toString = "emp"
 }
 
-case class PointsTo(from : PtrExpr, to : PtrExpr) extends SpatialAtom {
-  override def toString = from + " \u21a6 " + to
+case class PointsTo(from : PtrExpr, to : Seq[PtrExpr]) extends SpatialAtom {
+  override def toString = from + " \u21a6 " + (if (to.tail.isEmpty) to.head.toString else to.mkString("(", ", ", ")"))
 }
 
 /**

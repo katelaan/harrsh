@@ -20,8 +20,10 @@ trait Renaming {
       freshName(candidate)
     }
 
-  final def withOptionalAlphaConversion(varid: String) : Renaming = {
-    if (codomain.contains(varid)) extendWith(varid, freshName(varid)) else this
+  final def addBoundVarWithOptionalAlphaConversion(varid: String) : Renaming = {
+    // Note: We always add an entry for the varid, even if no renaming is necessary
+    // This ensures that there are no repeated qvars in the combination of multiple sub-heaps with the same quantified vars
+    extendWith(varid, freshName(varid))
   }
 
 }
