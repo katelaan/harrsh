@@ -12,9 +12,14 @@ sealed trait PtrExpr extends Expr {
     case PtrVar(id) => id
   }
 
-  def getIdent : Option[String] = this match {
+  def getIdentOptionMDEC : Option[String] = this match {
     case NullPtr() => Some("null") // FIXME [NULL-TREATMENT] Currently we handle null by declaring it as an ordinary constant. Might want to fix this at some point
     case PtrVar(id) => Some(id)
+  }
+
+  def getVar : Set[String] = this match {
+    case NullPtr() => Set() // FIXME [NULL-TREATMENT] Currently we handle null by declaring it as an ordinary constant. Might want to fix this at some point
+    case PtrVar(id) => Set(id)
   }
 
   def toSmtExpr : SmtExpr = this match {

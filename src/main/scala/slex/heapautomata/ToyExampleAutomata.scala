@@ -23,7 +23,7 @@ object ToyExampleAutomata {
     override def isFinal(s: State): Boolean = s
 
     // No restrictions regarding the SH
-    override def isDefinedOn(lab: SymbolicHeap): Boolean = true
+    override def doesAlphabetContain(lab: SymbolicHeap): Boolean = true
 
     override def isTransitionDefined(src: Seq[State], trg: State, lab: SymbolicHeap): Boolean = {
       val res = trg match {

@@ -40,6 +40,8 @@ case class SymbolicHeap(val pure : Seq[PureAtom], spatial: Seq[SpatialAtom], qva
     SymbolicHeap(pure map (_.renameVars(extendedF)), spatial map (_.renameVars(extendedF)), qvarsRenamed)
   }
 
+  def getVars : Set[String] = qvars.toSet ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars)
+
 }
 
 object SymbolicHeap {

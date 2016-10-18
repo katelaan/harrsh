@@ -12,51 +12,58 @@ class BaseTrackingAutomaton(
                              numFV : Int,
                              isFinalPredicate : (BaseTrackingAutomaton, Set[FV], Set[PureAtom]) => Boolean,
                              override val description : String = "TRACK-BASE"
-                           ) extends HeapAutomaton with SlexLogging {
+                           ) extends BoundedFvAutomatonWithTargetComputation(numFV) {
 
   import BaseTrackingAutomaton._
 
-  override type State = (Set[FV], Set[PureAtom])
+  override type State = TrackingInfo
 
-  private lazy val allFVs = (0 to numFV) map fv
-  private lazy val allEQs = allEqualitiesOverFVs(numFV)
+  lazy val InconsistentState : State = inconsistentTrackingInfo(numFV)
 
-  lazy val InconsistentState : State = (Set(), Set() ++ allFVs map (fv => PtrNEq(fv,fv)))
-
-  override lazy val states: Set[State] = {
-    for {
-    // TODO: This also computes plenty (but not all) inconsistent states
-      alloc <- Combinators.powerSet(Set() ++ ((1 to numFV) map fv))
-      pure <- Combinators.powerSet(allEQs)
-    } yield (alloc, pure)
-  }
+  override lazy val states: Set[State] = computeTrackingStateSpace(numFV)
 
   override def isFinal(s: State): Boolean = isFinalPredicate(this, s._1, s._2)
-
-  // TODO Restriction regarding number of FVs
-  override def isDefinedOn(lab: SymbolicHeap): Boolean = true
-
-  override def isTransitionDefined(src: Seq[State], trg: State, lab: SymbolicHeap): Boolean = {
-    val targets = getTargetsFor(src, lab)
-    val res = targets.contains(trg)
-    logger.debug("Transition " + src.mkString(", ") + " --[" + lab + "]--> " + trg + " : " + res)
-    res
-  }
-
-  override def implementsTargetComputation: Boolean = true
 
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     logger.debug("Computing possible targets " + src.mkString(", ") + " --[" + lab + "]--> ???")
     if (src.length != lab.calledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.calledPreds.length + " does not match arity of source state sequence " + src.length)
 
+    // Perform compression + subsequent equality/allocation propagation
+    val consistencyCheckedState = compressAndPropagate(src, lab, InconsistentState)
+    // Break state down to only the free variables; the other information is not kept in the state space
+    val trg = dropNonFreeVariables(consistencyCheckedState)
+
+    if (logger.underlying.isDebugEnabled && consistencyCheckedState != trg)
+      logger.debug("After dropping bound variables: " + trg)
+
+    // There is a unique target state because we always compute the congruence closure
+    Set(trg)
+  }
+
+
+}
+
+object BaseTrackingAutomaton extends SlexLogging {
+
+  type TrackingInfo = (Set[FV], Set[PureAtom])
+
+  def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = (Set(), Set() ++ allFVs(numFV) map (fv => PtrNEq(fv,fv)))
+
+  def allFVs(numFV : Int) = (0 to numFV) map fv
+
+  def computeTrackingStateSpace(numFV : Int) =
+    for {
+    // TODO: This also computes plenty (but not all) inconsistent states
+      alloc <- Combinators.powerSet(Set() ++ ((1 to numFV) map fv))
+      pure <- Combinators.powerSet(allEqualitiesOverFVs(numFV))
+    } yield (alloc, pure)
+
+  def compressAndPropagate(src : Seq[TrackingInfo], lab : SymbolicHeap, inconsistentState : TrackingInfo) : TrackingInfo = {
     val compressed = compress(lab, src)
     logger.debug("Compressed " + lab + " into " + compressed)
 
     // Compute allocation set and equalities for compressed SH and compare to target
     val allocExplicit: Seq[FV] = compressed.pointers map (_.from)
-    //      if (HeapAutomataSafeModeEnabled) {
-    //        if (allocExplicit.distinct != allocExplicit) throw new IllegalStateException(allocExplicit + " contains duplicates")
-    //      }
 
     // FIXME: Can we already assume that constraints returned by compression are ordered and thus drop this step?
     val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrEqs map orderedAtom
@@ -68,26 +75,23 @@ class BaseTrackingAutomaton(
     val pureWithAlloc : Set[PureAtom] = pureExplicit ++ inequalitiesFromAlloc
 
     // Compute fixed point of inequalities and fill up alloc info accordingly
-    val stateWithClosure : State = EqualityUtils.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
+    val stateWithClosure : TrackingInfo = EqualityUtils.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
     logger.debug("State for compressed SH: " + stateWithClosure)
-    // If the state is inconsistent, return the unique inconsistent state
-    val consistencyCheckedState = checkConsistency(stateWithClosure, InconsistentState)
 
-    // Break state down to only the free variables; the other information is not kept in the state space
-    val computedTrg : State = EqualityUtils.dropNonFreeVariables(consistencyCheckedState._1, consistencyCheckedState._2)
-    if (stateWithClosure != computedTrg) // TODO: Note that this is quite an expensive comparison that should be removed for evaluation
-      logger.debug("After consistency check + dropping bound variables: " + computedTrg)
-
-    // There is a unique target state because we always compute the congruence closure
-    Set(computedTrg)
+    // If the state is inconsistent, return the unique inconsistent state; otherwise return state as is
+    checkConsistency(stateWithClosure, inconsistentState)
   }
 
+  def dropNonFreeVariables(s : TrackingInfo) : TrackingInfo = {
+    (s._1.filter(isFV(_)),
+      s._2.filter({
+        case atom =>
+          val (l, r, _) = unwrapAtom(atom)
+          isFV(l) && isFV(r)
+      }))
+  }
 
-}
-
-object BaseTrackingAutomaton extends SlexLogging {
-
-  def compress(sh : SymbolicHeap, qs : Seq[(Set[FV], Set[PureAtom])]) : SymbolicHeap = {
+  def compress(sh : SymbolicHeap, qs : Seq[TrackingInfo]) : SymbolicHeap = {
     val shFiltered = sh.removeCalls
     val newHeaps = qs map kernel
     val stateHeapPairs = sh.getCalls zip newHeaps
@@ -103,7 +107,7 @@ object BaseTrackingAutomaton extends SlexLogging {
     combined
   }
 
-  def kernel(s : (Set[FV], Set[PureAtom])) : SymbolicHeap = {
+  def kernel(s : TrackingInfo) : SymbolicHeap = {
     // FIXME: Here we now assume that the state already contains a closure. If this is not the case, the following does not work.
     //val closure = new ClosureOfAtomSet(pure)
     val closure = UnsafeAtomsAsClosure(s._2)
@@ -117,12 +121,12 @@ object BaseTrackingAutomaton extends SlexLogging {
     res
   }
 
-  def checkConsistency(s : (Set[FV], Set[PureAtom]), inconsistentState : (Set[FV], Set[PureAtom])) : (Set[FV], Set[PureAtom]) = {
-    if (s._2.find({
+  def checkConsistency(s : TrackingInfo, inconsistentState : TrackingInfo) : TrackingInfo = {
+    if (s._2.exists{
       // Find inequality with two identical arguments
       case PtrNEq(l, r) if l == r => true
       case _ => false
-    }).isDefined) {
+    }) {
       // Inconsistent, return unique inconsistent state
       inconsistentState
     } else {

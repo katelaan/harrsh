@@ -30,6 +30,13 @@ sealed trait SpatialAtom extends SepLogFormula {
     case _ => None
   }
 
+  def getVars : Set[String] = this match {
+    case Emp() => Set()
+    case PointsTo(from, to) => (from +: to).toSet[PtrExpr] flatMap (_.getVar)
+    case IxLSeg(from, to, lngth) => Set(from.getVar, to.getVar, lngth.getVars).flatten
+    case PredCall(name, args) => (args flatMap (_.getVar)).toSet
+  }
+
 }
 
 case class Emp() extends SpatialAtom {
@@ -42,9 +49,9 @@ case class PointsTo(from : PtrExpr, to : Seq[PtrExpr]) extends SpatialAtom {
 
 /**
   * Length-indexed acyclic list segment
-  * @param from
-  * @param to
-  * @param lngth
+  * @param from Source pointer
+  * @param to Target pointer
+  * @param lngth Length of the list segment
   */
 case class IxLSeg(from : PtrExpr, to : PtrExpr, lngth : IntExpr) extends SpatialAtom {
   override def toString = "lseg(" + from + ", " + to + ", " +  lngth + ")"

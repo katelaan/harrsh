@@ -20,10 +20,12 @@ package object heapautomata {
     case PtrVar(id) => id.startsWith(FVPrefix) // TODO: Should have a more sophisticated for "FV-ness" check here?
   }
 
-  def unfv(fv : FV) : Int = fv match {
+  def unFV(fv : FV) : Int = fv match {
     case NullPtr() => 0
     case PtrVar(v) => Integer.parseInt(v.drop(FVPrefix.length))
   }
+
+  def getMaxFvIndex(vars : Set[String]) : Int = vars filter (isFV(_)) map (unFV(_)) max
 
   def allEqualitiesOverFVs(numFV : Int) : Set[PureAtom] = {
     for {

@@ -97,7 +97,7 @@ object ExampleSIDs {
   )
 
   lazy val UnsatSID = SID("unsat",
-    "Singly-linked list",
+    "Unsat singly-linked list",
     ("unsat", SymbolicHeap(Seq(ptrneq(fv(1),fv(2))), Seq(ptr(fv(1), nil), call("sll", fv(1), fv(2))))),
     // sll <= emp : { a = b }
     ("sll", SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(emp))),

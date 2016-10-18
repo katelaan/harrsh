@@ -174,14 +174,14 @@ object PureFormula {
     case a : PureAtom => a match {
       case True() => Set()
       case False() => Set()
-      case IxEq(l, r) => l.collectIdents ++ r.collectIdents
-      case IxGT(l, r) => l.collectIdents ++ r.collectIdents
-      case IxLT(l, r) => l.collectIdents ++ r.collectIdents
-      case IxLEq(l, r) => l.collectIdents ++ r.collectIdents
-      case IxGEq(l, r) => l.collectIdents ++ r.collectIdents
-      case IxNEq(l, r) => l.collectIdents ++ r.collectIdents
-      case PtrEq(l, r) => Set() ++ l.getIdent ++ r.getIdent
-      case PtrNEq(l, r) => Set() ++ l.getIdent ++ r.getIdent
+      case IxEq(l, r) => l.getVars ++ r.getVars
+      case IxGT(l, r) => l.getVars ++ r.getVars
+      case IxLT(l, r) => l.getVars ++ r.getVars
+      case IxLEq(l, r) => l.getVars ++ r.getVars
+      case IxGEq(l, r) => l.getVars ++ r.getVars
+      case IxNEq(l, r) => l.getVars ++ r.getVars
+      case PtrEq(l, r) => Set() ++ l.getIdentOptionMDEC ++ r.getIdentOptionMDEC
+      case PtrNEq(l, r) => Set() ++ l.getIdentOptionMDEC ++ r.getIdentOptionMDEC
     }
   }
 

@@ -8,11 +8,11 @@ import slex.smtsyntax.SmtExpr._
   */
 sealed trait IntExpr extends Expr {
 
-  def collectIdents : Set[String] = this match {
+  def getVars : Set[String] = this match {
     case IntConst(n) => Set()
     case IntVar(id) => Set(id)
-    case Plus(l, r) => l.collectIdents union r.collectIdents
-    case Minus(l, r) => l.collectIdents union r.collectIdents
+    case Plus(l, r) => l.getVars union r.getVars
+    case Minus(l, r) => l.getVars union r.getVars
   }
 
   def toSmtExpr : SmtExpr = this match {

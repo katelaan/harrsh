@@ -80,6 +80,19 @@ sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
     case PtrNEq(l, r) => PtrNEq(l.renameVars(f), r.renameVars(f))
   }
 
+  def getVars : Set[String] = this match {
+    case True() => Set()
+    case False() => Set()
+    case IxEq(l, r) => l.getVars union r.getVars
+    case IxGT(l, r) => l.getVars union r.getVars
+    case IxLT(l, r) => l.getVars union r.getVars
+    case IxLEq(l, r) => l.getVars union r.getVars
+    case IxGEq(l, r) => l.getVars union r.getVars
+    case IxNEq(l, r) => l.getVars union r.getVars
+    case PtrEq(l, r) => l.getVar union r.getVar // TODO Building so many sets is quite inefficient
+    case PtrNEq(l, r) => l.getVar union r.getVar
+  }
+
   def simplify : PureFormula = {
     logger.debug("Trying to eval " + this + " to a constant yielding " + constantEval)
     PureAtom.replaceByConstIfDefined(this, constantEval)

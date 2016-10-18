@@ -19,7 +19,7 @@ trait HeapAutomaton {
   /**
     * Is the given SH in the alphabet of this HA?
     */
-  def isDefinedOn(lab : SymbolicHeap) : Boolean
+  def doesAlphabetContain(lab : SymbolicHeap) : Boolean
 
   /**
     * Evaluates the transition function on the given src, trg, and SH; only meant for evaluating single transitions;
