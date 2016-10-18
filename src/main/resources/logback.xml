@@ -19,5 +19,5 @@
     <logger name="slex.heapautomata" level="INFO" />
     <logger name="slex.heapautomata.RefinementAlgorithms" level="DEBUG" />
     <logger name="slex.heapautomata.ToyExampleAutomata" level="INFO" />
-    <logger name="slex.heapautomata.TrackingAutomata" level="INFO" />
+    <logger name="slex.heapautomata.TrackingAutomata" level="DEBUG" />
 </configuration>

@@ -7,7 +7,6 @@ import slex.seplog._
 
 /**
   * Created by jens on 10/16/16.
-  * TODO: Should we deal with inconsistent states in a dedicated way, like we do in the paper (i.e., work with a single/unique inconsistent state)?
   */
 object TrackingAutomata extends SlexLogging {
 
@@ -22,10 +21,12 @@ object TrackingAutomata extends SlexLogging {
 
     override val description: String = "TRACK_" + numFV + "(" +alloc + ", " + pure + ")"
 
-    private lazy val allFVs = 0 to numFV
+    override type State = (Set[FV], Set[PureAtom])
+
+    private lazy val allFVs = (0 to numFV) map fv
     private lazy val allEQs = allEqualitiesOverFVs(numFV)
 
-    override type State = (Set[FV], Set[PureAtom])
+    lazy val InconsistentState : State = (Set(), Set() ++ allFVs map (fv => PtrNEq(fv,fv)))
 
     override lazy val states: Set[State] = {
       for {
@@ -58,9 +59,9 @@ object TrackingAutomata extends SlexLogging {
 
       // Compute allocation set and equalities for compressed SH and compare to target
       val allocExplicit: Seq[FV] = compressed.pointers map (_.from)
-      if (HeapAutomataSafeModeEnabled) {
-        if (allocExplicit.distinct != allocExplicit) throw new IllegalStateException(allocExplicit + " contains duplicates")
-      }
+//      if (HeapAutomataSafeModeEnabled) {
+//        if (allocExplicit.distinct != allocExplicit) throw new IllegalStateException(allocExplicit + " contains duplicates")
+//      }
 
       // FIXME: Can we already assume that constraints returned by compression are ordered and thus drop this step?
       val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrEqs map orderedAtom
@@ -74,17 +75,19 @@ object TrackingAutomata extends SlexLogging {
       // Compute fixed point of inequalities and fill up alloc info accordingly
       val stateWithClosure : State = EqualityUtils.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
       logger.debug("State for compressed SH: " + stateWithClosure)
+      // If the state is inconsistent, return the unique inconsistent state
+      val consistencyCheckedState = checkConsistency(stateWithClosure, InconsistentState)
+
       // Break state down to only the free variables; the other information is not kept in the state space
-      val computedTrg : State = EqualityUtils.dropNonFreeVariables(stateWithClosure._1, stateWithClosure._2)
+      val computedTrg : State = EqualityUtils.dropNonFreeVariables(consistencyCheckedState._1, consistencyCheckedState._2)
       if (stateWithClosure != computedTrg) // TODO: Note that this is quite an expensive comparison that should be removed for evaluation
-        logger.debug("State after forgetting bound variables: " + computedTrg)
+        logger.debug("After consistency check + dropping bound variables: " + computedTrg)
 
       // There is a unique target state because we always compute the congruence closure
       Set(computedTrg)
     }
 
   }
-
 
   def compress(sh : SymbolicHeap, qs : Seq[(Set[FV], Set[PureAtom])]) : SymbolicHeap = {
     val shFiltered = sh.removeCalls
@@ -116,6 +119,18 @@ object TrackingAutomata extends SlexLogging {
     res
   }
 
-
+  def checkConsistency(s : (Set[FV], Set[PureAtom]), inconsistentState : (Set[FV], Set[PureAtom])) : (Set[FV], Set[PureAtom]) = {
+    if (s._2.find({
+      // Find inequality with two identical arguments
+      case PtrNEq(l, r) if l == r => true
+      case _ => false
+    }).isDefined) {
+      // Inconsistent, return unique inconsistent state
+      inconsistentState
+    } else {
+      // Consistent, return as is
+      s
+    }
+  }
 
 }
