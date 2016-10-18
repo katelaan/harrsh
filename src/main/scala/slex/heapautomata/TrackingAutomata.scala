@@ -15,7 +15,7 @@ object TrackingAutomata extends SlexLogging {
     */
   def singleTargetStateTracking(numFV : Int, alloc : Set[FV], pure : Set[PureAtom]) = new BaseTrackingAutomaton(
     numFV,
-    (_ : BaseTrackingAutomaton, sAlloc : Set[FV], sPure : Set[PureAtom]) => (sAlloc == alloc && sPure == pure),
+    (_ : BaseTrackingAutomaton, sAlloc : Set[FV], sPure : Set[PureAtom]) => sAlloc == alloc && sPure == pure,
     "TRACK_" + numFV + "(" + alloc + ", " + pure + ")"
   )
 
@@ -27,7 +27,7 @@ object TrackingAutomata extends SlexLogging {
 
   def unsatAutomaton(numFV : Int) = new BaseTrackingAutomaton(
     numFV,
-    (self : BaseTrackingAutomaton, sAlloc : Set[FV], sPure : Set[PureAtom]) => (sAlloc == self.InconsistentState._1 && sPure == self.InconsistentState._2),
+    (self : BaseTrackingAutomaton, sAlloc : Set[FV], sPure : Set[PureAtom]) => sAlloc == self.InconsistentState._1 && sPure == self.InconsistentState._2,
     "UNSAT_" + numFV
   )
 

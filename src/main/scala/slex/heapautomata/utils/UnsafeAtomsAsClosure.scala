@@ -16,25 +16,25 @@ case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends Closure {
 
   override def getEqualityClass(fv: FV): Set[FV] = {
     val otherMembers = closure.filter({
-      case atom =>
-        val (l,r,isEq) = unwrapAtom(atom)
+      atom =>
+        val (l, r, isEq) = unwrapAtom(atom)
         // Find those equalities that mention fv
         isEq && (l == fv || r == fv)
     }).map({
-      case atom =>
-        val (l,r,_) = unwrapAtom(atom)
+      atom =>
+        val (l, r, _) = unwrapAtom(atom)
         // Return the argument that is different from fv
         if (l == fv) r else l
     })
     Set(fv) union otherMembers
   }
 
-  override def isMinimumInItsClass(fv: FV): Boolean = closure.find({
-    case atom =>
+  override def isMinimumInItsClass(fv: FV): Boolean = !closure.exists({
+    atom =>
       // Search for a smaller equal element
-      val (l,r,isEq) = unwrapAtom(atom)
+      val (l, r, isEq) = unwrapAtom(atom)
       isEq && r == fv && l < r
-  }).isEmpty
+  })
 
   override def asSetOfAtoms: Set[PureAtom] = closure
 }

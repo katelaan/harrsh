@@ -45,11 +45,11 @@ case class PureNeg(phi : PureFormula) extends PureFormula {
       case None =>
         val simplifiedArg = phi.simplify
 
-        val res = if (simplifiedArg.isInstanceOf[PureAtom]) {
-          simplifiedArg.asInstanceOf[PureAtom].negate
-        }
-        else {
-          PureNeg(simplifiedArg)
+        val res = simplifiedArg match {
+          case atom: PureAtom =>
+            atom.negate
+          case _ =>
+            PureNeg(simplifiedArg)
         }
 
         logger.debug("Simplifying argument of " + this + ", yielding " + res)
@@ -166,7 +166,7 @@ case class PureOr(phi : PureFormula, psi : PureFormula) extends PureFormula {
 
 object PureFormula {
 
-  def collectIdentifiers(phi : PureFormula) : Set[String] = phi match {
+  def collectIdentifiers(pure : PureFormula) : Set[String] = pure match {
     case PureNeg(phi) => collectIdentifiers(phi)
     case PureAnd(phi, psi) => collectIdentifiers(phi) union collectIdentifiers(psi)
     //case PureImplies(phi, psi) => collectIdentifiers(phi) union collectIdentifiers(psi)

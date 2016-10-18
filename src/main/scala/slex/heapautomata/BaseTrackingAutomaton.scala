@@ -83,25 +83,25 @@ object BaseTrackingAutomaton extends SlexLogging {
   }
 
   def dropNonFreeVariables(s : TrackingInfo) : TrackingInfo = {
-    (s._1.filter(isFV(_)),
+    (s._1.filter(isFV),
       s._2.filter({
-        case atom =>
+        atom =>
           val (l, r, _) = unwrapAtom(atom)
           isFV(l) && isFV(r)
       }))
   }
 
   def compress(sh : SymbolicHeap, qs : Seq[TrackingInfo]) : SymbolicHeap = {
-    val shFiltered = sh.removeCalls
+    val shFiltered = sh.withoutCalls
     val newHeaps = qs map kernel
     val stateHeapPairs = sh.getCalls zip newHeaps
     val renamedHeaps : Seq[SymbolicHeap] = stateHeapPairs map {
-      case (call, sh) =>
+      case (call, heap) =>
         // Rename the free variables of SH to the actual arguments of the predicate calls,
         // i.e. replace the i-th FV with the call argument at index i-1
         val pairs : Seq[(String,String)] = ((1 to call.args.length) map (x => fv(x).toString)) zip (call.args map (_.toString))
         val map : Map[String,String] = Map() ++ pairs
-        sh.renameVars(MapBasedRenaming(map))
+        heap.renameVars(MapBasedRenaming(map))
     }
     val combined = SymbolicHeap.combineAllHeaps(shFiltered +: renamedHeaps)
     combined
@@ -112,7 +112,7 @@ object BaseTrackingAutomaton extends SlexLogging {
     //val closure = new ClosureOfAtomSet(pure)
     val closure = UnsafeAtomsAsClosure(s._2)
 
-    val nonredundantAlloc = s._1 filter (closure.isMinimumInItsClass(_))
+    val nonredundantAlloc = s._1 filter closure.isMinimumInItsClass
 
     val alloc : Set[SpatialAtom] = nonredundantAlloc map (p => ptr(p, nil))
 

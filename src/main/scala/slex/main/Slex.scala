@@ -13,13 +13,13 @@ object Slex {
   def main(args : Array[String]) = {
     println("This is slexy!")
 
-    mdecExample
+    mdecExample()
   }
 
   def mdecExample() : Unit = {
     println("Let's test the model-driven entailment checker...")
     SmtWrapper.withZ3 { z3 =>
-      val res = new MDEC(z3).prove(SymbolicHeapExamples.PaperExampleEntailmentLeft, SymbolicHeapExamples.PaperExampleEntailmentRight)
+      val res = MDEC(z3).prove(SymbolicHeapExamples.PaperExampleEntailmentLeft, SymbolicHeapExamples.PaperExampleEntailmentRight)
       println("Result: " + res)
     }
   }
@@ -32,7 +32,7 @@ object Slex {
       println("Running Z3 now...")
       z3.restart()
       z3.addCommands(example)
-      val res = z3.getModel
+      val res = z3.computeModel()
       println(res)
     }
   }

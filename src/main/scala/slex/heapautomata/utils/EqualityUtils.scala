@@ -24,9 +24,9 @@ object EqualityUtils {
   def propagateConstraints(from : Set[PureAtom]): Set[PureAtom] = {
     // TODO This function is inefficient
 
-    val newEqs : Seq[PureAtom] = (Combinators.square(from.toIndexedSeq) map {
-      case (l,r) => transitiveConstraint(l ,r)
-    } filter(_.isDefined) map(_.get))
+    val newEqs : Seq[PureAtom] = Combinators.square(from.toIndexedSeq) map {
+      case (l, r) => transitiveConstraint(l, r)
+    } filter (_.isDefined) map (_.get)
 
     val combined = from ++ newEqs
     if (combined == from) from else propagateConstraints(combined)

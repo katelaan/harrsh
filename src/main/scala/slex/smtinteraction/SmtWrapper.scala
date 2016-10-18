@@ -16,7 +16,7 @@ trait SmtWrapper {
 
   def checkSat() : SatStatus
 
-  def getModel() : Option[Stack]
+  def computeModel() : Option[Stack]
 
 }
 
@@ -24,8 +24,6 @@ object SmtWrapper {
 
   /**
     * Apply wrapper to f, then close the wrapper.
-    * @param wrapper
-    * @param f
     */
   def withWrapper(wrapper : SmtWrapper)(f : SmtWrapper => Unit) = {
     f(wrapper)

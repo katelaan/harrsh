@@ -29,10 +29,10 @@ object ToyExampleAutomata {
       val res = trg match {
         case false =>
           // Trg false only if all sources are false and the given SH does not contain a pointer
-          !src.find(b => b).isDefined && !lab.hasPointer
+          !src.exists(b => b) && !lab.hasPointer
         case true =>
           // The converse
-          src.find(b => b).isDefined || lab.hasPointer
+          src.exists(b => b) || lab.hasPointer
       }
       logger.debug("Transition " + src.mkString(", ") + "--[" + lab + "]-->" + trg + " : " + res)
       res

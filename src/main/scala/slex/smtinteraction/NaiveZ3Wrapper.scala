@@ -35,7 +35,7 @@ class NaiveZ3Wrapper(pathToZ3 : String = Defaults.PathToZ3, fileName : String = 
 
   override def checkSat(): SatStatus= runSmtQuery(commandStack :+ CheckSat())._1
 
-  override def getModel(): Option[Stack] = runSmtQuery(commandStack :+ CheckSat() :+ GetModel())._2
+  override def computeModel(): Option[Stack] = runSmtQuery(commandStack :+ CheckSat() :+ GetModel())._2
 
   private def runSmtQuery(query : Seq[SmtCommand]) : (SatStatus, Option[Stack]) = {
     writeSmtFile(query)

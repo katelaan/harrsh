@@ -43,8 +43,4 @@ sealed trait PtrExpr extends Expr {
 
 case class NullPtr() extends PtrExpr
 
-/**
-  * So far single-successor assumption => Need not specify a selector/field
-  * @param id
-  */
 case class PtrVar(id : String) extends PtrExpr

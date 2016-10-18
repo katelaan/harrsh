@@ -54,7 +54,7 @@ object EstablishmentAutomaton {
     s._1.contains(v) || s._2.exists({
       // Return true iff the pure atom witnesses that v is equal to a free variable
       // This is enough to show establishment, because we assume that s is congruence closed
-      case PtrEq(l, r) => (l == v && isFV(r)) || (r == v && isFV(l))
+      case PtrEq(l, r) => (l.toString == v && isFV(r)) || (r.toString == v && isFV(l))
       case _ => false
     })
   }

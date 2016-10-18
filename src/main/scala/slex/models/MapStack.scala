@@ -15,7 +15,7 @@ case class MapStack(vals : Map[String, Location]) extends Stack {
 
   override def apply(ix : IntExpr) : Int = ix match {
     case IntVar(id) => vals(id)
-    case ix => throw new Exception("Cannot look up stack value of non-variable expression " + ix)
+    case _ => throw new Exception("Cannot look up stack value of non-variable expression " + ix)
   }
 
   override def toString = vals map { case (k,v) => k + " => " + v } mkString ("Stack(", ", ", ")")

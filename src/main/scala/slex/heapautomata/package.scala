@@ -25,7 +25,7 @@ package object heapautomata {
     case PtrVar(v) => Integer.parseInt(v.drop(FVPrefix.length))
   }
 
-  def getMaxFvIndex(vars : Set[String]) : Int = vars filter (isFV(_)) map (unFV(_)) max
+  def getMaxFvIndex(vars : Set[String]) : Int = (vars filter (isFV(_)) map (unFV(_))).max
 
   def allEqualitiesOverFVs(numFV : Int) : Set[PureAtom] = {
     for {

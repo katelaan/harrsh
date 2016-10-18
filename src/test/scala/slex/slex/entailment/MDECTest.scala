@@ -60,7 +60,7 @@ class MDECTest extends SlexTest with TableDrivenPropertyChecks {
     (lhs : SymbolicHeap, rhs : SymbolicHeap, expectedResult : Boolean) =>
 
       SmtWrapper.withZ3 { z3 =>
-        val res = new MDEC(z3).prove(lhs, rhs)
+        val res = MDEC(z3).prove(lhs, rhs)
         res.isRight shouldBe expectedResult
       }
 

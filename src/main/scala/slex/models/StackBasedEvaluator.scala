@@ -7,7 +7,7 @@ import slex.seplog._
   */
 object StackBasedEvaluator {
 
-  def eval(s: Stack, phi: PureFormula): Boolean = phi match {
+  def eval(s: Stack, pure: PureFormula): Boolean = pure match {
     case PureNeg(phi) => !eval(s, phi)
     case PureAnd(phi, psi) => eval(s, phi) && eval(s, psi)
     case PureOr(phi, psi) => eval(s, phi) || eval(s, psi)
@@ -23,7 +23,7 @@ object StackBasedEvaluator {
       case PtrEq(l, r) => eval(s, l) == eval(s, r)
       case PtrNEq(l, r) => eval(s, l) != eval(s, r)
     }
-    case _ => ???
+    case _ => throw new IllegalStateException("Evaluation not implemented for " + this)
   }
 
   def eval(s: Stack, ix: IntExpr): Int = ix match {

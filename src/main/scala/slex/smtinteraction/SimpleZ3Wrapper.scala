@@ -28,7 +28,7 @@ class SimpleZ3Wrapper(pathToZ3 : String = Defaults.PathToZ3) extends SmtWrapper 
   //val reader : BufferedReader = new BufferedReader(new InputStreamReader(stdout))
   val writer : BufferedWriter = new BufferedWriter(new OutputStreamWriter(stdin))
 
-  override def restart(): Unit = sendToZ3((Seq(Reset())))
+  override def restart(): Unit = sendToZ3(Seq(Reset()))
 
   override def close() = {
     logger.debug("Closing Z3 process")
@@ -45,7 +45,7 @@ class SimpleZ3Wrapper(pathToZ3 : String = Defaults.PathToZ3) extends SmtWrapper 
 
   override def checkSat(): SatStatus = runSmtQuery(Seq(CheckSat(), DoneCommand))._1
 
-  override def getModel(): Option[Stack] = runSmtQuery(Seq(CheckSat(), GetModel(), DoneCommand))._2
+  override def computeModel(): Option[Stack] = runSmtQuery(Seq(CheckSat(), GetModel(), DoneCommand))._2
 
   private def runSmtQuery(query: Seq[SmtCommand]): (SatStatus,Option[Stack]) = {
     sendToZ3(query)

@@ -30,8 +30,6 @@ trait HeapAutomaton {
   /**
     * Returns all the state sequences on which transitions are defined for the given SH.
     * By default, this is implemented naively in terms of isTransitionDefined. Override if more efficient implementation exists for your SH>
-    * @param lab
-    * @return
     */
   def getDefinedTransitions(lab : SymbolicHeap) : Set[(Seq[State], State)] = {
     val sizeOfSig = lab.spatial.length

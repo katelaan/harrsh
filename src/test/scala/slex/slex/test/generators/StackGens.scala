@@ -1,6 +1,5 @@
 package slex.slex.test.generators
 
-import java.util
 import scala.collection.JavaConverters._
 
 import org.scalacheck.Gen
@@ -21,8 +20,8 @@ object StackGens {
     */
   def stackGen(domain : Set[String], vals : Set[Location]) : Gen[Stack] = {
     for {
-      pairs <- Gen.sequence(domain map (pairGen(vals.toSeq)_))
-    } yield new MapStack(Map[String,Location]("null" -> 0) ++ pairs.asScala)
+      pairs <- Gen.sequence(domain map pairGen(vals.toSeq) _)
+    } yield MapStack(Map[String, Location]("null" -> 0) ++ pairs.asScala)
   }
 
 }

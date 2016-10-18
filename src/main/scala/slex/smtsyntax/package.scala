@@ -1,5 +1,7 @@
 package slex
 
+import scala.language.implicitConversions
+
 /**
   * Created by jkatelaa on 9/30/16.
   */

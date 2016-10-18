@@ -34,7 +34,7 @@ object RefinementAlgorithms extends SlexLogging {
     def reachedStatesForPred(rel : Set[(String, ha.State)], call : String) : Set[ha.State] = rel filter (_._1 == call) map (_._2)
 
     def allDefinedSources(rel : Set[(String, ha.State)], calls : Seq[String]) : Set[Seq[ha.State]] = {
-      if (calls.length == 0) {
+      if (calls.isEmpty) {
         Set(Seq())
       } else {
         for {
@@ -51,7 +51,7 @@ object RefinementAlgorithms extends SlexLogging {
           src <- allDefinedSources(r, body.calledPreds)
           // Only go on if we haven't tried this combination in a previous iteration
           hash = (src,body).hashCode
-          if (!hashesOfPreviousCombinations.contains(hash))
+          if !hashesOfPreviousCombinations.contains(hash)
           trg <- ha.getTargetsFor(src, body)
         } yield ((head, trg), hash)
       } else {
@@ -61,10 +61,10 @@ object RefinementAlgorithms extends SlexLogging {
           src <- allDefinedSources(r, body.calledPreds)
           // Only go on if we haven't tried this combination in a previous iteration
           hash = (src, body).hashCode
-          if (!hashesOfPreviousCombinations.contains(hash))
+          if !hashesOfPreviousCombinations.contains(hash)
           // No smart target computation, have to iterate over all possible targets
           trg <- ha.states
-          if (ha.isTransitionDefined(src, trg, body))
+          if ha.isTransitionDefined(src, trg, body)
         } yield ((head, trg), hash)
       }
     }
@@ -79,7 +79,7 @@ object RefinementAlgorithms extends SlexLogging {
     } else {
       val (newPairs, newHashes) = performSingleIteration.unzip
 
-      logger.debug("Iteration: #" + iteration + " " + (if (newPairs.isEmpty) "--" else newPairs.mkString((", "))))
+      logger.debug("Iteration: #" + iteration + " " + (if (newPairs.isEmpty) "--" else newPairs.mkString(", ")))
 
       val union = r union newPairs
       if (union.size == r.size) {

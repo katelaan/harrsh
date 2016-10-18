@@ -31,7 +31,7 @@ object Z3ResultParser extends JavaTokenParsers {
 
   def smtNumberParser : Parser[Int] = wholeNumberParser | inParens("-" ~> wholeNumberParser ^^ { i => -i })
 
-  def wholeNumberParser : Parser[Int] = wholeNumber ^^ { Integer.valueOf(_) }
+  def wholeNumberParser : Parser[Int] = wholeNumber ^^ { Integer.valueOf }
 
   def inParens[A](p : Parser[A]) : Parser[A] = "(" ~> (p <~ ")")
 

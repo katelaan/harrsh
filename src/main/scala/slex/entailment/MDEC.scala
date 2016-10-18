@@ -18,7 +18,7 @@ import scala.annotation.tailrec
   * TODO Extension to byte-precise separation logic with block predicates?
   * TODO Do we want special treatment of nil? Currently there is none, so we would have to add ∗ next(nil, nil) to regain it
   */
-case class MDEC(val solver : SmtWrapper) extends SlexLogging {
+case class MDEC(solver : SmtWrapper) extends SlexLogging {
 
   type AllocTemplate = PtrExpr => PureFormula
 
@@ -315,7 +315,7 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
 
     solver.restart()
     solver.addCommands(cmds)
-    val res = solver.checkSat
+    val res = solver.checkSat()
     logger.debug("SMT Result " + res)
 
     res.isSat
@@ -327,16 +327,16 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
     val allConsts = declaredConsts union newConsts
 
     solver.addCommands(cmds)
-    val resStatus = solver.checkSat
+    val resStatus = solver.checkSat()
     logger.debug("Solver result: " + resStatus)
 
     if (resStatus.isSat) {
-      val resModel = solver.getModel
+      val resModel = solver.computeModel()
       logger.debug("Returned model: " + resModel)
       (resModel, allConsts)
     } else {
       if (resStatus.isError)
-        throw new SmtError(cmds)
+        throw SmtError(cmds)
       else {
         logger.debug("Formula unsatisfiable, can't return stack model")
         (None, allConsts)
@@ -353,7 +353,7 @@ case class MDEC(val solver : SmtWrapper) extends SlexLogging {
     */
   private def commandsForFormulas(phis : Seq[PureFormula], declaredConsts: Set[String]) : (Seq[SmtCommand], Set[String]) = {
 
-    val constants : Set[String] = phis.toSet[PureFormula] flatMap (PureFormula.collectIdentifiers(_))
+    val constants : Set[String] = phis.toSet[PureFormula] flatMap PureFormula.collectIdentifiers
     val newConstants : Set[String] = constants -- declaredConsts
 
     val declarations : Set[SmtCommand] = newConstants map (id => DeclareConst(id, "Int"))
