@@ -24,11 +24,11 @@ object RefinementAlgorithms extends SlexLogging {
     //logger.debug("HA '" + ha.description)
     //logger.debug("SID: " + sid)
 
-    computeRefinementFixedPoint(sid, sid.startPred, ha)(Set())
+    computeRefinementFixedPoint(sid, sid.startPred, ha)(Set(), Set(), 1)
   }
 
   @tailrec
-  private def computeRefinementFixedPoint(sid : SID, pred : String, ha : HeapAutomaton)(r : Set[(String, ha.State)]) : Boolean = {
+  private def computeRefinementFixedPoint(sid : SID, pred : String, ha : HeapAutomaton)(r : Set[(String, ha.State)], hashesOfPreviousCombinations : Set[Int], iteration : Int) : Boolean = {
 
     // TODO: Also less efficient than possible due to naive data structure choice
     def reachedStatesForPred(rel : Set[(String, ha.State)], call : String) : Set[ha.State] = rel filter (_._1 == call) map (_._2)
@@ -44,22 +44,28 @@ object RefinementAlgorithms extends SlexLogging {
       }
     }
 
-    def performSingleIteration: Set[(String, ha.State)] = {
+    def performSingleIteration: Set[((String, ha.State), Int)] = {
       if (ha.implementsTargetComputation) {
         for {
           (head, body) <- sid.rules
           src <- allDefinedSources(r, body.calledPreds)
-          // FIXME: Only go on if we haven't computed this before
+          // Only go on if we haven't tried this combination in a previous iteration
+          hash = (src,body).hashCode
+          if (!hashesOfPreviousCombinations.contains(hash))
           trg <- ha.getTargetsFor(src, body)
-        } yield (head, trg)
+        } yield ((head, trg), hash)
       } else {
         // No dedicated target computation, need to brute-force
         for {
-          trg <- ha.states
           (head, body) <- sid.rules
           src <- allDefinedSources(r, body.calledPreds)
+          // Only go on if we haven't tried this combination in a previous iteration
+          hash = (src, body).hashCode
+          if (!hashesOfPreviousCombinations.contains(hash))
+          // No smart target computation, have to iterate over all possible targets
+          trg <- ha.states
           if (ha.isTransitionDefined(src, trg, body))
-        } yield (head, trg)
+        } yield ((head, trg), hash)
       }
     }
 
@@ -68,21 +74,23 @@ object RefinementAlgorithms extends SlexLogging {
 
     if (discoveredStartPredicate.isDefined) {
       // There is a derivation that reaches a final state, refined language nonempty
-      logger.debug("Reached " + discoveredStartPredicate.get + ", language non-empty")
+      logger.debug("Reached " + discoveredStartPredicate.get + " => language is non-empty")
       false
     } else {
-      val newPairs: Set[(String, ha.State)] = performSingleIteration
+      val (newPairs, newHashes) = performSingleIteration.unzip
 
-      logger.debug("Discovered predicates: " + newPairs.mkString((", ")))
+      logger.debug("Iteration: #" + iteration + " " + (if (newPairs.isEmpty) "--" else newPairs.mkString((", "))))
 
       val union = r union newPairs
       if (union.size == r.size) {
         // Fixed point reached without reaching a pred--final-state pair
-        logger.debug("Reached fixed point, language is empty")
+        logger.debug("Fixed point: " + union.mkString(", "))
+        logger.debug("=> Language is empty")
         true
       } else {
         // Fixed point not yet reached, recurse
-        computeRefinementFixedPoint(sid, pred, ha)(union)
+        val unionOfHashes = hashesOfPreviousCombinations union newHashes
+        computeRefinementFixedPoint(sid, pred, ha)(union, unionOfHashes, iteration + 1)
       }
     }
   }
