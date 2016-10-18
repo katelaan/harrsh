@@ -20,7 +20,7 @@ object StackGens {
     */
   def stackGen(domain : Set[String], vals : Set[Location]) : Gen[Stack] = {
     for {
-      pairs <- Gen.sequence(domain map pairGen(vals.toSeq) _)
+      pairs <- Gen.sequence(domain map pairGen(vals.toSeq))
     } yield MapStack(Map[String, Location]("null" -> 0) ++ pairs.asScala)
   }
 
