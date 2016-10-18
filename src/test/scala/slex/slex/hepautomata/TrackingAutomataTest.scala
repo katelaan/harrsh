@@ -1,20 +1,17 @@
 package slex.slex.hepautomata
 
-import org.scalatest.prop.TableDrivenPropertyChecks
-import slex.SlexTest
 import slex.heapautomata.TrackingAutomata
 import slex.heapautomata._
-import slex.seplog.{nil, ptr, ptreq, ptrneq, emp, call, SymbolicHeap}
+import slex.seplog.{SymbolicHeap, call, emp, nil, ptr, ptreq, ptrneq}
+import slex.slex.SlexTableTest
 
 /**
   * Created by jens on 10/16/16.
   * Note: This class just tests individual method calls; for complete tests, see HeapAutomataTest
   */
-class TrackingAutomataTest extends SlexTest with TableDrivenPropertyChecks {
+class TrackingAutomataTest extends SlexTableTest {
 
   val track3 = TrackingAutomata(3, Set(fv(1)), mkPure((2, 3, true)))
-
-  println("Testing defined-ness of transitions for tracking automaton")
 
   val transitions = Table(
     ("src", "trg", "sh", "result"),
@@ -57,10 +54,15 @@ class TrackingAutomataTest extends SlexTest with TableDrivenPropertyChecks {
     (Seq((fvAll(1), mkPure()),(fvAll(1), mkPure())), track3.InconsistentState, SymbolicHeap(Seq(ptrneq(fv(1),fv(3)), ptrneq(fv(2),fv(3))), Seq(call("sll", fv(3), fv(2)), call("sll", fv(3), fv(1)))), true)
   )
 
-  forAll(transitions) {
-    (src : Seq[track3.State], trg: track3.State, sh : SymbolicHeap, result : Boolean) =>
-      println("Checking transition " + src.mkString(", ") + " --[" + sh + "]--> " + trg + " for expected result: " + result)
-      track3.isTransitionDefined(src, trg, sh) should be (result)
+  property("Transitions of the tracking automaton") {
+
+    forAll(transitions) {
+      (src: Seq[track3.State], trg: track3.State, sh: SymbolicHeap, result: Boolean) =>
+        Given(src.mkString(", ") + ", " + sh + ", " + trg)
+        Then(src.mkString(", ") + " --[" + sh + "]--> " + trg + " should be " + (if (result) "DEFINED" else "UNDEFINED"))
+        track3.isTransitionDefined(src, trg, sh) should be(result)
+    }
+
   }
 
 }
