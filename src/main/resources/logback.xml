@@ -18,5 +18,5 @@
     <logger name="slex.seplog" level="INFO" />
     <logger name="slex.heapautomata" level="INFO" />
     <logger name="slex.heapautomata.RefinementAlgorithms" level="DEBUG" />
-    <logger name="slex.heapautomata.BaseTrackingAutomaton" level="DEBUG" />
+    <logger name="slex.heapautomata.BaseTrackingAutomaton" level="INFO" />
 </configuration>

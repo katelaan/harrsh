@@ -53,10 +53,11 @@ object BaseTrackingAutomaton extends SlexLogging {
 
   def computeTrackingStateSpace(numFV : Int) =
     for {
-    // TODO: This also computes plenty (but not all) inconsistent states
+      // TODO: This also computes plenty (but not all) inconsistent states
       alloc <- Combinators.powerSet(Set() ++ ((1 to numFV) map fv))
       pure <- Combinators.powerSet(allEqualitiesOverFVs(numFV))
     } yield (alloc, pure)
+
 
   def compressAndPropagate(src : Seq[TrackingInfo], lab : SymbolicHeap, inconsistentState : TrackingInfo) : TrackingInfo = {
     val compressed = compress(lab, src)

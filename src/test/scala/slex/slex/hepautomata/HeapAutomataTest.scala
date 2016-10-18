@@ -12,7 +12,9 @@ class HeapAutomataTest extends SlexTableTest {
 
   val emptinessChecks = Table(
     ("automaton", "sid", "result"),
-    // Has pointer automaton
+    /*
+     * Has pointer automaton
+     */
     (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.Sll, false),
     (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.Dll, false),
     (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.Tree, false),
@@ -20,7 +22,10 @@ class HeapAutomataTest extends SlexTableTest {
     (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.EmptyLinearPermuter, true),
     (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.NonEmptyLinearPermuter, false),
     (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.NonEmptyBinaryPermuter, false),
-    // Tracking automata, normal tests
+    /*
+     * Tracking automata
+      */
+    // Normal tests
     (TrackingAutomata.singleTargetStateTracking(3, Set(fv(1)), mkPure()), ExampleSIDs.Sll, false),
     (TrackingAutomata.singleTargetStateTracking(2, Set(fv(1)), mkPure((1, 2, false))), ExampleSIDs.Sll, true),
     (TrackingAutomata.singleTargetStateTracking(2, Set(fv(1)), mkPure()), ExampleSIDs.EmptyLinearPermuter, true),
@@ -32,7 +37,9 @@ class HeapAutomataTest extends SlexTableTest {
     (TrackingAutomata.singleTargetStateTracking(2, inconsistent2._1, inconsistent2._2), ExampleSIDs.NonEmptyBinaryPermuter, false),
     (TrackingAutomata.singleTargetStateTracking(2, inconsistent2._1, inconsistent2._2), ExampleSIDs.NonEmptyBinaryPermuter2, false),
     (TrackingAutomata.singleTargetStateTracking(2, inconsistent2._1, inconsistent2._2), ExampleSIDs.NonEmptyBinaryPermuter3, false),
-    // Testing SAT automata
+    /*
+     * SAT automata
+     */
     // - on SIDs that produce at least one satisfiable heap
     (TrackingAutomata.satAutomaton(2), ExampleSIDs.Sll, false),
     (TrackingAutomata.satAutomaton(4), ExampleSIDs.Dll, false),
@@ -41,7 +48,9 @@ class HeapAutomataTest extends SlexTableTest {
     (TrackingAutomata.satAutomaton(2), ExampleSIDs.EmptyLinearPermuter, false),
     (TrackingAutomata.satAutomaton(2), ExampleSIDs.NonEmptyLinearPermuter, false),
     (TrackingAutomata.satAutomaton(2), ExampleSIDs.NonEmptyBinaryPermuter, false),
-    // Testing UNSAT automata
+    /*
+     * UNSAT automata
+     */
     (TrackingAutomata.satAutomaton(2), ExampleSIDs.UnsatSID, true),
     // - with consistent SIDs that do not produce unsatisfiable heaps
     (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.Sll, true),
@@ -55,7 +64,16 @@ class HeapAutomataTest extends SlexTableTest {
     (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.NonEmptyBinaryPermuter2, false),
     (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.NonEmptyBinaryPermuter3, false),
     //- with unsatisfiable SIDs
-    (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.UnsatSID, false)
+    (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.UnsatSID, false),
+
+    /*
+     * Establishment automata
+     */
+    // - with established data structure SIDs
+    (TrackingAutomata.establishmentAutomaton(2), ExampleSIDs.Sll, false),
+    (TrackingAutomata.establishmentAutomaton(4), ExampleSIDs.Dll, false),
+    (TrackingAutomata.establishmentAutomaton(1), ExampleSIDs.Tree, false),
+    (TrackingAutomata.establishmentAutomaton(3), ExampleSIDs.Tll, false)
   )
 
   property("On-the-fly emptiness checking") {
@@ -64,7 +82,6 @@ class HeapAutomataTest extends SlexTableTest {
       (automaton, sid, result) =>
 
         Given(sid + "\n and the automaton '" + automaton.description)
-
         Then("The emptiness check should return " + result)
 
         println("#"*80)

@@ -13,7 +13,7 @@ class EstablishmentAutomaton(numFV : Int) extends BoundedFvAutomatonWithTargetCo
 
   override type State = (TrackingInfo, Boolean)
 
-  override val states: Set[State] = computeTrackingStateSpace(numFV) flatMap (s => Set((s,false), (s,true)))
+  override lazy val states: Set[State] = computeTrackingStateSpace(numFV) flatMap (s => Set((s,false), (s,true)))
 
   override def isFinal(s: State): Boolean = s._2
 
