@@ -39,6 +39,9 @@ object ExampleSIDs {
     ("tll", SymbolicHeap( Seq(), Seq(ptr(fv(1),"l","r",nil), call("tll", "l", fv(2), "z"), call("tll", "r", "z", fv(3))), Seq("l","r","z") ))
   )
 
+  /**
+    * For illustrating the iterative nature; no memory allocation
+    */
   lazy val EmptyLinearPermuter = SID("a",
     "Non-Allocating Linear FV-Permuter",
     ("a", SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(call("b", fv(2), fv(1))))),
@@ -47,6 +50,9 @@ object ExampleSIDs {
     ("d", SymbolicHeap(Seq(emp)))
   )
 
+  /**
+    * For illustrating the iterative nature; memory allocation
+    */
   lazy val NonEmptyLinearPermuter = SID("a",
     "Allocating Linear FV-Permuter",
     ("a", SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(call("b", fv(2), fv(1))))),
@@ -55,11 +61,38 @@ object ExampleSIDs {
     ("d", SymbolicHeap(Seq(ptr(fv(1), fv(2)))))
   )
 
+  /**
+    * For illustrating the iterative nature with branching, as well as possible inconsistency
+    */
   lazy val NonEmptyBinaryPermuter = SID("a",
     "Binary FV Permuter with Optional Allocation",
     ("a", SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(call("b", fv(1), fv(2)), call("b", fv(2), fv(1))))),
     ("b", SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(call("c", fv(1), fv(2)), call("c", fv(2), fv(1))))),
     ("c", SymbolicHeap(Seq(ptr(fv(1), fv(2))))),
     ("c", SymbolicHeap(Seq(emp)))
+  )
+
+  /**
+    * For illustrating the iterative nature with branching, as well as possible inconsistency
+    */
+  lazy val NonEmptyBinaryPermuter2 = SID("a",
+    "Binary FV Permuter without Allocation",
+    ("a", SymbolicHeap(Seq(call("b", fv(1), fv(2)), call("b", fv(2), fv(1))))),
+    ("b", SymbolicHeap(Seq(call("c", fv(1), fv(2)), call("c", fv(2), fv(1))))),
+    ("c", SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq())),
+    ("c", SymbolicHeap(Seq(ptrneq(fv(1), fv(2))), Seq())),
+    ("c", SymbolicHeap(Seq(emp)))
+  )
+
+  /**
+    * For illustrating the iterative nature with branching, as well as possible inconsistency
+    */
+  lazy val NonEmptyBinaryPermuter3 = SID("a",
+    "Binary FV Permuter with optional allocation and inequalities",
+    ("a", SymbolicHeap(Seq(call("b", fv(1), fv(2)), call("b", fv(2), fv(1))))),
+    ("b", SymbolicHeap(Seq(call("c", fv(1), fv(2)), call("c", fv(2), fv(1))))),
+    ("c", SymbolicHeap(Seq(ptr(fv(1), fv(2))))),
+    ("c", SymbolicHeap(Seq(emp))),
+    ("c", SymbolicHeap(Seq(ptrneq(fv(1), fv(2))), Seq(emp)))
   )
 }
