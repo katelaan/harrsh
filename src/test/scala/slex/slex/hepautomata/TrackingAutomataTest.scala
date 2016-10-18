@@ -11,7 +11,7 @@ import slex.slex.SlexTableTest
   */
 class TrackingAutomataTest extends SlexTableTest {
 
-  val track3 = TrackingAutomata(3, Set(fv(1)), mkPure((2, 3, true)))
+  val track3 = TrackingAutomata.singleTargetStateTracking(3, Set(fv(1)), mkPure((2, 3, true)))
 
   val transitions = Table(
     ("src", "trg", "sh", "result"),
