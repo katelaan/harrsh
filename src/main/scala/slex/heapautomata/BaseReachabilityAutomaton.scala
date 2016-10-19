@@ -146,7 +146,8 @@ object BaseReachabilityAutomaton extends SlexLogging {
 
   def reachabilityCompression(sh : SymbolicHeap, qs : Seq[ReachabilityInfo]) : SymbolicHeap = compressWithKernelization(reachabilityKernel)(sh, qs)
 
-  // TODO: Reduce code duplication in kernelization? cf BaseTracking
+  // TODO Reduce code duplication in kernelization? cf BaseTracking
+  // TODO This is the kernel from the paper, i.e. introducing free vars; this is NOT necessary in our implementation with variable-length pointers
   def reachabilityKernel(s : (TrackingInfo, ReachabilityMatrix)) : SymbolicHeap = {
     val ((alloc,pure),reach) = s
 
@@ -223,13 +224,13 @@ object BaseReachabilityAutomaton extends SlexLogging {
     // TODO Stop as soon as garbage is found
     val reachableFromFV = for (v <- vars) yield isFV(v) || isEqualToFV(v) || isReachableFromFV(v)
 
-    val containsGarbage = !reachableFromFV.exists(!_)
+    val garbageFree = !reachableFromFV.exists(!_)
 
-    if (containsGarbage) {
-      logger.debug("Discovered garbage")
+    if (!garbageFree) {
+      logger.debug("Discovered garbage: " + (vars filter (v => !(isFV(v) || isEqualToFV(v) || isReachableFromFV(v)))))
     }
 
-    containsGarbage
+    garbageFree
   }
 
   def isAcyclic(ti : TrackingInfo, reachPairs : Set[(FV,FV)], vars : Set[FV], numFV : Int): Boolean = {
