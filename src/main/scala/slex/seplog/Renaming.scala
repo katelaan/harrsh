@@ -27,3 +27,20 @@ trait Renaming {
   }
 
 }
+
+object Renaming {
+
+  /**
+    * Creates a Renaming function whose domain consists of dummy values and whose codomain is equal to the given set of varClashes.
+    * When passed as argument to symbolic heap renaming, this will in effect rename all bound variables that appear in varClashes to fresh names.
+    * @param varClashes Set of potentially clashing variables
+    * @return Renaming with codomain varClashes
+    */
+  def clashAvoidanceRenaming(varClashes : Seq[String]) = {
+    val entries = varClashes.zipWithIndex map {
+      case (v,i) => ("@#$%$#@" + i, v)
+    }
+    MapBasedRenaming(Map() ++ entries)
+  }
+
+}

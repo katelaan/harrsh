@@ -55,4 +55,10 @@ object ReachabilityMatrix {
     val entries = Combinators.allSeqsOfLength((numFV+1) * (numFV+1), Set(false,true))
     entries map (e => ReachabilityMatrix(numFV, e.toArray))
   }
+
+  def fromPairs(numFV : Int, pairs : Seq[(Int,Int)]) : ReachabilityMatrix = {
+    val matrix = emptyMatrix(numFV)
+    for ((from, to) <- pairs) matrix.update(from, to, setReachable = true)
+    matrix
+  }
 }

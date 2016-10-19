@@ -35,8 +35,7 @@ class ReachabilityAutomaton(numFV : Int, from : FV, to : FV) extends BoundedFvAu
     // Break state down to only the free variables; the other information is not kept in the state space
     val trg = (dropNonFreeVariables(consistencyCheckedState._1), consistencyCheckedState._2)
 
-    if (logger.underlying.isDebugEnabled && consistencyCheckedState != trg)
-      logger.debug("After dropping bound variables: " + trg)
+    logger.debug("Target state: " + trg)
 
     // There is a unique target state because we always compute the congruence closure
     Set(trg)
@@ -67,15 +66,15 @@ object ReachabilityAutomaton extends SlexLogging {
     val pureWithAlloc : Set[PureAtom] = pureExplicit ++ inequalitiesFromAlloc
 
     // Compute fixed point of inequalities and fill up alloc info accordingly
-    val stateWithClosure : TrackingInfo = EqualityUtils.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
-    logger.debug("State for compressed SH: " + stateWithClosure)
+    val trackingsStateWithClosure : TrackingInfo = EqualityUtils.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
+    logger.debug("Tracking info for compressed SH: " + trackingsStateWithClosure)
 
     // TODO Reduce code duplication wrt BaseTracking. The following part is the only one that is new to reachability
     // If the state is inconsistent, return the unique inconsistent state; otherwise compute reachability info
-    if (isConsistent(stateWithClosure)) {
+    if (isConsistent(trackingsStateWithClosure)) {
       // Compute reachability info by following pointers
-      val newMatrix = reachabilityFixedPoint(numFV, compressed, stateWithClosure)
-      (stateWithClosure, newMatrix)
+      val newMatrix = reachabilityFixedPoint(numFV, compressed, trackingsStateWithClosure)
+      (trackingsStateWithClosure, newMatrix)
     } else inconsistentState
   }
 
@@ -86,7 +85,7 @@ object ReachabilityAutomaton extends SlexLogging {
     val directReachability : Seq[(FV,FV)] = compressedHeap.pointers flatMap ptrToPairs
     val equalities = tracking._2.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq])
     val pairs = reachabilityFixedPoint(compressedHeap, equalities, directReachability.toSet)
-    logger.debug("Reached fixed point " + pairs)
+    logger.trace("Reached fixed point " + pairs)
 
     val reach = ReachabilityMatrix.emptyMatrix(numFV)
     for {
@@ -95,7 +94,7 @@ object ReachabilityAutomaton extends SlexLogging {
     } {
       reach.update(from, to, setReachable = true)
     }
-    logger.debug("Converted to matrix " + reach)
+    logger.trace("Reachability matrix for compressed SH: " + reach)
 
     reach
   }
@@ -103,7 +102,7 @@ object ReachabilityAutomaton extends SlexLogging {
   @tailrec
   private def reachabilityFixedPoint(compressedHeap : SymbolicHeap, equalities: Set[PtrEq], pairs : Set[(FV, FV)]) : Set[(FV, FV)] = {
 
-    logger.debug("Iterating reachability computation from " + pairs + " modulo equalities " + equalities)
+    logger.trace("Iterating reachability computation from " + pairs + " modulo equalities " + equalities)
 
     // FIXME: Reachability computation is currently extremely inefficient; should replace with a path search algorithm (that regards equalities as steps as well)
     // Propagate equalities
@@ -117,7 +116,7 @@ object ReachabilityAutomaton extends SlexLogging {
         ++ (if (right == from) Seq((left,to)) else Seq())
         ++ (if (left == to) Seq((from,right)) else Seq())
         ++ (if (right == to) Seq((from, left)) else Seq()))).flatten
-    logger.debug("Equality propagation: " + transitiveEqualityStep)
+    logger.trace("Equality propagation: " + transitiveEqualityStep)
 
     // Propagate reachability
     val transitivePointerStep = for {
@@ -125,7 +124,7 @@ object ReachabilityAutomaton extends SlexLogging {
       (from2, to2) <- pairs
       if to == from2
     } yield (from, to2)
-    logger.debug("Pointer propagation: " + transitivePointerStep)
+    logger.trace("Pointer propagation: " + transitivePointerStep)
 
     val newPairs = pairs union transitiveEqualityStep union transitivePointerStep
 
@@ -148,8 +147,8 @@ object ReachabilityAutomaton extends SlexLogging {
 
     val kernelPtrs : Set[SpatialAtom] = nonredundantAlloc map (reachInfoToPtr(_, reach, freshVar))
 
-    val res = SymbolicHeap(pure.toSeq, kernelPtrs.toSeq)
-    logger.debug("Converting " + s + " to " + res)
+    val res = SymbolicHeap(pure.toSeq, kernelPtrs.toSeq, Seq(freshVar.id))
+    logger.trace("Converting source state " + s + " to " + res)
     res
   }
 

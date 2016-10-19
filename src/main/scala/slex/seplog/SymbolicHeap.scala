@@ -55,10 +55,10 @@ object SymbolicHeap {
   def combineHeaps(phi : Option[SymbolicHeap], psi : Option[SymbolicHeap]) : Option[SymbolicHeap] = {
     for {
       SymbolicHeap(pure, spatial, qvars) <- phi
-      SymbolicHeap(pure2, spatial2, qvars2) <- psi
+      right <- psi
+      // Rename bound variables in the right formula that clash with the left formula
+      SymbolicHeap(pure2, spatial2, qvars2) = right.renameVars(Renaming.clashAvoidanceRenaming(qvars))
       combinedVars = qvars ++ qvars2
-      // FIXME: Should actually rename the vars in psi where necessary
-      if combinedVars.distinct == combinedVars
     } yield SymbolicHeap(pure ++ pure2, spatial ++ spatial2, combinedVars)
   }
 
