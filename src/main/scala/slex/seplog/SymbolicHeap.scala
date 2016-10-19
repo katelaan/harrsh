@@ -24,7 +24,9 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], qvars :
 
   def pointers : Seq[PointsTo] = spatial filter (_.isInstanceOf[PointsTo]) map (_.asInstanceOf[PointsTo])
 
-  def ptrEqs : Seq[PureAtom] = pure filter (a => a.isInstanceOf[PtrEq] || a.isInstanceOf[PtrNEq])
+  def equalities : Seq[PtrEq] = pure filter (_.isInstanceOf[PtrEq]) map (_.asInstanceOf[PtrEq])
+
+  def ptrComparisons : Seq[PureAtom] = pure filter (a => a.isInstanceOf[PtrEq] || a.isInstanceOf[PtrNEq])
 
   def withoutCalls : SymbolicHeap = copy(spatial = spatial.filter(!_.isInductiveCall))
 

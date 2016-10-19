@@ -25,7 +25,7 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends B
 
     // Get compression + propagation including bound variables
     val inconsistent = inconsistentTrackingInfo(numFV)
-    val trackingTargetWithoutCleanup = compressAndPropagate(trackingInfo, lab, inconsistentTrackingInfo(numFV))
+    val trackingTargetWithoutCleanup = compressAndPropagateTracking(trackingInfo, lab, inconsistentTrackingInfo(numFV))
 
     // Unless we already know that one of the children is not established,
     // check whether everything in that heap is either allocated or equal to a free variable

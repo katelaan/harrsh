@@ -29,7 +29,7 @@ class BaseTrackingAutomaton(
     if (src.length != lab.calledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.calledPreds.length + " does not match arity of source state sequence " + src.length)
 
     // Perform compression + subsequent equality/allocation propagation
-    val consistencyCheckedState = compressAndPropagate(src, lab, InconsistentState)
+    val consistencyCheckedState = compressAndPropagateTracking(src, lab, InconsistentState)
     // Break state down to only the free variables; the other information is not kept in the state space
     val trg = dropNonFreeVariables(consistencyCheckedState)
 
@@ -59,15 +59,15 @@ object BaseTrackingAutomaton extends SlexLogging {
     } yield (alloc, pure)
 
 
-  def compressAndPropagate(src : Seq[TrackingInfo], lab : SymbolicHeap, inconsistentState : TrackingInfo) : TrackingInfo = {
-    val compressed = compress(lab, src)
+  def compressAndPropagateTracking(src : Seq[TrackingInfo], lab : SymbolicHeap, inconsistentState : TrackingInfo) : TrackingInfo = {
+    val compressed = trackingCompression(lab, src)
     logger.debug("Compressed " + lab + " into " + compressed)
 
     // Compute allocation set and equalities for compressed SH and compare to target
     val allocExplicit: Seq[FV] = compressed.pointers map (_.from)
 
     // FIXME: Can we already assume that constraints returned by compression are ordered and thus drop this step?
-    val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrEqs map orderedAtom
+    val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrComparisons map orderedAtom
 
     // Add inequalities for allocated variables
     val inequalitiesFromAlloc : Seq[PureAtom] = Combinators.square(allocExplicit) map {
@@ -80,7 +80,7 @@ object BaseTrackingAutomaton extends SlexLogging {
     logger.debug("State for compressed SH: " + stateWithClosure)
 
     // If the state is inconsistent, return the unique inconsistent state; otherwise return state as is
-    checkConsistency(stateWithClosure, inconsistentState)
+    if (isConsistent(stateWithClosure)) stateWithClosure else inconsistentState
   }
 
   def dropNonFreeVariables(s : TrackingInfo) : TrackingInfo = {
@@ -92,9 +92,11 @@ object BaseTrackingAutomaton extends SlexLogging {
       }))
   }
 
-  def compress(sh : SymbolicHeap, qs : Seq[TrackingInfo]) : SymbolicHeap = {
+  def trackingCompression(sh : SymbolicHeap, qs : Seq[TrackingInfo]) : SymbolicHeap = compressWithKernelization(trackingKernel)(sh, qs)
+
+  def compressWithKernelization[A](kernelization : A => SymbolicHeap)(sh : SymbolicHeap, qs : Seq[A]) : SymbolicHeap = {
     val shFiltered = sh.withoutCalls
-    val newHeaps = qs map kernel
+    val newHeaps = qs map kernelization
     val stateHeapPairs = sh.getCalls zip newHeaps
     val renamedHeaps : Seq[SymbolicHeap] = stateHeapPairs map {
       case (call, heap) =>
@@ -108,7 +110,7 @@ object BaseTrackingAutomaton extends SlexLogging {
     combined
   }
 
-  def kernel(s : TrackingInfo) : SymbolicHeap = {
+  def trackingKernel(s : TrackingInfo) : SymbolicHeap = {
     // FIXME: Here we now assume that the state already contains a closure. If this is not the case, the following does not work.
     //val closure = new ClosureOfAtomSet(pure)
     val closure = UnsafeAtomsAsClosure(s._2)
@@ -122,18 +124,11 @@ object BaseTrackingAutomaton extends SlexLogging {
     res
   }
 
-  def checkConsistency(s : TrackingInfo, inconsistentState : TrackingInfo) : TrackingInfo = {
-    if (s._2.exists{
-      // Find inequality with two identical arguments
-      case PtrNEq(l, r) if l == r => true
-      case _ => false
-    }) {
-      // Inconsistent, return unique inconsistent state
-      inconsistentState
-    } else {
-      // Consistent, return as is
-      s
-    }
-  }
+  def isConsistent(s : TrackingInfo) : Boolean =
+        !s._2.exists{
+          // Find inequality with two identical arguments
+          case PtrNEq(l, r) if l == r => true
+          case _ => false
+        }
 
 }
