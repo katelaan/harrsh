@@ -7,7 +7,7 @@ package slex.seplog
 case class SID(startPred : String, rules : Set[(String, SymbolicHeap)], description : String = "Unnamed SID") {
 
   override def toString = {
-    description + " (start predicate '" + startPred + "'): " + rules.map(p => p._1 + " <= " + p._2).mkString("\n    ", "\n    ", "")
+    description + " (start predicate '" + startPred + "'): " + rules.toSeq.sortBy(_._1).map(p => p._1 + " <= " + p._2).mkString("\n    ", "\n    ", "")
   }
 
   /**

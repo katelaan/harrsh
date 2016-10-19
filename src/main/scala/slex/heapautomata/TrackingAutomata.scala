@@ -31,7 +31,9 @@ object TrackingAutomata extends SlexLogging {
     "UNSAT_" + numFV
   )
 
-  def establishmentAutomaton(numFV : Int) = new EstablishmentAutomaton(numFV)
+  def establishmentAutomaton(numFV : Int) = new EstablishmentAutomaton(numFV, true)
+
+  def nonEstablishmentAutomaton(numFV : Int) = new EstablishmentAutomaton(numFV, false)
 
 
 }

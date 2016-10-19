@@ -104,4 +104,63 @@ object ExampleSIDs {
     // sll <= ∃ y . a -> y * sll(y, b)
     ("sll", SymbolicHeap(Seq(), Seq(ptr(fv(1), "y"), call("sll", "y", fv(2))), Seq("y")))
   )
+
+  lazy val UnsatSID2 = SID("unsat",
+    "Tree with unsat leaves",
+    ("unsat", SymbolicHeap(Seq(), Seq(ptr(fv(1), "y", "z"), call("tree", "y"), call("tree", "z")), Seq("y", "z"))),
+    ("tree", SymbolicHeap(Seq(), Seq(ptr(fv(1), "y", "z"), call("tree", "y"), call("tree", "z")), Seq("y", "z"))),
+    ("tree", SymbolicHeap(Seq(ptrneq(nil, nil)), Seq(ptr(fv(1), nil, nil))))
+  )
+
+  lazy val OptionallyEstablishedSID = SID("start",
+    "Optionally Established SID",
+    ("start", SymbolicHeap(Seq(), Seq(call("pred", "z", fv(1)), call("pred", "y", fv(1))), Seq("z","y"))),
+    ("pred", SymbolicHeap(Seq(ptreq(fv(1),fv(2))), Seq(emp))),
+    ("pred", SymbolicHeap(Seq(ptr(fv(2),fv(1)))))
+  )
+
+  lazy val OptionallyEstablishedSID2 = SID("a",
+    "Optionally Established SID 2",
+    ("a", SymbolicHeap(Seq(), Seq(call("b", "y", "z"), call("b", "y", "w"), call("d", "z", "y")), Seq("y","z","w"))),
+    ("b", SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(call("c", fv(1), fv(2)), call("c", fv(2), fv(1))))),
+    ("c", SymbolicHeap(Seq(ptr(fv(1), fv(2))))),
+    ("c", SymbolicHeap(Seq(emp))),
+    ("d", SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(emp))),
+    ("d", SymbolicHeap(Seq(emp)))
+  )
+
+  lazy val OptionallyEstablishedSID3 = SID("a",
+    "Optionally Established SID 3",
+    ("a", SymbolicHeap(Seq(), Seq(call("b", "y", "z"), call("b", "z", "y")), Seq("y","z"))),
+    ("b", SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(call("c", fv(1), fv(2)), call("c", fv(2), fv(1))))),
+    ("c", SymbolicHeap(Seq(ptr(fv(1), fv(2))))),
+    ("c", SymbolicHeap(Seq(emp)))
+  )
+
+  lazy val OptionallyEstablishedSID4 = SID("a",
+    "Optionally Established SID 2",
+    ("a", SymbolicHeap(Seq(), Seq(call("b", "w", "z"), call("b", "y", "z"), call("d", "z", fv(1))), Seq("y","z","w"))),
+    ("b", SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(emp))),
+    ("b", SymbolicHeap(Seq(emp))),
+    ("d", SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(emp))),
+    ("d", SymbolicHeap(Seq(emp)))
+  )
+
+  lazy val NonEstablishedSID = SID("start",
+    "Non-Established SID",
+    ("start", SymbolicHeap(Seq(), Seq(call("pred", "z", fv(1))), Seq("z","y"))),
+    ("pred", SymbolicHeap(Seq(ptreq(fv(1),fv(2))), Seq(emp))),
+    ("pred", SymbolicHeap(Seq(ptr(fv(2),fv(1)))))
+  )
+
+  lazy val NonEstablishedSID2 = SID("a",
+    "Non-Established SID 2",
+    ("a", SymbolicHeap(Seq(), Seq(call("b", "y", "z"), call("b", "y", "w"), call("d", "z", fv(2))), Seq("y","z","w"))),
+    ("b", SymbolicHeap(Seq(call("c", fv(1), fv(2))))),
+    ("c", SymbolicHeap(Seq(ptr(fv(2), fv(1))))),
+    ("c", SymbolicHeap(Seq(emp))),
+    ("d", SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(emp))),
+    ("d", SymbolicHeap(Seq(emp)))
+  )
+
 }

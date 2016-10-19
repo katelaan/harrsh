@@ -49,4 +49,6 @@ trait HeapAutomaton {
 
   def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = throw new NotImplementedError("No smart target computation for this heap automaton")
 
+  override def toString = description
+
 }

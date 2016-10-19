@@ -9,7 +9,7 @@ import slex.slex.SlexTableTest
   */
 class EstablishmentAutomatonTest extends SlexTableTest {
 
-  val est3 = new EstablishmentAutomaton(3)
+  val est3 = new EstablishmentAutomaton(3, true)
 
   def mk(fvs : Set[FV], pure : Set[PureAtom], est : Boolean) : est3.State = ((fvs, pure), est)
   def mk(fvs : Set[FV], est : Boolean) : est3.State = ((fvs, Set()), est)
