@@ -38,6 +38,13 @@ case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) extends SlexL
     logger.debug("Updating matrix adding " + (from,to,setReachable) + " yielding " + this)
   }
 
+  override def equals(other : Any) = other match {
+    case ReachabilityMatrix(_, oreach) => reach.deep == oreach.deep
+    case _ => false
+  }
+
+  override def hashCode(): Int = reach.deep.hashCode()
+
   private def minIndexForSrc(src : Int) : Int = dim * src
   private def minIndexForSrc(src : FV) : Int = minIndexForSrc(unFV(src))
 

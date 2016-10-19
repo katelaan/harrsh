@@ -49,7 +49,7 @@ object TrackingAutomata extends SlexLogging {
 
   def garbageFreedomAutomaton(numFV : Int) = new BaseReachabilityAutomaton[Boolean](
     numFV,
-    isFinalPredicate = (_ : BaseReachabilityAutomaton[Boolean], _ : ReachabilityInfo, tag : Boolean) => tag,
+    isFinalPredicate = (_, _, tag : Boolean) => tag,
     tagComputation = (tags : Seq[Boolean], ti : TrackingInfo, pairs : Set[(FV,FV)], vars : Set[FV]) => !tags.exists(!_) && BaseReachabilityAutomaton.isGarbageFree(ti, pairs, vars + NullPtr(), numFV),
     inconsistentTag = true, // An inconsistent heap is garbage free
     valsOfTag = Set(true, false),
@@ -57,7 +57,7 @@ object TrackingAutomata extends SlexLogging {
 
   def acyclicityAutomaton(numFV : Int) = new BaseReachabilityAutomaton[Boolean](
     numFV,
-    isFinalPredicate = (_ : BaseReachabilityAutomaton[Boolean], _ : ReachabilityInfo, tag : Boolean) => tag,
+    isFinalPredicate = (_, _, tag : Boolean) => tag,
     tagComputation = (tags : Seq[Boolean], ti : TrackingInfo, pairs : Set[(FV,FV)], vars : Set[FV]) => !tags.exists(!_) && BaseReachabilityAutomaton.isAcyclic(ti, pairs, vars + NullPtr(), numFV),
     inconsistentTag = true, // An inconsistent heap is acyclic
     valsOfTag = Set(true, false),

@@ -163,4 +163,17 @@ object ExampleSIDs {
     ("d", SymbolicHeap(Seq(emp)))
   )
 
+  lazy val CyclicSll = SID("cll",
+    "Cyclic list",
+    ("cll", SymbolicHeap(Seq(call("sll", fv(1), fv(1))))),
+    ("sll", SymbolicHeap(Seq(ptr(fv(1), fv(2))))),
+    ("sll", SymbolicHeap(Seq(), Seq(ptr(fv(1), "y"), call("sll", "y", fv(2))), Seq("y")))
+  )
+
+  lazy val GarbageSll = SID("cll",
+    "Garbage list",
+    ("sll", SymbolicHeap(Seq(ptr(fv(1), fv(2))))),
+    ("sll", SymbolicHeap(Seq(), Seq(ptr(fv(1), "y"), call("sll", "y", fv(2))), Seq("y", "z")))
+  )
+
 }
