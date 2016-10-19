@@ -2,22 +2,30 @@ package slex.heapautomata.utils
 
 import slex.Combinators
 import slex.heapautomata._
+import slex.main.SlexLogging
 
 /**
   * Created by jkatelaa on 10/19/16.
   */
-case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) {
+case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) extends SlexLogging {
 
   private val dim = numFV + 1
 
   if (HeapAutomataSafeModeEnabled) {
-    //if (reach.length != numFV || reach.exists((_.length != numFV))) throw new IllegalStateException("Reachability info is not a " + numFV + "*" + numFV + " matrix")
     if (reach.length != dim * dim) throw new IllegalStateException("Reachability info is not a " + dim + "*" + dim + " matrix")
   }
 
-  def isReachable(from : Int, to : Int) : Boolean = reach(minIndexForSrc(from) + to)
+  override def toString = "MATRIX(\n" + (for (i <- 0 to numFV) yield getRowFor(i).map(if (_) '1' else '0').mkString(" ")).mkString("\n") + "\n)"
 
-  def getRowFor(src: FV): Seq[Boolean] = {
+  def isReachable(from : Int, to : Int) : Boolean = {
+    val ix = minIndexForSrc(from) + to
+    val res = reach(minIndexForSrc(from) + to)
+    logger.debug("Looking up entry for " + (from, to) + " at index " + ix + " in " + reach.mkString(" ") + " yielding " + res)
+    res
+  }
+
+  def getRowFor(src: FV): Seq[Boolean] = getRowFor(unFV(src))
+  def getRowFor(src: Int): Seq[Boolean] = {
     val start = minIndexForSrc(src)
     reach.slice(start, start + dim)
   }
@@ -26,6 +34,7 @@ case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) {
   def update(from : Int, to : Int, setReachable : Boolean) : Unit = {
     val start = minIndexForSrc(from)
     reach.update(start + to, setReachable)
+    logger.debug("Updating matrix adding " + (from,to,setReachable) + " yielding " + this)
   }
 
   private def minIndexForSrc(src : Int) : Int = dim * src

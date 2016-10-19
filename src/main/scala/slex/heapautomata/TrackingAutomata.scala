@@ -35,5 +35,6 @@ object TrackingAutomata extends SlexLogging {
 
   def nonEstablishmentAutomaton(numFV : Int) = new EstablishmentAutomaton(numFV, false)
 
+  def reachabilityAutomaton(numFV : Int, from : FV, to : FV) = new ReachabilityAutomaton(numFV, from, to)
 
 }

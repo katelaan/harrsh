@@ -84,38 +84,40 @@ object ReachabilityAutomaton extends SlexLogging {
     def ptrToPairs(ptr : PointsTo) : Seq[(FV,FV)] = ptr.to map ((ptr.from, _))
 
     val directReachability : Seq[(FV,FV)] = compressedHeap.pointers flatMap ptrToPairs
-    val pairs = reachabilityFixedPoint(compressedHeap, tracking, directReachability.toSet)
+    val equalities = tracking._2.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq])
+    val pairs = reachabilityFixedPoint(compressedHeap, equalities, directReachability.toSet)
     logger.debug("Reached fixed point " + pairs)
 
     val reach = ReachabilityMatrix.emptyMatrix(numFV)
-    logger.debug("Converted to matrix " + reach)
     for {
       (from, to) <- pairs
       if isFV(from) && isFV(to)
     } {
       reach.update(from, to, setReachable = true)
     }
+    logger.debug("Converted to matrix " + reach)
 
     reach
   }
 
   @tailrec
-  private def reachabilityFixedPoint(compressedHeap : SymbolicHeap, tracking : TrackingInfo, pairs : Set[(FV, FV)]) : Set[(FV, FV)] = {
+  private def reachabilityFixedPoint(compressedHeap : SymbolicHeap, equalities: Set[PtrEq], pairs : Set[(FV, FV)]) : Set[(FV, FV)] = {
 
-    logger.debug("Iterating reachability computation from " + pairs)
+    logger.debug("Iterating reachability computation from " + pairs + " modulo equalities " + equalities)
 
-    // FIXME: Reachability computation is currently extremely inefficient; should replace with a path search algorithm (that regard equalities as steps as well)
+    // FIXME: Reachability computation is currently extremely inefficient; should replace with a path search algorithm (that regards equalities as steps as well)
     // Propagate equalities
-    val transitiveEqualitySet : Set[(FV,FV)] = (for {
-      PtrEq(left, right) <- tracking._2.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq])
+    val transitiveEqualityStep : Set[(FV,FV)] = (for {
+      PtrEq(left, right) <- equalities
       (from, to) <- pairs
       if left == from || left == to || right == from || right == to
     } yield (
-      Seq((from, to))
-        ++ (if (left == from) Some((left,to)) else None)
-        ++ (if (right == from) Some((right,to)) else None)
-        ++ (if (left == to) Some((from,left)) else None)
-        ++ (if (right == to) Some((from, right)) else None))).flatten
+      Seq[(FV,FV)]()
+        ++ (if (left == from) Seq((right,to)) else Seq())
+        ++ (if (right == from) Seq((left,to)) else Seq())
+        ++ (if (left == to) Seq((from,right)) else Seq())
+        ++ (if (right == to) Seq((from, left)) else Seq()))).flatten
+    logger.debug("Equality propagation: " + transitiveEqualityStep)
 
     // Propagate reachability
     val transitivePointerStep = for {
@@ -123,10 +125,11 @@ object ReachabilityAutomaton extends SlexLogging {
       (from2, to2) <- pairs
       if to == from2
     } yield (from, to2)
+    logger.debug("Pointer propagation: " + transitivePointerStep)
 
-    val newPairs = pairs union transitiveEqualitySet union transitivePointerStep
+    val newPairs = pairs union transitiveEqualityStep union transitivePointerStep
 
-    if (newPairs == pairs) pairs else reachabilityFixedPoint(compressedHeap, tracking, newPairs)
+    if (newPairs == pairs) pairs else reachabilityFixedPoint(compressedHeap, equalities, newPairs)
   }
 
   def reachabilityCompression(sh : SymbolicHeap, qs : Seq[ReachabilityInfo]) : SymbolicHeap = compressWithKernelization(reachabilityKernel)(sh, qs)
