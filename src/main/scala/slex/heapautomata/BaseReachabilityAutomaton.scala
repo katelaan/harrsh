@@ -14,7 +14,7 @@ import scala.annotation.tailrec
 class BaseReachabilityAutomaton[A](
                                  numFV : Int,
                                  isFinalPredicate : (BaseReachabilityAutomaton[A], BaseReachabilityAutomaton.ReachabilityInfo, A) => Boolean,
-                                 tagComputation : (Seq[A], BaseReachabilityAutomaton.ReachabilityInfo) => A,
+                                 tagComputation : (Seq[A], TrackingInfo, Set[(FV,FV)], Set[FV]) => A,
                                  inconsistentTag : A,
                                  valsOfTag : Set[A],
                                  override val description : String = "BASE-REACH") extends BoundedFvAutomatonWithTargetComputation(numFV) {
@@ -38,13 +38,11 @@ class BaseReachabilityAutomaton[A](
     if (src.length != lab.calledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.calledPreds.length + " does not match arity of source state sequence " + src.length)
 
     // Perform compression + subsequent equality/allocation propagation
-    val consistencyCheckedState = compressAndPropagateReachability(src map (_._1), lab, InconsistentState._1, numFV)
+    val (consistencyCheckedState,tag) = compressAndPropagateReachability(src, lab, InconsistentState, numFV, tagComputation)
     // Break state down to only the free variables; the other information is not kept in the state space
     val trg = (dropNonFreeVariables(consistencyCheckedState._1), consistencyCheckedState._2)
 
     logger.debug("Target state: " + trg)
-
-    val tag = tagComputation(src.map(_._2), consistencyCheckedState)
 
     // There is a unique target state because we always compute the congruence closure
     Set((trg,tag))
@@ -58,8 +56,12 @@ object BaseReachabilityAutomaton extends SlexLogging {
   // In an inconsistent state, everything is reachable
   def inconsistentReachability(numFV : Int) = ReachabilityMatrix(numFV, Array.fill((numFV+1)*(numFV+1))(true))
 
-  def compressAndPropagateReachability(src : Seq[ReachabilityInfo], lab : SymbolicHeap, inconsistentState : ReachabilityInfo, numFV : Int) : ReachabilityInfo = {
-    val compressed = reachabilityCompression(lab, src)
+  def compressAndPropagateReachability[A](src : Seq[(ReachabilityInfo,A)],
+                                          lab : SymbolicHeap,
+                                          inconsistentState : (ReachabilityInfo,A),
+                                          numFV : Int,
+                                          tagComputation : (Seq[A], TrackingInfo, Set[(FV,FV)], Set[FV]) => A) : (ReachabilityInfo,A) = {
+    val compressed = reachabilityCompression(lab, src map (_._1))
     logger.debug("Compressed " + lab + " into " + compressed)
 
     // Compute allocation set and equalities for compressed SH and compare to target
@@ -82,12 +84,14 @@ object BaseReachabilityAutomaton extends SlexLogging {
     // If the state is inconsistent, return the unique inconsistent state; otherwise compute reachability info
     if (isConsistent(trackingsStateWithClosure)) {
       // Compute reachability info by following pointers
-      val newMatrix = reachabilityFixedPoint(numFV, compressed, trackingsStateWithClosure)
-      (trackingsStateWithClosure, newMatrix)
+      val (pairs, newMatrix) = reachabilityFixedPoint(numFV, compressed, trackingsStateWithClosure)
+      //tagComputation : (Seq[A], TrackingInfo, Set[(FV,FV)], Set[FV]) => A,
+      val tag = tagComputation(src map (_._2), trackingsStateWithClosure, pairs, compressed.getVars map PtrVar)
+      ((trackingsStateWithClosure, newMatrix), tag)
     } else inconsistentState
   }
 
-  def reachabilityFixedPoint(numFV : Int, compressedHeap : SymbolicHeap, tracking : TrackingInfo) : ReachabilityMatrix = {
+  def reachabilityFixedPoint(numFV : Int, compressedHeap : SymbolicHeap, tracking : TrackingInfo) : (Set[(FV,FV)], ReachabilityMatrix) = {
 
     def ptrToPairs(ptr : PointsTo) : Seq[(FV,FV)] = ptr.to map ((ptr.from, _))
 
@@ -105,7 +109,7 @@ object BaseReachabilityAutomaton extends SlexLogging {
     }
     logger.trace("Reachability matrix for compressed SH: " + reach)
 
-    reach
+    (pairs, reach)
   }
 
   @tailrec
@@ -168,6 +172,58 @@ object BaseReachabilityAutomaton extends SlexLogging {
       case (r,i) => if (r) fv(i) else placeholder
     }
     PointsTo(src, targets)
+  }
+
+  def computeExtendedMatrix(ti : TrackingInfo, reachPairs : Set[(FV,FV)], vars : Set[FV]) : (Map[FV, Int], ReachabilityMatrix) = {
+    val ixs : Map[FV, Int] = Map() ++ vars.zipWithIndex
+
+    // TODO Code duplication in matrix computation (plus, we're computing a second matrix on top of the FV-reachability matrix...)
+    val reach = ReachabilityMatrix.emptyMatrix(vars.size)
+    for ((from, to) <- reachPairs) {
+      reach.update(ixs(from), ixs(to), setReachable = true)
+    }
+
+    (ixs, reach)
+  }
+
+  def isGarbageFree(ti : TrackingInfo, reachPairs : Set[(FV,FV)], vars : Set[FV], numFV : Int): Boolean = {
+
+    // FIXME Null handling?
+
+    lazy val eqs = ti._2.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq])
+
+    def isEqualToFV(v : FV) = eqs.exists {
+      case PtrEq(left, right) => left == v && isFV(right) || right == v && isFV(left)
+    }
+
+    val (ixs, reach) = computeExtendedMatrix(ti, reachPairs, vars)
+
+    // TODO Needlessly inefficient as well...
+    def isReachableFromFV(trg : FV) : Boolean = {
+      val results : Set[Boolean] = for {
+        fv <- vars
+        if isFV(fv)
+      } yield reach.isReachable(ixs(fv), ixs(trg))
+
+      results.exists(b => b)
+    }
+
+    logger.debug("Reachability matrix for variable numbering " + ixs.toSeq.sortBy(_._2).map(p => p._1 + " -> " + p._2).mkString(", ") + ": " + reach)
+
+    val reachableFromFV = for (v <- vars) yield isFV(v) || isEqualToFV(v) || isReachableFromFV(v)
+
+    !reachableFromFV.exists(!_)
+  }
+
+  def isAcyclic(ti : TrackingInfo, reachPairs : Set[(FV,FV)], vars : Set[FV], numFV : Int): Boolean = {
+
+    // FIXME Null handling?
+
+    val (ixs, reach) = computeExtendedMatrix(ti, reachPairs, vars)
+
+    val cycles = for (v <- vars) yield isFV(v) || reach.isReachable(ixs(v), ixs(v))
+
+    !cycles.exists(!_)
   }
 
 }
