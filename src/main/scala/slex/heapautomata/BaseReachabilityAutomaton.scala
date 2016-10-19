@@ -174,14 +174,24 @@ object BaseReachabilityAutomaton extends SlexLogging {
     PointsTo(src, targets)
   }
 
+  /**
+    * Computes reachability matrix for the given set of variables (possibly including the nullptr)
+    * @param ti Tracking information AFTER congruence closure computation
+    * @param reachPairs Reachability between pairs of variables AFTER transitive closure computation
+    * @param vars Variables to take into account; add nullptr explicitly to have it included
+    * @return (variable-to-matrix-index map, matrix)
+    */
   def computeExtendedMatrix(ti : TrackingInfo, reachPairs : Set[(FV,FV)], vars : Set[FV]) : (Map[FV, Int], ReachabilityMatrix) = {
     val ixs : Map[FV, Int] = Map() ++ vars.zipWithIndex
 
     // TODO Code duplication in matrix computation (plus, we're computing a second matrix on top of the FV-reachability matrix...)
-    val reach = ReachabilityMatrix.emptyMatrix(vars.size)
+    // Note: Subtract 1, because the null pointer is either explicitly in vars, or to be ignored
+    val reach = ReachabilityMatrix.emptyMatrix(vars.size - 1)
     for ((from, to) <- reachPairs) {
       reach.update(ixs(from), ixs(to), setReachable = true)
     }
+
+    logger.debug("Extended matrix for variable numbering " + ixs.toSeq.sortBy(_._2).map(p => p._1 + " -> " + p._2).mkString(", ") + ": " + reach)
 
     (ixs, reach)
   }
@@ -189,6 +199,8 @@ object BaseReachabilityAutomaton extends SlexLogging {
   def isGarbageFree(ti : TrackingInfo, reachPairs : Set[(FV,FV)], vars : Set[FV], numFV : Int): Boolean = {
 
     // FIXME Null handling?
+
+    logger.debug("Computing garbage freedom for variables " + vars)
 
     lazy val eqs = ti._2.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq])
 
@@ -208,22 +220,32 @@ object BaseReachabilityAutomaton extends SlexLogging {
       results.exists(b => b)
     }
 
-    logger.debug("Reachability matrix for variable numbering " + ixs.toSeq.sortBy(_._2).map(p => p._1 + " -> " + p._2).mkString(", ") + ": " + reach)
-
+    // TODO Stop as soon as garbage is found
     val reachableFromFV = for (v <- vars) yield isFV(v) || isEqualToFV(v) || isReachableFromFV(v)
 
-    !reachableFromFV.exists(!_)
+    val containsGarbage = !reachableFromFV.exists(!_)
+
+    if (containsGarbage) {
+      logger.debug("Discovered garbage")
+    }
+
+    containsGarbage
   }
 
   def isAcyclic(ti : TrackingInfo, reachPairs : Set[(FV,FV)], vars : Set[FV], numFV : Int): Boolean = {
 
     // FIXME Null handling?
 
+    logger.debug("Computing acyclicity for variables " + vars)
+
     val (ixs, reach) = computeExtendedMatrix(ti, reachPairs, vars)
 
-    val cycles = for (v <- vars) yield isFV(v) || reach.isReachable(ixs(v), ixs(v))
+    // TODO Stop as soon as cycle is found (but iterating over everything here is needlessly expensive, but through the also needless transformation to Seq, we at least get nice logging below...)
+    val cycles = for (v <- vars.toSeq) yield reach.isReachable(ixs(v), ixs(v))
 
-    !cycles.exists(!_)
+    logger.debug("Cycles: " + (vars zip cycles))
+
+    !cycles.exists(b => b)
   }
 
 }
