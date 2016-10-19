@@ -19,5 +19,5 @@
     <logger name="slex.heapautomata" level="INFO" />
     <logger name="slex.heapautomata.RefinementAlgorithms" level="DEBUG" />
     <logger name="slex.heapautomata.BaseTrackingAutomaton" level="DEBUG" />
-    <logger name="slex.heapautomata.ReachabilityAutomaton" level="DEBUG" />
+    <logger name="slex.heapautomata.BaseReachabilityAutomaton" level="DEBUG" />
 </configuration>

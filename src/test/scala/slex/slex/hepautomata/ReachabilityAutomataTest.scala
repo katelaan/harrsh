@@ -1,6 +1,6 @@
 package slex.slex.hepautomata
 
-import slex.heapautomata.ReachabilityAutomaton.ReachabilityInfo
+import slex.heapautomata.BaseReachabilityAutomaton.ReachabilityInfo
 import slex.heapautomata.TrackingAutomata
 import slex.heapautomata._
 import slex.heapautomata.utils.ReachabilityMatrix
@@ -45,13 +45,13 @@ class ReachabilityAutomataTest extends SlexTableTest {
   property("Transitions of the reachability automaton") {
 
     forAll(transitions) {
-      (src: Seq[ReachabilityAutomaton.ReachabilityInfo], sh: SymbolicHeap, from : FV, to : FV, result: Boolean) =>
+      (src: Seq[BaseReachabilityAutomaton.ReachabilityInfo], sh: SymbolicHeap, from : FV, to : FV, result: Boolean) =>
         val reach3 = TrackingAutomata.reachabilityAutomaton(3, from, to)
 
         Given(src.mkString(", ") + ", " + sh + ", query " + from + " -> " + to)
         Then("The transition " + src.mkString(", ") + " --[" + sh + "]--> " + " <trg> should yield to a " + (if (result) "FINAL STATE" else "NON-FINAL STATE"))
 
-        val succs = reach3.getTargetsFor(src, sh)
+        val succs = reach3.getTargetsFor(src map (ri => (ri,())), sh)
         succs.size should be (1)
         info("Reached state: " + succs.head)
         reach3.isFinal(succs.head) should be (result)

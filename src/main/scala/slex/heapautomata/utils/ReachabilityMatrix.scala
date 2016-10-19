@@ -17,6 +17,7 @@ case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) extends SlexL
 
   override def toString = "MATRIX(\n" + (for (i <- 0 to numFV) yield getRowFor(i).map(if (_) '1' else '0').mkString(" ")).mkString("\n") + "\n)"
 
+  def isReachable(from : FV, to : FV) : Boolean = isReachable(unFV(from), unFV(to))
   def isReachable(from : Int, to : Int) : Boolean = {
     val ix = minIndexForSrc(from) + to
     val res = reach(minIndexForSrc(from) + to)

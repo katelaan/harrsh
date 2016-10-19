@@ -11,38 +11,47 @@ import scala.annotation.tailrec
 /**
   * Created by jkatelaa on 10/19/16.
   */
-class ReachabilityAutomaton(numFV : Int, from : FV, to : FV) extends BoundedFvAutomatonWithTargetComputation(numFV) {
+class BaseReachabilityAutomaton[A](
+                                 numFV : Int,
+                                 isFinalPredicate : (BaseReachabilityAutomaton[A], BaseReachabilityAutomaton.ReachabilityInfo, A) => Boolean,
+                                 tagComputation : (Seq[A], BaseReachabilityAutomaton.ReachabilityInfo) => A,
+                                 inconsistentTag : A,
+                                 valsOfTag : Set[A],
+                                 override val description : String = "BASE-REACH") extends BoundedFvAutomatonWithTargetComputation(numFV) {
 
-  import ReachabilityAutomaton._
+  import BaseReachabilityAutomaton._
 
-  override type State = (TrackingInfo, ReachabilityMatrix)
+  override type State = (ReachabilityInfo, A)
 
-  lazy val InconsistentState : State = (inconsistentTrackingInfo(numFV),inconsistentReachability(numFV))
+  lazy val InconsistentState : State = ((inconsistentTrackingInfo(numFV),inconsistentReachability(numFV)), inconsistentTag)
 
   override lazy val states: Set[State] = for {
     track <- computeTrackingStateSpace(numFV)
     reach <- ReachabilityMatrix.allMatrices(numFV)
-  } yield (track, reach)
+    tag <- valsOfTag
+  } yield ((track, reach), tag)
 
-  override def isFinal(s: State): Boolean = s._2.isReachable(unFV(from), unFV(to))
+  override def isFinal(s: State): Boolean = isFinalPredicate(this, s._1, s._2)
 
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     logger.debug("Computing possible targets " + src.mkString(", ") + " --[" + lab + "]--> ???")
     if (src.length != lab.calledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.calledPreds.length + " does not match arity of source state sequence " + src.length)
 
     // Perform compression + subsequent equality/allocation propagation
-    val consistencyCheckedState = compressAndPropagateReachability(src, lab, InconsistentState, numFV)
+    val consistencyCheckedState = compressAndPropagateReachability(src map (_._1), lab, InconsistentState._1, numFV)
     // Break state down to only the free variables; the other information is not kept in the state space
     val trg = (dropNonFreeVariables(consistencyCheckedState._1), consistencyCheckedState._2)
 
     logger.debug("Target state: " + trg)
 
+    val tag = tagComputation(src.map(_._2), consistencyCheckedState)
+
     // There is a unique target state because we always compute the congruence closure
-    Set(trg)
+    Set((trg,tag))
   }
 }
 
-object ReachabilityAutomaton extends SlexLogging {
+object BaseReachabilityAutomaton extends SlexLogging {
 
   type ReachabilityInfo = (TrackingInfo,ReachabilityMatrix)
 

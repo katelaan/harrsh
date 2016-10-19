@@ -1,6 +1,7 @@
 package slex.heapautomata
 
 import slex.Combinators
+import slex.heapautomata.BaseReachabilityAutomaton.ReachabilityInfo
 import slex.heapautomata.utils.{EqualityUtils, UnsafeAtomsAsClosure}
 import slex.main._
 import slex.seplog._
@@ -35,6 +36,13 @@ object TrackingAutomata extends SlexLogging {
 
   def nonEstablishmentAutomaton(numFV : Int) = new EstablishmentAutomaton(numFV, false)
 
-  def reachabilityAutomaton(numFV : Int, from : FV, to : FV) = new ReachabilityAutomaton(numFV, from, to)
+  // TODO: The reachability automaton would be nicer if the Unit didn't show up all over the place...
+  def reachabilityAutomaton(numFV : Int, from : FV, to : FV) = new BaseReachabilityAutomaton[Unit](
+    numFV,
+    isFinalPredicate = (self : BaseReachabilityAutomaton[Unit], ri : ReachabilityInfo, _ : Unit) => ri._2.isReachable(from, to),
+    tagComputation = (tags : Seq[Unit], ri : ReachabilityInfo) => (),
+    inconsistentTag= (),
+    valsOfTag = Set(()),
+    description = "REACH_" + numFV)
 
 }
