@@ -1,10 +1,9 @@
-package slex.slex.entailment
+package slex.entailment
 
 import org.scalatest.prop.TableDrivenPropertyChecks
-import slex.SlexTest
-import slex.entailment.MDEC
 import slex.seplog._
-import slex.smtinteraction.{SimpleZ3Wrapper, SmtWrapper}
+import slex.smtinteraction.SmtWrapper
+import slex.test.SlexTest
 
 /**
   * Created by jkatelaa on 10/13/16.

@@ -1,4 +1,4 @@
-package slex.slex.test.generators
+package slex.test.generators
 
 import org.scalacheck.Gen
 import slex.seplog.{False, IntExpr, IxEq, IxGEq, IxGT, IxLEq, IxLT, IxNEq, PtrEq, PtrExpr, PtrNEq, PureAtom, True}

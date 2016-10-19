@@ -1,4 +1,4 @@
-package slex.slex
+package slex.test
 
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{GivenWhenThen, Matchers, PropSpec}

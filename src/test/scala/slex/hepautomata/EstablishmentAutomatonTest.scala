@@ -1,8 +1,8 @@
-package slex.slex.hepautomata
+package slex.hepautomata
 
 import slex.heapautomata._
 import slex.seplog._
-import slex.slex.SlexTableTest
+import slex.test.SlexTableTest
 
 /**
   * Created by jkatelaa on 10/18/16.

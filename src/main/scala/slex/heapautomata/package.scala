@@ -25,6 +25,12 @@ package object heapautomata {
     case PtrVar(v) => Integer.parseInt(v.drop(FVPrefix.length))
   }
 
+  def fvAll(ints : Int*) : Set[FV] = Set() ++ ints map fv
+
+  def mkPure(atoms : (Int, Int, Boolean)*) : Set[PureAtom] = Set() ++ (atoms.toSeq map {
+    case (l,r,isEq) => orderedAtom(fv(l),fv(r),isEq)
+  })
+
   def getMaxFvIndex(vars : Set[String]) : Int = (vars filter (isFV(_)) map (unFV(_))).max
 
   def allEqualitiesOverFVs(numFV : Int) : Set[PureAtom] = {

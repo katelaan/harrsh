@@ -1,9 +1,9 @@
-package slex.slex.hepautomata
+package slex.hepautomata
 
 import slex.heapautomata.TrackingAutomata
 import slex.heapautomata._
 import slex.seplog.{SymbolicHeap, call, emp, nil, ptr, ptreq, ptrneq}
-import slex.slex.SlexTableTest
+import slex.test.SlexTableTest
 
 /**
   * Created by jens on 10/16/16.

@@ -1,11 +1,9 @@
-package slex.slex.seplog
+package slex.seplog
 
-import org.scalatest.Matchers
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import slex.SlexTest
 import slex.models.{Stack, StackBasedEvaluator}
-import slex.seplog.{IntExpr, PtrExpr, PureAtom, PureFormula}
-import slex.slex.test.generators.{PureAtomGens, PureFormulaGen, SlExprGens, StackGens}
+import slex.test.SlexTest
+import slex.test.generators.{PureFormulaGen, StackGens}
 
 /**
   * Created by jkatelaa on 10/7/16.

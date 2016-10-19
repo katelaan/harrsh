@@ -1,9 +1,9 @@
-package slex.slex.hepautomata
+package slex.hepautomata
 
 import slex.heapautomata._
 import slex.heapautomata.utils.ClosureOfAtomSet
 import slex.seplog.PureAtom
-import slex.slex.SlexTableTest
+import slex.test.SlexTableTest
 
 /**
   * Created by jkatelaa on 10/17/16.

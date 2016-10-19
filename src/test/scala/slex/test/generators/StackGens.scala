@@ -1,4 +1,4 @@
-package slex.slex.test.generators
+package slex.test.generators
 
 import scala.collection.JavaConverters._
 

@@ -1,7 +1,7 @@
-package slex.slex.hepautomata
+package slex.hepautomata
 
 import slex.heapautomata.{TrackingAutomata, _}
-import slex.slex.SlexTableTest
+import slex.test.SlexTableTest
 
 /**
   * Created by jens on 10/15/16.

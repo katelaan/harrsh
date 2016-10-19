@@ -1,9 +1,9 @@
-package slex.slex.test.generators
+package slex.test.generators
 
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import slex.SlexTest
 import slex.models.Stack
 import slex.seplog.{IntExpr, PtrExpr, PureAtom, PureFormula}
+import slex.test.SlexTest
 
 /**
   * This object just samples the various generators.

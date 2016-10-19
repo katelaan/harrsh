@@ -1,11 +1,11 @@
-package slex.slex.hepautomata
+package slex.hepautomata
 
 import slex.heapautomata.BaseReachabilityAutomaton.ReachabilityInfo
 import slex.heapautomata.TrackingAutomata
 import slex.heapautomata._
 import slex.heapautomata.utils.ReachabilityMatrix
 import slex.seplog._
-import slex.slex.SlexTableTest
+import slex.test.SlexTableTest
 
 /**
   * Created by jkatelaa on 10/19/16.

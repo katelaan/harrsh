@@ -1,4 +1,4 @@
-package slex
+package slex.test
 
 import org.scalatest.{FlatSpec, Matchers}
 
