@@ -18,7 +18,7 @@ sealed trait PtrExpr extends Expr {
   }
 
   def getVar : Set[String] = this match {
-    case NullPtr() => Set() // FIXME [NULL-TREATMENT] Currently we handle null by declaring it as an ordinary constant. Might want to fix this at some point
+    case NullPtr() => Set()
     case PtrVar(id) => Set(id)
   }
 

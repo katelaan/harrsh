@@ -1,6 +1,7 @@
 package slex.models
 
-import slex.seplog._
+import slex.seplog.PtrExpr
+import slex.seplog.indexed._
 
 /**
   * Created by jkatelaa on 10/3/16.
@@ -11,7 +12,7 @@ object StackBasedEvaluator {
     case PureNeg(phi) => !eval(s, phi)
     case PureAnd(phi, psi) => eval(s, phi) && eval(s, psi)
     case PureOr(phi, psi) => eval(s, phi) || eval(s, psi)
-    case a: PureAtom => a match {
+    case a: IndexedPureAtom => a match {
       case True() => true
       case False() => false
       case IxEq(l, r) => eval(s, l) == eval(s, r)

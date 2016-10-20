@@ -2,7 +2,7 @@ package slex.hepautomata
 
 import slex.heapautomata._
 import slex.heapautomata.utils.ClosureOfAtomSet
-import slex.seplog.PureAtom
+import slex.seplog.inductive.PureAtom
 import slex.test.SlexTableTest
 
 /**

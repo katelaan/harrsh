@@ -1,11 +1,10 @@
 package slex.heapautomata
 
-import slex.Combinators
 import slex.heapautomata.BaseReachabilityAutomaton.ReachabilityInfo
 import slex.heapautomata.BaseTrackingAutomaton.TrackingInfo
-import slex.heapautomata.utils.{EqualityUtils, UnsafeAtomsAsClosure}
 import slex.main._
-import slex.seplog._
+import slex.seplog.NullPtr
+import slex.seplog.inductive.PureAtom
 
 /**
   * Created by jens on 10/16/16.

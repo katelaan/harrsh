@@ -1,7 +1,8 @@
 package slex.entailment
 
 import slex.Combinators
-import slex.seplog.{Emp, False, IxEq, IxLEq, IxLSeg, IxLT, Minus, NullPtr, PointsTo, PredCall, PtrEq, PtrExpr, PtrNEq, PtrVar, PureAnd, PureFormula, PureNeg, PureOr, SepCon, SepLogFormula, SpatialAtom, SymbolicHeap, True}
+import slex.seplog._
+import slex.seplog.indexed._
 import slex.Sorts._
 import slex.Combinators._
 import slex.main.SlexLogging
@@ -28,13 +29,13 @@ case class MDEC(solver : SmtWrapper) extends SlexLogging {
 
   private val SimplificationEnabled = true
 
-  def prove(left : SymbolicHeap, right : SymbolicHeap) : VerificationResult = {
+  def prove(left : IndexedSymbolicHeap, right : IndexedSymbolicHeap) : VerificationResult = {
     logger.info("\n" + ("*" * 80) + "\nTrying to prove entailment " + left + " |= " + right + "\n" + ("*" * 80))
 
     val sigmaL = left.spatial
-    val piL = SepLogFormula.fromPureAtoms(left.pure)
+    val piL = IndexedSepLogFormula.fromPureAtoms(left.pure)
     val sigmaR = right.spatial
-    val piR = SepLogFormula.fromPureAtoms(right.pure)
+    val piR = IndexedSepLogFormula.fromPureAtoms(right.pure)
 
     val gamma : PureFormula = PureAnd(piL, wellFormed(sigmaL))
     logger.info("Purification of lhs: " + gamma)
@@ -56,7 +57,7 @@ case class MDEC(solver : SmtWrapper) extends SlexLogging {
   }
 
   @tailrec
-  private def proofLoop(sigmaL : Seq[SpatialAtom], piL : PureFormula, sigmaR : Seq[SpatialAtom], piR : PureFormula, delta : AllocTemplate)(i : Int, constraints : Seq[PureFormula], declaredConsts : Set[String]) : VerificationResult = {
+  private def proofLoop(sigmaL : Seq[IndexedSpatialAtom], piL : PureFormula, sigmaR : Seq[IndexedSpatialAtom], piR : PureFormula, delta : AllocTemplate)(i : Int, constraints : Seq[PureFormula], declaredConsts : Set[String]) : VerificationResult = {
     logger.info("\n" + ("*" * 80) + "\nProof loop, iteration #" + i + " : Processing\n  " + constraints.mkString(" and\n  ") + "\n" + ("*" * 80))
     logger.debug("Getting model for " + constraints.mkString(" and "))
     val (stackModel,newConsts) = findStackModelWithAdditionalConstraint(constraints.last, declaredConsts)
@@ -91,7 +92,7 @@ case class MDEC(solver : SmtWrapper) extends SlexLogging {
     * @param right Right-hand side of the entailment
     * @return
     */
-  private def matchSHs(s : Stack, delta : AllocTemplate, left : Seq[SpatialAtom], right : Seq[SpatialAtom], step : Int) : PureFormula = {
+  private def matchSHs(s : Stack, delta : AllocTemplate, left : Seq[IndexedSpatialAtom], right : Seq[IndexedSpatialAtom], step : Int) : PureFormula = {
     def stepInfo = "Matching step #"+step+":  "
     logger.info(stepInfo + left + " onto " + right)
 
@@ -129,7 +130,7 @@ case class MDEC(solver : SmtWrapper) extends SlexLogging {
                   val conjunct : PureFormula = PureAnd(PureNeg(separated(leftElem, rightElem)), condition)
                   // Since it might have been a partfial match, we might have to add a remainder to the right side of the entailment
                   // TODO We could check for emptiness here to improve efficiency. That would allow us to get rid of all empty formulas in advance. In addition, it would then also make sense to keep the non-empty parts ordered for more efficient matching
-                  val newRightSide : Seq[SpatialAtom] = Seq(partial) ++ rightRem
+                  val newRightSide : Seq[IndexedSpatialAtom] = Seq(partial) ++ rightRem
                   PureAnd(conjunct, matchSHs(s, delta, leftRem, newRightSide, step+1))
                 } else {
                   logger.info(stepInfo + "Failed to satisfy " + condition + ", aborting match => Entailment disproved")
@@ -155,7 +156,7 @@ case class MDEC(solver : SmtWrapper) extends SlexLogging {
     * @param spatial Spatial atoms to check for emptiness
     * @return A triple consisting of the discovered empty atom, the remainder of the spatial atoms, and the pure formula expressing the emptiness constraint
     */
-  private def removeEmpty(s : Stack, spatial : Seq[SpatialAtom]) : Option[(SpatialAtom, Seq[SpatialAtom], PureFormula)] =
+  private def removeEmpty(s : Stack, spatial : Seq[IndexedSpatialAtom]) : Option[(IndexedSpatialAtom, Seq[IndexedSpatialAtom], PureFormula)] =
     if (spatial.isEmpty)
       None
     else {
@@ -169,13 +170,13 @@ case class MDEC(solver : SmtWrapper) extends SlexLogging {
     }
 
   // TODO: Could do this more efficiently...
-  private def findMatchingPair(s : Stack, left : Seq[SpatialAtom], right : Seq[SpatialAtom]) : Option[(SpatialAtom, Seq[SpatialAtom], SpatialAtom, Seq[SpatialAtom])] = {
-    def orderByAddr(spatial : Seq[SpatialAtom]) = spatial.sortBy(evalAddr(s, _))
+  private def findMatchingPair(s : Stack, left : Seq[IndexedSpatialAtom], right : Seq[IndexedSpatialAtom]) : Option[(IndexedSpatialAtom, Seq[IndexedSpatialAtom], IndexedSpatialAtom, Seq[IndexedSpatialAtom])] = {
+    def orderByAddr(spatial : Seq[IndexedSpatialAtom]) = spatial.sortBy(evalAddr(s, _))
 
     // Finds the first matching addresses in the two ordered sequences of spatial atoms
     // The accumulators store the procesed but unmatched parts of the sequences, to include them in the remainder sequence in the result
     @tailrec
-    def orderedMatch(remLeft : Seq[SpatialAtom], remRight : Seq[SpatialAtom], accLeft : Seq[SpatialAtom], accRight : Seq[SpatialAtom]) : Option[(SpatialAtom, Seq[SpatialAtom], SpatialAtom, Seq[SpatialAtom])] =
+    def orderedMatch(remLeft : Seq[IndexedSpatialAtom], remRight : Seq[IndexedSpatialAtom], accLeft : Seq[IndexedSpatialAtom], accRight : Seq[IndexedSpatialAtom]) : Option[(IndexedSpatialAtom, Seq[IndexedSpatialAtom], IndexedSpatialAtom, Seq[IndexedSpatialAtom])] =
       if (remLeft.isEmpty || remRight.isEmpty)
         None
       else {
@@ -207,7 +208,7 @@ case class MDEC(solver : SmtWrapper) extends SlexLogging {
     * @param small Atom that is subtracted
     * @return result of subtraction + side condition guaranteeing that subtraction is allowed
     */
-  private def subtract(delta : AllocTemplate, large : SpatialAtom, small : SpatialAtom) : (SpatialAtom, PureFormula) = (large, small) match {
+  private def subtract(delta : AllocTemplate, large : IndexedSpatialAtom, small : IndexedSpatialAtom) : (IndexedSpatialAtom, PureFormula) = (large, small) match {
     case (PointsTo(_, Seq(z)), PointsTo(_, Seq(y))) =>
       (Emp(), PtrEq(z, y))
     case (IxLSeg(_, z, n), PointsTo(_, Seq(y))) =>
@@ -239,12 +240,12 @@ case class MDEC(solver : SmtWrapper) extends SlexLogging {
   //      }
   //    }
 
-  def evalAddr(s : Stack, sig : SpatialAtom) : Location = addr(sig) match {
+  def evalAddr(s : Stack, sig : IndexedSpatialAtom) : Location = addr(sig) match {
     case NullPtr() => 0
     case p : PtrVar => s(p)
   }
 
-  def alloc(spatial : Seq[SpatialAtom])(x : PtrExpr) : PureFormula = {
+  def alloc(spatial : Seq[IndexedSpatialAtom])(x : PtrExpr) : PureFormula = {
     val allocs = spatial map (sig => PureAnd(PureNeg(empty(sig)), PtrEq(x, addr(sig))))
     iteratedBinOp[PureFormula](PureOr, False())(allocs)
   }
@@ -252,7 +253,7 @@ case class MDEC(solver : SmtWrapper) extends SlexLogging {
   /**
     * An iterated separating conjunction is well-formed if all its atoms are sound and all atoms are pair-wise separated (i.e., atoms' "starting" addresses are pair-wise different)
     */
-  def wellFormed(sig : Seq[SpatialAtom]) : PureFormula = {
+  def wellFormed(sig : Seq[IndexedSpatialAtom]) : PureFormula = {
     val sounds = sig map sound
     val seps = Combinators.square(sig) map { case (x,y) => separated(x,y) }
 
@@ -270,7 +271,7 @@ case class MDEC(solver : SmtWrapper) extends SlexLogging {
   /**
     * two predicates are separated if either their addresses are distinct or one of the two predicates is empty
     */
-  def separated(left : SpatialAtom, right : SpatialAtom) : PureFormula = {
+  def separated(left : IndexedSpatialAtom, right : IndexedSpatialAtom) : PureFormula = {
     val res = PureOr(PtrNEq(addr(left), addr(right)),
       PureOr(empty(left), empty(right))
     )
@@ -278,14 +279,13 @@ case class MDEC(solver : SmtWrapper) extends SlexLogging {
     res
   }
 
-  def addr(sig : SpatialAtom) : PtrExpr = sig match {
+  def addr(sig : IndexedSpatialAtom) : PtrExpr = sig match {
     case Emp() => NullPtr()
     case PointsTo(from, _) => from
     case IxLSeg(from, _, _) => from
-    case i : PredCall => i.args.head
   }
 
-  def sound(sig : SpatialAtom) : PureFormula = sig match {
+  def sound(sig : IndexedSpatialAtom) : PureFormula = sig match {
     case Emp() => True()
     case p : PointsTo => True()
     case IxLSeg(x, y, n) =>
@@ -296,14 +296,12 @@ case class MDEC(solver : SmtWrapper) extends SlexLogging {
           PureOr(PtrEq(x, y), IxLT(0, n)),
           PureOr(PtrNEq(x, y), IxEq(0, n))
         ))
-    case i : PredCall => True()
   }
 
-  def empty(sig : SpatialAtom) : PureFormula = sig match {
+  def empty(sig : IndexedSpatialAtom) : PureFormula = sig match {
     case Emp() => True()
     case PointsTo(from, to) => False()
     case IxLSeg(from, to, lngth) => PtrEq(from, to) // TODO: If we allow cyclic lists, this is wrong
-    case i : PredCall => throw new Throwable("MDEC not defined for arbitrary inductive calls")
   }
 
   /*

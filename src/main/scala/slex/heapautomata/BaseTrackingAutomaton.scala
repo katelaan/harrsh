@@ -3,7 +3,8 @@ package slex.heapautomata
 import slex.Combinators
 import slex.heapautomata.utils.{EqualityUtils, UnsafeAtomsAsClosure}
 import slex.main.SlexLogging
-import slex.seplog.{SymbolicHeap, _}
+import slex.seplog.MapBasedRenaming
+import slex.seplog.inductive._
 
 /**
   * Created by jkatelaa on 10/18/16.

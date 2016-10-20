@@ -1,4 +1,4 @@
-package slex.seplog
+package slex.seplog.inductive
 
 /**
   * System of inductive definitions

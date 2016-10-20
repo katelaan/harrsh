@@ -1,11 +1,12 @@
-package slex.seplog
+package slex.seplog.indexed
 
 import slex.Combinators
+import slex.seplog.Renaming
 
 /**
   * Created by jkatelaa on 9/30/16.
   */
-trait SepLogFormula {
+trait IndexedSepLogFormula {
 
   def isSpatial : Boolean
 
@@ -13,12 +14,12 @@ trait SepLogFormula {
 
   def isSymbolicHeap : Boolean
 
-  def toSymbolicHeap : Option[SymbolicHeap]
+  def toSymbolicHeap : Option[IndexedSymbolicHeap]
 
-  def renameVars(f : Renaming) : SepLogFormula
+  def renameVars(f : Renaming) : IndexedSepLogFormula
 }
 
-case class Neg(phi : SepLogFormula) extends SepLogFormula {
+case class Neg(phi : IndexedSepLogFormula) extends IndexedSepLogFormula {
   override def toString = "(\u00ac " + phi + ")"
 
   override def isSpatial: Boolean = phi.isSpatial
@@ -28,12 +29,12 @@ case class Neg(phi : SepLogFormula) extends SepLogFormula {
   // Symbolic heaps are not closed under negation
   override def isSymbolicHeap: Boolean = false
 
-  override def toSymbolicHeap: Option[SymbolicHeap] = None
+  override def toSymbolicHeap: Option[IndexedSymbolicHeap] = None
 
   override def renameVars(f : Renaming) = Neg(phi.renameVars(f))
 }
 
-case class And(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormula {
+case class And(phi : IndexedSepLogFormula, psi : IndexedSepLogFormula) extends IndexedSepLogFormula {
   override def toString = "(" + phi + " \u2227 " + psi + ")"
 
   override def isSpatial: Boolean = phi.isSpatial || psi.isSpatial
@@ -43,12 +44,12 @@ case class And(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormula {
   // The conjunction of two pure formulas is a symbolic heap
   override def isSymbolicHeap: Boolean = isPure && phi.isSymbolicHeap && psi.isSymbolicHeap
 
-  override def toSymbolicHeap: Option[SymbolicHeap] = SymbolicHeap.combineHeaps(phi.toSymbolicHeap, psi.toSymbolicHeap)
+  override def toSymbolicHeap: Option[IndexedSymbolicHeap] = IndexedSymbolicHeap.combineHeaps(phi.toSymbolicHeap, psi.toSymbolicHeap)
 
   override def renameVars(f : Renaming) = And(phi.renameVars(f), psi.renameVars(f))
 }
 
-case class Or(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormula {
+case class Or(phi : IndexedSepLogFormula, psi : IndexedSepLogFormula) extends IndexedSepLogFormula {
   override def toString = "(" + phi + " \u2228 " + psi + ")"
 
   override def isSpatial: Boolean = phi.isSpatial || psi.isSpatial
@@ -58,12 +59,12 @@ case class Or(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormula {
   // Symbolic heaps are not closed under disjunction
   override def isSymbolicHeap: Boolean = false
 
-  override def toSymbolicHeap: Option[SymbolicHeap] = None
+  override def toSymbolicHeap: Option[IndexedSymbolicHeap] = None
 
   override def renameVars(f : Renaming) = Or(phi.renameVars(f), psi.renameVars(f))
 }
 
-case class Exists(varid : String, phi : SepLogFormula) extends SepLogFormula {
+case class Exists(varid : String, phi : IndexedSepLogFormula) extends IndexedSepLogFormula {
   override def toString = "(\u2203 "  + varid + " . " + phi + ")"
 
   override def isSpatial: Boolean = phi.isSpatial
@@ -72,8 +73,8 @@ case class Exists(varid : String, phi : SepLogFormula) extends SepLogFormula {
 
   override def isSymbolicHeap: Boolean = phi.isSymbolicHeap
 
-  override def toSymbolicHeap: Option[SymbolicHeap] = phi.toSymbolicHeap map {
-    case SymbolicHeap(pure, spatial, qvars) => SymbolicHeap(pure, spatial, varid :: qvars.toList)
+  override def toSymbolicHeap: Option[IndexedSymbolicHeap] = phi.toSymbolicHeap map {
+    case IndexedSymbolicHeap(pure, spatial, qvars) => IndexedSymbolicHeap(pure, spatial, varid :: qvars.toList)
   }
 
   override def renameVars(f : Renaming) = {
@@ -82,7 +83,7 @@ case class Exists(varid : String, phi : SepLogFormula) extends SepLogFormula {
   }
 }
 
-case class SepCon(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormula {
+case class SepCon(phi : IndexedSepLogFormula, psi : IndexedSepLogFormula) extends IndexedSepLogFormula {
   override def toString = "(" + phi + " * " + psi + ")"
 
   override def isSpatial: Boolean = phi.isSpatial || psi.isSpatial
@@ -93,15 +94,15 @@ case class SepCon(phi : SepLogFormula, psi : SepLogFormula) extends SepLogFormul
   // The separating conjunction of two symbolic heaps is a symbolic heap
   override def isSymbolicHeap: Boolean = phi.isSymbolicHeap && psi.isSymbolicHeap
 
-  override def toSymbolicHeap: Option[SymbolicHeap] = SymbolicHeap.combineHeaps(phi.toSymbolicHeap, psi.toSymbolicHeap)
+  override def toSymbolicHeap: Option[IndexedSymbolicHeap] = IndexedSymbolicHeap.combineHeaps(phi.toSymbolicHeap, psi.toSymbolicHeap)
 
   override def renameVars(f : Renaming) = SepCon(phi.renameVars(f), psi.renameVars(f))
 }
 
-object SepLogFormula {
+object IndexedSepLogFormula {
 
-  def fromPureAtoms(atoms : Seq[PureAtom]) : PureFormula = Combinators.iteratedBinOp[PureFormula](PureAnd, True())(atoms)
+  def fromPureAtoms(atoms : Seq[IndexedPureAtom]) : PureFormula = Combinators.iteratedBinOp[PureFormula](PureAnd, True())(atoms)
 
-  def fromSpatialAtoms(atoms : Seq[SpatialAtom]) : SepLogFormula = Combinators.iteratedBinOp[SepLogFormula](SepCon, Emp())(atoms)
+  def fromSpatialAtoms(atoms : Seq[IndexedSpatialAtom]) : IndexedSepLogFormula = Combinators.iteratedBinOp[IndexedSepLogFormula](SepCon, Emp())(atoms)
 
 }

@@ -1,7 +1,7 @@
 package slex.test.generators
 
 import org.scalacheck.Gen
-import slex.seplog.{PureAnd, PureFormula, PureNeg, PureOr}
+import slex.seplog.indexed.{PureAnd, PureFormula, PureNeg, PureOr}
 
 /**
   * Created by jens on 10/9/16.

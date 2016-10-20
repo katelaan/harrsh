@@ -1,7 +1,7 @@
 package slex.hepautomata
 
 import slex.heapautomata.{TrackingAutomata, _}
-import slex.seplog.nil
+import slex.seplog.inductive.nil
 import slex.test.SlexTableTest
 
 /**
@@ -9,7 +9,7 @@ import slex.test.SlexTableTest
   */
 class HeapAutomataTest extends SlexTableTest {
 
-  val inconsistent2 = new BaseTrackingAutomaton(2, (_,_,_) => false, "dummy").InconsistentState
+  val inconsistent2 = BaseTrackingAutomaton.inconsistentTrackingInfo(2)
 
   val Empty = true
   val NonEmpty = false

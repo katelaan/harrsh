@@ -2,6 +2,7 @@ package slex.seplog
 
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import slex.models.{Stack, StackBasedEvaluator}
+import slex.seplog.indexed.PureFormula
 import slex.test.SlexTest
 import slex.test.generators.{PureFormulaGen, StackGens}
 

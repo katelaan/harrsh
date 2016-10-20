@@ -1,6 +1,7 @@
 package slex.heapautomata
 
-import slex.seplog.{PtrEq, SymbolicHeap}
+import slex.seplog.PtrVar
+import slex.seplog.inductive.{PtrEq, SymbolicHeap}
 
 /**
   * Created by jkatelaa on 10/18/16.
@@ -35,7 +36,7 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends B
         (if (!allSrcsEstablished) {
           false
         } else {
-          val allVars = lab.getVars
+          val allVars = lab.getVars map PtrVar
           logger.debug("Checking establishment of " + allVars.mkString(", "))
           !allVars.exists(!EstablishmentAutomaton.isEstablished(trackingTargetWithoutCleanup, _))
         })
@@ -56,11 +57,11 @@ object EstablishmentAutomaton {
   /**
     * Is variable v established according to tracking info s?
     */
-  def isEstablished(s : TrackingInfo, v : String) = {
+  def isEstablished(s : TrackingInfo, v : FV) = {
     isFV(v) || s._1.contains(v) || s._2.exists({
       // Return true iff the pure atom witnesses that v is equal to a free variable
       // This is enough to show establishment, because we assume that s is congruence closed
-      case PtrEq(l, r) => (l.toString == v && isFV(r)) || (r.toString == v && isFV(l))
+      case PtrEq(l, r) => (l == v && isFV(r)) || (r == v && isFV(l))
       case _ => false
     })
   }

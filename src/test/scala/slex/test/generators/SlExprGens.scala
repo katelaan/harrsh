@@ -3,6 +3,7 @@ package slex.test.generators
 import org.scalacheck.Gen
 import slex.Sorts.Location
 import slex.seplog._
+import slex.seplog.indexed._
 
 /**
   * Created by jkatelaa on 10/7/16.

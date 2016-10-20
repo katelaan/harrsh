@@ -1,4 +1,6 @@
-package slex.seplog
+package slex.seplog.inductive
+
+import slex.seplog.{PtrExpr, Renaming}
 
 /**
   * Created by jkatelaa on 10/3/16.
@@ -16,7 +18,6 @@ sealed trait SpatialAtom extends SepLogFormula {
   override def renameVars(f : Renaming) : SpatialAtom = this match {
     case e : Emp => e
     case PointsTo(from, to) => PointsTo(from.renameVars(f), to map (_.renameVars(f)))
-    case IxLSeg(from, to, lngth) => IxLSeg(from.renameVars(f), to.renameVars(f), lngth.renameVars(f))
     case call : PredCall => call.copy(args = call.args map (_.renameVars(f)))
   }
 
@@ -33,7 +34,6 @@ sealed trait SpatialAtom extends SepLogFormula {
   def getVars : Set[String] = this match {
     case Emp() => Set()
     case PointsTo(from, to) => (from +: to).toSet[PtrExpr] flatMap (_.getVar)
-    case IxLSeg(from, to, lngth) => Set(from.getVar, to.getVar, lngth.getVars).flatten
     case PredCall(name, args) => (args flatMap (_.getVar)).toSet
   }
 
@@ -45,16 +45,6 @@ case class Emp() extends SpatialAtom {
 
 case class PointsTo(from : PtrExpr, to : Seq[PtrExpr]) extends SpatialAtom {
   override def toString = from + " \u21a6 " + (if (to.tail.isEmpty) to.head.toString else to.mkString("(", ", ", ")"))
-}
-
-/**
-  * Length-indexed acyclic list segment
-  * @param from Source pointer
-  * @param to Target pointer
-  * @param lngth Length of the list segment
-  */
-case class IxLSeg(from : PtrExpr, to : PtrExpr, lngth : IntExpr) extends SpatialAtom {
-  override def toString = "lseg(" + from + ", " + to + ", " +  lngth + ")"
 }
 
 /**

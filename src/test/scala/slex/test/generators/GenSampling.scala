@@ -2,7 +2,8 @@ package slex.test.generators
 
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import slex.models.Stack
-import slex.seplog.{IntExpr, PtrExpr, PureAtom, PureFormula}
+import slex.seplog.indexed._
+import slex.seplog.PtrExpr
 import slex.test.SlexTest
 
 /**
@@ -34,7 +35,7 @@ class GenSampling extends SlexTest with GeneratorDrivenPropertyChecks {
 
   println("Atoms")
   forAll(PureAtomGens.pureAtomGen(Vars, Vals)) {
-    (a : PureAtom) =>
+    (a : IndexedPureAtom) =>
       println(a)
   }
 

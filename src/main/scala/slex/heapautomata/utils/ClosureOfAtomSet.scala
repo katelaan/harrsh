@@ -1,7 +1,8 @@
 package slex.heapautomata.utils
 
 import slex.heapautomata._
-import slex.seplog.{PtrExpr, PureAtom}
+import slex.seplog.PtrExpr
+import slex.seplog.inductive.PureAtom
 
 /**
   * Created by jkatelaa on 10/17/16.

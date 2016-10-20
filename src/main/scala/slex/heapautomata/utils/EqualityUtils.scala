@@ -2,7 +2,7 @@ package slex.heapautomata.utils
 
 import slex.Combinators
 import slex.heapautomata._
-import slex.seplog.PureAtom
+import slex.seplog.inductive.PureAtom
 
 import scala.annotation.tailrec
 

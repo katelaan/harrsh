@@ -1,7 +1,7 @@
 package slex.heapautomata
 
 import slex.main.SlexLogging
-import slex.seplog.SymbolicHeap
+import slex.seplog.inductive.SymbolicHeap
 
 /**
   * Base class for heap automata families parameterized by the number of FVs that implement target computation

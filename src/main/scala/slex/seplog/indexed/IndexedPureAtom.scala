@@ -1,15 +1,16 @@
-package slex.seplog
+package slex.seplog.indexed
 
 import slex.Sorts.Location
-import slex.models.{StackBasedEvaluator, Stack}
 import slex.main.SlexLogging
+import slex.models.{Stack, StackBasedEvaluator}
+import slex.seplog.{Expr, PtrExpr, Renaming}
 import slex.smtsyntax.SmtExpr
 import slex.smtsyntax.SmtExpr._
 
 /**
   * Created by jkatelaa on 10/3/16.
   */
-sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
+sealed trait IndexedPureAtom extends IndexedSepLogFormula with PureFormula with SlexLogging {
 
   override def isSpatial = false
 
@@ -17,9 +18,9 @@ sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
 
   override def isSymbolicHeap = true
 
-  override def toSymbolicHeap = Some(SymbolicHeap(Seq(this), Seq(), Seq()))
+  override def toSymbolicHeap = Some(IndexedSymbolicHeap(Seq(this), Seq(), Seq()))
 
-  def negate : PureAtom = this match {
+  def negate : IndexedPureAtom = this match {
     case True() => False()
     case False() => True()
 
@@ -67,7 +68,7 @@ sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
     }
   }
 
-  override def renameVars(f: Renaming): PureAtom = this match {
+  override def renameVars(f: Renaming): IndexedPureAtom = this match {
     case t : True => t
     case f : False => f
     case IxEq(l, r) => IxEq(l.renameVars(f), r.renameVars(f))
@@ -95,7 +96,7 @@ sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
 
   def simplify : PureFormula = {
     logger.debug("Trying to eval " + this + " to a constant yielding " + constantEval)
-    PureAtom.replaceByConstIfDefined(this, constantEval)
+    IndexedPureAtom.replaceByConstIfDefined(this, constantEval)
   }
 
   private case class DummyException() extends Throwable
@@ -107,68 +108,68 @@ sealed trait PureAtom extends SepLogFormula with PureFormula with SlexLogging {
 
 }
 
-case class True() extends PureAtom {
+case class True() extends IndexedPureAtom {
   override def toString = "true"
 
   override def toSmtExpr: SmtExpr = "true"
 }
 
-case class False() extends PureAtom {
+case class False() extends IndexedPureAtom {
   override def toString = "false"
 
   override def toSmtExpr: SmtExpr = "false"
 }
 
-case class IxEq(l : IntExpr, r : IntExpr) extends PureAtom {
+case class IxEq(l : IntExpr, r : IntExpr) extends IndexedPureAtom {
   override def toString = l + " \u2248 " + r
 
   override def toSmtExpr: SmtExpr = eqExpr(l.toSmtExpr, r.toSmtExpr)
 }
 
-case class IxGT(l : IntExpr, r : IntExpr) extends PureAtom {
+case class IxGT(l : IntExpr, r : IntExpr) extends IndexedPureAtom {
   override def toString = l + " > " + r
 
   override def toSmtExpr: SmtExpr = gtExpr(l.toSmtExpr, r.toSmtExpr)
 }
 
-case class IxLT(l : IntExpr, r : IntExpr) extends PureAtom {
+case class IxLT(l : IntExpr, r : IntExpr) extends IndexedPureAtom {
   override def toString = l + " < " + r
 
   override def toSmtExpr: SmtExpr = ltExpr(l.toSmtExpr, r.toSmtExpr)
 }
 
-case class IxLEq(l : IntExpr, r : IntExpr) extends PureAtom {
+case class IxLEq(l : IntExpr, r : IntExpr) extends IndexedPureAtom {
   override def toString = l + " \u2264 " + r
 
   override def toSmtExpr: SmtExpr = leqExpr(l.toSmtExpr, r.toSmtExpr)
 }
 
-case class IxGEq(l : IntExpr, r : IntExpr) extends PureAtom {
+case class IxGEq(l : IntExpr, r : IntExpr) extends IndexedPureAtom {
   override def toString = l + " \u2265 " + r
 
   override def toSmtExpr: SmtExpr = geqExpr(l.toSmtExpr, r.toSmtExpr)
 }
 
-case class IxNEq(l : IntExpr, r : IntExpr) extends PureAtom {
+case class IxNEq(l : IntExpr, r : IntExpr) extends IndexedPureAtom {
   override def toString = l + " \u2249 " + r
 
   override def toSmtExpr: SmtExpr = neqExpr(l.toSmtExpr, r.toSmtExpr)
 
 }
 
-case class PtrEq(l : PtrExpr, r : PtrExpr) extends PureAtom {
+case class PtrEq(l : PtrExpr, r : PtrExpr) extends IndexedPureAtom {
   override def toString = l + " \u2248 " + r
 
   override def toSmtExpr: SmtExpr = eqExpr(l.toSmtExpr, r.toSmtExpr)
 }
 
-case class PtrNEq(l : PtrExpr, r : PtrExpr) extends PureAtom {
+case class PtrNEq(l : PtrExpr, r : PtrExpr) extends IndexedPureAtom {
   override def toString = l + " \u2249 " + r
 
   override def toSmtExpr: SmtExpr = neqExpr(l.toSmtExpr, r.toSmtExpr)
 }
 
-object PureAtom {
+object IndexedPureAtom {
 
   def replaceByConstIfDefined(pf : PureFormula, const : Option[Boolean]) : PureFormula = const match {
     case Some(true) => True()

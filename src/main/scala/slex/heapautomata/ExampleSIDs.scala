@@ -1,6 +1,6 @@
 package slex.heapautomata
 
-import slex.seplog._
+import slex.seplog.inductive._
 
 /**
   * Created by jens on 10/15/16.

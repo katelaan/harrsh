@@ -2,6 +2,7 @@ package slex.hepautomata
 
 import slex.heapautomata._
 import slex.seplog._
+import slex.seplog.inductive._
 import slex.test.SlexTableTest
 
 /**

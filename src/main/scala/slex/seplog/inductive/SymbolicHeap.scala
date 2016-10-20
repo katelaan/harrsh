@@ -1,4 +1,6 @@
-package slex.seplog
+package slex.seplog.inductive
+
+import slex.seplog.Renaming
 
 /**
   * Created by jkatelaa on 10/3/16.

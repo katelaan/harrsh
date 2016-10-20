@@ -1,7 +1,8 @@
 package slex.models
 
 import slex.Sorts.Location
-import slex.seplog.{IntExpr, IntVar, NullPtr, PtrExpr, PtrVar}
+import slex.seplog._
+import slex.seplog.indexed._
 
 /**
   * Created by jkatelaa on 10/3/16.

@@ -1,6 +1,7 @@
 package slex
 
-import seplog.{NullPtr, PtrExpr, PtrVar, PureAtom, PtrEq, PtrNEq}
+import slex.seplog._
+import slex.seplog.inductive._
 
 /**
   * Created by jkatelaa on 10/17/16.

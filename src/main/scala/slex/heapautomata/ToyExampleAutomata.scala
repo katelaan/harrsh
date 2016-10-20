@@ -1,6 +1,6 @@
 package slex.heapautomata
 import slex.main.SlexLogging
-import slex.seplog.SymbolicHeap
+import slex.seplog.inductive.SymbolicHeap
 
 import scala.annotation.tailrec
 

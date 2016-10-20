@@ -3,7 +3,8 @@ package slex.hepautomata
 import slex.heapautomata.BaseReachabilityAutomaton._
 import slex.heapautomata.{BaseReachabilityAutomaton, TrackingAutomata, _}
 import slex.heapautomata.utils.ReachabilityMatrix
-import slex.seplog.{PureAtom, SymbolicHeap, _}
+import slex.seplog._
+import slex.seplog.inductive._
 import slex.test.SlexTableTest
 
 /**

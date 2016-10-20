@@ -1,5 +1,6 @@
-package slex.seplog
+package slex.seplog.indexed
 
+import slex.seplog.{Expr, Renaming}
 import slex.smtsyntax.SmtExpr
 import slex.smtsyntax.SmtExpr._
 

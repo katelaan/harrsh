@@ -1,4 +1,4 @@
-package slex.main.main.examples
+package slex.entailment
 
 import slex.smtsyntax.{Assert, _}
 

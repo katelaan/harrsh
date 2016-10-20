@@ -1,7 +1,7 @@
 package slex.heapautomata
 
 import slex.main.SlexLogging
-import slex.seplog.SID
+import slex.seplog.inductive.SID
 
 import scala.annotation.tailrec
 

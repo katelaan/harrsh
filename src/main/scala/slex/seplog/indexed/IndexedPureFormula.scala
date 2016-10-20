@@ -1,13 +1,14 @@
-package slex.seplog
+package slex.seplog.indexed
 
 import slex.main.SlexLogging
+import slex.seplog.Renaming
 import slex.smtsyntax.SmtExpr
 import slex.smtsyntax.SmtExpr._
 
 /**
   * Created by jkatelaa on 10/3/16.
   */
-trait PureFormula extends SepLogFormula with SlexLogging {
+trait PureFormula extends IndexedSepLogFormula with SlexLogging {
 
   override def isPure = true
 
@@ -32,7 +33,7 @@ case class PureNeg(phi : PureFormula) extends PureFormula {
 
   override def isSymbolicHeap: Boolean = false
 
-  override def toSymbolicHeap: Option[SymbolicHeap] = None
+  override def toSymbolicHeap: Option[IndexedSymbolicHeap] = None
 
   override def toSmtExpr: SmtExpr = notExpr(phi.toSmtExpr)
 
@@ -46,7 +47,7 @@ case class PureNeg(phi : PureFormula) extends PureFormula {
         val simplifiedArg = phi.simplify
 
         val res = simplifiedArg match {
-          case atom: PureAtom =>
+          case atom: IndexedPureAtom =>
             atom.negate
           case _ =>
             PureNeg(simplifiedArg)
@@ -67,7 +68,7 @@ case class PureAnd(phi : PureFormula, psi : PureFormula) extends PureFormula {
 
   override def isSymbolicHeap: Boolean = phi.isSymbolicHeap && psi.isSymbolicHeap
 
-  override def toSymbolicHeap: Option[SymbolicHeap] = SymbolicHeap.combineHeaps(phi.toSymbolicHeap, psi.toSymbolicHeap)
+  override def toSymbolicHeap: Option[IndexedSymbolicHeap] = IndexedSymbolicHeap.combineHeaps(phi.toSymbolicHeap, psi.toSymbolicHeap)
 
   override def toSmtExpr: SmtExpr = andExpr(phi.toSmtExpr, psi.toSmtExpr)
 
@@ -107,24 +108,13 @@ case class PureAnd(phi : PureFormula, psi : PureFormula) extends PureFormula {
   override def renameVars(f: Renaming): PureFormula = PureAnd(phi.renameVars(f), psi.renameVars(f))
 }
 
-//case class PureImplies(phi : PureFormula, psi : PureFormula) extends PureFormula {
-//
-//  override def toString = "(" + phi + " => " + psi + ")"
-//
-//  override def isSymbolicHeap: Boolean = false
-//
-//  override def toSymbolicHeap: Option[SymbolicHeap] = None
-//
-//  override def toSmtExpr: SmtExpr = impliesExpr(phi.toSmtExpr, psi.toSmtExpr)
-//}
-
 case class PureOr(phi : PureFormula, psi : PureFormula) extends PureFormula {
 
   override def toString = "(" + phi + " \u2228 " + psi + ")"
 
   override def isSymbolicHeap: Boolean = false
 
-  override def toSymbolicHeap: Option[SymbolicHeap] = None
+  override def toSymbolicHeap: Option[IndexedSymbolicHeap] = None
 
   override def toSmtExpr: SmtExpr = orExpr(phi.toSmtExpr, psi.toSmtExpr)
 
@@ -171,7 +161,7 @@ object PureFormula {
     case PureAnd(phi, psi) => collectIdentifiers(phi) union collectIdentifiers(psi)
     //case PureImplies(phi, psi) => collectIdentifiers(phi) union collectIdentifiers(psi)
     case PureOr(phi, psi) => collectIdentifiers(phi) union collectIdentifiers(psi)
-    case a : PureAtom => a match {
+    case a : IndexedPureAtom => a match {
       case True() => Set()
       case False() => Set()
       case IxEq(l, r) => l.getVars ++ r.getVars

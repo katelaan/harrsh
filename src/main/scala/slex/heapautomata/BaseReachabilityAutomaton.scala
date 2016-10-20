@@ -1,6 +1,7 @@
 package slex.heapautomata
 
 import slex.seplog._
+import slex.seplog.inductive._
 import slex.main.SlexLogging
 import BaseTrackingAutomaton._
 import slex.Combinators

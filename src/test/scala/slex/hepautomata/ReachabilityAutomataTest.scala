@@ -5,6 +5,7 @@ import slex.heapautomata.TrackingAutomata
 import slex.heapautomata._
 import slex.heapautomata.utils.ReachabilityMatrix
 import slex.seplog._
+import slex.seplog.inductive._
 import slex.test.SlexTableTest
 
 /**
