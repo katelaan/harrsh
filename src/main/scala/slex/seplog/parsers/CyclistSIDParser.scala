@@ -1,7 +1,5 @@
 package slex.seplog.parsers
 
-import slex.heapautomata.fv
-import slex.seplog.MapBasedRenaming
 import slex.seplog.inductive._
 
 /**
@@ -12,10 +10,13 @@ object CyclistSIDParser extends SIDParser {
   type Rule = (String, Seq[String], SymbolicHeap)
   type PredSpec = (String, Int, Seq[(String, SymbolicHeap)])
 
-  def run(input : String) : Option[(SID,Int)] = parseAll(parseSID, input) match {
-    case Success(result, next) => Some(result)
-    case Failure(msg,_) => println("FAILURE: " + msg); None
-    case Error(msg,_) => println("ERROR: " + msg); None
+  def run(input : String) : Option[(SID,Int)] = {
+    val inputWithoutComments = stripCommentLines(input, "#")
+    parseAll(parseSID, inputWithoutComments) match {
+      case Success(result, next) => Some(result)
+      case Failure(msg,_) => println("FAILURE: " + msg); None
+      case Error(msg,_) => println("ERROR: " + msg); None
+    }
   }
 
   def parseSID : Parser[(SID,Int)] = rep1sep(parsePredSpec, ";") ^^ {
@@ -45,7 +46,11 @@ object CyclistSIDParser extends SIDParser {
       (head._1, head._2 map renamingMap, bodyWithRenamedFVs)
   }
 
-  def parseHead : Parser[(String, Seq[String])] = ident ~ ("(" ~> rep1sep(ident, ",") <~ ")") ^^ {
+  def parseHead = parseHeadWithArgs | parseHeadWithoutArgs
+
+  def parseHeadWithoutArgs : Parser[(String, Seq[String])] = ident ^^ (s => (s,Seq()))
+
+  def parseHeadWithArgs : Parser[(String, Seq[String])] = ident ~ ("(" ~> rep1sep(ident, ",") <~ ")") ^^ {
     case name ~ args => (name, args)
   }
 

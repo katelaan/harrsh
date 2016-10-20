@@ -32,4 +32,9 @@ object IOUtils {
     }
   }
 
+  def printLinesOf(symbol : Char, numLines : Int) = {
+    val s : String = symbol.toString
+    for (_ <- 1 to numLines) println(s * 80)
+  }
+
 }
