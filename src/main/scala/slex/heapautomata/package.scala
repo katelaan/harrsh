@@ -21,9 +21,21 @@ package object heapautomata {
     case PtrVar(id) => id.startsWith(FVPrefix) // TODO: Should have a more sophisticated for "FV-ness" check here?
   }
 
+  def isFV(fv : String) = fv match {
+    case "null" => true
+    case "nil" => true
+    case id => id.startsWith(FVPrefix) // TODO: Should have a more sophisticated for "FV-ness" check here?
+  }
+
   def unFV(fv : FV) : Int = fv match {
     case NullPtr() => 0
     case PtrVar(v) => Integer.parseInt(v.drop(FVPrefix.length))
+  }
+
+  def unFV(fv : String) : Int = fv match {
+    case "null" => 0
+    case "nil" => 0
+    case v => Integer.parseInt(v.drop(FVPrefix.length))
   }
 
   def fvAll(ints : Int*) : Set[FV] = Set() ++ ints map fv

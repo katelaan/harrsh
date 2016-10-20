@@ -1,10 +1,8 @@
 package slex.seplog.parsers
 
-import slex.seplog.{MapBasedRenaming, PtrExpr, PtrVar}
-import slex.seplog.inductive._
 import slex.heapautomata.fv
-
-import scala.util.parsing.combinator.JavaTokenParsers
+import slex.seplog.MapBasedRenaming
+import slex.seplog.inductive._
 
 // TODO Note: No explicit quantification
 // TODO Note: FVs need to be renamed
@@ -12,7 +10,7 @@ import scala.util.parsing.combinator.JavaTokenParsers
 /**
   * Created by jkatelaa on 10/20/16.
   */
-object CyclistSIDParser extends JavaTokenParsers {
+object CyclistSIDParser extends SIDParser {
 
   type Rule = (String, Seq[String], SymbolicHeap)
   type PredSpec = (String, Int, Seq[(String, SymbolicHeap)])
@@ -63,41 +61,5 @@ object CyclistSIDParser extends JavaTokenParsers {
   }
 
   def parseAtomSeq : Parser[Seq[SepLogAtom]] = rep1sep(parseAtom, "*")
-
-  def parseAtom : Parser[SepLogAtom] = parseSpatialAtom | parsePureAtom
-
-  def parseSpatialAtom : Parser[SpatialAtom] = parsePointsSingleTo | parsePointsMultipleTo | parseCall | parseEmp
-
-  def parseEmp : Parser[Emp] = "emp" ^^ { _ => Emp() }
-
-  def parseCall : Parser[PredCall] = ident ~ parsePtrSeqInParens ^^ {
-    case name ~ args => PredCall(name, args)
-  }
-
-  def parsePointsSingleTo : Parser[PointsTo] = parsePtr ~ ("->" ~> parsePtr) ^^ {
-    case l ~ r => ptr(l, r)
-  }
-
-  def parsePointsMultipleTo : Parser[PointsTo] = parsePtr ~ ("->" ~> parsePtrSeqInParens) ^^ {
-    case l ~ r => PointsTo(l, r)
-  }
-
-  def parsePureAtom : Parser[PureAtom] = parseEq | parseNEq
-
-  def parseEq : Parser[PureAtom] = parsePtr ~ ("=" ~> parsePtr) ^^ {
-    case l ~ r => ptreq(l, r)
-  }
-
-  def parseNEq : Parser[PureAtom] = parsePtr ~ ("!=" ~> parsePtr) ^^ {
-    case l ~ r => ptrneq(l, r)
-  }
-
-  def parsePtrSeqInParens : Parser[Seq[PtrExpr]] = "(" ~> parsePtrSeq <~ ")"
-
-  def parsePtrSeq : Parser[Seq[PtrExpr]] = rep1sep(parsePtr, ",")
-
-  def parsePtr : Parser[PtrExpr] = "nil" ^^ {_ => nil} | ident ^^ PtrVar
-
-  override def ident: Parser[String] = """[a-zA-Z_][a-zA-Z0-9_']*""".r
 
 }

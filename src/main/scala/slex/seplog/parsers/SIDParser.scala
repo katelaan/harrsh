@@ -1,0 +1,49 @@
+package slex.seplog.parsers
+
+import slex.seplog.{PtrExpr, PtrVar}
+import slex.seplog.inductive._
+
+import scala.util.parsing.combinator.JavaTokenParsers
+
+/**
+  * Created by jkatelaa on 10/20/16.
+  */
+trait SIDParser extends JavaTokenParsers {
+
+  def parseAtom : Parser[SepLogAtom] = parseSpatialAtom | parsePureAtom
+
+  def parseSpatialAtom : Parser[SpatialAtom] = parsePointsSingleTo | parsePointsMultipleTo | parseCall | parseEmp
+
+  def parseEmp : Parser[Emp] = "emp" ^^ { _ => Emp() }
+
+  def parseCall : Parser[PredCall] = ident ~ parsePtrSeqInParens ^^ {
+    case name ~ args => PredCall(name, args)
+  }
+
+  def parsePointsSingleTo : Parser[PointsTo] = parsePtr ~ ("->" ~> parsePtr) ^^ {
+    case l ~ r => ptr(l, r)
+  }
+
+  def parsePointsMultipleTo : Parser[PointsTo] = parsePtr ~ ("->" ~> parsePtrSeqInParens) ^^ {
+    case l ~ r => PointsTo(l, r)
+  }
+
+  def parsePureAtom : Parser[PureAtom] = parseEq | parseNEq | "true" ^^ {_ => True() }
+
+  def parseEq : Parser[PureAtom] = parsePtr ~ ("=" ~> parsePtr) ^^ {
+    case l ~ r => ptreq(l, r)
+  }
+
+  def parseNEq : Parser[PureAtom] = parsePtr ~ ("!=" ~> parsePtr) ^^ {
+    case l ~ r => ptrneq(l, r)
+  }
+
+  def parsePtrSeqInParens : Parser[Seq[PtrExpr]] = "(" ~> parsePtrSeq <~ ")"
+
+  def parsePtrSeq : Parser[Seq[PtrExpr]] = rep1sep(parsePtr, ",")
+
+  def parsePtr : Parser[PtrExpr] = "nil" ^^ {_ => nil} | "null" ^^ {_ => nil} | ident ^^ PtrVar
+
+  override def ident: Parser[String] = """[a-zA-Z_][a-zA-Z0-9_']*""".r
+
+}
