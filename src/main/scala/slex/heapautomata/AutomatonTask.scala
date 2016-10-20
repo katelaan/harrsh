@@ -19,16 +19,28 @@ sealed trait AutomatonTask {
     case RunAcyclicity() => TrackingAutomata.acyclicityAutomaton(numFV)
   }
 
+//  def description = this match {
+//    case RunHasPointer() => "allocates mem"
+//    case RunTracking(alloc, pure) => "track"
+//    case RunSat() => "check sat"
+//    case RunUnsat() => "check unsat"
+//    case RunEstablishment() => "establishment"
+//    case RunNonEstablishment() => "non-est."
+//    case RunReachability(from, to) => "reachability"
+//    case RunGarbageFreedom() => "garbage-freedom"
+//    case RunAcyclicity() => "weak acylicity"
+//  }
+
   override def toString = this match {
-    case RunHasPointer() => "allocates mem"
-    case RunTracking(alloc, pure) => "track"
-    case RunSat() => "check sat"
-    case RunUnsat() => "check unsat"
-    case RunEstablishment() => "establishment"
-    case RunNonEstablishment() => "non-est."
-    case RunReachability(from, to) => "reachability"
-    case RunGarbageFreedom() => "garbage-freedom"
-    case RunAcyclicity() => "weak acylicity"
+    case RunHasPointer() => "HASPTR"
+    case RunSat() => "SAT"
+    case RunUnsat() => "UNSAT"
+    case RunEstablishment() => "EST"
+    case RunNonEstablishment() => "NONEST"
+    case RunGarbageFreedom() => "GF"
+    case RunAcyclicity() => "ACYC"
+    case RunReachability(from, to) => "REACH(" + unFV(from) + "," + unFV(to) + ")"
+    case RunTracking(alloc, pure) => "TRACK(" + alloc.mkString(",") + ")"
   }
 
   def resultToString(isEmpty : Boolean) : String = this match {
@@ -62,3 +74,54 @@ case class RunReachability(from : FV, to : FV) extends AutomatonTask
 case class RunGarbageFreedom() extends AutomatonTask
 
 case class RunAcyclicity() extends AutomatonTask
+
+object AutomatonTask {
+
+  def fromString(s : String) : Option[AutomatonTask] = s match {
+    case "SAT" => Some(RunSat())
+    case "UNSAT" => Some(RunUnsat())
+    case "HASPTR" => Some(RunHasPointer())
+    case "EST" => Some(RunEstablishment())
+    case "NONEST" => Some(RunNonEstablishment())
+    case "ACYC" => Some(RunAcyclicity())
+    case "GF" => Some(RunGarbageFreedom())
+    case other =>
+      if (other.startsWith("REACH(") && other.endsWith(")")) {
+        val params = other.drop(6).init.split(",")
+
+        if (params.size == 2) {
+          try {
+            Some(RunReachability(fv(Integer.parseInt(params(0))), fv(Integer.parseInt(params(1)))))
+          } catch {
+            case _ : Exception => None
+          }
+        } else None
+      }
+
+      else if (other.startsWith("TRACK(") && other.endsWith(")")) {
+        val params = other.drop(6).init.split(",")
+
+        try {
+          val fvs = (params map Integer.parseInt map fv).toSet
+          Some(RunTracking(fvs, Set()))
+        } catch {
+          case _ : Exception => None
+        }
+      }
+
+      else None
+  }
+
+  /**
+    * "HASPTR"
+    case RunSat() => "SAT"
+    case RunUnsat() => "UNSAT"
+    case RunEstablishment() => "EST"
+    case RunNonEstablishment() => "NONEST"
+    case RunGarbageFreedom() => "GF"
+    case RunAcyclicity() => "ACYC"
+    case RunReachability(from, to) => "REACH(" + unFV(from) + "," + unFV(to) + ")"
+    case RunTracking(alloc, pure) => "TRACK("
+    */
+
+}

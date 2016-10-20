@@ -21,13 +21,31 @@ object Benchmarking {
   type Result = (Boolean,Long)
 
   def main(args : Array[String]) = {
-    runBenchmarks(generateTasks())
+
+    val tasks = readTasksFromFile("examples/all-benchmarks.bms")
+    //runBenchmarks(tasks)
+
+    //println(generateTasks() map (_.toString) mkString ("\n"))
+
+  }
+
+  def readTasksFromFile(filename : String) : Seq[TaskConfig] = {
+    val content = readFile(filename)
+    val lines = content.split('\n')
+    val otasks = lines map TaskConfig.fromString
+
+    if (otasks.exists(_.isEmpty)) {
+      println(otasks.mkString("\n"))
+      throw new Exception("Error while parsing benchmarks")
+    } else {
+      otasks map (_.get)
+    }
   }
 
   def generateTasks() =
     for {
+      automaton <- Seq(RunHasPointer(), RunTracking(Set(fv(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(fv(1), fv(0)), RunGarbageFreedom(), RunAcyclicity())
       file <- getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) ++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
-      automaton <- Seq(RunSat())//Seq(RunHasPointer(), RunTracking(Set(fv(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(fv(1), fv(0)), RunGarbageFreedom(), RunAcyclicity())
     } yield TaskConfig(file.getAbsolutePath, automaton, None)
 
 
@@ -35,13 +53,16 @@ object Benchmarking {
 
     val cols = Seq(30,20,20,10)
     val headings = Seq("file", "task", "result", "time")
+    val delimLine = "+" + "-"*(cols.sum+cols.size-1) + "+"
 
+    println(delimLine)
     println(inColumns(headings zip cols))
-    println("+" + "-"*(cols.sum+cols.size-1) + "+")
+    println(delimLine)
     for ( (task,res) <- results ) {
-      val content : Seq[String] = Seq(task.fileName.split("/").last,task.decisionProblem.toString,task.decisionProblem.resultToString(res._1),""+res._2)
+      val content : Seq[String] = Seq(task.fileName.split("/").last, task.decisionProblem.toString, task.decisionProblem.resultToString(res._1), ""+res._2)
       println(inColumns(content zip cols))
     }
+    println(delimLine)
 
   }
 
@@ -71,6 +92,7 @@ object Benchmarking {
     }
 
     val globalEndTime = System.currentTimeMillis()
+    println("FINISHED BENCHMARK SUITE")
     println("Completed number of benchmarks: " + tasks.size)
     println("Total time: " + (globalEndTime-globalStartTime) + "ms")
     println("Of which analysis time: " + verificationTime + "ms")
