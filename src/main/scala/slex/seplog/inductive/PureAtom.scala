@@ -6,7 +6,7 @@ import slex.seplog.{PtrExpr, Renaming}
 /**
   * Created by jkatelaa on 10/3/16.
   */
-sealed trait PureAtom extends SepLogFormula with SlexLogging {
+sealed trait PureAtom extends SepLogAtom with SlexLogging {
 
   override def isSpatial = false
 

@@ -5,7 +5,7 @@ import slex.seplog.{PtrExpr, Renaming}
 /**
   * Created by jkatelaa on 10/3/16.
   */
-sealed trait SpatialAtom extends SepLogFormula {
+sealed trait SpatialAtom extends SepLogAtom {
 
   override def isSpatial = true
 
