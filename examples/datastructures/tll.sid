@@ -1,2 +1,3 @@
+# Trees with linked leaves
 tll <= x1 -> (nil, nil, x3) : { x1 = x2 } ;
 tll <= x1 -> (l, r, nil) * tll(l, x2, z) * tll(r, z, x3)

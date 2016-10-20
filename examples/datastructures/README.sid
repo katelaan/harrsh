@@ -1,0 +1,33 @@
+# SID files may contain comment lines introduced by #
+# SID files consist of a sequence of rules, separated by ;
+# The ; is mandatory. If you get a parse error, a likely cause is a missing ;
+
+# Rules are of the form <predicate symbol> <= <predicate body>, for example,
+# to define a predicate dummy that can be replaced by a pointer from x1 to x2
+foo <= x1 -> x2 ;
+
+# Multiple targets for pointers are possible
+foo <= x1 -> (x2, x3) ;
+
+# Free variables MUST be named x1,x2,x3...
+# All other variables are implicitly existentially quantified, e.g. the z in
+foo <= x1 -> (z, x2) ;
+
+# The null pointer can be written either as null or as nil
+foo <= x1 -> (null,nil) ;
+
+# The empty heap is written emp, multiple spatial atoms separated by *
+foo <= emp * x2 -> nil ;
+
+# Predicate calls are written as <pred name>(<arg>*)
+# You have to ensure yourself that you pass the correct number of arguments
+bar <= foo(x1, y, nil) ;
+
+# (In)equalities between pointers are written in a suffix : { <(in)equalities> },
+# using the syntax <ptr> = <ptr> or <ptr> != <ptr>, separated by commas
+bar <= x3 -> z * foo(x1, z, y) : { y = z, x1 != x2 } ;
+
+# Use as little or as much white space as you please, e.g.
+bar <= x3->(z,y,   x2)*foo(x1,z,y):{y=z, x1    !=  x2 }
+
+# That's it. By the way: This file should parse.

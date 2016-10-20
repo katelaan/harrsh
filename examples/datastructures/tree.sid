@@ -1,2 +1,3 @@
+# Null-terminated trees
 tree <= x1 -> (nil, nil) ;
 tree <= x1 -> (y, z) * tree(y) * tree(z)
