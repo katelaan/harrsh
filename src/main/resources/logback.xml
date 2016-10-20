@@ -15,9 +15,9 @@
     </root>
     <logger name="slex.entailment.MDEC" level="DEBUG" />
     <logger name="slex.smtinteraction.SimpleZ3Wrapper" level="DEBUG" />
-    <logger name="slex.seplog" level="INFO" />
-    <logger name="slex.heapautomata" level="INFO" />
-    <logger name="slex.heapautomata.RefinementAlgorithms" level="DEBUG" />
+    <logger name="slex.seplog" level="WARN" />
+    <!--<logger name="slex.heapautomata" level="INFO" />
+    <logger name="slex.heapautomata.RefinementAlgorithms" level="INFO" />
     <logger name="slex.heapautomata.BaseTrackingAutomaton" level="INFO" />
-    <logger name="slex.heapautomata.BaseReachabilityAutomaton" level="INFO" />
+    <logger name="slex.heapautomata.BaseReachabilityAutomaton" level="INFO" />-->
 </configuration>

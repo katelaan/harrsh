@@ -38,6 +38,7 @@ object TrackingAutomata extends SlexLogging {
 
   // TODO The reachability automaton would be nicer if the Unit didn't show up all over the place...
   // TODO In general, the paramaterization of the reachability automata is very ugly / spaghetti code
+  // TODO Make sure to <= numFV...
   def reachabilityAutomaton(numFV : Int, from : FV, to : FV) = new BaseReachabilityAutomaton[Unit](
     numFV,
     isFinalPredicate = (_ : BaseReachabilityAutomaton[Unit], ri : ReachabilityInfo, _ : Unit) => ri._2.isReachable(from, to),
