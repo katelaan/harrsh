@@ -4,8 +4,8 @@ import slex.seplog._
 import slex.seplog.inductive._
 import slex.main.SlexLogging
 import BaseTrackingAutomaton._
-import slex.Combinators
 import slex.heapautomata.utils.{EqualityUtils, ReachabilityMatrix, UnsafeAtomsAsClosure}
+import slex.util.Combinators
 
 import scala.annotation.tailrec
 

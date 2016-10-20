@@ -1,8 +1,8 @@
 package slex.heapautomata.utils
 
-import slex.Combinators
 import slex.heapautomata._
 import slex.main.SlexLogging
+import slex.util.Combinators
 
 /**
   * Created by jkatelaa on 10/19/16.

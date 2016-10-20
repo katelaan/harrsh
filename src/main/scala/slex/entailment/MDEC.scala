@@ -1,14 +1,14 @@
 package slex.entailment
 
-import slex.Combinators
 import slex.seplog._
 import slex.seplog.indexed._
 import slex.Sorts._
-import slex.Combinators._
+import slex.util.Combinators._
 import slex.main.SlexLogging
 import slex.models.{Stack, StackBasedEvaluator}
 import slex.smtinteraction.{ErrorStatus, SmtError, SmtWrapper}
 import slex.smtsyntax.{CheckSat, GetModel, _}
+import slex.util.Combinators
 
 import scala.annotation.tailrec
 

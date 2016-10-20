@@ -1,4 +1,4 @@
-package slex
+package slex.util
 
 /**
   * Created by jkatelaa on 10/3/16.

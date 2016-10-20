@@ -4,9 +4,6 @@ import slex.heapautomata.fv
 import slex.seplog.MapBasedRenaming
 import slex.seplog.inductive._
 
-// TODO Note: No explicit quantification
-// TODO Note: FVs need to be renamed
-
 /**
   * Created by jkatelaa on 10/20/16.
   */
@@ -25,7 +22,7 @@ object CyclistSIDParser extends SIDParser {
     case preds =>
       val startPred : String = preds.head._1
       val maxNumFV : Int = preds.map(_._2).max
-      val desc : String = startPred + " (parsed)"
+      val desc : String = startPred + "-SID"
       val allRules : Seq[(String,SymbolicHeap)] = preds.flatMap(_._3)
       (new SID(startPred, allRules.toSet, desc), maxNumFV)
   }
@@ -43,8 +40,7 @@ object CyclistSIDParser extends SIDParser {
       val bodyWithQs = body.copy(qvars = boundVars)
 
       // Rename free vars to x_i
-      val renamingMap : Map[String,String] = Map() ++ (head._2 zip (1 to head._2.size).map(i => fv(i).toString))
-      val bodyWithRenamedFVs = bodyWithQs.renameVars(MapBasedRenaming(renamingMap))
+      val (bodyWithRenamedFVs,renamingMap) = renameFVs(head._2, bodyWithQs)
 
       (head._1, head._2 map renamingMap, bodyWithRenamedFVs)
   }

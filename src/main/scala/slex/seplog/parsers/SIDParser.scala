@@ -1,6 +1,7 @@
 package slex.seplog.parsers
 
-import slex.seplog.{PtrExpr, PtrVar}
+import slex.heapautomata._
+import slex.seplog.{MapBasedRenaming, PtrExpr, PtrVar, Renaming}
 import slex.seplog.inductive._
 
 import scala.util.parsing.combinator.JavaTokenParsers
@@ -38,12 +39,15 @@ trait SIDParser extends JavaTokenParsers {
     case l ~ r => ptrneq(l, r)
   }
 
-  def parsePtrSeqInParens : Parser[Seq[PtrExpr]] = "(" ~> parsePtrSeq <~ ")"
-
-  def parsePtrSeq : Parser[Seq[PtrExpr]] = rep1sep(parsePtr, ",")
+  def parsePtrSeqInParens : Parser[Seq[PtrExpr]] = "(" ~> rep1sep(parsePtr, ",") <~ ")"
 
   def parsePtr : Parser[PtrExpr] = "nil" ^^ {_ => nil} | "null" ^^ {_ => nil} | ident ^^ PtrVar
 
   override def ident: Parser[String] = """[a-zA-Z_][a-zA-Z0-9_']*""".r
+
+  def renameFVs(fvs : Seq[String], sh : SymbolicHeap) : (SymbolicHeap, Map[String,String]) = {
+    val renamingMap : Map[String,String] = Map() ++ (fvs zip (1 to fvs.size).map(i => fv(i).toString))
+    (sh.renameVars(MapBasedRenaming(renamingMap)), renamingMap)
+  }
 
 }

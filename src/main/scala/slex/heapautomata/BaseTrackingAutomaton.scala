@@ -1,10 +1,10 @@
 package slex.heapautomata
 
-import slex.Combinators
 import slex.heapautomata.utils.{EqualityUtils, UnsafeAtomsAsClosure}
 import slex.main.SlexLogging
 import slex.seplog.MapBasedRenaming
 import slex.seplog.inductive._
+import slex.util.Combinators
 
 /**
   * Created by jkatelaa on 10/18/16.

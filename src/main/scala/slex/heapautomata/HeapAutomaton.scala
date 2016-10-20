@@ -1,7 +1,7 @@
 package slex.heapautomata
 
-import slex.Combinators
 import slex.seplog.inductive.SymbolicHeap
+import slex.util.Combinators
 
 /**
   * Created by jens on 10/15/16.

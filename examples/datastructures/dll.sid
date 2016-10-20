@@ -1,0 +1,2 @@
+dll <= emp : { x1 = x3, x2 = x4 } ;
+dll <= x1 -> (u,x2) * dll(u,x1,x3,x4)

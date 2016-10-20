@@ -1,7 +1,7 @@
 package slex.seplog.indexed
 
-import slex.Combinators
 import slex.seplog.Renaming
+import slex.util.Combinators
 
 /**
   * Created by jkatelaa on 9/30/16.

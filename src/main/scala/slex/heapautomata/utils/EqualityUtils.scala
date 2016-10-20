@@ -1,8 +1,8 @@
 package slex.heapautomata.utils
 
-import slex.Combinators
 import slex.heapautomata._
 import slex.seplog.inductive.PureAtom
+import slex.util.Combinators
 
 import scala.annotation.tailrec
 

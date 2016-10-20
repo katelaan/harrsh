@@ -11,13 +11,19 @@ object DefaultSIDParser extends SIDParser {
 
   type Rule = (String, SymbolicHeap)
 
+  def run(input : String) : Option[(SID,Int)] = parseAll(parseSID, input) match {
+    case Success(result, next) => Some(result)
+    case Failure(msg,_) => println("FAILURE: " + msg); None
+    case Error(msg,_) => println("ERROR: " + msg); None
+  }
+
   def parseSID : Parser[(SID,Int)] = rep1sep(parseRule, ";") <~ opt(";") ^^ {
     case rules =>
       val startPred : String = rules.head._1
       val maxNumFV : Int = rules.map{
         case (head,body) => body.getVars.filter(isFV).map(unFV).max
       }.max
-      val desc : String = startPred + " (parsed)"
+      val desc : String = startPred + "-SID"
       (new SID(startPred, rules.toSet, desc), maxNumFV)
   }
 

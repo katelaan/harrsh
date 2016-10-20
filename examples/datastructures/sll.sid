@@ -1,0 +1,2 @@
+sll <= emp : {x1 = x2} ;
+sll <= x1 -> y * sll(y,x2)
