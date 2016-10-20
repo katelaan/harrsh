@@ -21,7 +21,9 @@ class CyclistSIDParserTest extends SlexTableTest {
     // A couple of representative examples
     (parseSID, fullExample, Success),
     (parseSID, fullExample2, Success),
-    (parseSID, fullExample3, Success)
+    (parseSID, fullExample3, Success),
+    (parseSID, fullExample4, Success),
+    (parseSID, fullExample5, Success)
   )
 
   property ("The Cyclist SID parser should work") {
@@ -457,6 +459,156 @@ class CyclistSIDParserTest extends SlexTableTest {
       |  x8->x4 * x1=nil * x2->x3 => p5(x1) |
       |  nil!=x5 * x2->x4 * x3=x6 * x8=x9 => p5(x1) |
       |  x6->x3 * x2->nil * nil!=x5 * p4(x4) * x9!=x7 * x10->x5 * x10!=x5 * p1(x3) => p5(x1)
+      |}
+    """.stripMargin
+
+  def fullExample4 =
+  """
+    |RList {
+    |	x->y => RList(x,y) |
+    |	RList(x,x') * x'->y => RList(x,y)
+    |} ;
+    |
+    |List {
+    |	x->y => List(x,y) |
+    |	x->x' * List(x',y) => List(x,y)
+    |} ;
+    |
+    |ListO {
+    |	x->y => ListO(x,y) |
+    |	x->x' * ListE(x',y) => ListO(x,y)
+    |} ;
+    |
+    |ListE {
+    |	x->x' * ListO(x',y) => ListE(x,y)
+    |} ;
+    |
+    |PeList {
+    |	x=y => PeList(x,y) |
+    |	x->x' * PeList(x',y) => PeList(x,y)
+    |} ;
+    |
+    |DLL {
+    |	x=y * z=w => DLL(x,y,z,w) |
+    |	x->z',w * DLL(z',y,z,x) => DLL(x,y,z,w)
+    |} ;
+    |
+    |SLL {
+    |	x=y => SLL(x,y) |
+    |	x->x',y' * SLL(x',y) => SLL(x,y)
+    |} ;
+    |
+    |BSLL {
+    |	x=y => BSLL(x,y) |
+    |	BSLL(x,x') * x'->y',y => BSLL(x,y)
+    |} ;
+    |
+    |BinTree {
+    |	emp => BinTree(x) |
+    |	x->y',x' * BinTree(y') * BinTree(x') => BinTree(x)
+    |} ;
+    |
+    |BinTreeSeg {
+    |	x=y => BinTreeSeg(x,y) |
+    |	x->x',y' * BinTreeSeg(x',y) * BinTree(y') => BinTreeSeg(x,y) |
+    |	x->x',y' * BinTree(x') * BinTreeSeg(y',y) => BinTreeSeg(x,y)
+    |} ;
+    |
+    |BinListFirst {
+    |	emp => BinListFirst(x) |
+    |	x->y',x' * BinListFirst(y') => BinListFirst(x)
+    |} ;
+    |
+    |BinListSecond {
+    |	emp => BinListSecond(x) |
+    |	x->y',x' * BinListSecond(x') => BinListSecond(x)
+    |} ;
+    |
+    |BinPath {
+    |	x=y => BinPath(x,y) |
+    |	x->x',y' * BinPath(x',y) => BinPath(x,y) |
+    |	x->x',y' * BinPath(y',y) => BinPath(x,y)
+    |} ;
+    |
+    |ls {
+    |    x=y => ls(x,y) |
+    |    x!=y * x->x' * ls(x',y) => ls(x,y)
+    |} ;
+    |
+    |bt {
+    |	x=nil => bt(x) |
+    |	x->y',x' * bt(y') * bt(x') => bt(x)
+    |} ;
+    |
+    |cls {
+    |        x->y' * ls(y',x) => cls(x)
+    |} ;
+    |
+    |dls {
+    |        x=y => dls(x,y) |
+    |        x!=y * x-> y',x' * dls(x',y) => dls(x,y)
+    |} ;
+    |
+    |lsls {
+    |  x=nil => lsls(x) |
+    |  x->y',x' * lsls(y') * dls(x',nil) => lsls(x)
+    |} ;
+    |
+    |lsbt {
+    |  x=nil => lsbt(x) |
+    |  x->y',x' * lsbt(x') * bt(y') => lsbt(x)
+    |} ;
+    |
+    |spTrue {
+    |	emp => spTrue() |
+    |	x'->y' * spTrue() => spTrue()
+    |};
+    |
+    |spTrue2 {
+    |	emp => spTrue2() |
+    |	x'->y',z' * spTrue2() => spTrue2()
+    |}
+  """.stripMargin
+
+  def fullExample5 =
+    """
+      |P {
+      |  one(x1) * one(x2) * one(x3) * one(x4) * one(x5) * one(x6) * one(x7) * one(x8) * one(x9) * one(x10) * one(x11) * Q(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11) => P(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11)
+      |} ;
+      |
+      |Q {
+      |  zero(y1) * zero(y2) * zero(y3) * zero(y4) * zero(y5) * zero(y6) * zero(y7) * zero(y8) * zero(y9) * zero(y10) * zero(y11) => Q(y1,y2,y3,y4,y5,y6,y7,y8,y9,y10,y11) |
+      |  succ11circuit(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,y1,y2,y3,y4,y5,y6,y7,y8,y9,y10,y11) * Q(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11) => Q(y1,y2,y3,y4,y5,y6,y7,y8,y9,y10,y11)
+      |} ;
+      |
+      |succ11circuit {
+      |  not(x1,y1) * xor(x1,x2,y2) * and(x1,x2,z3) * xor(z3,x3,y3) * and(z3,x3,z4) * xor(x4,y4,z4) * and(z4,x4,z5) * xor(x5,y5,z5) * and(z5,x5,z6) * xor(x6,y6,z6) * and(z6,x6,z7) * xor(x7,y7,z7) * and(z7,x7,z8) * xor(x8,y8,z8) * and(z8,x8,z9) * xor(x9,y9,z9) * and(z9,x9,z10) * xor(x10,y10,z10) * and(z10,x10,z11) * xor(x11,y11,z11) => succ11circuit(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,y1,y2,y3,y4,y5,y6,y7,y8,y9,y10,y11)
+      |} ;
+      |
+      |not {
+      |  zero(x) * one(y) => not(x,y) |
+      |  one(x) * zero(y) => not(x,y)
+      |} ;
+      |
+      |xor {
+      |  zero(x) * zero(y) * zero(z) => xor(x,y,z) |
+      |  zero(x) * one(y) * one(z) => xor(x,y,z) |
+      |  one(x) * zero(y) * one(z) => xor(x,y,z) |
+      |  one(x) * one(y) * zero(z) => xor(x,y,z)
+      |} ;
+      |
+      |and {
+      |  zero(x) * zero(z) => and(x,y,z) |
+      |  zero(y) * zero(z) => and(x,y,z) |
+      |  one(x) * one(y) * one(z) => and(x,y,z)
+      |} ;
+      |
+      |one {
+      |  x!=nil => one(x)
+      |} ;
+      |
+      |zero {
+      |  x=nil => zero(x)
       |}
     """.stripMargin
 

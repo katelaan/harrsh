@@ -16,7 +16,8 @@ trait Renaming {
   @tailrec
   final def freshName(varid: String): String =
     if (!codomain.contains(varid)) varid else {
-      val candidate = varid + "0"
+      // Note: Important to add prefix rather than suffix to correctly deal with quantifiers of the form xi (i.e., that look like free variables)
+      val candidate = "_" + varid
       freshName(candidate)
     }
 

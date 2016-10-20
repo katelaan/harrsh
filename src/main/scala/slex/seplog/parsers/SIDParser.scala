@@ -39,18 +39,13 @@ trait SIDParser extends JavaTokenParsers {
     case l ~ r => ptrneq(l, r)
   }
 
-  def parsePtrSeqInParens : Parser[Seq[PtrExpr]] = "(" ~> rep1sep(parsePtr, ",") <~ ")"
+  def parsePtrSeqInParens : Parser[Seq[PtrExpr]] = "(" ~> repsep(parsePtr, ",") <~ ")"
 
   def parsePtrSeq : Parser[Seq[PtrExpr]] = rep1sep(parsePtr, ",")
 
   def parsePtr : Parser[PtrExpr] = "nil" ^^ {_ => nil} | "null" ^^ {_ => nil} | ident ^^ PtrVar
 
   override def ident: Parser[String] = """[a-zA-Z_][a-zA-Z0-9_']*""".r
-
-  def renameFVs(fvs : Seq[String], sh : SymbolicHeap) : (SymbolicHeap, Map[String,String]) = {
-    val renamingMap : Map[String,String] = Map() ++ (fvs zip (1 to fvs.size).map(i => fv(i).toString))
-    (sh.renameVars(MapBasedRenaming(renamingMap)), renamingMap)
-  }
 
   def stripCommentLines(input : String, commentPrefix : String) = {
     val lines = input.split("\n")

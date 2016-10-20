@@ -24,8 +24,8 @@ object Benchmarking {
 
   def generateTasks() =
     for {
-      file <- getListOfFiles(PathToDatastructureExamples)
-      automaton <- Seq(RunHasPointer(), RunTracking(Set(fv(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(fv(1), fv(0)), RunGarbageFreedom(), RunAcyclicity())
+      file <- getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) ++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
+      automaton <- Seq(RunSat())//Seq(RunHasPointer(), RunTracking(Set(fv(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(fv(1), fv(0)), RunGarbageFreedom(), RunAcyclicity())
     } yield TaskConfig(file.getAbsolutePath, automaton, None)
 
 
@@ -36,6 +36,9 @@ object Benchmarking {
 
     for (task <- tasks) {
       val (sid, ha) = prepareBenchmark(task)
+      printLinesOf('%', 1)
+      println("File: " + task.fileName)
+      printLinesOf('%', 1)
       println("Will run automaton " + ha + " on " + sid)
       val startTime = System.currentTimeMillis()
       val result = RefinementAlgorithms.onTheFlyEmptinessCheck(sid, ha)

@@ -1,5 +1,7 @@
 package slex.seplog.parsers
 
+import slex.heapautomata._
+import slex.seplog.MapBasedRenaming
 import slex.seplog.inductive._
 
 /**
@@ -40,17 +42,18 @@ object CyclistSIDParser extends SIDParser {
       val boundVars = (body.getVars -- head._2).toSeq
       val bodyWithQs = body.copy(qvars = boundVars)
 
-      // Rename free vars to x_i
-      val (bodyWithRenamedFVs,renamingMap) = renameFVs(head._2, bodyWithQs)
+      // Rename free vars to xi
+      val renamingMap : Map[String,String] = Map() ++ (head._2 zip (1 to head._2.size).map(i => fv(i).toString))
+      val bodyWithRenamedVs = bodyWithQs.renameVars(MapBasedRenaming(renamingMap))
 
-      (head._1, head._2 map renamingMap, bodyWithRenamedFVs)
+      (head._1, head._2 map renamingMap, bodyWithRenamedVs)
   }
 
   def parseHead = parseHeadWithArgs | parseHeadWithoutArgs
 
   def parseHeadWithoutArgs : Parser[(String, Seq[String])] = ident ^^ (s => (s,Seq()))
 
-  def parseHeadWithArgs : Parser[(String, Seq[String])] = ident ~ ("(" ~> rep1sep(ident, ",") <~ ")") ^^ {
+  def parseHeadWithArgs : Parser[(String, Seq[String])] = ident ~ ("(" ~> repsep(ident, ",") <~ ")") ^^ {
     case name ~ args => (name, args)
   }
 
