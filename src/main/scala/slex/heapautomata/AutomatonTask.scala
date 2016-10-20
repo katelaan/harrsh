@@ -19,6 +19,30 @@ sealed trait AutomatonTask {
     case RunAcyclicity() => TrackingAutomata.acyclicityAutomaton(numFV)
   }
 
+  override def toString = this match {
+    case RunHasPointer() => "allocates mem"
+    case RunTracking(alloc, pure) => "track"
+    case RunSat() => "check sat"
+    case RunUnsat() => "check unsat"
+    case RunEstablishment() => "establishment"
+    case RunNonEstablishment() => "non-est."
+    case RunReachability(from, to) => "reachability"
+    case RunGarbageFreedom() => "garbage-freedom"
+    case RunAcyclicity() => "weak acylicity"
+  }
+
+  def resultToString(isEmpty : Boolean) : String = this match {
+    case RunHasPointer() => if (isEmpty) "no alloc" else "alloc"
+    case RunTracking(alloc, pure) => if (isEmpty) "no target" else "target"
+    case RunSat() => if (isEmpty) "unsat" else "sat"
+    case RunUnsat() => if (isEmpty) "sat" else "unsat"
+    case RunEstablishment() => if (isEmpty) "all non-est." else "ex. est."
+    case RunNonEstablishment() => if (isEmpty) "all est." else "ex. non-est"
+    case RunReachability(from, to) => if (isEmpty) "unreach" else "reach"
+    case RunGarbageFreedom() => if (isEmpty) "all garbage" else "ex. garbage-free"
+    case RunAcyclicity() => if (isEmpty) "all cyclic" else "ex. weak. acyc."
+  }
+
 }
 
 case class RunHasPointer() extends AutomatonTask

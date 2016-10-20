@@ -3,7 +3,7 @@ package slex.main
 import java.io.File
 
 import slex.heapautomata._
-import slex.seplog.inductive.{PureAtom, SID}
+import slex.seplog.inductive.SID
 import slex.seplog.parsers.{CyclistSIDParser, DefaultSIDParser}
 import slex.util.IOUtils._
 
@@ -18,6 +18,8 @@ object Benchmarking {
   val CyclistSuffix = "defs"
   val SidSuffix = "sid"
 
+  type Result = (Boolean,Long)
+
   def main(args : Array[String]) = {
     runBenchmarks(generateTasks())
   }
@@ -29,10 +31,28 @@ object Benchmarking {
     } yield TaskConfig(file.getAbsolutePath, automaton, None)
 
 
+  def printBenchmarkResults(results: List[(TaskConfig, Result)]): Unit = {
+
+    val cols = Seq(30,20,20,10)
+    val headings = Seq("file", "task", "result", "time")
+
+    println(inColumns(headings zip cols))
+    println("+" + "-"*(cols.sum+cols.size-1) + "+")
+    for ( (task,res) <- results ) {
+      val content : Seq[String] = Seq(task.fileName.split("/").last,task.decisionProblem.toString,task.decisionProblem.resultToString(res._1),""+res._2)
+      println(inColumns(content zip cols))
+    }
+
+  }
+
+  def inColumns(cols : Seq[(String,Int)]) : String = if (cols.isEmpty) "|" else "|" + (" "*(Math.max(0,cols.head._2 - cols.head._1.length))) + cols.head._1 + inColumns(cols.tail)
+
   def runBenchmarks(tasks : Seq[TaskConfig]): Unit = {
 
     val globalStartTime = System.currentTimeMillis()
     var verificationTime : Long = 0
+
+    var results : List[(TaskConfig,Result)] = Nil
 
     for (task <- tasks) {
       val (sid, ha) = prepareBenchmark(task)
@@ -41,16 +61,21 @@ object Benchmarking {
       printLinesOf('%', 1)
       println("Will run automaton " + ha + " on " + sid)
       val startTime = System.currentTimeMillis()
-      val result = RefinementAlgorithms.onTheFlyEmptinessCheck(sid, ha)
+      val isEmpty = RefinementAlgorithms.onTheFlyEmptinessCheck(sid, ha)
       val endTime = System.currentTimeMillis()
       println("Finished in " + (endTime - startTime) + "ms")
+
       verificationTime += (endTime - startTime)
+      val result = (isEmpty, endTime - startTime)
+      results = (task, result) :: results
     }
 
     val globalEndTime = System.currentTimeMillis()
     println("Completed number of benchmarks: " + tasks.size)
     println("Total time: " + (globalEndTime-globalStartTime) + "ms")
     println("Of which analysis time: " + verificationTime + "ms")
+
+    printBenchmarkResults(results.reverse)
 
   }
 
