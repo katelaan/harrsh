@@ -1,0 +1,29 @@
+1. Install sbt
+--------------
+
+See http://www.scala-sbt.org/download.html for instructions.
+
+2. Compile
+----------
+
+Run
+
+sbt compile
+
+from the command line. This may take a while as dependencies have to be fetched.
+
+3. Run
+------
+
+You can now run Harrsh via sbt (note the "" around the arguments)
+
+sbt run "--tasks examples/basic-benchmarks.bms"
+
+4. Update
+---------
+
+To update to a newer revision, run
+
+git pull
+sbt clean
+sbt compile
