@@ -19,6 +19,8 @@ object Benchmarking extends SlexLogging {
   val PathToDatastructureExamples = "examples" + File.separator + "datastructures"
   val PathToCyclistExamples = "examples" + File.separator + "cyclist"
 
+  val ResultFile = "benchmark-results.tex"
+
   val CyclistSuffix = "defs"
   val SidSuffix = "sid"
 
@@ -50,31 +52,51 @@ object Benchmarking extends SlexLogging {
     }
   }
 
+  private val headings = Seq("File", "Property", "Result", "Time in ms")
+
   private def printBenchmarkResults(results: List[(TaskConfig, Result)]): Unit = {
 
     def inColumns(cols : Seq[(String,Int)]) : String = if (cols.isEmpty) "|" else "|" + (" "*(Math.max(0,cols.head._2 - cols.head._1.length))) + cols.head._1 + inColumns(cols.tail)
 
     val cols = Seq(30,20,20,10)
-    val headings = Seq("file", "task", "result", "time")
+
     val delimLine = "+" + "-"*(cols.sum+cols.size-1) + "+"
 
     println(delimLine)
     println(inColumns(headings zip cols))
     println(delimLine)
     for ( (task,res) <- results ) {
-      val content : Seq[String] = Seq(task.fileName.split("/").last, task.decisionProblem.toString, task.decisionProblem.resultToString(res._1), ""+res._2)
-      println(inColumns(content zip cols))
+      val entries : Seq[String] = Seq(task.fileName.split("/").last, task.decisionProblem.toString, task.decisionProblem.resultToString(res._1), ""+res._2)
+      println(inColumns(entries zip cols))
     }
     println(delimLine)
 
   }
 
+  private def writeLatexFile(results: List[(TaskConfig, Result)], summary: String): Unit = {
+    val preamble =
+      """
+        |\documentclass{article}
+        |\begin{document}
+        |\begin{tabular}{llll}
+      """.stripMargin
+    val header = headings.mkString(" & ") + "\\\\\n"
+    val resultLines = (for {
+      (task,res) <- results
+      entries : Seq[String] = Seq(task.fileName.split("/").last, task.decisionProblem.toString, task.decisionProblem.resultToString(res._1), ""+res._2)
+    } yield entries.mkString("", " & ", "\\\\")).mkString("\n")
+    val ending ="\n\\end{tabular}\n\\begin{itemize}\n" + summary.split("\n").map("\\item "+_).mkString("\n") + "\n\\end{itemize}\n\\end{document}"
+
+    writeFile(ResultFile, preamble + header + resultLines + ending)
+  }
+
   private def runBenchmarks(tasks : Seq[TaskConfig], timeout : Duration = DefaultTimeout, verbose : Boolean): Unit = {
 
     val globalStartTime = System.currentTimeMillis()
-    var verificationTime : Long = 0
+    var analysisTime : Long = 0
 
     var results : List[(TaskConfig,Result)] = Nil
+    var numTimeouts : Int = 0
 
     for (task <- tasks) {
       val (sid, ha) = prepareBenchmark(task)
@@ -97,12 +119,12 @@ object Benchmarking extends SlexLogging {
         val isEmpty = Await.result(f, timeout)
         val endTime = System.currentTimeMillis()
         println("Finished in " + (endTime - startTime) + "ms")
-        verificationTime += (endTime - startTime)
+        analysisTime += (endTime - startTime)
         (isEmpty, endTime - startTime)
       } catch {
         case e : TimeoutException =>
           println("reached timeout (" + timeout + ")")
-          verificationTime += timeout.toMillis
+          numTimeouts += 1
           (true, timeout.toMillis)
       }
 
@@ -120,9 +142,16 @@ object Benchmarking extends SlexLogging {
     printBenchmarkResults(results.reverse)
 
     println()
-    println("Completed number of benchmarks: " + tasks.size)
-    println("Total time: " + (globalEndTime-globalStartTime) + "ms")
-    println("Of which analysis time: " + verificationTime + "ms")
+    val totalTime = globalEndTime-globalStartTime
+    val summary = ("Completed number of benchmarks: " + (tasks.size - numTimeouts) + " / " + tasks.size + "\n" +
+        "Timeout (TO):             " + timeout.toMillis + " ms\n"
+      + "Total time:               " + totalTime + " ms\n"
+      + "Analysis time (with TOs): " + (analysisTime+timeout.toMillis*numTimeouts) + " ms\n"
+      + "Analysis time (w/o TOs):  " + analysisTime + " ms")
+    println(summary)
+    println()
+    println("Will write results to " + ResultFile)
+    writeLatexFile(results.reverse, summary)
 
   }
 

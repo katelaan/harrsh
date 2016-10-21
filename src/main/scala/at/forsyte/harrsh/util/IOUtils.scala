@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.util
 
-import java.io.File
+import java.io.{BufferedWriter, File, FileWriter}
 
 import scala.io.Source
 
@@ -30,6 +30,15 @@ object IOUtils {
     } finally {
       source.close()
     }
+  }
+
+  def writeFile(fileName : String, lines : Seq[String]): Unit = writeFile(fileName, lines.mkString("\n"))
+
+  def writeFile(fileName : String, content : String): Unit = {
+    val file = new File(fileName)
+    val bw = new BufferedWriter(new FileWriter(file))
+    bw.write(content)
+    bw.close()
   }
 
   def printLinesOf(symbol : Char, numLines : Int) = {
