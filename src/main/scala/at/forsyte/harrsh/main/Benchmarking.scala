@@ -22,9 +22,9 @@ object Benchmarking extends SlexLogging {
 
   //def main(args : Array[String]) = generateAndPrintTasks()
 
-  def runBenchmarkFile(file : String) = {
+  def runBenchmarkFile(file : String, verbose : Boolean = false) = {
     val tasks = readTasksFromFile(file)
-    runBenchmarks(tasks)
+    runBenchmarks(tasks, verbose)
   }
 
   def generateAndPrintTasks() = {
@@ -63,7 +63,7 @@ object Benchmarking extends SlexLogging {
 
   }
 
-  private def runBenchmarks(tasks : Seq[TaskConfig]): Unit = {
+  private def runBenchmarks(tasks : Seq[TaskConfig], verbose : Boolean): Unit = {
 
     val globalStartTime = System.currentTimeMillis()
     var verificationTime : Long = 0
@@ -72,10 +72,15 @@ object Benchmarking extends SlexLogging {
 
     for (task <- tasks) {
       val (sid, ha) = prepareBenchmark(task)
-      printLinesOf('%', 1)
-      println("File: " + task.fileName)
-      printLinesOf('%', 1)
-      println("Will run automaton " + ha + " on " + sid)
+      if (verbose) {
+        printLinesOf('%', 1)
+        println("File: " + task.fileName)
+        printLinesOf('%', 1)
+        println("Will run automaton " + ha + " on " + sid)
+      } else {
+        print("Running " + task.decisionProblem + " on " + task.fileName + "...")
+      }
+
       val startTime = System.currentTimeMillis()
       val isEmpty = RefinementAlgorithms.onTheFlyEmptinessCheck(sid, ha)
       val endTime = System.currentTimeMillis()
@@ -92,11 +97,13 @@ object Benchmarking extends SlexLogging {
     println("FINISHED BENCHMARK SUITE")
     printLinesOf('#', 2)
     println()
+
+    printBenchmarkResults(results.reverse)
+
+    println()
     println("Completed number of benchmarks: " + tasks.size)
     println("Total time: " + (globalEndTime-globalStartTime) + "ms")
     println("Of which analysis time: " + verificationTime + "ms")
-
-    printBenchmarkResults(results.reverse)
 
   }
 

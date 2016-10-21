@@ -6,9 +6,9 @@ package at.forsyte.harrsh.main
 object Harrsh {
 
   def main(args : Array[String]) = {
-    if (args.length == 2 && ((args(0) == "--tasks") || (args(0) == "-t"))) {
+    if (args.length >= 2 && ((args(0) == "--tasks") || (args(0) == "-t"))) {
       try {
-        Benchmarking.runBenchmarkFile(args(1))
+        Benchmarking.runBenchmarkFile(args(1), args.length >= 3 && args(2) == "--verbose")
       } catch {
         case e : Throwable =>
           println("An exception occurred during benchmarking: ")
@@ -20,6 +20,6 @@ object Harrsh {
     }
   }
 
-  private def printUsage() = println("Usage: --tasks <relative-path-to-file-with-list-of-tasks>")
+  private def printUsage() = println("Usage: --tasks <relative-path-to-file-with-list-of-tasks> [--verbose]")
 
 }
