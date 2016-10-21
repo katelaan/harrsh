@@ -10,6 +10,11 @@ sealed trait PtrExpr extends Expr {
     case PtrVar(id) => id
   }
 
+  def getIdentOptionMDEC : Option[String] = this match {
+    case NullPtr() => Some("null") // FIXME [NULL-TREATMENT] Currently we handle null by declaring it as an ordinary constant. Might want to fix this at some point
+    case PtrVar(id) => Some(id)
+  }
+
   def getVar : Set[String] = this match {
     case NullPtr() => Set()
     case PtrVar(id) => Set(id)
@@ -25,11 +30,6 @@ sealed trait PtrExpr extends Expr {
   def renameVars(f : Renaming) : PtrExpr = this match {
     case n : NullPtr => n
     case PtrVar(id) => PtrVar(f(id))
-  }
-
-  def isVar : Boolean = this match {
-    case _ : NullPtr=> false
-    case _ : PtrVar => true
   }
 
 }

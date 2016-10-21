@@ -68,7 +68,7 @@ object BaseReachabilityAutomaton extends SlexLogging {
     // Compute allocation set and equalities for compressed SH and compare to target
     val allocExplicit: Seq[FV] = compressed.pointers map (_.from)
 
-    // TODO: Ensure that we can assume that constraints returned by compression are ordered and thus drop this step
+    // FIXME: Can we already assume that constraints returned by compression are ordered and thus drop this step?
     val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrComparisons map orderedAtom
 
     // Add inequalities for allocated variables
@@ -152,7 +152,8 @@ object BaseReachabilityAutomaton extends SlexLogging {
   def reachabilityKernel(s : (TrackingInfo, ReachabilityMatrix)) : SymbolicHeap = {
     val ((alloc,pure),reach) = s
 
-    // Note: Here we assume that the state already contains a closure. If this is not the case, the following does not work.
+    // FIXME: Here we now assume that the state already contains a closure. If this is not the case, the following does not work.
+    //val closure = new ClosureOfAtomSet(pure)
     val closure = UnsafeAtomsAsClosure(pure)
 
     val nonredundantAlloc = alloc filter closure.isMinimumInItsClass

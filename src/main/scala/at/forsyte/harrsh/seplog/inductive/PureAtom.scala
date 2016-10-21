@@ -22,23 +22,10 @@ sealed trait PureAtom extends SepLogAtom with SlexLogging {
     case PtrNEq(l, r) => PtrNEq(l.renameVars(f), r.renameVars(f))
   }
 
-  def getVars : Set[String] = {
-    def toSet(l : PtrExpr, r : PtrExpr) : Set[String] = {
-      if (l.isVar && r.isVar) Set(l.toString, r.toString)
-      else if (l.isVar) Set(l.toString)
-      else if (r.isVar) Set(r.toString)
-      else Set.empty
-    }
-
-    this match {
-      case True() => Set()
-      case PtrEq(l, r) =>
-        toSet(l,r)
-      //l.getVar union r.getVar
-      case PtrNEq(l, r) =>
-        toSet(l,r)
-      //l.getVar union r.getVar
-    }
+  def getVars : Set[String] = this match {
+    case True() => Set()
+    case PtrEq(l, r) => l.getVar union r.getVar // TODO Building so many sets is quite inefficient
+    case PtrNEq(l, r) => l.getVar union r.getVar
   }
 
 }

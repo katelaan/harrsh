@@ -1,7 +1,5 @@
 package at.forsyte.harrsh.util
 
-import scala.annotation.tailrec
-
 /**
   * Created by jkatelaa on 10/3/16.
   */
@@ -23,16 +21,11 @@ object Combinators {
 
   /**
     * Computes all ordered pairs (a,b) with seq.indexOf(a) < seq.indexOf(b)
+    * TODO: Do this more efficiently?
     */
-  def square[A](seq : Seq[A]) : Seq[(A,A)] = {
-    @tailrec
-    def aux(seq : Seq[A], acc : Seq[(A,A)]) : Seq[(A,A)] =
-      if (seq.isEmpty || seq.tail.isEmpty) acc
-      else aux(seq.tail, acc ++ (seq.tail map (rhs => (seq.head, rhs))))
-
-    aux(seq, Seq.empty)
-  }
-
+  def square[A](seq : Seq[A]) : Seq[(A,A)] =
+  if (seq.isEmpty || seq.tail.isEmpty) Nil
+  else (seq.tail map (rhs => (seq.head, rhs))) ++ square(seq.tail)
 
   /**
     * Returns the powerset of the given set
@@ -40,17 +33,18 @@ object Combinators {
   def powerSet[A](set : Set[A]) : Set[Set[A]] = {
     val seq = set.toSeq
 
-    def aux(elems : Seq[A]) : Set[Set[A]] = {
+    // TODO: Rewrite to tailrec
+    def powerSet(elems : Seq[A]) : Set[Set[A]] = {
       if (elems.isEmpty)
         Set(Set())
       else {
         val newelem = elems.head
-        val smaller = aux(elems.tail)
+        val smaller = powerSet(elems.tail)
         smaller flatMap (set => Set(set, set + newelem))
       }
     }
 
-    aux(seq)
+    powerSet(seq)
   }
 
 }
