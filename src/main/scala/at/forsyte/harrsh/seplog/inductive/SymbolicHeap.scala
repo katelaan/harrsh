@@ -2,6 +2,8 @@ package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.seplog.Renaming
 
+import scala.annotation.tailrec
+
 /**
   * Created by jkatelaa on 10/3/16.
   */
@@ -34,8 +36,8 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], qvars :
 
   def renameVars(f : Renaming) = {
     // Rename bound variables if applicable
-    val (qvarsRenamed, extendedF) : (Seq[String], Renaming) = qvars.foldRight((Seq[String](), f))({
-      case (v, (seq, intermediateF)) =>
+    val (qvarsRenamed, extendedF) : (Seq[String], Renaming) = qvars.foldLeft((Seq[String](), f))({
+      case ((seq, intermediateF), v) =>
         val extended = intermediateF.addBoundVarWithOptionalAlphaConversion(v)
         (extended(v) +: seq, extended)
     })
@@ -53,17 +55,22 @@ object SymbolicHeap {
 
   def apply(spatial: Seq[SpatialAtom]) = new SymbolicHeap(spatial)
 
-  def combineHeaps(phi : Option[SymbolicHeap], psi : Option[SymbolicHeap]) : Option[SymbolicHeap] = {
-    for {
-      SymbolicHeap(pure, spatial, qvars) <- phi
-      right <- psi
-      // Rename bound variables in the right formula that clash with the left formula
-      SymbolicHeap(pure2, spatial2, qvars2) = right.renameVars(Renaming.clashAvoidanceRenaming(qvars))
-      combinedVars = qvars ++ qvars2
-    } yield SymbolicHeap(pure ++ pure2, spatial ++ spatial2, combinedVars)
+  def combineHeaps(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
+    val SymbolicHeap(pure, spatial, qvars) = phi
+    // Rename bound variables in the right formula that clash with the left formula
+    val SymbolicHeap(pure2, spatial2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars))
+    val combinedVars = qvars ++ qvars2
+    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, combinedVars)
   }
 
-  // TODO More efficient implementation, e.g. by a fold
-  def combineAllHeaps(heaps : Seq[SymbolicHeap]) : SymbolicHeap = if (heaps.isEmpty) SymbolicHeap(Seq()) else combineHeaps(Some(heaps.head), Some(combineAllHeaps(heaps.tail))).get
+  def combineAllHeaps(heaps : Seq[SymbolicHeap]) : SymbolicHeap = combineAllHeapsAcc(heaps, empty)
+
+  @tailrec
+  private def combineAllHeapsAcc(heaps : Seq[SymbolicHeap], acc : SymbolicHeap) : SymbolicHeap = if (heaps.isEmpty) acc else {
+    val comb = combineHeaps(heaps.head, acc)
+    combineAllHeapsAcc(heaps.tail, comb)
+  }
+
+  val empty = SymbolicHeap(Seq())
 
 }
