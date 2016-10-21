@@ -10,13 +10,11 @@
             </pattern>
         </encoder>
     </appender>
-    <root level="INFO">
+    <root level="WARN">
         <appender-ref ref="STDOUT" />
     </root>
-    <logger name="at.forsyte.harrsh.entailment.entailment.MDEC" level="DEBUG" />
-    <logger name="at.forsyte.harrsh.smtinteraction.SimpleZ3Wrapper" level="DEBUG" />
-    <logger name="at.forsyte.harrsh.seplog" level="WARN" />
-    <!--<logger name="at.forsyte.harrsh.heapautomata" level="INFO" />
+    <!--<logger name="at.forsyte.harrsh.seplog" level="WARN" />
+    <logger name="at.forsyte.harrsh.heapautomata" level="INFO" />
     <logger name="at.forsyte.harrsh.heapautomata.RefinementAlgorithms" level="INFO" />
     <logger name="at.forsyte.harrsh.heapautomata.BaseTrackingAutomaton" level="INFO" />
     <logger name="at.forsyte.harrsh.heapautomata.BaseReachabilityAutomaton" level="INFO" />-->
