@@ -20,7 +20,7 @@ object Benchmarking extends SlexLogging {
 
   type Result = (Boolean,Long)
 
-  def main(args : Array[String]) = generateAndPrintTasks()
+  //def main(args : Array[String]) = generateAndPrintTasks()
 
   def runBenchmarkFile(file : String) = {
     val tasks = readTasksFromFile(file)
