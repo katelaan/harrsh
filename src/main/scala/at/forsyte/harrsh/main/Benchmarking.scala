@@ -7,7 +7,7 @@ import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.seplog.parsers.{CyclistSIDParser, DefaultSIDParser}
 import at.forsyte.harrsh.util.IOUtils._
 
-import scala.concurrent.{Await, Future, TimeoutException}
+import scala.concurrent.{Await, ExecutionException, Future, TimeoutException}
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -126,6 +126,8 @@ object Benchmarking extends SlexLogging {
           println("reached timeout (" + timeout + ")")
           numTimeouts += 1
           (true, timeout.toMillis)
+        case e : ExecutionException =>
+          throw e.getCause
       }
 
       results = (task, result) :: results

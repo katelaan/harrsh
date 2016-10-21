@@ -20,10 +20,6 @@ object RefinementAlgorithms extends SlexLogging {
     * @return True iff there is no RSH in the refinement of sid by ha
     */
   def onTheFlyEmptinessCheck(sid : SID, ha : HeapAutomaton) : Boolean = {
-    //logger.debug("On the fly emptiness check for:")
-    //logger.debug("HA '" + ha.description)
-    //logger.debug("SID: " + sid)
-
     computeRefinementFixedPoint(sid, sid.startPred, ha)(Set(), Set(), 1)
   }
 

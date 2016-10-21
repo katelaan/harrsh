@@ -67,7 +67,7 @@ object BaseTrackingAutomaton extends SlexLogging {
     // Compute allocation set and equalities for compressed SH and compare to target
     val allocExplicit: Seq[FV] = compressed.pointers map (_.from)
 
-    // FIXME: Can we already assume that constraints returned by compression are ordered and thus drop this step?
+    // TODO: Ensure that we can assume that constraints returned by compression are ordered and thus drop this step
     val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrComparisons map orderedAtom
 
     // Add inequalities for allocated variables
@@ -112,8 +112,7 @@ object BaseTrackingAutomaton extends SlexLogging {
   }
 
   def trackingKernel(s : TrackingInfo) : SymbolicHeap = {
-    // FIXME: Here we now assume that the state already contains a closure. If this is not the case, the following does not work.
-    //val closure = new ClosureOfAtomSet(pure)
+    // Note: Here we assume that the state already contains a closure. If this is not the case, the following does not work.
     val closure = UnsafeAtomsAsClosure(s._2)
 
     val nonredundantAlloc = s._1 filter closure.isMinimumInItsClass
