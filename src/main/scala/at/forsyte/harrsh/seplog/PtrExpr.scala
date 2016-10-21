@@ -32,6 +32,11 @@ sealed trait PtrExpr extends Expr {
     case PtrVar(id) => PtrVar(f(id))
   }
 
+  def isVar : Boolean = this match {
+    case _ : NullPtr=> false
+    case _ : PtrVar => true
+  }
+
 }
 
 case class NullPtr() extends PtrExpr

@@ -53,17 +53,16 @@ object SymbolicHeap {
 
   def apply(spatial: Seq[SpatialAtom]) = new SymbolicHeap(spatial)
 
-  def combineHeaps(phi : Option[SymbolicHeap], psi : Option[SymbolicHeap]) : Option[SymbolicHeap] = {
-    for {
-      SymbolicHeap(pure, spatial, qvars) <- phi
-      right <- psi
-      // Rename bound variables in the right formula that clash with the left formula
-      SymbolicHeap(pure2, spatial2, qvars2) = right.renameVars(Renaming.clashAvoidanceRenaming(qvars))
-      combinedVars = qvars ++ qvars2
-    } yield SymbolicHeap(pure ++ pure2, spatial ++ spatial2, combinedVars)
+  def combineHeaps(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
+    val SymbolicHeap(pure, spatial, qvars) = phi
+    // Rename bound variables in the right formula that clash with the left formula
+    val SymbolicHeap(pure2, spatial2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars))
+    val combinedVars = qvars ++ qvars2
+    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, combinedVars)
   }
 
-  // TODO More efficient implementation, e.g. by a fold
-  def combineAllHeaps(heaps : Seq[SymbolicHeap]) : SymbolicHeap = if (heaps.isEmpty) SymbolicHeap(Seq()) else combineHeaps(Some(heaps.head), Some(combineAllHeaps(heaps.tail))).get
+  def combineAllHeaps(heaps : Seq[SymbolicHeap]) : SymbolicHeap = heaps.foldRight(SymbolicHeap(Seq())){
+    (sh, shAcc) => combineHeaps(sh, shAcc)
+  }
 
 }
