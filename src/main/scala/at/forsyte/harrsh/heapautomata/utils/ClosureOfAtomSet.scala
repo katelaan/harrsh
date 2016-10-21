@@ -12,17 +12,12 @@ class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
   // FIXME: This closure class is ridiculously inefficient, having one copy of each equivalence class per member
   var mapToClasses : Map[FV,Set[FV]] = Map()
 
-  // TODO Is this the right way now that we have switched to ordinary atoms?
   for {
     atom <- pure
     (left, right, isEqual) = unwrapAtom(atom)
     if isEqual
   } {
     extendEntry(left, right)
-    //      println("Inserting " + left + " -> " + right)
-    //      for {
-    //        (key, vals) <- mapToClasses
-    //      } println(key + " --> " + vals)
   }
 
   override def getEqualityClass(fv : FV) : Set[FV] = mapToClasses.getOrElse(fv, Set(fv))

@@ -67,7 +67,7 @@ object BaseTrackingAutomaton extends SlexLogging {
     // Compute allocation set and equalities for compressed SH and compare to target
     val allocExplicit: Seq[FV] = compressed.pointers map (_.from)
 
-    // FIXME: Can we already assume that constraints returned by compression are ordered and thus drop this step?
+    // TODO: Ensure that we can already assume that constraints returned by compression are ordered and thus drop this step
     val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrComparisons map orderedAtom
 
     // Add inequalities for allocated variables
