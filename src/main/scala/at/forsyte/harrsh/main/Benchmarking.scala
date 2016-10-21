@@ -7,6 +7,10 @@ import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.seplog.parsers.{CyclistSIDParser, DefaultSIDParser}
 import at.forsyte.harrsh.util.IOUtils._
 
+import scala.concurrent.{Await, Future, TimeoutException}
+import scala.concurrent.duration.Duration
+import scala.concurrent.ExecutionContext.Implicits.global
+
 /**
   * Created by jkatelaa on 10/20/16.
   */
@@ -18,13 +22,15 @@ object Benchmarking extends SlexLogging {
   val CyclistSuffix = "defs"
   val SidSuffix = "sid"
 
+  val DefaultTimeout = Duration(120, scala.concurrent.duration.SECONDS)
+
   type Result = (Boolean,Long)
 
   //def main(args : Array[String]) = generateAndPrintTasks()
 
-  def runBenchmarkFile(file : String, verbose : Boolean = false) = {
+  def runBenchmarkFile(file : String, timeout : Duration = DefaultTimeout, verbose : Boolean = false) = {
     val tasks = readTasksFromFile(file)
-    runBenchmarks(tasks, verbose)
+    runBenchmarks(tasks, timeout, verbose)
   }
 
   def generateAndPrintTasks() = {
@@ -63,7 +69,7 @@ object Benchmarking extends SlexLogging {
 
   }
 
-  private def runBenchmarks(tasks : Seq[TaskConfig], verbose : Boolean): Unit = {
+  private def runBenchmarks(tasks : Seq[TaskConfig], timeout : Duration = DefaultTimeout, verbose : Boolean): Unit = {
 
     val globalStartTime = System.currentTimeMillis()
     var verificationTime : Long = 0
@@ -82,13 +88,26 @@ object Benchmarking extends SlexLogging {
       }
 
       val startTime = System.currentTimeMillis()
-      val isEmpty = RefinementAlgorithms.onTheFlyEmptinessCheck(sid, ha)
-      val endTime = System.currentTimeMillis()
-      println("Finished in " + (endTime - startTime) + "ms")
 
-      verificationTime += (endTime - startTime)
-      val result = (isEmpty, endTime - startTime)
+      val f: Future[Boolean] = Future {
+        RefinementAlgorithms.onTheFlyEmptinessCheck(sid, ha)
+      }
+
+      val result = try {
+        val isEmpty = Await.result(f, timeout)
+        val endTime = System.currentTimeMillis()
+        println("Finished in " + (endTime - startTime) + "ms")
+        verificationTime += (endTime - startTime)
+        (isEmpty, endTime - startTime)
+      } catch {
+        case e : TimeoutException =>
+          println("reached timeout (" + timeout + ")")
+          verificationTime += timeout.toMillis
+          (true, timeout.toMillis)
+      }
+
       results = (task, result) :: results
+
     }
 
     val globalEndTime = System.currentTimeMillis()
@@ -132,7 +151,7 @@ object Benchmarking extends SlexLogging {
   private def generateTasks() =
     for {
       automaton <- Seq(RunHasPointer(), RunTracking(Set(fv(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(fv(1), fv(0)), RunGarbageFreedom(), RunAcyclicity())
-      file <- getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) //++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
+      file <- getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) ++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
     } yield TaskConfig(file.getAbsolutePath, automaton, None)
 
 }

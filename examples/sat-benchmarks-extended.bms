@@ -33,11 +33,6 @@ examples/cyclist/test3.defs; SAT; ???
 examples/cyclist/test4.defs; SAT; ???
 examples/cyclist/test5.defs; SAT; ???
 examples/cyclist/test6.defs; SAT; ???
-examples/cyclist/succ-circuit01.defs; SAT; ???
-examples/cyclist/succ-circuit02.defs; SAT; ???
-examples/cyclist/succ-circuit03.defs; SAT; ???
-examples/cyclist/succ-circuit04.defs; SAT; ???
-examples/cyclist/succ-circuit05.defs; SAT; ???
 examples/cyclist/succ-rec01.defs; SAT; ???
 examples/cyclist/succ-rec02.defs; SAT; ???
 examples/cyclist/succ-rec03.defs; SAT; ???
@@ -53,3 +48,14 @@ examples/cyclist/succ-rec12.defs; SAT; ???
 examples/cyclist/succ-rec13.defs; SAT; ???
 examples/cyclist/succ-rec14.defs; SAT; ???
 examples/cyclist/succ-rec15.defs; SAT; ???
+examples/cyclist/succ-rec16.defs; SAT; ???
+examples/cyclist/succ-rec17.defs; SAT; ???
+examples/cyclist/succ-rec18.defs; SAT; ???
+examples/cyclist/succ-rec19.defs; SAT; ???
+examples/cyclist/succ-rec20.defs; SAT; ???
+examples/cyclist/succ-circuit01.defs; SAT; ???
+examples/cyclist/succ-circuit02.defs; SAT; ???
+examples/cyclist/succ-circuit03.defs; SAT; ???
+examples/cyclist/succ-circuit04.defs; SAT; ???
+examples/cyclist/succ-circuit05.defs; SAT; ???
+examples/cyclist/succ-circuit06.defs; SAT; ???
