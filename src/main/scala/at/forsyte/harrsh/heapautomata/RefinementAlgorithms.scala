@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.main.SlexLogging
-import at.forsyte.harrsh.seplog.inductive.SID
+import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 
 import scala.annotation.tailrec
 
@@ -24,7 +24,7 @@ object RefinementAlgorithms extends SlexLogging {
   }
 
   @tailrec
-  private def computeRefinementFixedPoint(sid : SID, pred : String, ha : HeapAutomaton)(r : Set[(String, ha.State)], hashesOfPreviousCombinations : Set[Int], iteration : Int) : Boolean = {
+  private def computeRefinementFixedPoint(sid : SID, pred : String, ha : HeapAutomaton)(r : Set[(String, ha.State)], previousCombinations : Set[(Seq[ha.State],SymbolicHeap,String)], iteration : Int) : Boolean = {
 
     def reachedStatesForPred(rel : Set[(String, ha.State)], call : String) : Set[ha.State] = rel filter (_._1 == call) map (_._2)
 
@@ -39,28 +39,26 @@ object RefinementAlgorithms extends SlexLogging {
       }
     }
 
-    def performSingleIteration: Set[((String, ha.State), Int)] = {
+    def performSingleIteration: Set[((String, ha.State), (Seq[ha.State],SymbolicHeap,String))] = {
       if (ha.implementsTargetComputation) {
         for {
           (head, body) <- sid.rules
           src <- allDefinedSources(r, body.calledPreds)
           // Only go on if we haven't tried this combination in a previous iteration
-          hash = (src,body).hashCode
-          if !hashesOfPreviousCombinations.contains(hash)
+          if !previousCombinations.contains((src, body, head))
           trg <- ha.getTargetsFor(src, body)
-        } yield ((head, trg), hash)
+        } yield ((head, trg), (src,body,head))
       } else {
         // No dedicated target computation, need to brute-force
         for {
           (head, body) <- sid.rules
           src <- allDefinedSources(r, body.calledPreds)
           // Only go on if we haven't tried this combination in a previous iteration
-          hash = (src, body).hashCode
-          if !hashesOfPreviousCombinations.contains(hash)
+          if !previousCombinations.contains((src, body, head))
           // No smart target computation, have to iterate over all possible targets
           trg <- ha.states
           if ha.isTransitionDefined(src, trg, body)
-        } yield ((head, trg), hash)
+        } yield ((head, trg), (src,body,head))
       }
     }
 
@@ -71,7 +69,7 @@ object RefinementAlgorithms extends SlexLogging {
       logger.debug("Reached " + discoveredStartPredicate.get + " => language is non-empty")
       false
     } else {
-      val (newPairs, newHashes) = performSingleIteration.unzip
+      val (newPairs, newCombs) = performSingleIteration.unzip
 
       logger.debug("Iteration: #" + iteration + " " + (if (newPairs.isEmpty) "--" else newPairs.mkString(", ")))
 
@@ -83,8 +81,8 @@ object RefinementAlgorithms extends SlexLogging {
         true
       } else {
         // Fixed point not yet reached, recurse
-        val unionOfHashes = hashesOfPreviousCombinations union newHashes
-        computeRefinementFixedPoint(sid, pred, ha)(union, unionOfHashes, iteration + 1)
+        val unionOfPrevs = previousCombinations union newCombs
+        computeRefinementFixedPoint(sid, pred, ha)(union, unionOfPrevs, iteration + 1)
       }
     }
   }
