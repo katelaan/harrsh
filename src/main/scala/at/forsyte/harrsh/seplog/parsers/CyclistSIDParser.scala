@@ -41,10 +41,14 @@ object CyclistSIDParser extends SIDParser {
       // Find quantified variables + add quantifiers
       val boundVars = (body.getVars -- head._2).toSeq
       val bodyWithQs = body.copy(qvars = boundVars)
+//      println("Bound vars: " + boundVars)
+//      println("Yielding: " + bodyWithQs)
 
       // Rename free vars to xi
       val renamingMap : Map[String,String] = Map() ++ (head._2 zip (1 to head._2.size).map(i => fv(i).toString))
       val bodyWithRenamedVs = bodyWithQs.renameVars(MapBasedRenaming(renamingMap))
+
+//      println("After renaming: " + bodyWithRenamedVs)
 
       (head._1, head._2 map renamingMap, bodyWithRenamedVs)
   }

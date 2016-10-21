@@ -1,5 +1,7 @@
 package at.forsyte.harrsh.seplog
 
+import at.forsyte.harrsh.heapautomata
+
 import scala.annotation.tailrec
 
 /**
@@ -24,7 +26,8 @@ trait Renaming {
   final def addBoundVarWithOptionalAlphaConversion(varid: String) : Renaming = {
     // Note: We always add an entry for the varid, even if no renaming is necessary
     // This ensures that there are no repeated qvars in the combination of multiple sub-heaps with the same quantified vars
-    extendWith(varid, freshName(varid))
+    // TODO The conditional is only needed during parsing, so we should get rid of it
+    extendWith(varid, freshName(if (varid.startsWith(heapautomata.FVPrefix)) "_" + varid else varid))
   }
 
 }
