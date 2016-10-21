@@ -20,6 +20,8 @@ object Benchmarking extends SlexLogging {
 
   type Result = (Boolean,Long)
 
+  //def main(args : Array[String]) = generateAndPrintTasks()
+
   def runBenchmarkFile(file : String) = {
     val tasks = readTasksFromFile(file)
     runBenchmarks(tasks)
@@ -123,7 +125,7 @@ object Benchmarking extends SlexLogging {
   private def generateTasks() =
     for {
       automaton <- Seq(RunHasPointer(), RunTracking(Set(fv(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(fv(1), fv(0)), RunGarbageFreedom(), RunAcyclicity())
-      file <- getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) ++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
+      file <- getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) //++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
     } yield TaskConfig(file.getAbsolutePath, automaton, None)
 
 }

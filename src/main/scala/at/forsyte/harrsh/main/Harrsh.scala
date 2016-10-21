@@ -7,7 +7,13 @@ object Harrsh {
 
   def main(args : Array[String]) = {
     if (args.length == 2 && ((args(0) == "--tasks") || (args(0) == "-t"))) {
-      Benchmarking.runBenchmarkFile(args(1))
+      try {
+        Benchmarking.runBenchmarkFile(args(1))
+      } catch {
+        case e : Throwable =>
+          println("An exception occurred during benchmarking: ")
+          println(e)
+      }
     }
     else {
       printUsage()

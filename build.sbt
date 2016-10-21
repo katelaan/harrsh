@@ -1,5 +1,5 @@
 
-name := "slex"
+name := "harrsh"
 
 version := "1.0"
 
