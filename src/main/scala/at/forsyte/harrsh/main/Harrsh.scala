@@ -10,7 +10,7 @@ object Harrsh {
       try {
         Benchmarking.runBenchmarkFile(args(1))
       } catch {
-        case e =>
+        case e : Throwable =>
           println("An exception occurred during benchmarking: ")
           println(e)
       }
