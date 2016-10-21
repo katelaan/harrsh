@@ -20,17 +20,12 @@ object RefinementAlgorithms extends SlexLogging {
     * @return True iff there is no RSH in the refinement of sid by ha
     */
   def onTheFlyEmptinessCheck(sid : SID, ha : HeapAutomaton) : Boolean = {
-    //logger.debug("On the fly emptiness check for:")
-    //logger.debug("HA '" + ha.description)
-    //logger.debug("SID: " + sid)
-
     computeRefinementFixedPoint(sid, sid.startPred, ha)(Set(), Set(), 1)
   }
 
   @tailrec
   private def computeRefinementFixedPoint(sid : SID, pred : String, ha : HeapAutomaton)(r : Set[(String, ha.State)], hashesOfPreviousCombinations : Set[Int], iteration : Int) : Boolean = {
 
-    // TODO: Also less efficient than possible due to naive data structure choice
     def reachedStatesForPred(rel : Set[(String, ha.State)], call : String) : Set[ha.State] = rel filter (_._1 == call) map (_._2)
 
     def allDefinedSources(rel : Set[(String, ha.State)], calls : Seq[String]) : Set[Seq[ha.State]] = {
@@ -69,7 +64,6 @@ object RefinementAlgorithms extends SlexLogging {
       }
     }
 
-    // TODO: This would be more efficient if we used a more clever data structure for r
     val discoveredStartPredicate = r.find(p => p._1 == pred && ha.isFinal(p._2))
 
     if (discoveredStartPredicate.isDefined) {
