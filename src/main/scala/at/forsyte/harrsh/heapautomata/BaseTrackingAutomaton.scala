@@ -112,7 +112,7 @@ object BaseTrackingAutomaton extends SlexLogging {
   }
 
   def trackingKernel(s : TrackingInfo) : SymbolicHeap = {
-    // FIXME: Here we now assume that the state already contains a closure. If this is not the case, the following does not work.
+    // Here we assume that the state already contains a closure. If this is not the case, the following does not work.
     //val closure = new ClosureOfAtomSet(pure)
     val closure = UnsafeAtomsAsClosure(s._2)
 
