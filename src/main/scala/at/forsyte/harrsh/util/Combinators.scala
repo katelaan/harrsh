@@ -1,5 +1,7 @@
 package at.forsyte.harrsh.util
 
+import scala.annotation.tailrec
+
 /**
   * Created by jkatelaa on 10/3/16.
   */
@@ -19,13 +21,22 @@ object Combinators {
     }
   }
 
+//  def square[A](seq : Seq[A]) : Seq[(A,A)] =
+//  if (seq.isEmpty || seq.tail.isEmpty) Nil
+//  else (seq.tail map (rhs => (seq.head, rhs))) ++ square(seq.tail)
+
   /**
     * Computes all ordered pairs (a,b) with seq.indexOf(a) < seq.indexOf(b)
-    * TODO: Do this more efficiently?
+    *
     */
-  def square[A](seq : Seq[A]) : Seq[(A,A)] =
-  if (seq.isEmpty || seq.tail.isEmpty) Nil
-  else (seq.tail map (rhs => (seq.head, rhs))) ++ square(seq.tail)
+  def square[A](seq : Seq[A]) : Seq[(A,A)] = {
+    squareAux(seq, Seq())
+  }
+
+  @tailrec
+  private def squareAux[A](seq : Seq[A], acc : Seq[(A,A)]) : Seq[(A,A)] = {
+    if (seq.isEmpty || seq.tail.isEmpty) acc else squareAux(seq.tail, (seq.tail map (rhs => (seq.head, rhs))) ++ acc)
+  }
 
   /**
     * Returns the powerset of the given set
