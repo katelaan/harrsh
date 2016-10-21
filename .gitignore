@@ -1,3 +1,4 @@
-.idea/workspace.xml
-project/target
-target/
+examples/cyclist/*.defs
+.idea
+project
+target

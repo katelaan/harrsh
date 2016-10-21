@@ -1,0 +1,3 @@
+This folder contains several benchmarks suites (*.bms) relying on our own benchmarks (in examples/datastructures)
+as well as benchmarks that are distributed with the Cyclist tool.
+The latter are not distributed with our tool. For instructions on how to obtain them, see examples/cyclist/README.
