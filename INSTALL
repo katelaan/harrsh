@@ -8,6 +8,8 @@ See http://www.scala-sbt.org/download.html for instructions.
 
 Run
 
+git clone https://bitbucket.org/jkatelaan/harrsh.git
+cd harrsh
 sbt compile
 
 from the command line. This may take a while as dependencies have to be fetched.
