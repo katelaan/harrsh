@@ -44,3 +44,13 @@ sealed trait PtrExpr extends Expr {
 case class NullPtr() extends PtrExpr
 
 case class PtrVar(id : String) extends PtrExpr
+
+object PtrExpr {
+
+  def fromString(s : String) : PtrExpr = s match {
+    case "null" => NullPtr()
+    case "nil" => NullPtr()
+    case _ => PtrVar(s)
+  }
+
+}

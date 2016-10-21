@@ -23,7 +23,7 @@ object Benchmarking {
   def main(args : Array[String]) = {
 
     val tasks = readTasksFromFile("examples/all-benchmarks.bms")
-    //runBenchmarks(tasks)
+    runBenchmarks(tasks)
 
     //println(generateTasks() map (_.toString) mkString ("\n"))
 
@@ -31,11 +31,11 @@ object Benchmarking {
 
   def readTasksFromFile(filename : String) : Seq[TaskConfig] = {
     val content = readFile(filename)
-    val lines = content.split('\n')
+    val lines = content.split('\n').map(_.trim).filterNot(_.isEmpty)
     val otasks = lines map TaskConfig.fromString
 
     if (otasks.exists(_.isEmpty)) {
-      println(otasks.mkString("\n"))
+      //println(otasks.mkString("\n"))
       throw new Exception("Error while parsing benchmarks")
     } else {
       otasks map (_.get)

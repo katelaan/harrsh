@@ -1,5 +1,6 @@
 package slex.heapautomata
 
+import slex.seplog.{PtrExpr, PtrVar}
 import slex.seplog.inductive.PureAtom
 
 /**
@@ -36,10 +37,10 @@ sealed trait AutomatonTask {
     case RunSat() => "SAT"
     case RunUnsat() => "UNSAT"
     case RunEstablishment() => "EST"
-    case RunNonEstablishment() => "NONEST"
+    case RunNonEstablishment() => "NON-EST"
     case RunGarbageFreedom() => "GF"
     case RunAcyclicity() => "ACYC"
-    case RunReachability(from, to) => "REACH(" + unFV(from) + "," + unFV(to) + ")"
+    case RunReachability(from, to) => "REACH(" + from + "," + to + ")"
     case RunTracking(alloc, pure) => "TRACK(" + alloc.mkString(",") + ")"
   }
 
@@ -82,16 +83,17 @@ object AutomatonTask {
     case "UNSAT" => Some(RunUnsat())
     case "HASPTR" => Some(RunHasPointer())
     case "EST" => Some(RunEstablishment())
-    case "NONEST" => Some(RunNonEstablishment())
+    case "NON-EST" => Some(RunNonEstablishment())
     case "ACYC" => Some(RunAcyclicity())
     case "GF" => Some(RunGarbageFreedom())
     case other =>
       if (other.startsWith("REACH(") && other.endsWith(")")) {
         val params = other.drop(6).init.split(",")
+        //println(s + " => " + params.mkString(" : "))
 
-        if (params.size == 2) {
+        if (params.size == 2 && isFV(params(0)) && isFV(params(1))) {
           try {
-            Some(RunReachability(fv(Integer.parseInt(params(0))), fv(Integer.parseInt(params(1)))))
+            Some(RunReachability(PtrExpr.fromString(params(0)), PtrExpr.fromString(params(1))))
           } catch {
             case _ : Exception => None
           }
@@ -100,28 +102,18 @@ object AutomatonTask {
 
       else if (other.startsWith("TRACK(") && other.endsWith(")")) {
         val params = other.drop(6).init.split(",")
+        //println(s + " => " + params.mkString(" : "))
 
-        try {
-          val fvs = (params map Integer.parseInt map fv).toSet
+        if (!params.exists(!isFV(_))) {
+          val fvs : Set[FV] = (params map PtrExpr.fromString).toSet
           Some(RunTracking(fvs, Set()))
-        } catch {
-          case _ : Exception => None
+        }
+        else {
+          None
         }
       }
 
       else None
   }
-
-  /**
-    * "HASPTR"
-    case RunSat() => "SAT"
-    case RunUnsat() => "UNSAT"
-    case RunEstablishment() => "EST"
-    case RunNonEstablishment() => "NONEST"
-    case RunGarbageFreedom() => "GF"
-    case RunAcyclicity() => "ACYC"
-    case RunReachability(from, to) => "REACH(" + unFV(from) + "," + unFV(to) + ")"
-    case RunTracking(alloc, pure) => "TRACK("
-    */
 
 }
