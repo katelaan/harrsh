@@ -3,10 +3,17 @@ package slex.main
 /**
   * Created by jens on 10/19/16.
   */
-class Slex {
+object Slex {
 
   def main(args : Array[String]) = {
-    println("This is slexy!")
+    if (args.length == 2 && ((args(0) == "--tasks") || (args(0) == "-t"))) {
+      Benchmarking.runBenchmarkFile(args(1))
+    }
+    else {
+      printUsage()
+    }
   }
+
+  private def printUsage() = println("Usage: --tasks <relative-path-to-file-with-list-of-tasks>")
 
 }
