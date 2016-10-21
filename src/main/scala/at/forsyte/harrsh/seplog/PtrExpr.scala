@@ -1,7 +1,5 @@
 package at.forsyte.harrsh.seplog
 
-import at.forsyte.harrsh.smtsyntax.SmtExpr
-
 /**
   * Created by jkatelaa on 9/30/16.
   */
@@ -20,11 +18,6 @@ sealed trait PtrExpr extends Expr {
   def getVar : Set[String] = this match {
     case NullPtr() => Set()
     case PtrVar(id) => Set(id)
-  }
-
-  def toSmtExpr : SmtExpr = this match {
-    case NullPtr() => "null"
-    case PtrVar(id) => id
   }
 
   def <(other : PtrExpr) : Boolean = (this, other) match {
