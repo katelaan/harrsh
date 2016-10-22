@@ -10,11 +10,6 @@ case class SID(startPred : String, rules : Set[(String, SymbolicHeap)], descript
     description + " (start predicate '" + startPred + "'): " + rules.toSeq.sortBy(_._1).map(p => p._1 + " <= " + p._2).mkString("\n    ", "\n    ", "")
   }
 
-  /**
-    * Is the language of this SID empty?
-    */
-  def isLanguageEmpty : Boolean = ??? // TODO: Implement SID emptiness
-
 }
 
 object SID {

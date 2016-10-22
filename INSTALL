@@ -19,7 +19,7 @@ from the command line. This may take a while as dependencies have to be fetched.
 
 You can now run Harrsh via sbt (note the "" around the arguments)
 
-sbt "run --tasks examples/basic-benchmarks.bms"
+sbt "run --batch examples/basic-benchmarks.bms"
 
 4. Update
 ---------

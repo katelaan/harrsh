@@ -30,9 +30,9 @@ object Benchmarking extends SlexLogging {
 
   //def main(args : Array[String]) = generateAndPrintTasks()
 
-  def runBenchmarkFile(file : String, timeout : Duration = DefaultTimeout, verbose : Boolean = false) = {
+  def runBenchmarkFile(file : String, timeout : Duration = DefaultTimeout, verbose : Boolean = false, reportProgress : Boolean = false) = {
     val tasks = readTasksFromFile(file)
-    runBenchmarks(tasks, timeout, verbose)
+    runBenchmarks(tasks, timeout, verbose, reportProgress)
   }
 
   def generateAndPrintTasks() = {
@@ -90,7 +90,7 @@ object Benchmarking extends SlexLogging {
     writeFile(ResultFile, preamble + header + resultLines + ending)
   }
 
-  private def runBenchmarks(tasks : Seq[TaskConfig], timeout : Duration = DefaultTimeout, verbose : Boolean): Unit = {
+  private def runBenchmarks(tasks : Seq[TaskConfig], timeout : Duration = DefaultTimeout, verbose : Boolean, reportProgress : Boolean): Unit = {
 
     val globalStartTime = System.currentTimeMillis()
     var analysisTime : Long = 0
@@ -112,7 +112,7 @@ object Benchmarking extends SlexLogging {
       val startTime = System.currentTimeMillis()
 
       val f: Future[Boolean] = Future {
-        RefinementAlgorithms.onTheFlyEmptinessCheck(sid, ha)
+        RefinementAlgorithms.onTheFlyEmptinessCheck(sid, ha, reportProgress = reportProgress)
       }
 
       val result = try {
@@ -155,7 +155,7 @@ object Benchmarking extends SlexLogging {
 
   }
 
-  private def prepareBenchmark(task : TaskConfig) : (SID, HeapAutomaton) = {
+  def prepareBenchmark(task : TaskConfig) : (SID, HeapAutomaton) = {
 
     val parser = if (task.fileName.endsWith(CyclistSuffix)) {
       logger.debug("File ends in .defs, will assume cyclist format")
