@@ -82,6 +82,7 @@ HARRSH currently supports checking (see decision procedures) and establishing (s
 HARRSH implements a refinement algorithm that takes as input the path to an SID specification and a property in the format described above and returns a new refined SID in which all unfoldings that do **not** satisfy the property have been removed.
 
 SID refinement has multiple applications:
+
 * Debugging. E.g. finding unsatisfiable unfoldings of a data structure specification that should only have satisfiable unfoldings.
 * Preprocessing. E.g. guaranteeing that all unfoldings of an SID are established prior to feeding it to an entailment checker. 
 * Optimization. E.g. removing irrelevant unfoldings from the SID, thus narrowing down the search space for verification tools.
