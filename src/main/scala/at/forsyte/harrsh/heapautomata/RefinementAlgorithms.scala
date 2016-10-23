@@ -26,6 +26,11 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
       } yield (head+stateToIndex(headState), body.addToCallPreds(states map (s => ""+stateToIndex(s))))
     val finalRules = reachedFinalStates.map(state => (sid.startPred, SymbolicHeap(Seq(PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map fv)))))
 
+    if (reachedFinalStates.isEmpty) {
+      logger.info("Refined SID is empty")
+      println("WARNING: Language of refined SID is empty (no rules for start predicate '" + sid.startPred + "').")
+    }
+
     SID(
       startPred = sid.startPred,
       rules = innerRules ++ finalRules,

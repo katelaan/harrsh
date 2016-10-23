@@ -106,6 +106,30 @@ object Harrsh {
     }
   }
 
-  private def printUsage() = println("Usage: --batch <relative-path-to-file-with-list-of-tasks> [--timeout <timeout-in-seconds> [--verbose]]")
+  private def printUsage() = {
+    println("This is HARRSH. Usage:")
+    println()
+    println("Batch / becnhmarking mode:")
+    println("  --batch <relative-path-to-file-with-list-of-tasks>          batch benchmarking")
+    println()
+    println("Refinement mode:")
+    println("  --refine <relative-path-to-sid-file> --prop <property>      refine sid by prop")
+    println()
+    println("Optional arguments:")
+    println("  --timeout <timeout in s                                       optional timeout")
+    println("  --showprogress                                    print progress of refinement")
+    println("  --verbose                                                  produce more output")
+    println()
+    println("Properties:")
+    println("ACYC               Weakly acyclic unfoldings")
+    println("EST                Established unfoldings")
+    println("GF                 Garbage-free unfoldings")
+    println("HASPTR             Unfoldings that allocate memory")
+    println("NON-EST            Non-established unfoldings")
+    println("REACH(a,b)         Unfoldings where b is reachable from a, for a,b in {x1,x2,..,}")
+    println("SAT                Satisfiable unfoldings")
+    println("TRACK(a,b,...)     Unfoldings in which free variables a,b,... are def. allocated")
+    println("UNSAT              Unsatisfiable unfoldings")
+  }
 
 }
