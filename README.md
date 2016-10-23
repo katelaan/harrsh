@@ -6,21 +6,22 @@ More specifically, for various *robustness properties*, HARRSH implements
  2. **Decision procedures** for deciding whether a given SID has unfoldings that satisfy the robustness property.
  
 Currently, the following robustness properties are supported for arbitrary SIDs.
-* *Satisfiability* and *unsatisfiability* checking
-* *Establishment* checking to prove absence of dangling pointers
-* *Reachability* to show definite reachability between pairs of variables in the heap
-* *Garbage freedom*, i.e., absence of unreachable allocated memory locations
-* *Weak acyclicity*, i.e., acyclicity of all paths involving only non-dangling pointers
+
+* Satisfiability and unsatisfiability checking
+* Establishment checking to prove absence of dangling pointers
+* Reachability to show definite reachability between pairs of variables in the heap
+* Garbage freedom, i.e., absence of unreachable allocated memory locations
+* Weak acyclicity, i.e., acyclicity of all paths involving only non-dangling pointers
 
 HARRSH is co-developed by [FORSYTE](http://forsyte.at) (TU Wien) and [MOVES](http://moves.rwth-aachen.de) (RWTH Aachen University).
-For more details, see the preprint of our paper "Unified Reasoning about Robustness Properties of Symbolic-Heap Separation Logic" (Christina Jansen, Jens Katelaan, Christoph Matheja, Thomas Noll, and Florian Zuleger) on [arXiv.org](http://arxiv.org).
+For more details, see the preprint of our paper "Unified Reasoning about Robustness Properties of Symbolic-Heap Separation Logic" (by Christina Jansen, Jens Katelaan, Christoph Matheja, Thomas Noll, and Florian Zuleger) on [arXiv.org](http://arxiv.org).
 
 ### Installation ###
 
 Just clone the repository and run "sbt compile" followed by "sbt run" in your working copy.
 More detailed instructions are available in a separate INSTALL file.
 
-### Tutorial ### 
+### Tutorial 
 
 #### Writing SID Specifications ####
 
@@ -64,6 +65,7 @@ HARRSH can read SID specifications both in the Cyclist format (`.defs` files) or
 #### Properties ####
 
 HARRSH currently supports checking (see decision procedures) and establishing (see refinement) the following properties:
+
 * SAT :  Satisfiable unfolding?
 * UNSAT :  Does the SID have an unsatisfiable unfolding? Note that this is **not** the complement of SAT, as a SID can have both satisfiable and unsatisfiable unfoldings.
 * EST :  Established unfoldings, i.e., unfoldings in which all variables are either allocated or equal to a free variable? This is often a precondition for applying other separation logic decision procedures, for example for entailment checking.
