@@ -22,7 +22,7 @@ object Harrsh {
     def parseSwitchWithArg(long : String, short : String, default : String, setSuccess : Boolean = false) : String = {
       val arg = Math.max(args.indexOf(long), args.indexOf(short))
       if (arg > -1 && args.length > arg + 1) {
-        println("Found " + long + " at index " + arg + "; will return " + args(arg+1))
+        //println("Found " + long + " at index " + arg + "; will return " + args(arg+1))
         if (setSuccess) success = true
         args(arg+1)
       } else default
@@ -59,15 +59,14 @@ object Harrsh {
         Benchmarking.runBenchmarkFile(file, timeout, verbose = verbose, reportProgress = reportProgress)
       } else {
 
+        println("Will refine SID definition in file " + file + " by " + prop)
         val sid = refineSID(file, prop, timeout, reportProgress = reportProgress)
         sid match {
           case Some(vsid) =>
-            println("Refined SID: ")
-            println(sid)
+            println(vsid)
           case None =>
             println("Refinement failed.")
         }
-        //println("SID refinement not yet supported via the CLI")
 
       }
     }

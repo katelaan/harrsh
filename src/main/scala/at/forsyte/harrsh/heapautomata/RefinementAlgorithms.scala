@@ -3,7 +3,7 @@ package at.forsyte.harrsh.heapautomata
 import java.text.SimpleDateFormat
 
 import at.forsyte.harrsh.main.SlexLogging
-import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SymbolicHeap}
 
 import scala.annotation.tailrec
 
@@ -21,11 +21,14 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
     val states : Set[ha.State] = (for ((states, _, _, headState) <- reach) yield states :+ headState).flatten
     val stateToIndex : Map[ha.State, Int] = Map() ++ states.toSeq.zipWithIndex
 
+    val innerRules = for {
+        (states,body,head,headState) <- reach
+      } yield (head+stateToIndex(headState), body.addToCallPreds(states map (s => ""+stateToIndex(s))))
+    val finalRules = reachedFinalStates.map(state => (sid.startPred, SymbolicHeap(Seq(PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map fv)))))
+
     SID(
       startPred = sid.startPred,
-      rules = for {
-        (states,body,head,headState) <- reach
-      } yield (head+stateToIndex(headState), body.addToCallPreds(states map (s => ""+stateToIndex(s)))),
+      rules = innerRules ++ finalRules,
       description = "Refinement of " + sid.description + " with " + ha.description
     )
 
@@ -42,9 +45,11 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
     * Mapping from src, label and head predicate to target state for reconstructing the full assignment
     */
   private var combinationsToTargets : Map[(Seq[ha.State],SymbolicHeap,String), Set[ha.State]] = Map.empty
+  private var reachedFinalStates : Set[ha.State] = Set.empty
 
   @tailrec
   private def computeRefinementFixedPoint(pred : String, computeFullRefinement : Boolean, reportProgress : Boolean)(r : Set[(String, ha.State)], previousCombinations : Set[(Seq[ha.State],SymbolicHeap,String)], iteration : Int) : (Boolean,Set[(Seq[ha.State],SymbolicHeap,String,ha.State)]) = {
+    // TODO The refinment fixed point computation is quite long and convoluted now. Cleanup
 
     def reachedStatesForPred(rel : Set[(String, ha.State)], call : String) : Set[ha.State] = rel filter (_._1 == call) map (_._2)
 
@@ -82,12 +87,19 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
       }
     }
 
+    def isFinal(pair : (String,ha.State)) : Boolean = pair._1 == pred && ha.isFinal(pair._2)
+
     if (computeFullRefinement && iteration == 1) {
       // Reset state
       combinationsToTargets = Map.empty
+      reachedFinalStates = Set.empty
     }
 
-    val discoveredStartPredicate = r.find(p => p._1 == pred && ha.isFinal(p._2))
+    val discoveredStartPredicate = r.find(isFinal)
+    if (discoveredStartPredicate.isDefined && computeFullRefinement) {
+      // Save reached final states for generation of refined SID
+      reachedFinalStates = reachedFinalStates ++ r.filter(isFinal).map(_._2)
+    }
 
     if (discoveredStartPredicate.isDefined && !computeFullRefinement) {
       // There is a derivation that reaches a final state, refined language nonempty

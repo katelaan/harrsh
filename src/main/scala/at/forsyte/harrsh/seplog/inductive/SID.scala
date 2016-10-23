@@ -10,6 +10,9 @@ case class SID(startPred : String, rules : Set[(String, SymbolicHeap)], descript
     description + " (start predicate '" + startPred + "'): " + rules.toSeq.sortBy(_._1).map(p => p._1 + " <= " + p._2).mkString("\n    ", "\n    ", "")
   }
 
+  // TODO Should we record the arity of the predicates explicitly?
+  def arityOfStartPred : Int = rules.filter(_._1 == startPred).map(rule => rule._2.getVars.size - rule._2.qvars.size).max
+
 }
 
 object SID {

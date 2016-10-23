@@ -147,7 +147,7 @@ class HeapAutomataTest extends HarrshTableTest {
 
         println("#"*80)
         println("Testing emptiness for refinement of " + sid + "\n with the automaton '" + automaton.description + "'; expected result: " + result)
-        RefinementAlgorithms.onTheFlyEmptinessCheck(sid, automaton, true) should be(result)
+        new RefinementAlgorithms(sid, automaton).onTheFlyEmptinessCheck(true) should be(result)
         println()
     }
 
@@ -160,6 +160,6 @@ class HeapAutomataTest extends HarrshTableTest {
 //  val extraRes = Empty
 //
 //  println("Testing emptiness for refinement of " + extraSID + "\n with the automaton '" + extraAUT.description + "'; expected result: " + extraRes)
-//  RefinementAlgorithms.onTheFlyEmptinessCheck(extraSID, extraAUT) should be(extraRes)
+//  new RefinementAlgorithms(extraSID, extraAUT).onTheFlyEmptinessCheck() should be(extraRes)
 
 }
