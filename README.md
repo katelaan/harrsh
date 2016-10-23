@@ -90,6 +90,14 @@ Once refinement is complete, the refined SID is printed to `stdout`.
 
 **Try it out!** Run `sbt "run --refine examples/datastructures/tll.sid --prop REACH(x3,x2)"`. HARRSH will return a refined SID together with a warning that the refined SID does not have a rule for the `tll` predicate. This means that the refined SID is empty and thus that the original SID does *not* have an unfolding in which `x2` is reachable from `x3`.
 
+    Will refine SID definition in file examples/datastructures/tll.sid by REACH(x3,x2)
+    WARNING: Language of refined SID is empty (no rules for start predicate 'tll').
+    Refinement of tll-SID with REACH_3 (start predicate 'tll'): 
+        tll0 <= ∃l ∃r ∃z . x1 ↦ (l, r, null) * tll0(l,x2,z) * tll1(r,z,x3)
+        tll0 <= ∃l ∃r ∃z . x1 ↦ (l, r, null) * tll1(l,x2,z) * tll1(r,z,x3)
+        tll0 <= ∃l ∃r ∃z . x1 ↦ (l, r, null) * tll1(l,x2,z) * tll0(r,z,x3)
+        tll0 <= ∃l ∃r ∃z . x1 ↦ (l, r, null) * tll0(l,x2,z) * tll0(r,z,x3)
+        tll1 <= x1 ↦ (null, null, x3) : {x1 ≈ x2}
 
 #### Executing Decision Procedures ####
 
