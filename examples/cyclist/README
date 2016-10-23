@@ -1,6 +1,2 @@
-Some benchmark suites include predicate definitions distributed with the Cyclist tool (http://www.cyclist-prover.org/).
-To run these benchmarks with our tool, clone the Cyclist repository (https://github.com/ngorogiannis/cyclist)
-and copy the content of
-  cyclist/benchmarks/slsat/cc/ and
-  cyclist/benchmarks/slsat/syn/
-into the current folder (i.e., harrsh/examples/cyclist).
+The benchmarks in this folder were taken from the Cyclist tool (http://www.cyclist-prover.org/),
+see https://github.com/ngorogiannis/cyclist/tree/master/benchmarks.
