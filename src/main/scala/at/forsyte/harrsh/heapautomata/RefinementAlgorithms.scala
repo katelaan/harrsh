@@ -1,57 +1,31 @@
 package at.forsyte.harrsh.heapautomata
 
-import java.io.FileNotFoundException
 import java.text.SimpleDateFormat
 
-import at.forsyte.harrsh.main.{Benchmarking, SlexLogging, TaskConfig}
+import at.forsyte.harrsh.main.SlexLogging
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 
 import scala.annotation.tailrec
-import scala.concurrent._
-import scala.concurrent.duration.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
 
 
 /**
   * Created by jens on 10/15/16.
   */
-object RefinementAlgorithms extends SlexLogging {
+class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
 
-  def refineSID(file : String, property : AutomatonTask, timeout : Duration, reportProgress : Boolean) : Option[SID] = {
+  def refineSID(reportProgress : Boolean) : SID = {
 
-    val task = TaskConfig(file, property, None)
-    try {
-      val (sid, ha) = Benchmarking.prepareBenchmark(task)
+    val (empty, reach) = computeRefinementFixedPoint(sid.startPred, computeFullRefinement = true, reportProgress = reportProgress)(Set(), Set(), 1)
 
-      val f: Future[SID] = Future {
-        refineSID(sid, ha, reportProgress = reportProgress)
-      }
-
-      try {
-        val sid = Await.result(f, timeout)
-        Some(sid)
-      } catch {
-        case e : TimeoutException =>
-          println("reached timeout (" + timeout + ")")
-          None
-      }
-
-    } catch {
-      case e : FileNotFoundException =>
-        println("Could not open file " + file)
-        None
-    }
-  }
-
-  def refineSID(sid : SID, ha : HeapAutomaton, reportProgress : Boolean) : SID = {
-
-    val (empty, reach) = computeRefinementFixedPoint(computeFullRefinement = true, reportProgress, sid, sid.startPred, ha)(Set(), Set(), 1)
+    // Assign suffixes to each state
+    val states : Set[ha.State] = (for ((states, _, _, headState) <- reach) yield states :+ headState).flatten
+    val stateToIndex : Map[ha.State, Int] = Map() ++ states.toSeq.zipWithIndex
 
     SID(
       startPred = sid.startPred,
       rules = for {
-        (states,body,head) <- reach
-      } yield (head, body.tagCallsWith(states map (s => ""+s.hashCode()))),
+        (states,body,head,headState) <- reach
+      } yield (head+stateToIndex(headState), body.addToCallPreds(states map (s => ""+stateToIndex(s)))),
       description = "Refinement of " + sid.description + " with " + ha.description
     )
 
@@ -60,12 +34,17 @@ object RefinementAlgorithms extends SlexLogging {
   /**
     * @return True iff there is no RSH in the refinement of sid by ha
     */
-  def onTheFlyEmptinessCheck(sid : SID, ha : HeapAutomaton, reportProgress : Boolean) : Boolean = {
-    computeRefinementFixedPoint(computeFullRefinement = false, reportProgress, sid, sid.startPred, ha)(Set(), Set(), 1)._1
+  def onTheFlyEmptinessCheck(reportProgress : Boolean) : Boolean = {
+    computeRefinementFixedPoint(sid.startPred, computeFullRefinement = false, reportProgress = reportProgress)(Set(), Set(), 1)._1
   }
 
+  /**
+    * Mapping from src, label and head predicate to target state for reconstructing the full assignment
+    */
+  private var combinationsToTargets : Map[(Seq[ha.State],SymbolicHeap,String), Set[ha.State]] = Map.empty
+
   @tailrec
-  private def computeRefinementFixedPoint(computeFullRefinement : Boolean, reportProgress : Boolean, sid : SID, pred : String, ha : HeapAutomaton)(r : Set[(String, ha.State)], previousCombinations : Set[(Seq[ha.State],SymbolicHeap,String)], iteration : Int) : (Boolean,Set[(Seq[ha.State],SymbolicHeap,String)]) = {
+  private def computeRefinementFixedPoint(pred : String, computeFullRefinement : Boolean, reportProgress : Boolean)(r : Set[(String, ha.State)], previousCombinations : Set[(Seq[ha.State],SymbolicHeap,String)], iteration : Int) : (Boolean,Set[(Seq[ha.State],SymbolicHeap,String,ha.State)]) = {
 
     def reachedStatesForPred(rel : Set[(String, ha.State)], call : String) : Set[ha.State] = rel filter (_._1 == call) map (_._2)
 
@@ -103,6 +82,11 @@ object RefinementAlgorithms extends SlexLogging {
       }
     }
 
+    if (computeFullRefinement && iteration == 1) {
+      // Reset state
+      combinationsToTargets = Map.empty
+    }
+
     val discoveredStartPredicate = r.find(p => p._1 == pred && ha.isFinal(p._2))
 
     if (discoveredStartPredicate.isDefined && !computeFullRefinement) {
@@ -111,8 +95,23 @@ object RefinementAlgorithms extends SlexLogging {
       logger.debug("Reached " + discoveredStartPredicate.get + " => language is non-empty")
       (false, Set.empty)
     } else {
-      val (newPairs, newCombs) = performSingleIteration.unzip
+      val iterationResult = performSingleIteration
+      val (newPairs, newCombs) = iterationResult.unzip
       val union = r union newPairs
+
+      if (computeFullRefinement) {
+        // In the computation of the full refinement, we must remember the targets of each of the combinations we tried
+        val kvPairs = iterationResult map {
+          case ((_,trg),comb) => (comb,trg)
+        }
+        for ((k,v) <- kvPairs) {
+          if (combinationsToTargets.isDefinedAt(k)) {
+            combinationsToTargets = combinationsToTargets + (k -> (combinationsToTargets(k) + v))
+          } else {
+            combinationsToTargets = combinationsToTargets + (k -> Set(v))
+          }
+        }
+      }
 
       logger.debug("Refinement iteration: #" + iteration + " " + (if (newPairs.isEmpty) "--" else newPairs.mkString(", ")))
       if (reportProgress) println(dateFormat.format(new java.util.Date()) + " -- Refinement iteration: #" + iteration + " Discovered " + newPairs.size + " targets; total w/o duplicates: " + union.size)
@@ -121,13 +120,13 @@ object RefinementAlgorithms extends SlexLogging {
         // Fixed point reached without reaching a pred--final-state pair
         logger.debug("Fixed point: " + union.mkString(", "))
         logger.debug("=> Language is empty")
-        // Only compute the new combinations if desired
+        // Only compute the new combinations + mapping to targets if desired (i.e., if full refinement was asked for)
         // (to save some computation time in the cases where we're only interested in a yes/no-answer)
-        (true, if (computeFullRefinement) (previousCombinations union newCombs) else Set.empty)
+        (true, if (computeFullRefinement) (previousCombinations union newCombs).flatMap(t => combinationsToTargets(t) map (trg => (t._1,t._2,t._3,trg))) else Set.empty)
       } else {
         // Fixed point not yet reached, recurse
         val unionOfPrevs = previousCombinations union newCombs
-        computeRefinementFixedPoint(computeFullRefinement, reportProgress, sid, pred, ha)(union, unionOfPrevs, iteration + 1)
+        computeRefinementFixedPoint(pred, computeFullRefinement, reportProgress)(union, unionOfPrevs, iteration + 1)
       }
     }
   }

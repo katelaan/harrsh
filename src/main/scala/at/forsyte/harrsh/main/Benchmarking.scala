@@ -112,7 +112,7 @@ object Benchmarking extends SlexLogging {
       val startTime = System.currentTimeMillis()
 
       val f: Future[Boolean] = Future {
-        RefinementAlgorithms.onTheFlyEmptinessCheck(sid, ha, reportProgress = reportProgress)
+        new RefinementAlgorithms(sid, ha).onTheFlyEmptinessCheck(reportProgress = reportProgress)
       }
 
       val result = try {

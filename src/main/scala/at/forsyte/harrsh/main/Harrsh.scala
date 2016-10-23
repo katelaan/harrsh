@@ -1,9 +1,13 @@
 package at.forsyte.harrsh.main
 
+import java.io.FileNotFoundException
+
 import at.forsyte.harrsh.heapautomata.{AutomatonTask, HeapAutomaton, RefinementAlgorithms, RunSat}
 import at.forsyte.harrsh.seplog.inductive.SID
 
+import scala.concurrent._
 import scala.concurrent.duration.{Duration, SECONDS}
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by jens on 10/19/16.
@@ -55,15 +59,15 @@ object Harrsh {
         Benchmarking.runBenchmarkFile(file, timeout, verbose = verbose, reportProgress = reportProgress)
       } else {
 
-        /*val sid = RefinementAlgorithms.refineSID(file, prop, timeout, reportProgress = reportProgress)
+        val sid = refineSID(file, prop, timeout, reportProgress = reportProgress)
         sid match {
           case Some(vsid) =>
             println("Refined SID: ")
             println(sid)
           case None =>
             println("Refinement failed.")
-        }*/
-        println("SID refinement not yet supported via the CLI")
+        }
+        //println("SID refinement not yet supported via the CLI")
 
       }
     }
@@ -74,6 +78,32 @@ object Harrsh {
       Some(Integer.parseInt(s))
     } catch {
       case _ : Throwable => None
+    }
+  }
+
+  private def refineSID(file : String, property : AutomatonTask, timeout : Duration, reportProgress : Boolean) : Option[SID] = {
+
+    val task = TaskConfig(file, property, None)
+    try {
+      val (sid, ha) = Benchmarking.prepareBenchmark(task)
+
+      val f: Future[SID] = Future {
+        new RefinementAlgorithms(sid, ha).refineSID(reportProgress = reportProgress)
+      }
+
+      try {
+        val sid = Await.result(f, timeout)
+        Some(sid)
+      } catch {
+        case e : TimeoutException =>
+          println("reached timeout (" + timeout + ")")
+          None
+      }
+
+    } catch {
+      case e : FileNotFoundException =>
+        println("Could not open file " + file)
+        None
     }
   }
 

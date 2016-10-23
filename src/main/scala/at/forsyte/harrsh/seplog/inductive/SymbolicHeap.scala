@@ -34,13 +34,13 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], qvars :
 
   def withoutCalls : SymbolicHeap = copy(spatial = spatial.filter(!_.isInductiveCall))
 
-  def tagCallsWith(tags : Seq[String]) : SymbolicHeap = {
+  def addToCallPreds(tags : Seq[String]) : SymbolicHeap = {
     if (tags.size != getCalls.size) throw new IllegalArgumentException("Wrong number of tags passed")
     val newCalls = getCalls zip tags map {
       case (call,tag) => call.copy(name = call.name + tag)
     }
     val wo = withoutCalls
-    wo.copy(spatial = spatial ++ newCalls)
+    wo.copy(spatial = wo.spatial ++ newCalls)
   }
 
   def renameVars(f : Renaming) = {
