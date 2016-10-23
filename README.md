@@ -2,6 +2,7 @@
 
 HARRSH implements Heap Automata for Reasoning about Robustness of Symbolic Heaps.
 More specifically, for various *robustness properties*, HARRSH implements
+
  1. Automatic **refinement** of a given system of inductive definitions (SID) to filter out those unfoldings that do *not* satisfy the robustness property.
  2. **Decision procedures** for deciding whether a given SID has unfoldings that satisfy the robustness property.
  
