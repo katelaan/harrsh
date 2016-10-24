@@ -1,7 +1,9 @@
-1. Install sbt
+1. Install scala and sbt
 --------------
 
-See http://www.scala-sbt.org/download.html for instructions.
+Install Scala version 2.11.1
+
+Install sbt; see http://www.scala-sbt.org/download.html for instructions.
 
 2. Compile
 ----------
