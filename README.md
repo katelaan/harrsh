@@ -65,17 +65,17 @@ HARRSH can read SID specifications both in the Cyclist format (`.defs` files) or
 
 #### Properties ####
 
-HARRSH currently supports checking (see decision procedures) and establishing (see refinement) the following properties:
+HARRSH currently supports checking (see decision procedures) and establishing (see refinement) the following properties for a given SID:
 
-* SAT :  Satisfiable unfolding?
-* UNSAT :  Does the SID have an unsatisfiable unfolding? Note that this is **not** the complement of SAT, as a SID can have both satisfiable and unsatisfiable unfoldings.
-* EST :  Established unfoldings, i.e., unfoldings in which all variables are either allocated or equal to a free variable? This is often a precondition for applying other separation logic decision procedures, for example for entailment checking.
-* ACYC :      Weakly acyclic unfoldings
-* GF :    Garbage-free unfoldings? 
-* HASPTR :             Unfoldings that allocate memory
-* NON-EST :           Non-established unfoldings
-* REACH(a,b) :        Unfoldings where b is reachable from a, for a,b in {x1,x2,..,}
-* TRACK(a,b,...) :    Unfoldings in which free variables a,b,... are def. allocated
+* SAT :  Does there exists a satisfiable unfolding?
+* UNSAT :  Does there exist an unsatisfiable unfolding? Note that this is **not** the complement of SAT, as an SID can have both satisfiable and unsatisfiable unfoldings. 
+* EST :  Does there exist an established unfolding, i.e., an unfolding in which all variables are either allocated or equal to a free variable? This is often a precondition for applying other separation logic decision procedures, for example for entailment checking.
+* ACYC :      Does there exist a Weakly acyclic unfolding?
+* GF :    Does there exist a garbage-free unfolding? 
+* HASPTR :            Does there exist an Unfolding that allocates memory?
+* NON-EST :           Does there exist a non-established unfolding?
+* REACH(a,b) :        Does there exist an unfoldings where b is reachable from a, for a,b in {x1,x2,..,}?
+* TRACK(a,b,...) :    Does there exist an unfoldingu in which free variables a,b,... are def. allocated
 
 #### Executing Refinement ####
 
