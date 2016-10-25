@@ -95,7 +95,7 @@ Once refinement is complete, the refined SID is printed to `stdout`.
     tll <= x1 -> (nil, nil, x3) : { x1 = x2 } ;
     tll <= x1 -> (l, r, nil) * tll(l, x2, z) * tll(r, z, x3)
 
-There is no unfolding of this `tll` in which `x2` is guaranteed to be reachable from `x3`.
+There is no unfolding of this SID in which `x2` is guaranteed to be reachable from `x3`.
 HARRSH will therefore return a refined SID together with a warning that the refined SID does not have a rule for the `tll` predicate. This means that the refined SID is empty and thus that the original SID does *not* have an unfolding in which `x2` is reachable from `x3`.
 
     Will refine SID definition in file examples/datastructures/tll.sid by REACH(x3,x2)
