@@ -150,7 +150,7 @@ object ExampleSIDs {
 
   lazy val NonEstablishedSID = SID("start",
     "Non-Established SID",
-    ("start", Seq("z","y"), SymbolicHeap(Seq(), Seq(call("pred", qv(1), fv(1))))),
+    ("start", Seq("z","y"), SymbolicHeap(Seq(), Seq(call("pred", qv(1), fv(1))), 1, Seq(-1,-2))),
     ("pred", Seq.empty, SymbolicHeap(Seq(ptreq(fv(1),fv(2))), Seq(emp))),
     ("pred", Seq.empty, SymbolicHeap(Seq(ptr(fv(2),fv(1)))))
   )

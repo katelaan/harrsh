@@ -97,10 +97,10 @@ object SymbolicHeap extends LazyLogging {
     // Shift the quantified variables in the right SH to avoid name clashes
     val SymbolicHeap(pure2, spatial2, numfv2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars))
 
-    logger.debug("Left:    "+phi)
-    logger.debug("Right:   "+psi)
-    logger.debug("Renamed: "+psi.renameVars(Renaming.clashAvoidanceRenaming(qvars)))
-    logger.debug("Result:  "+SymbolicHeap(pure ++ pure2, spatial ++ spatial2, Math.max(numfv, numfv2), qvars ++ qvars2))
+//    logger.debug("Left:    "+phi)
+//    logger.debug("Right:   "+psi)
+//    logger.debug("Renamed: "+psi.renameVars(Renaming.clashAvoidanceRenaming(qvars)))
+//    logger.debug("Result:  "+SymbolicHeap(pure ++ pure2, spatial ++ spatial2, Math.max(numfv, numfv2), qvars ++ qvars2))
 
     // Free variables remain the same, so we take the maximum
     // Quantified variables are renamed, so we take the sum

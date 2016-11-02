@@ -108,9 +108,9 @@ object BaseTrackingAutomaton extends SlexLogging {
         val map : Map[FV,FV] = Map() ++ pairs
         heap.renameVars(MapBasedRenaming(map))
     }
-    logger.debug("Filtered heap: " + shFiltered)
-    logger.debug("State-heap pairs: " + stateHeapPairs.mkString("\n"))
-    logger.debug("Renamed heaps:" + renamedHeaps.mkString("\n"))
+//    logger.debug("Filtered heap: " + shFiltered)
+//    logger.debug("State-heap pairs: " + stateHeapPairs.mkString("\n"))
+//    logger.debug("Renamed heaps:" + renamedHeaps.mkString("\n"))
 
     val combined = SymbolicHeap.combineAllHeaps(shFiltered +: renamedHeaps)
     combined
