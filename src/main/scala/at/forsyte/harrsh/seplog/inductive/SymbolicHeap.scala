@@ -11,22 +11,21 @@ import scala.annotation.tailrec
 /**
   * Created by jkatelaa on 10/3/16.
   */
-case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV : Int, numQV : Int) {
+case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV : Int, qvars : Seq[FV]) {
 
   // Sanity check
   if (HeapAutomataSafeModeEnabled) {
     val (free, bound) = (pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars)).partition(isFV)
     if (!free.isEmpty && free.max > numFV) throw new IllegalStateException("NumFV = " + numFV + " but contained FVs are " + free.distinct)
-    else if (!bound.isEmpty && -bound.min > numQV) throw new IllegalStateException("NumQV = " + numQV + " but contained QVs are " + bound.distinct)
   }
 
   override final def toString = toStringWithVarNames(DefaultNaming)
 
   def toStringWithVarNames(naming: VarNaming): String = {
-    val prefix = (1 to numQV) map (_*(-1)) map naming map ("\u2203"+_) mkString " "
+    val prefix = qvars map naming map ("\u2203"+_) mkString " "
     val spatialString = spatial.map(_.toStringWithVarNames(naming)).mkString(" * ")
     val pureString = if (pure.isEmpty) "" else pure.map(_.toStringWithVarNames(naming)).mkString(" : {", ", ", "}")
-    prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString + " [" + numFV + "/" + numQV + "]"
+    prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString + " [" + numFV + "/" + qvars.size + "]"
   }
 
   def hasPointer: Boolean = spatial.exists(_.isInstanceOf[PointsTo])
@@ -52,43 +51,21 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV :
     wo.copy(spatial = wo.spatial ++ newCalls)
   }
 
-  // TODO Simplify variable shifting
-  def shiftQVs(shiftBy : Int) : SymbolicHeap = {
-    val pairs = qvars map (i => (i,i-shiftBy))
-    val renaming = MapBasedRenaming(Map.empty ++ pairs)
-    renameVars(renaming)
+  def renameVars(f : Renaming) = {
+    // Rename bound variables if applicable
+    val (qvarsRenamed, extendedF) : (Seq[FV], Renaming) = qvars.foldLeft((Seq[FV](), f))({
+      case ((seq, intermediateF), v) =>
+        val extended = intermediateF.addBoundVarWithOptionalAlphaConversion(v)
+        (extended(v) +: seq, extended)
+    })
+
+    SymbolicHeap(pure map (_.renameVars(extendedF)), spatial map (_.renameVars(extendedF)), numFV, qvarsRenamed)
   }
-
-  // FIXME Variable renaming
-    def renameVars(f : Renaming) = {
-      // Rename bound variables if applicable
-      val extendedF : Renaming = qvars.foldLeft(f)({
-        case (intermediateF, v) =>
-          intermediateF.addBoundVarWithOptionalAlphaConversion(v)
-      })
-
-      SymbolicHeap(pure map (_.renameVars(extendedF)), spatial map (_.renameVars(extendedF)))
-    }
-
-//  def renameVars(f : Renaming) = {
-//    // Rename bound variables if applicable
-//    val (qvarsRenamed, extendedF) : (Seq[FV], Renaming) = qvars.foldLeft((Seq[FV](), f))({
-//      case ((seq, intermediateF), v) =>
-//        val extended = intermediateF.addBoundVarWithOptionalAlphaConversion(v)
-//        (extended(v) +: seq, extended)
-//    })
-//
-//    SymbolicHeap(pure map (_.renameVars(extendedF)), spatial map (_.renameVars(extendedF)), qvarsRenamed)
-//  }
-
-  //def getVars : Set[FV] = qvars.toSet ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars)
 
   // FIXME Get rid of this method altogether?!
   lazy val getVars : Set[FV] = Set.empty ++ fvars ++ qvars
 
   lazy val fvars : Seq[FV] =  1 to numFV
-
-  lazy val qvars : Seq[FV] = (1 to numQV) map (-_)
 
 }
 
@@ -108,26 +85,26 @@ object SymbolicHeap extends LazyLogging {
     //  SymbolicHeap(pure, spatial, fvars.size, qvars.size)
     //}
 
-    // If nothing else is given, we assume the max/min indices give us the number of free/bound vars
-    SymbolicHeap(pure, spatial, if (fvars.isEmpty) 0 else fvars.max, if (qvars.isEmpty) 0 else -qvars.min)
+    // If nothing else is given, we assume the max index gives us the number of free vars
+    SymbolicHeap(pure, spatial, if (fvars.isEmpty) 0 else fvars.max, qvars.toSeq)
   }
 
   def apply(spatial: Seq[SpatialAtom]) : SymbolicHeap = apply(Seq.empty, spatial)
 
   def combineHeaps(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
-    val SymbolicHeap(pure, spatial, numfv, numqv) = phi
+    val SymbolicHeap(pure, spatial, numfv, qvars) = phi
 
     // Shift the quantified variables in the right SH to avoid name clashes
-    val SymbolicHeap(pure2, spatial2, numfv2, numqv2) = psi.shiftQVs(numqv)
+    val SymbolicHeap(pure2, spatial2, numfv2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars))
 
     logger.debug("Left:    "+phi)
     logger.debug("Right:   "+psi)
-    logger.debug("Shifted: "+psi.shiftQVs(numqv))
-    logger.debug("Result:  "+SymbolicHeap(pure ++ pure2, spatial ++ spatial2, Math.max(numfv, numfv2), numqv + numqv2))
+    logger.debug("Renamed: "+psi.renameVars(Renaming.clashAvoidanceRenaming(qvars)))
+    logger.debug("Result:  "+SymbolicHeap(pure ++ pure2, spatial ++ spatial2, Math.max(numfv, numfv2), qvars ++ qvars2))
 
     // Free variables remain the same, so we take the maximum
     // Quantified variables are renamed, so we take the sum
-    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, Math.max(numfv, numfv2), numqv + numqv2)
+    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, Math.max(numfv, numfv2), qvars ++ qvars2)
   }
 
   def combineAllHeaps(heaps : Seq[SymbolicHeap]) : SymbolicHeap = combineAllHeapsAcc(heaps, empty)

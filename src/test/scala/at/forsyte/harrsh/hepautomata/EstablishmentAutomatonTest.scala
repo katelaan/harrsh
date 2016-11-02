@@ -21,7 +21,7 @@ class EstablishmentAutomatonTest extends HarrshTableTest {
     ("src", "sh", "trg est"),
     // Simple RSHs
     (Seq(), SymbolicHeap(Seq(emp)), true),
-    (Seq(), SymbolicHeap(Seq(), Seq(emp), 0, 1), false),
+    (Seq(), SymbolicHeap(Seq(), Seq(emp), 0, Seq(-1)), false),
     (Seq(), SymbolicHeap(Seq(ptr(fv(1), fv(2)))), true),
     (Seq(), SymbolicHeap(Seq(), Seq(ptr(fv(1), fv(2)), ptr(fv(2), qv(1)))), false),
     (Seq(), SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(ptr(qv(1), fv(2)))), true),
