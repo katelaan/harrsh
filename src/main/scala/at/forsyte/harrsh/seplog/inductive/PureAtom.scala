@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.main.{FV, SlexLogging}
 import at.forsyte.harrsh.seplog.{PtrExpr, Renaming}
 
 /**
@@ -14,7 +14,7 @@ sealed trait PureAtom extends SepLogAtom with SlexLogging {
 
   override def isSymbolicHeap = true
 
-  override def toSymbolicHeap = Some(SymbolicHeap(Seq(this), Seq(), Seq()))
+  override def toSymbolicHeap = Some(SymbolicHeap(Seq(this), Seq()))
 
   override def renameVars(f: Renaming): PureAtom = this match {
     case t : True => t
@@ -22,7 +22,7 @@ sealed trait PureAtom extends SepLogAtom with SlexLogging {
     case PtrNEq(l, r) => PtrNEq(l.renameVars(f), r.renameVars(f))
   }
 
-  def getVars : Set[String] = this match {
+  def getVars : Set[FV] = this match {
     case True() => Set()
     case PtrEq(l, r) => l.getVar union r.getVar // TODO Building so many sets is quite inefficient
     case PtrNEq(l, r) => l.getVar union r.getVar
@@ -31,13 +31,13 @@ sealed trait PureAtom extends SepLogAtom with SlexLogging {
 }
 
 case class True() extends PureAtom {
-  override def toString = "true"
+  override def toStringWithVarNames(names: VarNaming): String = ???
 }
 
 case class PtrEq(l : PtrExpr, r : PtrExpr) extends PureAtom {
-  override def toString = l + " \u2248 " + r
+  override def toStringWithVarNames(names: VarNaming) = l.toStringWithVarNames(names) + " \u2248 " + r.toStringWithVarNames(names)
 }
 
 case class PtrNEq(l : PtrExpr, r : PtrExpr) extends PureAtom {
-  override def toString = l + " \u2249 " + r
+  override def toStringWithVarNames(names: VarNaming) = l.toStringWithVarNames(names) + " \u2249 " + r.toStringWithVarNames(names)
 }

@@ -1,9 +1,5 @@
 package at.forsyte.harrsh.seplog.parsers
 
-import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, PtrVar, Renaming}
-import at.forsyte.harrsh.seplog.inductive._
-
 import scala.util.parsing.combinator.JavaTokenParsers
 
 /**
@@ -11,39 +7,39 @@ import scala.util.parsing.combinator.JavaTokenParsers
   */
 trait SIDParser extends JavaTokenParsers {
 
-  def parseAtom : Parser[SepLogAtom] = parseSpatialAtom | parsePureAtom
+  def parseAtom : Parser[StringSepLogAtom] = parseSpatialAtom | parsePureAtom
 
-  def parseSpatialAtom : Parser[SpatialAtom] = parsePointsTo | parseCall | parseEmp
+  def parseSpatialAtom : Parser[StringSpatialAtom] = parsePointsTo | parseCall | parseEmp
 
-  def parseEmp : Parser[Emp] = "emp" ^^ { _ => Emp() }
+  def parseEmp : Parser[StringEmp] = "emp" ^^ { _ => StringEmp() }
 
-  def parseCall : Parser[PredCall] = ident ~ parsePtrSeqInParens ^^ {
-    case name ~ args => PredCall(name, args)
+  def parseCall : Parser[StringPredCall] = ident ~ parsePtrSeqInParens ^^ {
+    case name ~ args => StringPredCall(name, args)
   }
 
-  def parsePointsSingleTo : Parser[PointsTo] = parsePtr ~ ("->" ~> parsePtr) ^^ {
-    case l ~ r => ptr(l, r)
+  def parsePointsSingleTo : Parser[StringPointsTo] = parsePtr ~ ("->" ~> parsePtr) ^^ {
+    case l ~ r => StringPointsTo(l, Seq(r))
   }
 
-  def parsePointsTo : Parser[PointsTo] = parsePtr ~ ("->" ~> (parsePtrSeqInParens | parsePtrSeq)) ^^ {
-    case l ~ r => PointsTo(l, r)
+  def parsePointsTo : Parser[StringPointsTo] = parsePtr ~ ("->" ~> (parsePtrSeqInParens | parsePtrSeq)) ^^ {
+    case l ~ r => StringPointsTo(l, r)
   }
 
-  def parsePureAtom : Parser[PureAtom] = parseEq | parseNEq | "true" ^^ {_ => True() }
+  def parsePureAtom : Parser[StringPureAtom] = parseEq | parseNEq | "true" ^^ {_ => StringTrue() }
 
-  def parseEq : Parser[PureAtom] = parsePtr ~ ("=" ~> parsePtr) ^^ {
-    case l ~ r => ptreq(l, r)
+  def parseEq : Parser[StringPureAtom] = parsePtr ~ ("=" ~> parsePtr) ^^ {
+    case l ~ r => StringPtrEq(l, r)
   }
 
-  def parseNEq : Parser[PureAtom] = parsePtr ~ ("!=" ~> parsePtr) ^^ {
-    case l ~ r => ptrneq(l, r)
+  def parseNEq : Parser[StringPureAtom] = parsePtr ~ ("!=" ~> parsePtr) ^^ {
+    case l ~ r => StringPtrNEq(l, r)
   }
 
-  def parsePtrSeqInParens : Parser[Seq[PtrExpr]] = "(" ~> repsep(parsePtr, ",") <~ ")"
+  def parsePtrSeqInParens : Parser[Seq[StringPtrExpr]] = "(" ~> repsep(parsePtr, ",") <~ ")"
 
-  def parsePtrSeq : Parser[Seq[PtrExpr]] = rep1sep(parsePtr, ",")
+  def parsePtrSeq : Parser[Seq[StringPtrExpr]] = rep1sep(parsePtr, ",")
 
-  def parsePtr : Parser[PtrExpr] = "nil" ^^ {_ => nil} | "null" ^^ {_ => nil} | ident ^^ PtrVar
+  def parsePtr : Parser[StringPtrExpr] = "nil" ^^ {_ => StringNullPtr()} | "null" ^^ {_ => StringNullPtr()} | ident ^^ StringPtrVar
 
   override def ident: Parser[String] = """[a-zA-Z_][a-zA-Z0-9_']*""".r
 

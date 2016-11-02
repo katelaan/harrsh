@@ -6,6 +6,7 @@ import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.seplog.parsers.{CyclistSIDParser, DefaultSIDParser}
 import at.forsyte.harrsh.util.IOUtils._
+import at.forsyte.harrsh.main.FV._
 
 import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration.Duration
@@ -31,6 +32,7 @@ object Benchmarking extends SlexLogging {
   //def main(args : Array[String]) = generateAndPrintTasks()
 
   def runBenchmarkFile(file : String, timeout : Duration = DefaultTimeout, verbose : Boolean = false, reportProgress : Boolean = false) = {
+    println("Will run all benchmarks in " + file)
     val tasks = readTasksFromFile(file)
     runBenchmarks(tasks, timeout, verbose, reportProgress)
   }

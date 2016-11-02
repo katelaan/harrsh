@@ -1,5 +1,7 @@
 package at.forsyte.harrsh.heapautomata
 
+import at.forsyte.harrsh.main.FV
+import at.forsyte.harrsh.main.FV._
 import at.forsyte.harrsh.seplog.{PtrExpr, PtrVar}
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
@@ -91,9 +93,10 @@ object AutomatonTask {
         val params = other.drop(6).init.split(",")
         //println(s + " => " + params.mkString(" : "))
 
+        // TODO Allow variable names as in unparsed source code?
         if (params.size == 2 && isFV(params(0)) && isFV(params(1))) {
           try {
-            Some(RunReachability(PtrExpr.fromString(params(0)), PtrExpr.fromString(params(1))))
+            Some(RunReachability(stringToFV(params(0)), stringToFV(params(1))))
           } catch {
             case _ : Exception => None
           }
@@ -105,7 +108,7 @@ object AutomatonTask {
         //println(s + " => " + params.mkString(" : "))
 
         if (!params.exists(!isFV(_))) {
-          val fvs : Set[FV] = (params map PtrExpr.fromString).toSet
+          val fvs : Set[FV] = (params map stringToFV).toSet
           Some(RunTracking(fvs, Set()))
         }
         else {

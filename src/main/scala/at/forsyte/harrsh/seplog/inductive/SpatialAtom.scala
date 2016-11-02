@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.seplog.inductive
 
+import at.forsyte.harrsh.main.FV
 import at.forsyte.harrsh.seplog.{PtrExpr, Renaming}
 
 /**
@@ -13,7 +14,7 @@ sealed trait SpatialAtom extends SepLogAtom {
 
   override def isSymbolicHeap = true
 
-  override def toSymbolicHeap = Some(SymbolicHeap(Seq(), Seq(this), Seq()))
+  override def toSymbolicHeap = Some(SymbolicHeap(Seq(this)))
 
   override def renameVars(f : Renaming) : SpatialAtom = this match {
     case e : Emp => e
@@ -31,7 +32,7 @@ sealed trait SpatialAtom extends SepLogAtom {
     case _ => None
   }
 
-  def getVars : Set[String] = this match {
+  def getVars : Set[FV] = this match {
     case Emp() => Set()
     case PointsTo(from, to) => (from +: to).toSet[PtrExpr] flatMap (_.getVar)
     case PredCall(name, args) => (args flatMap (_.getVar)).toSet
@@ -40,11 +41,15 @@ sealed trait SpatialAtom extends SepLogAtom {
 }
 
 case class Emp() extends SpatialAtom {
-  override def toString = "emp"
+  override def toStringWithVarNames(names: VarNaming) = "emp"
 }
 
 case class PointsTo(from : PtrExpr, to : Seq[PtrExpr]) extends SpatialAtom {
-  override def toString = from + " \u21a6 " + (if (to.tail.isEmpty) to.head.toString else to.mkString("(", ", ", ")"))
+
+  def fromAsVar : FV = from.getVarUnsafe
+  def toAsVar : Seq[FV] = to map (_.getVarUnsafe)
+
+  override def toStringWithVarNames(names: VarNaming): String = from + " \u21a6 " + (if (to.tail.isEmpty) to.head.toString else to.mkString("(", ", ", ")"))
 }
 
 /**
@@ -53,5 +58,5 @@ case class PointsTo(from : PtrExpr, to : Seq[PtrExpr]) extends SpatialAtom {
   * @param args Nonempty sequence of arguments
   */
 case class PredCall(name : String, args : Seq[PtrExpr]) extends SpatialAtom {
-  override def toString = name + "(" + args.mkString(",") + ")"
+  override def toStringWithVarNames(names: VarNaming) = name + "(" + args.map(_.toStringWithVarNames(names)).mkString(",") + ")"
 }

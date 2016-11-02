@@ -1,15 +1,12 @@
 package at.forsyte.harrsh.seplog.parsers
 
-import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.seplog.PtrVar
-import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
+import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.seplog.inductive._
 
 /**
   * Created by jkatelaa on 10/20/16.
   */
 object DefaultSIDParser extends SIDParser {
-
-  type Rule = (String, SymbolicHeap)
 
   def run(input : String) : Option[(SID,Int)] = {
     val inputWithoutComments = stripCommentLines(input, "#")
@@ -22,27 +19,26 @@ object DefaultSIDParser extends SIDParser {
 
   def parseSID : Parser[(SID,Int)] = rep1sep(parseRule, ";") <~ opt(";") ^^ {
     case rules =>
-      val startPred : String = rules.head._1
-      val maxNumFV : Int = rules.map{
-        case (head,body) => body.getVars.filter(isFV).map(unFV).max
-      }.max
+      val startPred : String = rules.head.head
+      val maxNumFV : Int = rules.map(_.freeVars.size).max
       val desc : String = startPred + "-SID"
       (new SID(startPred, rules.toSet, desc), maxNumFV)
   }
 
   def parseRule : Parser[Rule] = parseHead ~ ("<=" ~> parseBody) ^^ {
     case head ~ body =>
-      // Find quantified variables + add quantifiers
-      val boundVars = (body.getVars filterNot (s => isFV(PtrVar(s)))).toSeq
-      val bodyWithQs = body.copy(qvars = boundVars)
+      // TODO Do variable ordering in SID parsing?
+      val (freeVars,boundVars) = body.getVars.toSeq.partition(isFV)
 
-      (head, bodyWithQs)
+      val naming : VarUnNaming = mkUnNaming(freeVars, boundVars)
+
+      Rule(head, freeVars, boundVars, body.replaceStringsByIds(naming))
   }
 
   def parseHead : Parser[String] = ident
 
-  def parseBody : Parser[SymbolicHeap] = parseSpatial ~ opt(":" ~> parsePure) ^^ {
-    case spatial ~ pure => SymbolicHeap(pure.getOrElse(Seq()), spatial)
+  def parseBody : Parser[StringSymbolicHeap] = parseSpatial ~ opt(":" ~> parsePure) ^^ {
+    case spatial ~ pure => StringSymbolicHeap(pure.getOrElse(Seq()), spatial)
   }
 
   def parseSpatial = rep1sep(parseSpatialAtom, "*")

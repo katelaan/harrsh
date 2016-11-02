@@ -1,23 +1,33 @@
 package at.forsyte.harrsh.seplog
 
+import at.forsyte.harrsh.main.FV
+import at.forsyte.harrsh.seplog.inductive._
+
 /**
   * Created by jkatelaa on 9/30/16.
   */
 sealed trait PtrExpr extends Expr {
 
-  override def toString = this match {
+  override def toString = toStringWithVarNames(DefaultNaming)
+
+  def toStringWithVarNames(names: VarNaming) = this match {
     case NullPtr() => "null"
+    case PtrVar(id) => names(id)
+  }
+
+  def getVar : Set[FV] = this match {
+    case NullPtr() => Set()
+    case PtrVar(id) => Set(id)
+  }
+
+  def getVarOrZero : FV = this match {
+    case NullPtr() => 0
     case PtrVar(id) => id
   }
 
-  def getIdentOptionMDEC : Option[String] = this match {
-    case NullPtr() => Some("null") // FIXME [NULL-TREATMENT] Currently we handle null by declaring it as an ordinary constant. Might want to fix this at some point
-    case PtrVar(id) => Some(id)
-  }
-
-  def getVar : Set[String] = this match {
-    case NullPtr() => Set()
-    case PtrVar(id) => Set(id)
+  def getVarUnsafe : FV = this match {
+    case NullPtr() => throw new Throwable("Tried to convert null pointer to variable")
+    case PtrVar(id) => id
   }
 
   def <(other : PtrExpr) : Boolean = (this, other) match {
@@ -36,14 +46,16 @@ sealed trait PtrExpr extends Expr {
 
 case class NullPtr() extends PtrExpr
 
-case class PtrVar(id : String) extends PtrExpr
+case class PtrVar(id : FV) extends PtrExpr
 
 object PtrExpr {
 
-  def fromString(s : String) : PtrExpr = s match {
-    case "null" => NullPtr()
-    case "nil" => NullPtr()
-    case _ => PtrVar(s)
-  }
+  def fromFV(x : FV) : PtrExpr = if (x == 0) NullPtr() else PtrVar(x)
+
+//  def fromString(s : String) : PtrExpr = s match {
+//    case "null" => NullPtr()
+//    case "nil" => NullPtr()
+//    case _ => PtrVar(s)
+//  }
 
 }

@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.heapautomata._
+import at.forsyte.harrsh.main.FV
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
 /**

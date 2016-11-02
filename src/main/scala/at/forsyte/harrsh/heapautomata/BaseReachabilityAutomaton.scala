@@ -2,7 +2,8 @@ package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.main.{FV, SlexLogging}
+import at.forsyte.harrsh.main.FV._
 import BaseTrackingAutomaton._
 import at.forsyte.harrsh.heapautomata.utils.{EqualityUtils, ReachabilityMatrix, UnsafeAtomsAsClosure}
 import at.forsyte.harrsh.util.Combinators
@@ -66,7 +67,7 @@ object BaseReachabilityAutomaton extends SlexLogging {
     logger.debug("Compressed " + lab + " into " + compressed)
 
     // Compute allocation set and equalities for compressed SH and compare to target
-    val allocExplicit: Seq[FV] = compressed.pointers map (_.from)
+    val allocExplicit: Seq[FV] = compressed.pointers map (_.fromAsVar)
 
     // TODO: Ensure that we can already assume that constraints returned by compression are ordered and thus drop this step
     val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrComparisons map orderedAtom
@@ -87,17 +88,17 @@ object BaseReachabilityAutomaton extends SlexLogging {
       // Compute reachability info by following pointers
       val (pairs, newMatrix) = reachabilityFixedPoint(numFV, compressed, trackingsStateWithClosure)
       //tagComputation : (Seq[A], TrackingInfo, Set[(FV,FV)], Set[FV]) => A,
-      val tag = tagComputation(src map (_._2), trackingsStateWithClosure, pairs, compressed.getVars map PtrVar)
+      val tag = tagComputation(src map (_._2), trackingsStateWithClosure, pairs, compressed.getVars)
       ((trackingsStateWithClosure, newMatrix), tag)
     } else inconsistentState
   }
 
   def reachabilityFixedPoint(numFV : Int, compressedHeap : SymbolicHeap, tracking : TrackingInfo) : (Set[(FV,FV)], ReachabilityMatrix) = {
 
-    def ptrToPairs(ptr : PointsTo) : Seq[(FV,FV)] = ptr.to map ((ptr.from, _))
+    def ptrToPairs(ptr : PointsTo) : Seq[(FV,FV)] = ptr.to map (to => (ptr.fromAsVar, to.getVarOrZero))
 
     val directReachability : Seq[(FV,FV)] = compressedHeap.pointers flatMap ptrToPairs
-    val equalities = tracking._2.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq])
+    val equalities : Set[(FV,FV)] = tracking._2.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq]).map(atom => (atom.l.getVarOrZero, atom.r.getVarOrZero))
     val pairs = reachabilityFixedPoint(compressedHeap, equalities, directReachability.toSet)
     logger.trace("Reached fixed point " + pairs)
 
@@ -114,14 +115,14 @@ object BaseReachabilityAutomaton extends SlexLogging {
   }
 
   @tailrec
-  private def reachabilityFixedPoint(compressedHeap : SymbolicHeap, equalities: Set[PtrEq], pairs : Set[(FV, FV)]) : Set[(FV, FV)] = {
+  private def reachabilityFixedPoint(compressedHeap : SymbolicHeap, equalities: Set[(FV,FV)], pairs : Set[(FV, FV)]) : Set[(FV, FV)] = {
 
     logger.trace("Iterating reachability computation from " + pairs + " modulo equalities " + equalities)
 
     // FIXME: Reachability computation is currently extremely inefficient; should replace with a path search algorithm (that regards equalities as steps as well)
     // Propagate equalities
     val transitiveEqualityStep : Set[(FV,FV)] = (for {
-      PtrEq(left, right) <- equalities
+      (left, right) <- equalities
       (from, to) <- pairs
       if left == from || left == to || right == from || right == to
     } yield (
@@ -158,11 +159,11 @@ object BaseReachabilityAutomaton extends SlexLogging {
 
     val nonredundantAlloc = alloc filter closure.isMinimumInItsClass
 
-    val freshVar = PtrVar("z")
+    val freshVar = FV.getFirstBoundVar
 
     val kernelPtrs : Set[SpatialAtom] = nonredundantAlloc map (reachInfoToPtr(_, reach, freshVar))
 
-    val res = SymbolicHeap(pure.toSeq, kernelPtrs.toSeq, Seq(freshVar.id))
+    val res = SymbolicHeap(pure.toSeq, kernelPtrs.toSeq)
     logger.trace("Converting source state " + s + " to " + res)
     res
   }
@@ -173,7 +174,7 @@ object BaseReachabilityAutomaton extends SlexLogging {
     val targets = info.zipWithIndex map {
       case (r,i) => if (r) fv(i) else placeholder
     }
-    PointsTo(src, targets)
+    PointsTo(PtrVar(src), targets map PtrExpr.fromFV)
   }
 
   /**
@@ -204,10 +205,10 @@ object BaseReachabilityAutomaton extends SlexLogging {
 
     logger.debug("Computing garbage freedom for variables " + vars)
 
-    lazy val eqs = ti._2.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq])
+    lazy val eqs : Set[(FV,FV)] = ti._2.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq]).map(atom => (atom.l.getVarOrZero,atom.r.getVarOrZero))
 
     def isEqualToFV(v : FV) = eqs.exists {
-      case PtrEq(left, right) => left == v && isFV(right) || right == v && isFV(left)
+      case (left, right) => left == v && isFV(right) || right == v && isFV(left)
     }
 
     val (ixs, reach) = computeExtendedMatrix(ti, reachPairs, vars)

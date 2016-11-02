@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.hepautomata
 
+import at.forsyte.harrsh.main.FV._
 import at.forsyte.harrsh.heapautomata.{TrackingAutomata, _}
 import at.forsyte.harrsh.seplog.inductive.nil
 import at.forsyte.harrsh.test.HarrshTableTest

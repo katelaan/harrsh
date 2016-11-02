@@ -17,4 +17,8 @@ trait SepLogFormula {
 
     def renameVars(f : Renaming) : SepLogFormula
 
+    override final def toString = toStringWithVarNames(DefaultNaming)
+
+    def toStringWithVarNames(names: VarNaming): String
+
 }

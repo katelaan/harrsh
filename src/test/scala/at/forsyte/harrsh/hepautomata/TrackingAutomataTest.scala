@@ -2,7 +2,7 @@ package at.forsyte.harrsh.hepautomata
 
 import at.forsyte.harrsh.heapautomata.TrackingAutomata
 import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.seplog._
+import at.forsyte.harrsh.main.FV._
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.test.HarrshTableTest
 
@@ -40,12 +40,12 @@ class TrackingAutomataTest extends HarrshTableTest {
     // - SLL
     (Seq((fvAll(1), mkPure((1,2,false)))),
       (fvAll(1), mkPure()), // Note: We do not know that x_1 != x_2, but only x_1 != y && x_2 != y; the list may be cyclic
-      SymbolicHeap(Seq(), Seq(ptr(fv(1), "y"), call("sll", "y", fv(2))), Seq("y")), // 2nd rule of SLL predicate
+      SymbolicHeap(Seq(ptr(fv(1), qv(1)), call("sll", qv(1), fv(2)))), // 2nd rule of SLL predicate
       true),
     // - Tree
     (Seq((fvAll(1), mkPure()), (fvAll(1), mkPure())),
       (fvAll(1), mkPure()), // Note: All there is to know is that the parameter is allocated
-      SymbolicHeap(Seq(), Seq(ptr(fv(1), "y", "z"), call("tree", "y"), call("tree", "z")), Seq("y", "z")), // 2nd rule of Tree predicate
+      SymbolicHeap(Seq(ptr(fv(1), qv(1), qv(2)), call("tree", qv(1)), call("tree", qv(2)))), // 2nd rule of Tree predicate
       true),
 
     // Testing inconsistency checks for Non-reduced RSHs
@@ -55,7 +55,7 @@ class TrackingAutomataTest extends HarrshTableTest {
     (Seq((fvAll(1), mkPure()),(fvAll(1), mkPure())), track3.InconsistentState, SymbolicHeap(Seq(ptrneq(fv(1),fv(3)), ptrneq(fv(2),fv(3))), Seq(call("sll", fv(3), fv(2)), call("sll", fv(3), fv(1)))), true)
   )
 
-  /*property("Transitions of the tracking automaton") {
+  property("Transitions of the tracking automaton") {
 
     forAll(transitions) {
       (src: Seq[track3.State], trg: track3.State, sh: SymbolicHeap, result: Boolean) =>
@@ -64,18 +64,11 @@ class TrackingAutomataTest extends HarrshTableTest {
         track3.isTransitionDefined(src, trg, sh) should be(result)
     }
 
-  }*/
+  }
 
-  val sat2 = TrackingAutomata.satAutomaton(2)
-  val srcs = Seq( (fvAll(),mkPure( (0,2,false), (0,1,true), (1,2,false) )), (fvAll(),mkPure( (0,1,true) ))  )
-  val sh = SymbolicHeap(Seq(), Seq(call("succ1circuit", "_x1", "x1"), call("Q", "_x1")), Seq("_x1" ))
-  println(sat2.getTargetsFor(srcs, sh))
-
-/*
-  - Computing possible targets (Set(),Set(null ≉ x2, null ≈ x1, x1 ≉ x2)), (Set(),Set(null ≈ x1)) --[∃_x1 . succ1circuit(_x1,x1) * Q(_x1)]--> ???
-    22:01:57.141 DEBUG a.f.h.h.BaseTrackingAutomaton$ - Converting (Set(),Set(null ≉ x2, null ≈ x1, x1 ≉ x2)) to  : {null ≉ x2, null ≈ x1, x1 ≉ x2}
-  22:01:57.142 DEBUG a.f.h.h.BaseTrackingAutomaton$ - Converting (Set(),Set(null ≈ x1)) to  : {null ≈ x1}
-  22:01:57.143 DEBUG a.f.h.h.BaseTrackingAutomaton$ - Compressed ∃_x1 . succ1circuit(_x1,x1) * Q(_x1) into ∃_x1 .  : {null ≈ _x1, null ≉ x1, null ≈ _x1, _x1 ≉ x1}
-  */
+//  val sat2 = TrackingAutomata.satAutomaton(2)
+//  val srcs = Seq( (fvAll(),mkPure( (0,2,false), (0,1,true), (1,2,false) )), (fvAll(),mkPure( (0,1,true) ))  )
+//  val sh = SymbolicHeap(Seq(), Seq(call("succ1circuit", "_x1", "x1"), call("Q", "_x1")), Seq("_x1" ))
+//  println(sat2.getTargetsFor(srcs, sh))
 
 }

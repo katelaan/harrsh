@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.heapautomata._
+import at.forsyte.harrsh.main.FV
 import at.forsyte.harrsh.seplog.PtrExpr
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
@@ -26,7 +27,7 @@ class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
     // If the EQ class is defined, check if i is the representation = the minimum of that class
     // Otherwise, no equality for i has been set, so i is the unique and hence minimal element, so it is the representation
     if (mapToClasses.isDefinedAt(fv)) {
-      mapToClasses(fv).min(ClosureOfAtomSet.ordering) == fv
+      mapToClasses(fv).min == fv
     } else {
       true
     }
@@ -54,10 +55,3 @@ class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
 
 }
 
-object ClosureOfAtomSet {
-
-  val ordering = Ordering.fromLessThan[PtrExpr]({
-    case p  => p._1 < p._2
-  })
-
-}

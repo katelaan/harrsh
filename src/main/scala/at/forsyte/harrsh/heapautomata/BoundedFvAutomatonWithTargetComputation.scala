@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.main.FV._
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**

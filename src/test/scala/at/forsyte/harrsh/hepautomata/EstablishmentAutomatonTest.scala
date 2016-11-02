@@ -1,5 +1,7 @@
 package at.forsyte.harrsh.hepautomata
 
+import at.forsyte.harrsh.main.FV
+import at.forsyte.harrsh.main.FV._
 import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.inductive._
@@ -19,10 +21,10 @@ class EstablishmentAutomatonTest extends HarrshTableTest {
     ("src", "sh", "trg est"),
     // Simple RSHs
     (Seq(), SymbolicHeap(Seq(emp)), true),
-    (Seq(), SymbolicHeap(Seq(), Seq(emp), Seq("y")), false),
+    (Seq(), SymbolicHeap(Seq(), Seq(emp), 0, 1), false),
     (Seq(), SymbolicHeap(Seq(ptr(fv(1), fv(2)))), true),
-    (Seq(), SymbolicHeap(Seq(), Seq(ptr(fv(1), fv(2)), ptr(fv(2), "y")), Seq("y")), false),
-    (Seq(), SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(ptr("y", fv(2))), Seq("y")), true),
+    (Seq(), SymbolicHeap(Seq(), Seq(ptr(fv(1), fv(2)), ptr(fv(2), qv(1)))), false),
+    (Seq(), SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(ptr(qv(1), fv(2)))), true),
 
     // Inconsistent RSHs
     (Seq(), SymbolicHeap(Seq(ptr(fv(1), nil), ptr(fv(1), nil))), true),
@@ -32,12 +34,12 @@ class EstablishmentAutomatonTest extends HarrshTableTest {
     // Non-reduced SHs
     (Seq(mk(fvAll(1), false)), SymbolicHeap(Seq(call("dummy", fv(1)), ptr(fv(2), nil))), false),
     (Seq(mk(fvAll(1), true)), SymbolicHeap(Seq(call("dummy", fv(1)), ptr(fv(2), nil))), true),
-    (Seq(mk(fvAll(1), true)), SymbolicHeap(Seq(), Seq(call("dummy", "y"), ptr(fv(2), nil)), Seq("y")), true),
-    (Seq(mk(fvAll(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(), Seq(call("dummy", fv(1), "y")), Seq("y")), true),
-    (Seq(mk(fvAll(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(), Seq(call("dummy", "z", "y")), Seq("y","z")), false),
-    (Seq(mk(fvAll(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(), Seq(call("dummy", "z", "y"), ptr("z", fv(1))), Seq("y","z")), true),
-    (Seq(mk(fvAll(1), mkPure((1,2,true)), true)), SymbolicHeap(Seq(), Seq(call("dummy", "z", "y"), ptr("z", fv(1))), Seq("y","z")), true),
-    (Seq(mk(fvAll(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(ptreq(fv(1), "y")), Seq(call("dummy", "z", "y"), ptr("z", fv(1))), Seq("y","z")), true)
+    (Seq(mk(fvAll(1), true)), SymbolicHeap(Seq(call("dummy", qv(1)), ptr(fv(2), nil))), true),
+    (Seq(mk(fvAll(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(call("dummy", fv(1), qv(1)))), true),
+    (Seq(mk(fvAll(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(call("dummy", qv(2), qv(1)))), false),
+    (Seq(mk(fvAll(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(call("dummy", qv(2), qv(1)), ptr(qv(2), fv(1)))), true),
+    (Seq(mk(fvAll(1), mkPure((1,2,true)), true)), SymbolicHeap(Seq(call("dummy", qv(2), qv(1)), ptr(qv(2), fv(1)))), true),
+    (Seq(mk(fvAll(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(ptreq(fv(1), qv(1))), Seq(call("dummy", qv(2), qv(1)), ptr(qv(2), fv(1)))), true)
   )
 
 

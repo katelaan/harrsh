@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.hepautomata
 
+import at.forsyte.harrsh.main.FV._
 import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.heapautomata.utils.ClosureOfAtomSet
 import at.forsyte.harrsh.seplog.inductive.PureAtom

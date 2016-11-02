@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.seplog
 
 import at.forsyte.harrsh.heapautomata
+import at.forsyte.harrsh.main.FV
 
 import scala.annotation.tailrec
 
@@ -9,25 +10,27 @@ import scala.annotation.tailrec
   */
 trait Renaming {
 
-  def apply(s : String) : String
+  def apply(s : FV) : FV
 
-  def extendWith(k : String, v: String) : Renaming
+  def extendWith(k : FV, v: FV) : Renaming
 
-  def codomain : Set[String]
+  def codomain : Set[FV]
 
-  @tailrec
-  final def freshName(varid: String): String =
-    if (!codomain.contains(varid)) varid else {
-      // Note: Important to add prefix rather than suffix to correctly deal with quantifiers of the form xi (i.e., that look like free variables)
-      val candidate = "_" + varid
-      freshName(candidate)
+  final def freshName(varid: FV): FV =
+    if (!codomain.contains(varid)) {
+      varid
+    } else if (varid < 0) {
+      freshName(varid-1)
+      // TODO Is it possible to skip directly to the minimum? Want to avoid gaps
+      //codomain.min - 1
+    } else {
+      codomain.max + 1
     }
 
-  final def addBoundVarWithOptionalAlphaConversion(varid: String) : Renaming = {
+  final def addBoundVarWithOptionalAlphaConversion(varid: FV) : Renaming = {
     // Note: We always add an entry for the varid, even if no renaming is necessary
     // This ensures that there are no repeated qvars in the combination of multiple sub-heaps with the same quantified vars
-    // TODO The conditional is only needed during parsing, so we should get rid of it
-    extendWith(varid, freshName(if (varid.startsWith(heapautomata.FVPrefix)) "_" + varid else varid))
+    extendWith(varid, freshName(varid))
   }
 
 }
@@ -40,9 +43,9 @@ object Renaming {
     * @param varClashes Set of potentially clashing variables
     * @return Renaming with codomain varClashes
     */
-  def clashAvoidanceRenaming(varClashes : Seq[String]) = {
+  def clashAvoidanceRenaming(varClashes : Seq[FV]) = {
     val entries = varClashes.zipWithIndex map {
-      case (v,i) => ("@#$%$#@" + i, v)
+      case (v,i) => (Integer.MIN_VALUE + i, v)
     }
     MapBasedRenaming(Map() ++ entries)
   }

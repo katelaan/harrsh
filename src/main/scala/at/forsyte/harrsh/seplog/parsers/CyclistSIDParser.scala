@@ -9,8 +9,7 @@ import at.forsyte.harrsh.seplog.inductive._
   */
 object CyclistSIDParser extends SIDParser {
 
-  type Rule = (String, Seq[String], SymbolicHeap)
-  type PredSpec = (String, Int, Seq[(String, SymbolicHeap)])
+  type PredSpec = (String, Int, Seq[Rule])
 
   def run(input : String) : Option[(SID,Int)] = {
     val inputWithoutComments = stripCommentLines(input, "#")
@@ -26,31 +25,22 @@ object CyclistSIDParser extends SIDParser {
       val startPred : String = preds.head._1
       val maxNumFV : Int = preds.map(_._2).max
       val desc : String = startPred + "-SID"
-      val allRules : Seq[(String,SymbolicHeap)] = preds.flatMap(_._3)
+      val allRules : Seq[Rule] = preds.flatMap(_._3)
       (new SID(startPred, allRules.toSet, desc), maxNumFV)
   }
 
   def parsePredSpec : Parser[PredSpec] = ident ~ ("{" ~> parseRuleSeq <~ "}") ^^ {
-    case name ~ rules => (name, rules.head._2.size, rules map (triple => (triple._1, triple._3)))
+    case name ~ rules => (name, rules.head.freeVars.size, rules)
   }
 
   def parseRuleSeq : Parser[Seq[Rule]] = rep1sep(parseRule, "|")
 
   def parseRule : Parser[Rule] = parseBody ~ ("=>" ~> parseHead) ^^ {
     case body ~ head =>
-      // Find quantified variables + add quantifiers
-      val boundVars = (body.getVars -- head._2).toSeq
-      val bodyWithQs = body.copy(qvars = boundVars)
-//      println("Bound vars: " + boundVars)
-//      println("Yielding: " + bodyWithQs)
+      val (headPred, freeVars) = head
+      val boundVars = (body.getVars -- freeVars).toSeq
 
-      // Rename free vars to xi
-      val renamingMap : Map[String,String] = Map() ++ (head._2 zip (1 to head._2.size).map(i => fv(i).toString))
-      val bodyWithRenamedVs = bodyWithQs.renameVars(MapBasedRenaming(renamingMap))
-
-//      println("After renaming: " + bodyWithRenamedVs)
-
-      (head._1, head._2 map renamingMap, bodyWithRenamedVs)
+      Rule(headPred, freeVars, boundVars, body.replaceStringsByIds(mkUnNaming(freeVars, boundVars)))
   }
 
   def parseHead = parseHeadWithArgs | parseHeadWithoutArgs
@@ -61,13 +51,13 @@ object CyclistSIDParser extends SIDParser {
     case name ~ args => (name, args)
   }
 
-  def parseBody : Parser[SymbolicHeap] = parseAtomSeq map {
+  def parseBody : Parser[StringSymbolicHeap] = parseAtomSeq map {
     atoms =>
-      val spatial = atoms filter (_.isInstanceOf[SpatialAtom]) map (_.asInstanceOf[SpatialAtom])
-      val pure = atoms filter (_.isInstanceOf[PureAtom]) map (_.asInstanceOf[PureAtom])
-      SymbolicHeap(pure, spatial, Seq())
+      val spatial = atoms filter (_.isInstanceOf[StringSpatialAtom]) map (_.asInstanceOf[StringSpatialAtom])
+      val pure = atoms filter (_.isInstanceOf[StringPureAtom]) map (_.asInstanceOf[StringPureAtom])
+      StringSymbolicHeap(pure, spatial)
   }
 
-  def parseAtomSeq : Parser[Seq[SepLogAtom]] = rep1sep(parseAtom, "*")
+  def parseAtomSeq : Parser[Seq[StringSepLogAtom]] = rep1sep(parseAtom, "*")
 
 }

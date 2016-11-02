@@ -1,8 +1,9 @@
 package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.heapautomata.utils.{EqualityUtils, UnsafeAtomsAsClosure}
-import at.forsyte.harrsh.main.SlexLogging
-import at.forsyte.harrsh.seplog.MapBasedRenaming
+import at.forsyte.harrsh.main.{FV, SlexLogging}
+import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, PtrVar}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
@@ -48,7 +49,7 @@ object BaseTrackingAutomaton extends SlexLogging {
 
   type TrackingInfo = (Set[FV], Set[PureAtom])
 
-  def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = (Set(), Set() ++ allFVs(numFV) map (fv => PtrNEq(fv,fv)))
+  def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = (Set(), Set() ++ allFVs(numFV) map (fv => PtrNEq(PtrExpr.fromFV(fv),PtrExpr.fromFV(fv))))
 
   def allFVs(numFV : Int) = (0 to numFV) map fv
 
@@ -65,7 +66,7 @@ object BaseTrackingAutomaton extends SlexLogging {
     logger.debug("Compressed " + lab + " into " + compressed)
 
     // Compute allocation set and equalities for compressed SH and compare to target
-    val allocExplicit: Seq[FV] = compressed.pointers map (_.from)
+    val allocExplicit: Seq[FV] = compressed.pointers map (_.fromAsVar)
 
     // TODO: Ensure that we can already assume that constraints returned by compression are ordered and thus drop this step
     val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrComparisons map orderedAtom
@@ -103,10 +104,14 @@ object BaseTrackingAutomaton extends SlexLogging {
       case (call, heap) =>
         // Rename the free variables of SH to the actual arguments of the predicate calls,
         // i.e. replace the i-th FV with the call argument at index i-1
-        val pairs : Seq[(String,String)] = ((1 to call.args.length) map (x => fv(x).toString)) zip (call.args map (_.toString))
-        val map : Map[String,String] = Map() ++ pairs
+        val pairs : Seq[(FV,FV)] = ((1 to call.args.length) map (x => fv(x))) zip (call.args map (_.getVarOrZero))
+        val map : Map[FV,FV] = Map() ++ pairs
         heap.renameVars(MapBasedRenaming(map))
     }
+    logger.debug("Filtered heap: " + shFiltered)
+    logger.debug("State-heap pairs: " + stateHeapPairs.mkString("\n"))
+    logger.debug("Renamed heaps:" + renamedHeaps.mkString("\n"))
+
     val combined = SymbolicHeap.combineAllHeaps(shFiltered +: renamedHeaps)
     combined
   }

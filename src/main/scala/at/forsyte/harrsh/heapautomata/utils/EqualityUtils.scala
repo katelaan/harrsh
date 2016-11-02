@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.heapautomata._
+import at.forsyte.harrsh.main.FV
 import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, PureAtom}
 import at.forsyte.harrsh.util.Combinators
 
@@ -76,7 +77,7 @@ object EqualityUtils {
     if (allPure.isEmpty) acc else {
       val hd = allPure.head
       val (l, r) = (hd.l, hd.r)
-      val newAcc = if (explicit.contains(l)) acc + r else if(explicit.contains(r)) acc + l else acc
+      val newAcc = if (explicit.contains(l.getVarOrZero)) acc + r.getVarOrZero else if(explicit.contains(r.getVarOrZero)) acc + l.getVarOrZero else acc
       propagateEqualitiesToAllocAux(explicit, allPure.tail, newAcc)
     }
   }

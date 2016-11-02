@@ -9,4 +9,6 @@ package object main {
 
   type SlexLogging = LazyLogging
 
+  type FV = Int
+
 }

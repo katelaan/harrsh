@@ -3,7 +3,7 @@ package at.forsyte.harrsh.heapautomata
 import at.forsyte.harrsh.heapautomata.BaseReachabilityAutomaton.ReachabilityInfo
 import at.forsyte.harrsh.heapautomata.BaseTrackingAutomaton.TrackingInfo
 import at.forsyte.harrsh.main._
-import at.forsyte.harrsh.seplog.NullPtr
+import at.forsyte.harrsh.main.FV._
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
 /**
@@ -50,7 +50,7 @@ object TrackingAutomata extends SlexLogging {
   def garbageFreedomAutomaton(numFV : Int) = new BaseReachabilityAutomaton[Boolean](
     numFV,
     isFinalPredicate = (_, _, tag : Boolean) => tag,
-    tagComputation = (tags : Seq[Boolean], ti : TrackingInfo, pairs : Set[(FV,FV)], vars : Set[FV]) => !tags.exists(!_) && BaseReachabilityAutomaton.isGarbageFree(ti, pairs, vars + NullPtr(), numFV),
+    tagComputation = (tags : Seq[Boolean], ti : TrackingInfo, pairs : Set[(FV,FV)], vars : Set[FV]) => !tags.exists(!_) && BaseReachabilityAutomaton.isGarbageFree(ti, pairs, vars + fv(0), numFV),
     inconsistentTag = true, // An inconsistent heap is garbage free
     valsOfTag = Set(true, false),
     description = "GF_" + numFV)
@@ -58,7 +58,7 @@ object TrackingAutomata extends SlexLogging {
   def acyclicityAutomaton(numFV : Int) = new BaseReachabilityAutomaton[Boolean](
     numFV,
     isFinalPredicate = (_, _, tag : Boolean) => tag,
-    tagComputation = (tags : Seq[Boolean], ti : TrackingInfo, pairs : Set[(FV,FV)], vars : Set[FV]) => !tags.exists(!_) && BaseReachabilityAutomaton.isAcyclic(ti, pairs, vars + NullPtr(), numFV),
+    tagComputation = (tags : Seq[Boolean], ti : TrackingInfo, pairs : Set[(FV,FV)], vars : Set[FV]) => !tags.exists(!_) && BaseReachabilityAutomaton.isAcyclic(ti, pairs, vars + fv(0), numFV),
     inconsistentTag = true, // An inconsistent heap is acyclic
     valsOfTag = Set(true, false),
     description = "ACYC_" + numFV)

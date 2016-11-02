@@ -2,8 +2,10 @@ package at.forsyte.harrsh.heapautomata
 
 import java.text.SimpleDateFormat
 
-import at.forsyte.harrsh.main.SlexLogging
-import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SymbolicHeap}
+import at.forsyte.harrsh.main.{FV, SlexLogging}
+import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.seplog.PtrExpr
+import at.forsyte.harrsh.seplog.inductive.{PredCall, Rule, SID, SymbolicHeap}
 
 import scala.annotation.tailrec
 
@@ -23,8 +25,19 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
 
     val innerRules = for {
         (states,body,head,headState) <- reach
-      } yield (head+stateToIndex(headState), body.addToCallPreds(states map (s => ""+stateToIndex(s))))
-    val finalRules = reachedFinalStates.map(state => (sid.startPred, SymbolicHeap(Seq(PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map fv)))))
+      } yield Rule(
+        head = head+stateToIndex(headState),
+        freeVars = body.fvars map FV.varToDefaultString,
+        qvars = body.qvars map FV.varToDefaultString,
+        body = body.addToCallPreds(states map (s => ""+stateToIndex(s))))
+    val finalRules = reachedFinalStates.map{
+      state =>
+        Rule(
+          head = sid.startPred,
+          freeVars = (1 to sid.arityOfStartPred) map FV.varToDefaultString,
+          qvars = Seq(),
+          body = SymbolicHeap(Seq(PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map fv map PtrExpr.fromFV))))
+    }
 
     if (reachedFinalStates.isEmpty) {
       logger.info("Refined SID is empty")
@@ -72,7 +85,7 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
     def performSingleIteration: Set[((String, ha.State), (Seq[ha.State],SymbolicHeap,String))] = {
       if (ha.implementsTargetComputation) {
         for {
-          (head, body) <- sid.rules
+          Rule(head, _, _, body) <- sid.rules
           src <- allDefinedSources(r, body.calledPreds)
           // Only go on if we haven't tried this combination in a previous iteration
           if !previousCombinations.contains((src, body, head))
@@ -81,7 +94,7 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
       } else {
         // No dedicated target computation, need to brute-force
         for {
-          (head, body) <- sid.rules
+          Rule(head, _, _, body) <- sid.rules
           src <- allDefinedSources(r, body.calledPreds)
           // Only go on if we haven't tried this combination in a previous iteration
           if !previousCombinations.contains((src, body, head))
