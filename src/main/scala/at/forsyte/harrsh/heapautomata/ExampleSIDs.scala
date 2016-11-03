@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.main.Var._
+import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.main._
 
 /**

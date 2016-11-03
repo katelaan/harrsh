@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.seplog.parsers
 
-import at.forsyte.harrsh.main.Var._
+import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive._
 
 /**

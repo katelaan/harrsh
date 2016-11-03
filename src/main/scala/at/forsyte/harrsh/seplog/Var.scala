@@ -1,6 +1,4 @@
-package at.forsyte.harrsh.main
-
-import at.forsyte.harrsh.seplog.NullPtr
+package at.forsyte.harrsh.seplog
 
 /**
   * Created by jens on 11/2/16.

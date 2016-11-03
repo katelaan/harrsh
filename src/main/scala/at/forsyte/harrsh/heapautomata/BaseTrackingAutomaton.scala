@@ -1,9 +1,9 @@
 package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.heapautomata.utils.{EqualityUtils, UnsafeAtomsAsClosure}
-import at.forsyte.harrsh.main.{Var, SlexLogging}
-import at.forsyte.harrsh.main.Var._
-import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, PtrVar}
+import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.seplog.Var._
+import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, PtrVar, Var}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
@@ -28,7 +28,7 @@ class BaseTrackingAutomaton(
 
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     logger.debug("Computing possible targets " + src.mkString(", ") + " --[" + lab + "]--> ???")
-    if (src.length != lab.calledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.calledPreds.length + " does not match arity of source state sequence " + src.length)
+    if (src.length != lab.identsOfCalledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.identsOfCalledPreds.length + " does not match arity of source state sequence " + src.length)
 
     // Perform compression + subsequent equality/allocation propagation
     val consistencyCheckedState = compressAndPropagateTracking(src, lab, InconsistentState)
@@ -99,7 +99,7 @@ object BaseTrackingAutomaton extends SlexLogging {
   def compressWithKernelization[A](kernelization : A => SymbolicHeap)(sh : SymbolicHeap, qs : Seq[A]) : SymbolicHeap = {
     val shFiltered = sh.withoutCalls
     val newHeaps = qs map kernelization
-    val stateHeapPairs = sh.getCalls zip newHeaps
+    val stateHeapPairs = sh.predCalls zip newHeaps
     val renamedHeaps : Seq[SymbolicHeap] = stateHeapPairs map {
       case (call, heap) =>
         // Rename the free variables of SH to the actual arguments of the predicate calls,

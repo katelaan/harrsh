@@ -1,8 +1,7 @@
 package at.forsyte.harrsh.heapautomata
 
-import at.forsyte.harrsh.main.Var
-import at.forsyte.harrsh.main.Var._
-import at.forsyte.harrsh.seplog.{PtrExpr, PtrVar}
+import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
 /**
@@ -21,18 +20,6 @@ sealed trait AutomatonTask {
     case RunGarbageFreedom() => TrackingAutomata.garbageFreedomAutomaton(numFV)
     case RunAcyclicity() => TrackingAutomata.acyclicityAutomaton(numFV)
   }
-
-//  def description = this match {
-//    case RunHasPointer() => "allocates mem"
-//    case RunTracking(alloc, pure) => "track"
-//    case RunSat() => "check sat"
-//    case RunUnsat() => "check unsat"
-//    case RunEstablishment() => "establishment"
-//    case RunNonEstablishment() => "non-est."
-//    case RunReachability(from, to) => "reachability"
-//    case RunGarbageFreedom() => "garbage-freedom"
-//    case RunAcyclicity() => "weak acylicity"
-//  }
 
   override def toString = this match {
     case RunHasPointer() => "HASPTR"

@@ -6,7 +6,7 @@ import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.seplog.parsers.{CyclistSIDParser, DefaultSIDParser}
 import at.forsyte.harrsh.util.IOUtils._
-import at.forsyte.harrsh.main.Var._
+import at.forsyte.harrsh.seplog.Var._
 
 import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration.Duration

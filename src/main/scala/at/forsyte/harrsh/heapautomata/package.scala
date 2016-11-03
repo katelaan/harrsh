@@ -10,8 +10,7 @@ package object heapautomata {
 
   val HeapAutomataSafeModeEnabled : Boolean = false
 
-  import main._
-  import main.Var._
+  import Var._
 
   def allEqualitiesOverFVs(numFV : Int) : Set[PureAtom] = {
     for {

@@ -1,7 +1,5 @@
 package at.forsyte.harrsh.seplog
 
-import at.forsyte.harrsh.main.Var
-
 /**
   * Created by jkatelaa on 10/17/16.
   */

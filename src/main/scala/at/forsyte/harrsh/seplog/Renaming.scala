@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.seplog
 
 import at.forsyte.harrsh.heapautomata
-import at.forsyte.harrsh.main.Var
 
 import scala.annotation.tailrec
 

@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.seplog
 
-import at.forsyte.harrsh.main.Var
-import at.forsyte.harrsh.main.Var._
+import at.forsyte.harrsh.seplog.Var._
 
 import scala.language.implicitConversions
 

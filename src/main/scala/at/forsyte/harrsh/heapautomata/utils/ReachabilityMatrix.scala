@@ -1,8 +1,9 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.main.{Var, SlexLogging}
-import at.forsyte.harrsh.main.Var._
+import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.util.Combinators
 
 /**

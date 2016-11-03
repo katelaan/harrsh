@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.main.Var
+import at.forsyte.harrsh.seplog.Var
 
 /**
   * Created by jens on 11/2/16.

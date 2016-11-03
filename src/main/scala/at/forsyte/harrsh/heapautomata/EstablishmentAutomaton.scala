@@ -1,8 +1,7 @@
 package at.forsyte.harrsh.heapautomata
 
-import at.forsyte.harrsh.main.Var
-import at.forsyte.harrsh.main.Var._
-import at.forsyte.harrsh.seplog.PtrVar
+import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive.{PtrEq, SymbolicHeap}
 import com.typesafe.scalalogging.LazyLogging
 
@@ -39,7 +38,7 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends B
         (if (!allSrcsEstablished) {
           false
         } else {
-          val allVars = lab.getVars
+          val allVars = lab.allVars
           logger.debug("Checking establishment of " + allVars.mkString(", "))
           !allVars.exists(!EstablishmentAutomaton.isEstablished(trackingTargetWithoutCleanup, _))
         })

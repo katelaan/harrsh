@@ -2,8 +2,8 @@ package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.main.{Var, SlexLogging}
-import at.forsyte.harrsh.main.Var._
+import at.forsyte.harrsh.main.SlexLogging
+import Var._
 import BaseTrackingAutomaton._
 import at.forsyte.harrsh.heapautomata.utils.{EqualityUtils, ReachabilityMatrix, UnsafeAtomsAsClosure}
 import at.forsyte.harrsh.util.Combinators
@@ -37,7 +37,7 @@ class BaseReachabilityAutomaton[A](
 
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     logger.debug("Computing possible targets " + src.mkString(", ") + " --[" + lab + "]--> ???")
-    if (src.length != lab.calledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.calledPreds.length + " does not match arity of source state sequence " + src.length)
+    if (src.length != lab.identsOfCalledPreds.length) throw new IllegalStateException("Number of predicate calls " + lab.identsOfCalledPreds.length + " does not match arity of source state sequence " + src.length)
 
     // Perform compression + subsequent equality/allocation propagation
     val (consistencyCheckedState,tag) = compressAndPropagateReachability(src, lab, InconsistentState, numFV, tagComputation)
@@ -88,7 +88,7 @@ object BaseReachabilityAutomaton extends SlexLogging {
       // Compute reachability info by following pointers
       val (pairs, newMatrix) = reachabilityFixedPoint(numFV, compressed, trackingsStateWithClosure)
       //tagComputation : (Seq[A], TrackingInfo, Set[(FV,FV)], Set[FV]) => A,
-      val tag = tagComputation(src map (_._2), trackingsStateWithClosure, pairs, compressed.getVars)
+      val tag = tagComputation(src map (_._2), trackingsStateWithClosure, pairs, compressed.allVars)
       ((trackingsStateWithClosure, newMatrix), tag)
     } else inconsistentState
   }

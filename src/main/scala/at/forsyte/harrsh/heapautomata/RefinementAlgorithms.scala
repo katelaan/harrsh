@@ -2,9 +2,9 @@ package at.forsyte.harrsh.heapautomata
 
 import java.text.SimpleDateFormat
 
-import at.forsyte.harrsh.main.{Var, SlexLogging}
-import at.forsyte.harrsh.main.Var._
-import at.forsyte.harrsh.seplog.PtrExpr
+import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.seplog.Var._
+import at.forsyte.harrsh.seplog.{PtrExpr, Var}
 import at.forsyte.harrsh.seplog.inductive.{PredCall, Rule, SID, SymbolicHeap}
 
 import scala.annotation.tailrec
@@ -27,8 +27,8 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
         (states,body,head,headState) <- reach
       } yield Rule(
         head = head+stateToIndex(headState),
-        freeVars = body.fvars map Var.toDefaultString,
-        qvars = body.qvars map Var.toDefaultString,
+        freeVars = body.freeVars map Var.toDefaultString,
+        qvars = body.boundVars map Var.toDefaultString,
         body = body.addToCallPreds(states map (s => ""+stateToIndex(s))))
     val finalRules = reachedFinalStates.map{
       state =>
@@ -86,7 +86,7 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
       if (ha.implementsTargetComputation) {
         for {
           Rule(head, _, _, body) <- sid.rules
-          src <- allDefinedSources(r, body.calledPreds)
+          src <- allDefinedSources(r, body.identsOfCalledPreds)
           // Only go on if we haven't tried this combination in a previous iteration
           if !previousCombinations.contains((src, body, head))
           trg <- ha.getTargetsFor(src, body)
@@ -95,7 +95,7 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
         // No dedicated target computation, need to brute-force
         for {
           Rule(head, _, _, body) <- sid.rules
-          src <- allDefinedSources(r, body.calledPreds)
+          src <- allDefinedSources(r, body.identsOfCalledPreds)
           // Only go on if we haven't tried this combination in a previous iteration
           if !previousCombinations.contains((src, body, head))
           // No smart target computation, have to iterate over all possible targets

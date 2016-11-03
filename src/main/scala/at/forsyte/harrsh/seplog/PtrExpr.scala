@@ -1,6 +1,5 @@
 package at.forsyte.harrsh.seplog
 
-import at.forsyte.harrsh.main.Var
 import at.forsyte.harrsh.seplog.inductive._
 
 /**

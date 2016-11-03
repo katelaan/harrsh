@@ -3,9 +3,8 @@ package at.forsyte.harrsh.hepautomata
 import at.forsyte.harrsh.heapautomata.BaseReachabilityAutomaton._
 import at.forsyte.harrsh.heapautomata.{BaseReachabilityAutomaton, TrackingAutomata, _}
 import at.forsyte.harrsh.heapautomata.utils.ReachabilityMatrix
-import at.forsyte.harrsh.main.Var
-import at.forsyte.harrsh.main.Var._
-import at.forsyte.harrsh.seplog._
+import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.test.HarrshTableTest
 
