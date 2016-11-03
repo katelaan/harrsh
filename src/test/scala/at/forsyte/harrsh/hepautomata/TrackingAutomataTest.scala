@@ -2,7 +2,7 @@ package at.forsyte.harrsh.hepautomata
 
 import at.forsyte.harrsh.heapautomata.TrackingAutomata
 import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.main.Var._
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.test.HarrshTableTest
 
@@ -12,47 +12,47 @@ import at.forsyte.harrsh.test.HarrshTableTest
   */
 class TrackingAutomataTest extends HarrshTableTest {
 
-  val track3 = TrackingAutomata.singleTargetStateTracking(3, Set(fv(1)), mkPure((2, 3, true)))
+  val track3 = TrackingAutomata.singleTargetStateTracking(3, Set(mkVar(1)), mkPure((2, 3, true)))
 
   val transitions = Table(
     ("src", "trg", "sh", "result"),
     // Simple RSHs
-    (Seq(), (fvAll(1), mkPure()), SymbolicHeap(Seq(ptr(fv(1), fv(2)))), true),
-    (Seq(), (fvAll(2), mkPure()), SymbolicHeap(Seq(ptr(fv(1), fv(2)))), false),
-    (Seq(), (fvAll(1,2), mkPure((1,2,true))), SymbolicHeap(Seq(ptreq(fv(1), fv(2))), Seq(ptr(fv(1), fv(2)))), true),
+    (Seq(), (mkAllVar(1), mkPure()), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)))), true),
+    (Seq(), (mkAllVar(2), mkPure()), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)))), false),
+    (Seq(), (mkAllVar(1,2), mkPure((1,2,true))), SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq(ptr(mkVar(1), mkVar(2)))), true),
 
     // RSHs with some propagation
-    (Seq(), (fvAll(1,2), mkPure((1,2,false))), SymbolicHeap(Seq(ptr(fv(1), nil), ptr(fv(2), nil))), true),
+    (Seq(), (mkAllVar(1,2), mkPure((1,2,false))), SymbolicHeap(Seq(ptr(mkVar(1), nil), ptr(mkVar(2), nil))), true),
 
     // Inconsistent RSHs
-    (Seq(), track3.InconsistentState, SymbolicHeap(Seq(ptr(fv(1), nil), ptr(fv(1), nil))), true),
-    (Seq(), track3.InconsistentState, SymbolicHeap(Seq(ptreq(fv(1),fv(2))), Seq(ptr(fv(1), nil), ptr(fv(2), nil))), true),
-    (Seq(), track3.InconsistentState, SymbolicHeap(Seq(ptreq(fv(1),fv(2)), ptreq(fv(2),fv(3)), ptrneq(fv(1),fv(3))), Seq(emp)), true),
+    (Seq(), track3.InconsistentState, SymbolicHeap(Seq(ptr(mkVar(1), nil), ptr(mkVar(1), nil))), true),
+    (Seq(), track3.InconsistentState, SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(2))), Seq(ptr(mkVar(1), nil), ptr(mkVar(2), nil))), true),
+    (Seq(), track3.InconsistentState, SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(2)), ptreq(mkVar(2),mkVar(3)), ptrneq(mkVar(1),mkVar(3))), Seq(emp)), true),
 
     // Non-reduced SHs without parameter renaming
-    (Seq((fvAll(1), mkPure())), (fvAll(1,2), mkPure((1,2,false))), SymbolicHeap(Seq(call("dummy", fv(1)), ptr(fv(2), nil))), true),
-    (Seq((fvAll(1), mkPure()), (fvAll(), mkPure((1, 2, true)))),
-      (fvAll(1,2,3), mkPure((1,2,true), (1,3,false), (2,3,false))),
-      SymbolicHeap(Seq(call("foo", fv(1)), call("bar", fv(1), fv(2)), ptr(fv(3), nil))),
+    (Seq((mkAllVar(1), mkPure())), (mkAllVar(1,2), mkPure((1,2,false))), SymbolicHeap(Seq(call("dummy", mkVar(1)), ptr(mkVar(2), nil))), true),
+    (Seq((mkAllVar(1), mkPure()), (mkAllVar(), mkPure((1, 2, true)))),
+      (mkAllVar(1,2,3), mkPure((1,2,true), (1,3,false), (2,3,false))),
+      SymbolicHeap(Seq(call("foo", mkVar(1)), call("bar", mkVar(1), mkVar(2)), ptr(mkVar(3), nil))),
       true),
 
     // Non-reducsed SHs with parameter renaming:
     // - SLL
-    (Seq((fvAll(1), mkPure((1,2,false)))),
-      (fvAll(1), mkPure()), // Note: We do not know that x_1 != x_2, but only x_1 != y && x_2 != y; the list may be cyclic
-      SymbolicHeap(Seq(ptr(fv(1), qv(1)), call("sll", qv(1), fv(2)))), // 2nd rule of SLL predicate
+    (Seq((mkAllVar(1), mkPure((1,2,false)))),
+      (mkAllVar(1), mkPure()), // Note: We do not know that x_1 != x_2, but only x_1 != y && x_2 != y; the list may be cyclic
+      SymbolicHeap(Seq(ptr(mkVar(1), qv(1)), call("sll", qv(1), mkVar(2)))), // 2nd rule of SLL predicate
       true),
     // - Tree
-    (Seq((fvAll(1), mkPure()), (fvAll(1), mkPure())),
-      (fvAll(1), mkPure()), // Note: All there is to know is that the parameter is allocated
-      SymbolicHeap(Seq(ptr(fv(1), qv(1), qv(2)), call("tree", qv(1)), call("tree", qv(2)))), // 2nd rule of Tree predicate
+    (Seq((mkAllVar(1), mkPure()), (mkAllVar(1), mkPure())),
+      (mkAllVar(1), mkPure()), // Note: All there is to know is that the parameter is allocated
+      SymbolicHeap(Seq(ptr(mkVar(1), qv(1), qv(2)), call("tree", qv(1)), call("tree", qv(2)))), // 2nd rule of Tree predicate
       true),
 
     // Testing inconsistency checks for Non-reduced RSHs
-    (Seq((fvAll(1), mkPure())), track3.InconsistentState, SymbolicHeap(Seq(call("dummy", fv(1)), ptr(fv(1), nil))), true),
-    (Seq((fvAll(1), mkPure()),(fvAll(), mkPure((1,2,true)))), track3.InconsistentState, SymbolicHeap(Seq(call("sll", fv(1), fv(2)), call("sll", fv(2), fv(3)))), false),
-    (Seq((fvAll(1), mkPure()),(fvAll(), mkPure((1,2,true)))), track3.InconsistentState, SymbolicHeap(Seq(call("sll", fv(2), fv(1)), call("sll", fv(2), fv(3)))), false),
-    (Seq((fvAll(1), mkPure()),(fvAll(1), mkPure())), track3.InconsistentState, SymbolicHeap(Seq(ptrneq(fv(1),fv(3)), ptrneq(fv(2),fv(3))), Seq(call("sll", fv(3), fv(2)), call("sll", fv(3), fv(1)))), true)
+    (Seq((mkAllVar(1), mkPure())), track3.InconsistentState, SymbolicHeap(Seq(call("dummy", mkVar(1)), ptr(mkVar(1), nil))), true),
+    (Seq((mkAllVar(1), mkPure()),(mkAllVar(), mkPure((1,2,true)))), track3.InconsistentState, SymbolicHeap(Seq(call("sll", mkVar(1), mkVar(2)), call("sll", mkVar(2), mkVar(3)))), false),
+    (Seq((mkAllVar(1), mkPure()),(mkAllVar(), mkPure((1,2,true)))), track3.InconsistentState, SymbolicHeap(Seq(call("sll", mkVar(2), mkVar(1)), call("sll", mkVar(2), mkVar(3)))), false),
+    (Seq((mkAllVar(1), mkPure()),(mkAllVar(1), mkPure())), track3.InconsistentState, SymbolicHeap(Seq(ptrneq(mkVar(1),mkVar(3)), ptrneq(mkVar(2),mkVar(3))), Seq(call("sll", mkVar(3), mkVar(2)), call("sll", mkVar(3), mkVar(1)))), true)
   )
 
   property("Transitions of the tracking automaton") {

@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.main.FV
-import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.main.Var
+import at.forsyte.harrsh.main.Var._
 import at.forsyte.harrsh.heapautomata.HeapAutomataSafeModeEnabled
 import at.forsyte.harrsh.seplog.{MapBasedRenaming, Renaming}
 import com.typesafe.scalalogging.LazyLogging
@@ -11,7 +11,7 @@ import scala.annotation.tailrec
 /**
   * Created by jkatelaa on 10/3/16.
   */
-case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV : Int, qvars : Seq[FV]) {
+case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV : Int, qvars : Seq[Var]) {
 
   // Sanity check
   if (HeapAutomataSafeModeEnabled) {
@@ -53,7 +53,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV :
 
   def renameVars(f : Renaming) = {
     // Rename bound variables if applicable
-    val (qvarsRenamed, extendedF) : (Seq[FV], Renaming) = qvars.foldLeft((Seq[FV](), f))({
+    val (qvarsRenamed, extendedF) : (Seq[Var], Renaming) = qvars.foldLeft((Seq[Var](), f))({
       case ((seq, intermediateF), v) =>
         val extended = intermediateF.addBoundVarWithOptionalAlphaConversion(v)
         (extended(v) +: seq, extended)
@@ -63,9 +63,9 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV :
   }
 
   // FIXME Get rid of this method altogether?!
-  lazy val getVars : Set[FV] = Set.empty ++ fvars ++ qvars
+  lazy val getVars : Set[Var] = Set.empty ++ fvars ++ qvars
 
-  lazy val fvars : Seq[FV] =  1 to numFV
+  lazy val fvars : Seq[Var] =  1 to numFV
 
 }
 

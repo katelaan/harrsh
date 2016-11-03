@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.main.SlexLogging
-import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.main.Var._
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
@@ -13,7 +13,7 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
   */
 abstract class BoundedFvAutomatonWithTargetComputation(numFV : Int) extends HeapAutomaton with SlexLogging {
 
-  override final def doesAlphabetContain(lab: SymbolicHeap): Boolean = getMaxFvIndex(lab.getVars) <= numFV
+  override final def doesAlphabetContain(lab: SymbolicHeap): Boolean = getMaxVarIndex(lab.getVars) <= numFV
 
   override def isTransitionDefined(src: Seq[State], trg: State, lab: SymbolicHeap): Boolean = {
     val targets = getTargetsFor(src, lab)

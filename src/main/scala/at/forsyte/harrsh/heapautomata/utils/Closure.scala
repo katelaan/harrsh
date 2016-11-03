@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.main.FV
+import at.forsyte.harrsh.main.Var
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
 /**
@@ -11,8 +11,8 @@ trait Closure {
 
   def asSetOfAtoms : Set[PureAtom]
 
-  def getEqualityClass(fv : FV) : Set[FV]
+  def getEqualityClass(fv : Var) : Set[Var]
 
-  def isMinimumInItsClass(fv : FV) : Boolean
+  def isMinimumInItsClass(fv : Var) : Boolean
 
 }

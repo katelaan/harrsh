@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.main.FV
+import at.forsyte.harrsh.main.Var
 import at.forsyte.harrsh.seplog.{PtrExpr, Renaming}
 
 /**
@@ -32,7 +32,7 @@ sealed trait SpatialAtom extends SepLogAtom {
     case _ => None
   }
 
-  def getVars : Set[FV] = this match {
+  def getVars : Set[Var] = this match {
     case Emp() => Set()
     case PointsTo(from, to) => (from +: to).toSet[PtrExpr] flatMap (_.getVar)
     case PredCall(name, args) => (args flatMap (_.getVar)).toSet
@@ -46,8 +46,8 @@ case class Emp() extends SpatialAtom {
 
 case class PointsTo(from : PtrExpr, to : Seq[PtrExpr]) extends SpatialAtom {
 
-  def fromAsVar : FV = from.getVarUnsafe
-  def toAsVar : Seq[FV] = to map (_.getVarUnsafe)
+  def fromAsVar : Var = from.getVarUnsafe
+  def toAsVar : Seq[Var] = to map (_.getVarUnsafe)
 
   override def toStringWithVarNames(names: VarNaming): String = from + " \u21a6 " + (if (to.tail.isEmpty) to.head.toString else to.mkString("(", ", ", ")"))
 }

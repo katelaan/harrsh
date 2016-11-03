@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.main.FV
+import at.forsyte.harrsh.main.Var
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
 /**
@@ -15,7 +15,7 @@ case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends Closure {
       throw new IllegalStateException("Assumed " + closure + " is closure, but actual closure is" + computedClosure)
   }
 
-  override def getEqualityClass(fv: FV): Set[FV] = {
+  override def getEqualityClass(fv: Var): Set[Var] = {
     val otherMembers = closure.filter({
       atom =>
         val (l, r, isEq) = unwrapAtom(atom)
@@ -30,7 +30,7 @@ case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends Closure {
     Set(fv) union otherMembers
   }
 
-  override def isMinimumInItsClass(fv: FV): Boolean = !closure.exists({
+  override def isMinimumInItsClass(fv: Var): Boolean = !closure.exists({
     atom =>
       // Search for a smaller equal element
       val (l, r, isEq) = unwrapAtom(atom)

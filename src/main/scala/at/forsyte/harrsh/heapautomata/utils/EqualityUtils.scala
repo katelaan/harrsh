@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.main.FV
+import at.forsyte.harrsh.main.Var
 import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, PureAtom}
 import at.forsyte.harrsh.util.Combinators
 
@@ -12,11 +12,11 @@ import scala.annotation.tailrec
   */
 object EqualityUtils {
 
-  def propagateConstraints(alloc : Set[FV], pure : Set[PureAtom]) : (Set[FV], Set[PureAtom]) = {
+  def propagateConstraints(alloc : Set[Var], pure : Set[PureAtom]) : (Set[Var], Set[PureAtom]) = {
 
     val allPure = propagateConstraints(pure)
     // Propagate equalities to allocation info
-    val allocFromEqualities : Set[FV] = propagateEqualitiesToAlloc(alloc, allPure)
+    val allocFromEqualities : Set[Var] = propagateEqualitiesToAlloc(alloc, allPure)
 
     (allocFromEqualities, allPure)
   }
@@ -41,7 +41,7 @@ object EqualityUtils {
 
     if (isEqualA || isEqualB) {
       // If at least one is an equality, and one end of the eqs coincides, we can propagate
-      val newPair: Option[(FV, FV)] =
+      val newPair: Option[(Var, Var)] =
       if (leftA == leftB) Some((rightA, rightB))
       else if (leftA == rightB) Some((rightA, leftB))
       else if (rightA == leftB) Some((leftA, rightB))
@@ -68,12 +68,12 @@ object EqualityUtils {
 //    explicit union propagated
 //  }
 
-  def propagateEqualitiesToAlloc(explicit: Set[FV], allPure: Set[PureAtom]): Set[FV] = {
+  def propagateEqualitiesToAlloc(explicit: Set[Var], allPure: Set[PureAtom]): Set[Var] = {
     propagateEqualitiesToAllocAux(explicit, allPure.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq]).toSeq, explicit)
   }
 
   @tailrec
-  private def propagateEqualitiesToAllocAux(explicit: Set[FV], allPure: Seq[PtrEq], acc : Set[FV]): Set[FV] = {
+  private def propagateEqualitiesToAllocAux(explicit: Set[Var], allPure: Seq[PtrEq], acc : Set[Var]): Set[Var] = {
     if (allPure.isEmpty) acc else {
       val hd = allPure.head
       val (l, r) = (hd.l, hd.r)

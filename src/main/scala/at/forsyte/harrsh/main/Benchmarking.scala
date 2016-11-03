@@ -6,7 +6,7 @@ import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.seplog.parsers.{CyclistSIDParser, DefaultSIDParser}
 import at.forsyte.harrsh.util.IOUtils._
-import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.main.Var._
 
 import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration.Duration
@@ -181,7 +181,7 @@ object Benchmarking extends SlexLogging {
 
   private def generateTasks() =
     for {
-      automaton <- Seq(RunHasPointer(), RunTracking(Set(fv(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(fv(1), fv(0)), RunGarbageFreedom(), RunAcyclicity())
+      automaton <- Seq(RunHasPointer(), RunTracking(Set(mkVar(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(mkVar(1), mkVar(0)), RunGarbageFreedom(), RunAcyclicity())
       file <- getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) ++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
     } yield TaskConfig(file.getAbsolutePath, automaton, None)
 

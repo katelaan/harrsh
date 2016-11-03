@@ -2,8 +2,8 @@ package at.forsyte.harrsh.heapautomata
 
 import java.text.SimpleDateFormat
 
-import at.forsyte.harrsh.main.{FV, SlexLogging}
-import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.main.{Var, SlexLogging}
+import at.forsyte.harrsh.main.Var._
 import at.forsyte.harrsh.seplog.PtrExpr
 import at.forsyte.harrsh.seplog.inductive.{PredCall, Rule, SID, SymbolicHeap}
 
@@ -27,16 +27,16 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
         (states,body,head,headState) <- reach
       } yield Rule(
         head = head+stateToIndex(headState),
-        freeVars = body.fvars map FV.varToDefaultString,
-        qvars = body.qvars map FV.varToDefaultString,
+        freeVars = body.fvars map Var.toDefaultString,
+        qvars = body.qvars map Var.toDefaultString,
         body = body.addToCallPreds(states map (s => ""+stateToIndex(s))))
     val finalRules = reachedFinalStates.map{
       state =>
         Rule(
           head = sid.startPred,
-          freeVars = (1 to sid.arityOfStartPred) map FV.varToDefaultString,
+          freeVars = (1 to sid.arityOfStartPred) map Var.toDefaultString,
           qvars = Seq(),
-          body = SymbolicHeap(Seq(PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map fv map PtrExpr.fromFV))))
+          body = SymbolicHeap(Seq(PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map mkVar map PtrExpr.fromFV))))
     }
 
     if (reachedFinalStates.isEmpty) {

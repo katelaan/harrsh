@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.main.FV
+import at.forsyte.harrsh.main.Var
 import at.forsyte.harrsh.seplog.PtrExpr
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
@@ -11,7 +11,7 @@ import at.forsyte.harrsh.seplog.inductive.PureAtom
 class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
 
   // TODO: This closure class is quite inefficient, having one copy of each equivalence class per member
-  var mapToClasses : Map[FV,Set[FV]] = Map()
+  var mapToClasses : Map[Var,Set[Var]] = Map()
 
   for {
     atom <- pure
@@ -21,9 +21,9 @@ class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
     extendEntry(left, right)
   }
 
-  override def getEqualityClass(fv : FV) : Set[FV] = mapToClasses.getOrElse(fv, Set(fv))
+  override def getEqualityClass(fv : Var) : Set[Var] = mapToClasses.getOrElse(fv, Set(fv))
 
-  override def isMinimumInItsClass(fv : FV) : Boolean = {
+  override def isMinimumInItsClass(fv : Var) : Boolean = {
     // If the EQ class is defined, check if i is the representation = the minimum of that class
     // Otherwise, no equality for i has been set, so i is the unique and hence minimal element, so it is the representation
     if (mapToClasses.isDefinedAt(fv)) {
@@ -33,7 +33,7 @@ class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
     }
   }
 
-  private def extendEntry(key : FV, newVal : FV) = {
+  private def extendEntry(key : Var, newVal : Var) = {
     val eqClass = if (mapToClasses.isDefinedAt(key)) {
       // Class is already defined, just add the new value
       mapToClasses(key) + newVal

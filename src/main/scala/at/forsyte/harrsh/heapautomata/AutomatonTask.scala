@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata
 
-import at.forsyte.harrsh.main.FV
-import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.main.Var
+import at.forsyte.harrsh.main.Var._
 import at.forsyte.harrsh.seplog.{PtrExpr, PtrVar}
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
@@ -62,7 +62,7 @@ sealed trait AutomatonTask {
 
 case class RunHasPointer() extends AutomatonTask
 
-case class RunTracking(alloc : Set[FV], pure : Set[PureAtom]) extends AutomatonTask
+case class RunTracking(alloc : Set[Var], pure : Set[PureAtom]) extends AutomatonTask
 
 case class RunSat() extends AutomatonTask
 
@@ -72,7 +72,7 @@ case class RunEstablishment() extends AutomatonTask
 
 case class RunNonEstablishment() extends AutomatonTask
 
-case class RunReachability(from : FV, to : FV) extends AutomatonTask
+case class RunReachability(from : Var, to : Var) extends AutomatonTask
 
 case class RunGarbageFreedom() extends AutomatonTask
 
@@ -108,7 +108,7 @@ object AutomatonTask {
         //println(s + " => " + params.mkString(" : "))
 
         if (!params.exists(!isFV(_))) {
-          val fvs : Set[FV] = (params map stringToFV).toSet
+          val fvs : Set[Var] = (params map stringToFV).toSet
           Some(RunTracking(fvs, Set()))
         }
         else {

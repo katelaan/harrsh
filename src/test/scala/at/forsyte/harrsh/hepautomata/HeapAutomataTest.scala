@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.hepautomata
 
-import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.main.Var._
 import at.forsyte.harrsh.heapautomata.{TrackingAutomata, _}
 import at.forsyte.harrsh.seplog.inductive.nil
 import at.forsyte.harrsh.test.HarrshTableTest
@@ -33,13 +33,13 @@ class HeapAutomataTest extends HarrshTableTest {
      * Tracking automata
       */
     // - Normal tests
-    (TrackingAutomata.singleTargetStateTracking(3, Set(fv(1)), mkPure()), ExampleSIDs.Sll, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(2, Set(fv(1)), mkPure((1, 2, NonEmpty))), ExampleSIDs.Sll, Empty),
-    (TrackingAutomata.singleTargetStateTracking(2, Set(fv(1)), mkPure()), ExampleSIDs.EmptyLinearPermuter, Empty),
+    (TrackingAutomata.singleTargetStateTracking(3, Set(mkVar(1)), mkPure()), ExampleSIDs.Sll, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(2, Set(mkVar(1)), mkPure((1, 2, NonEmpty))), ExampleSIDs.Sll, Empty),
+    (TrackingAutomata.singleTargetStateTracking(2, Set(mkVar(1)), mkPure()), ExampleSIDs.EmptyLinearPermuter, Empty),
     (TrackingAutomata.singleTargetStateTracking(2, Set(), mkPure((1, 2, Empty))), ExampleSIDs.EmptyLinearPermuter, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(4, Set(fv(1),fv(4)), mkPure()), ExampleSIDs.Dll, Empty),
-    (TrackingAutomata.singleTargetStateTracking(1, Set(fv(1)), mkPure()), ExampleSIDs.Tree, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(3, Set(fv(1),fv(2)), mkPure((1,2,NonEmpty))), ExampleSIDs.Tll, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(4, Set(mkVar(1),mkVar(4)), mkPure()), ExampleSIDs.Dll, Empty),
+    (TrackingAutomata.singleTargetStateTracking(1, Set(mkVar(1)), mkPure()), ExampleSIDs.Tree, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(3, Set(mkVar(1),mkVar(2)), mkPure((1,2,NonEmpty))), ExampleSIDs.Tll, NonEmpty),
     // - Inconsistency checks for tracking
     (TrackingAutomata.singleTargetStateTracking(2, inconsistent2._1, inconsistent2._2), ExampleSIDs.NonEmptyBinaryPermuter, NonEmpty),
     (TrackingAutomata.singleTargetStateTracking(2, inconsistent2._1, inconsistent2._2), ExampleSIDs.NonEmptyBinaryPermuter2, NonEmpty),
@@ -113,10 +113,10 @@ class HeapAutomataTest extends HarrshTableTest {
     /*
      * Reachability automata
      */
-    (TrackingAutomata.reachabilityAutomaton(2, fv(1), fv(2)), ExampleSIDs.Sll, NonEmpty),
-    (TrackingAutomata.reachabilityAutomaton(4, fv(1), fv(4)), ExampleSIDs.Dll, NonEmpty),
-    (TrackingAutomata.reachabilityAutomaton(1, fv(1), nil), ExampleSIDs.Tree, NonEmpty),
-    (TrackingAutomata.reachabilityAutomaton(3, fv(1), fv(2)), ExampleSIDs.Tll, NonEmpty),
+    (TrackingAutomata.reachabilityAutomaton(2, mkVar(1), mkVar(2)), ExampleSIDs.Sll, NonEmpty),
+    (TrackingAutomata.reachabilityAutomaton(4, mkVar(1), mkVar(4)), ExampleSIDs.Dll, NonEmpty),
+    (TrackingAutomata.reachabilityAutomaton(1, mkVar(1), nil), ExampleSIDs.Tree, NonEmpty),
+    (TrackingAutomata.reachabilityAutomaton(3, mkVar(1), mkVar(2)), ExampleSIDs.Tll, NonEmpty),
 
     /*
      * Garbage-freedom automata

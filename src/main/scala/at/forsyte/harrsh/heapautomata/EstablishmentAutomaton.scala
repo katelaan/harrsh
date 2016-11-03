@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata
 
-import at.forsyte.harrsh.main.FV
-import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.main.Var
+import at.forsyte.harrsh.main.Var._
 import at.forsyte.harrsh.seplog.PtrVar
 import at.forsyte.harrsh.seplog.inductive.{PtrEq, SymbolicHeap}
 import com.typesafe.scalalogging.LazyLogging
@@ -60,7 +60,7 @@ object EstablishmentAutomaton extends LazyLogging {
   /**
     * Is variable v established according to tracking info s?
     */
-  def isEstablished(s : TrackingInfo, v : FV) = {
+  def isEstablished(s : TrackingInfo, v : Var) = {
     isFV(v) || s._1.contains(v) || s._2.exists({
       // Return true iff the pure atom witnesses that v is equal to a free variable
       // This is enough to show establishment, because we assume that s is congruence closed

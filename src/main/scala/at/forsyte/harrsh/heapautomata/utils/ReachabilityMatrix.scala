@@ -1,8 +1,8 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.main.{FV, SlexLogging}
-import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.main.{Var, SlexLogging}
+import at.forsyte.harrsh.main.Var._
 import at.forsyte.harrsh.util.Combinators
 
 /**
@@ -18,7 +18,7 @@ case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) extends SlexL
 
   override def toString = "MATRIX(\n" + (for (i <- 0 to numFV) yield getRowFor(i).map(if (_) '1' else '0').mkString(" ")).mkString("\n") + "\n)"
 
-  def isReachable(from : FV, to : FV) : Boolean = isReachableIx(unFV(from), unFV(to))
+  def isReachable(from : Var, to : Var) : Boolean = isReachableIx(unVar(from), unVar(to))
   def isReachableIx(from : Int, to : Int) : Boolean = {
     val ix = minIndexForSrc(from) + to
     val res = reach(minIndexForSrcIx(from) + to)
@@ -26,13 +26,13 @@ case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) extends SlexL
     res
   }
 
-  def getRowFor(src: FV): Seq[Boolean] = getRowForIx(unFV(src))
+  def getRowFor(src: Var): Seq[Boolean] = getRowForIx(unVar(src))
   def getRowForIx(src: Int): Seq[Boolean] = {
     val start = minIndexForSrcIx(src)
     reach.slice(start, start + dim)
   }
 
-  def update(from : FV, to : FV, setReachable : Boolean) : Unit = updateIx(unFV(from), unFV(to), setReachable)
+  def update(from : Var, to : Var, setReachable : Boolean) : Unit = updateIx(unVar(from), unVar(to), setReachable)
   def updateIx(from : Int, to : Int, setReachable : Boolean) : Unit = {
     val start = minIndexForSrcIx(from)
     reach.update(start + to, setReachable)
@@ -47,10 +47,10 @@ case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) extends SlexL
   override def hashCode(): Int = reach.deep.hashCode()
 
   private def minIndexForSrcIx(src : Int) : Int = dim * src
-  private def minIndexForSrc(src : FV) : Int = minIndexForSrcIx(unFV(src))
+  private def minIndexForSrc(src : Var) : Int = minIndexForSrcIx(unVar(src))
 
   private def maxIndexForSrcIx(src : Int) : Int = (dim+1) * src - 1
-  private def maxIndexForSrc(src : FV) : Int = maxIndexForSrcIx(unFV(src))
+  private def maxIndexForSrc(src : Var) : Int = maxIndexForSrcIx(unVar(src))
 
 }
 

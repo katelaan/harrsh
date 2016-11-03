@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.hepautomata
 
-import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.main.Var._
 import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.heapautomata.utils.ClosureOfAtomSet
 import at.forsyte.harrsh.seplog.inductive.PureAtom
@@ -28,8 +28,8 @@ class ClosureTest extends HarrshTableTest {
         val closure = new ClosureOfAtomSet(eqs)
 
         for (i <- 1 to 5) {
-          info(fv(i) + (if (results(i - 1)) " should be " else " should NOT be ") + "the minimal element in an equality class of " + eqs)
-          closure.isMinimumInItsClass(fv(i)) should be(results(i - 1))
+          info(mkVar(i) + (if (results(i - 1)) " should be " else " should NOT be ") + "the minimal element in an equality class of " + eqs)
+          closure.isMinimumInItsClass(mkVar(i)) should be(results(i - 1))
         }
     }
 

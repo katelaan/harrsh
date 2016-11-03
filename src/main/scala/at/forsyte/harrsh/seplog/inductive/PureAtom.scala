@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.main.{FV, SlexLogging}
+import at.forsyte.harrsh.main.{Var, SlexLogging}
 import at.forsyte.harrsh.seplog.{PtrExpr, Renaming}
 
 /**
@@ -22,7 +22,7 @@ sealed trait PureAtom extends SepLogAtom with SlexLogging {
     case PtrNEq(l, r) => PtrNEq(l.renameVars(f), r.renameVars(f))
   }
 
-  def getVars : Set[FV] = this match {
+  def getVars : Set[Var] = this match {
     case True() => Set()
     case PtrEq(l, r) => l.getVar union r.getVar // TODO Building so many sets is quite inefficient
     case PtrNEq(l, r) => l.getVar union r.getVar

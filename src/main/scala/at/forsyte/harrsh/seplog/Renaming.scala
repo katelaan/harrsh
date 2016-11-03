@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.seplog
 
 import at.forsyte.harrsh.heapautomata
-import at.forsyte.harrsh.main.FV
+import at.forsyte.harrsh.main.Var
 
 import scala.annotation.tailrec
 
@@ -10,13 +10,13 @@ import scala.annotation.tailrec
   */
 trait Renaming {
 
-  def apply(s : FV) : FV
+  def apply(s : Var) : Var
 
-  def extendWith(k : FV, v: FV) : Renaming
+  def extendWith(k : Var, v: Var) : Renaming
 
-  def codomain : Set[FV]
+  def codomain : Set[Var]
 
-  final def freshName(varid: FV): FV =
+  final def freshName(varid: Var): Var =
     if (!codomain.contains(varid)) {
       varid
     } else if (varid < 0) {
@@ -27,7 +27,7 @@ trait Renaming {
       codomain.max + 1
     }
 
-  final def addBoundVarWithOptionalAlphaConversion(varid: FV) : Renaming = {
+  final def addBoundVarWithOptionalAlphaConversion(varid: Var) : Renaming = {
     // Note: We always add an entry for the varid, even if no renaming is necessary
     // This ensures that there are no repeated qvars in the combination of multiple sub-heaps with the same quantified vars
     extendWith(varid, freshName(varid))
@@ -43,7 +43,7 @@ object Renaming {
     * @param varClashes Set of potentially clashing variables
     * @return Renaming with codomain varClashes
     */
-  def clashAvoidanceRenaming(varClashes : Seq[FV]) = {
+  def clashAvoidanceRenaming(varClashes : Seq[Var]) = {
     val entries = varClashes.zipWithIndex map {
       case (v,i) => (Integer.MIN_VALUE + i, v)
     }

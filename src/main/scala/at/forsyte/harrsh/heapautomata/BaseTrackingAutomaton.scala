@@ -1,8 +1,8 @@
 package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.heapautomata.utils.{EqualityUtils, UnsafeAtomsAsClosure}
-import at.forsyte.harrsh.main.{FV, SlexLogging}
-import at.forsyte.harrsh.main.FV._
+import at.forsyte.harrsh.main.{Var, SlexLogging}
+import at.forsyte.harrsh.main.Var._
 import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, PtrVar}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
@@ -12,7 +12,7 @@ import at.forsyte.harrsh.util.Combinators
   */
 class BaseTrackingAutomaton(
                              numFV : Int,
-                             isFinalPredicate : (BaseTrackingAutomaton, Set[FV], Set[PureAtom]) => Boolean,
+                             isFinalPredicate : (BaseTrackingAutomaton, Set[Var], Set[PureAtom]) => Boolean,
                              override val description : String = "TRACK-BASE"
                            ) extends BoundedFvAutomatonWithTargetComputation(numFV) {
 
@@ -47,16 +47,16 @@ class BaseTrackingAutomaton(
 
 object BaseTrackingAutomaton extends SlexLogging {
 
-  type TrackingInfo = (Set[FV], Set[PureAtom])
+  type TrackingInfo = (Set[Var], Set[PureAtom])
 
   def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = (Set(), Set() ++ allFVs(numFV) map (fv => PtrNEq(PtrExpr.fromFV(fv),PtrExpr.fromFV(fv))))
 
-  def allFVs(numFV : Int) = (0 to numFV) map fv
+  def allFVs(numFV : Int) = (0 to numFV) map mkVar
 
   def computeTrackingStateSpace(numFV : Int) =
     for {
       // TODO: This also computes plenty (but not all) inconsistent states
-      alloc <- Combinators.powerSet(Set() ++ ((1 to numFV) map fv))
+      alloc <- Combinators.powerSet(Set() ++ ((1 to numFV) map mkVar))
       pure <- Combinators.powerSet(allEqualitiesOverFVs(numFV))
     } yield (alloc, pure)
 
@@ -66,7 +66,7 @@ object BaseTrackingAutomaton extends SlexLogging {
     logger.debug("Compressed " + lab + " into " + compressed)
 
     // Compute allocation set and equalities for compressed SH and compare to target
-    val allocExplicit: Seq[FV] = compressed.pointers map (_.fromAsVar)
+    val allocExplicit: Seq[Var] = compressed.pointers map (_.fromAsVar)
 
     // TODO: Ensure that we can already assume that constraints returned by compression are ordered and thus drop this step
     val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrComparisons map orderedAtom
@@ -104,8 +104,8 @@ object BaseTrackingAutomaton extends SlexLogging {
       case (call, heap) =>
         // Rename the free variables of SH to the actual arguments of the predicate calls,
         // i.e. replace the i-th FV with the call argument at index i-1
-        val pairs : Seq[(FV,FV)] = ((1 to call.args.length) map (x => fv(x))) zip (call.args map (_.getVarOrZero))
-        val map : Map[FV,FV] = Map() ++ pairs
+        val pairs : Seq[(Var,Var)] = ((1 to call.args.length) map (x => mkVar(x))) zip (call.args map (_.getVarOrZero))
+        val map : Map[Var,Var] = Map() ++ pairs
         heap.renameVars(MapBasedRenaming(map))
     }
 //    logger.debug("Filtered heap: " + shFiltered)

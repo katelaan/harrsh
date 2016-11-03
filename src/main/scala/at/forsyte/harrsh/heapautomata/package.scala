@@ -11,27 +11,27 @@ package object heapautomata {
   val HeapAutomataSafeModeEnabled : Boolean = false
 
   import main._
-  import main.FV._
+  import main.Var._
 
   def allEqualitiesOverFVs(numFV : Int) : Set[PureAtom] = {
     for {
       i <- Set() ++ (0 to numFV-1)
       j <- Set() ++ (i+1 to numFV)
       eq <- Set(true, false)
-    } yield orderedAtom(fv(i), fv(j), eq)
+    } yield orderedAtom(mkVar(i), mkVar(j), eq)
   }
 
   def mkPure(atoms : (Int, Int, Boolean)*) : Set[PureAtom] = Set() ++ (atoms.toSeq map {
-    case (l,r,isEq) => orderedAtom(fv(l),fv(r),isEq)
+    case (l,r,isEq) => orderedAtom(mkVar(l),mkVar(r),isEq)
   })
 
-  def unwrapAtom(atom : PureAtom) : (FV, FV, Boolean) = atom match {
+  def unwrapAtom(atom : PureAtom) : (Var, Var, Boolean) = atom match {
     case PtrEq(l, r) => (l.getVarOrZero, r.getVarOrZero, true)
     case PtrNEq(l, r) => (l.getVarOrZero, r.getVarOrZero, false)
     case _ => throw new IllegalStateException("Heap automata are not defined on arithmetical expressions")
   }
 
-  def orderedAtom(left : FV, right : FV, isEqual : Boolean): PureAtom = {
+  def orderedAtom(left : Var, right : Var, isEqual : Boolean): PureAtom = {
     val (small, large) = if (left < right) (left, right) else (right, left)
     if (isEqual) PtrEq(PtrExpr.fromFV(small), PtrExpr.fromFV(large)) else PtrNEq(PtrExpr.fromFV(small), PtrExpr.fromFV(large))
   }

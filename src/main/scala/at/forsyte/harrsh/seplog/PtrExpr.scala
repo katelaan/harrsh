@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.seplog
 
-import at.forsyte.harrsh.main.FV
+import at.forsyte.harrsh.main.Var
 import at.forsyte.harrsh.seplog.inductive._
 
 /**
@@ -15,17 +15,17 @@ sealed trait PtrExpr extends Expr {
     case PtrVar(id) => names(id)
   }
 
-  def getVar : Set[FV] = this match {
+  def getVar : Set[Var] = this match {
     case NullPtr() => Set()
     case PtrVar(id) => Set(id)
   }
 
-  def getVarOrZero : FV = this match {
+  def getVarOrZero : Var = this match {
     case NullPtr() => 0
     case PtrVar(id) => id
   }
 
-  def getVarUnsafe : FV = this match {
+  def getVarUnsafe : Var = this match {
     case NullPtr() => throw new Throwable("Tried to convert null pointer to variable")
     case PtrVar(id) => id
   }
@@ -46,11 +46,11 @@ sealed trait PtrExpr extends Expr {
 
 case class NullPtr() extends PtrExpr
 
-case class PtrVar(id : FV) extends PtrExpr
+case class PtrVar(id : Var) extends PtrExpr
 
 object PtrExpr {
 
-  def fromFV(x : FV) : PtrExpr = if (x == 0) NullPtr() else PtrVar(x)
+  def fromFV(x : Var) : PtrExpr = if (x == 0) NullPtr() else PtrVar(x)
 
 //  def fromString(s : String) : PtrExpr = s match {
 //    case "null" => NullPtr()
