@@ -22,7 +22,10 @@ object Var {
     case id => id.startsWith(FreeVarString) // TODO: Should have a more sophisticated for "FV-ness" check here?
   }
 
-  @inline def stringToFV(fv : String) : Var = if (fv.startsWith(FreeVarString)) Integer.valueOf(fv.drop(FreeVarString.length)) else throw new IllegalArgumentException("Passed non-free variable identifier to free-variable conversion")
+  @inline def stringToFV(fv : String) : Var =
+    if (fv.startsWith(FreeVarString)) Integer.valueOf(fv.drop(FreeVarString.length))
+    else if (fv == "null" || fv == "nil") 0
+    else throw new IllegalArgumentException("Passed non-free variable identifier to free-variable conversion")
 
   def toDefaultString(v : Var) = v match {
     case 0 => NullPtr().toString

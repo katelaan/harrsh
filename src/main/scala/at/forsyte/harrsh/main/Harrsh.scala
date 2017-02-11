@@ -55,19 +55,25 @@ object Harrsh {
     if (!success) {
       printUsage()
     } else {
-      if (runBatch) {
-        Benchmarking.runBenchmarkFile(file, timeout, verbose = verbose, reportProgress = reportProgress)
-      } else {
+      try {
+        if (runBatch) {
+            Benchmarking.runBenchmarkFile(file, timeout, verbose = verbose, reportProgress = reportProgress)
+        } else {
 
-        println("Will refine SID definition in file " + file + " by " + prop)
-        val sid = refineSID(file, prop, timeout, reportProgress = reportProgress)
-        sid match {
-          case Some(vsid) =>
-            println(vsid)
-          case None =>
-            println("Refinement failed.")
+          println("Will refine SID definition in file " + file + " by " + prop)
+          val sid = refineSID(file, prop, timeout, reportProgress = reportProgress)
+          sid match {
+            case Some(vsid) =>
+              println(vsid)
+            case None =>
+              println("Refinement failed.")
+          }
         }
-
+      } catch {
+        case e : Throwable =>
+          println("Terminating with " + e.getClass.toString + " (Message: " + e.getMessage + ")")
+          // TODO Only do this in debug mode
+          throw e
       }
     }
   }

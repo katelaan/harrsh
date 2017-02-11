@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.main
 
-import java.io.File
+import java.io.{File, FileNotFoundException}
 
 import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.seplog.inductive.SID
@@ -42,16 +42,25 @@ object Benchmarking extends SlexLogging {
   }
 
   private def readTasksFromFile(filename : String) : Seq[TaskConfig] = {
-    val content = readFile(filename)
-    val lines = content.split('\n').map(_.trim).filterNot(_.isEmpty)
-    val otasks = lines map TaskConfig.fromString
+      val content = try {
+        readFile(filename)
+      } catch {
+        case e : FileNotFoundException =>
+          println("File '" + filename + "' does not exist.")
+          throw e
+        case e : Throwable =>
+          throw e
+      }
 
-    if (otasks.exists(_.isEmpty)) {
-      //println(otasks.mkString("\n"))
-      throw new Exception("Error while parsing benchmarks")
-    } else {
-      otasks map (_.get)
-    }
+      val lines = content.split('\n').map(_.trim).filterNot(_.isEmpty)
+      val otasks = lines map TaskConfig.fromString
+
+      if (otasks.exists(_.isEmpty)) {
+        //println(otasks.mkString("\n"))
+        throw new Exception("Error while parsing benchmarks")
+      } else {
+        otasks map (_.get)
+      }
   }
 
   private val headings = Seq("File", "Property", "Result", "Time in ms")

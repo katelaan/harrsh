@@ -85,7 +85,9 @@ object AutomatonTask {
           try {
             Some(RunReachability(stringToFV(params(0)), stringToFV(params(1))))
           } catch {
-            case _ : Exception => None
+            case e : Exception =>
+              println("Could not parse reachability task: " + e.getMessage)
+              None
           }
         } else None
       }
