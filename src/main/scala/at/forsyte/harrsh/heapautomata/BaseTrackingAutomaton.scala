@@ -97,23 +97,8 @@ object BaseTrackingAutomaton extends SlexLogging {
   def trackingCompression(sh : SymbolicHeap, qs : Seq[TrackingInfo]) : SymbolicHeap = compressWithKernelization(trackingKernel)(sh, qs)
 
   def compressWithKernelization[A](kernelization : A => SymbolicHeap)(sh : SymbolicHeap, qs : Seq[A]) : SymbolicHeap = {
-    val shFiltered = sh.withoutCalls
     val newHeaps = qs map kernelization
-    val stateHeapPairs = sh.predCalls zip newHeaps
-    val renamedHeaps : Seq[SymbolicHeap] = stateHeapPairs map {
-      case (call, heap) =>
-        // Rename the free variables of SH to the actual arguments of the predicate calls,
-        // i.e. replace the i-th FV with the call argument at index i-1
-        val pairs : Seq[(Var,Var)] = ((1 to call.args.length) map (x => mkVar(x))) zip (call.args map (_.getVarOrZero))
-        val map : Map[Var,Var] = Map() ++ pairs
-        heap.renameVars(MapBasedRenaming(map))
-    }
-//    logger.debug("Filtered heap: " + shFiltered)
-//    logger.debug("State-heap pairs: " + stateHeapPairs.mkString("\n"))
-//    logger.debug("Renamed heaps:" + renamedHeaps.mkString("\n"))
-
-    val combined = SymbolicHeap.combineAllHeaps(shFiltered +: renamedHeaps)
-    combined
+    sh.instantiateCalls(newHeaps)
   }
 
   def trackingKernel(s : TrackingInfo) : SymbolicHeap = {

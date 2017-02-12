@@ -58,4 +58,19 @@ object Combinators {
     powerSet(seq)
   }
 
+  def choices[A](from: Seq[Set[A]]) : Seq[Seq[A]] = {
+
+    def prependAll(prep : Set[A], seq : Seq[A]) : Seq[Seq[A]] = (prep map (x => x +: seq)).toSeq
+
+    if (from.isEmpty)
+      Seq(Seq())
+    else {
+      val newchoice = from.head
+      val smaller = choices(from.tail)
+      (for {
+        seq <- smaller
+      } yield prependAll(newchoice, seq)).flatten
+    }
+  }
+
 }

@@ -2,7 +2,7 @@ package at.forsyte.harrsh.main
 
 import java.io.FileNotFoundException
 
-import at.forsyte.harrsh.heapautomata.{AutomatonTask, HeapAutomaton, RefinementAlgorithms, RunSat}
+import at.forsyte.harrsh.heapautomata.{AutomatonTask, RefinementAlgorithms, RunSat}
 import at.forsyte.harrsh.seplog.inductive.SID
 
 import scala.concurrent._
@@ -48,21 +48,23 @@ object Harrsh {
     val propertyString = parseSwitchWithArg("--prop", "-p", "SAT")
     val prop = AutomatonTask.fromString(propertyString).getOrElse(RunSat())
 
-    val timeoutString : String = parseSwitchWithArg("--timeout", "-t", "120")
+    val timeoutString : String = parseSwitchWithArg("--timeout", "-t", "" + Benchmarking.DefaultTimeout.toSeconds)
     val timeout = tryParseAsInt(timeoutString) match {
                     case Some(i) =>  Duration(i, SECONDS)
                     case None =>
-                      println("Could not parse argument to --timeout. Please pass a positive integer (denoting the timeout in seconds)")
+                      println("Could not parse argument to --timeout; will use default " + Benchmarking.DefaultTimeout + ". Please pass a positive integer (denoting the timeout in seconds)")
                       Benchmarking.DefaultTimeout
                   }
 
-    val unfoldString : String = parseSwitchWithArg("--limit", "-l", "3")
+    val DefaultDepth = 3
+    val unfoldString : String = parseSwitchWithArg("--depth", "-d", ""+DefaultDepth)
     val unfoldLimit = tryParseAsInt(unfoldString) match {
       case Some(i) =>  i
       case None =>
-        println("Could not parse argument to --limit. Please pass a positive integer (denoting the maximum unfolding depth)")
-        Benchmarking.DefaultTimeout
+        println("Could not parse argument to --limit; will use default " + DefaultDepth + ". Please pass a positive integer (denoting the maximum unfolding depth)")
+        DefaultDepth
     }
+    val returnReducedOnly = parseSwitch("--reduced", "-red")
 
     val verbose = parseSwitch("--verbose", "-v")
     val reportProgress = parseSwitch("--showprogress", "-sp")
@@ -86,7 +88,8 @@ object Harrsh {
           val (sid,_) = Benchmarking.getSidFromFile(file)
           println(sid)
         } else if (unfoldSID) {
-          println("TODO")
+          val (sid,_) = Benchmarking.getSidFromFile(file)
+          println(SID.unfold(sid, unfoldLimit, returnReducedOnly).mkString("\n"))
         } else {
           println("Terminating with unspecified task.")
         }

@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.heapautomata.HeapAutomataSafeModeEnabled
-import at.forsyte.harrsh.seplog.{MapBasedRenaming, Renaming, Var}
+import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, Renaming, Var}
 import at.forsyte.harrsh.seplog.Var._
 import com.typesafe.scalalogging.LazyLogging
 
@@ -64,6 +64,37 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV :
     })
 
     SymbolicHeap(pure map (_.renameVars(extendedF)), spatial map (_.renameVars(extendedF)), numFV, qvarsRenamed)
+  }
+
+  def instantiateFVs(args : Seq[PtrExpr]): SymbolicHeap = {
+    // Rename the free variables of SH to the actual arguments of the predicate calls,
+    // i.e. replace the i-th FV with the call argument at index i-1
+    val pairs: Seq[(Var, Var)] = ((1 to args.length) map (x => mkVar(x))) zip (args map (_.getVarOrZero))
+    val map: Map[Var, Var] = Map() ++ pairs
+    renameVars(MapBasedRenaming(map))
+  }
+
+  /**
+    * Replaces the predicates calls with the given symbolic heaps, renaming variables as necessary
+    * @param shs
+    */
+  def instantiateCalls(shs : Seq[SymbolicHeap]): SymbolicHeap = {
+    if (shs.length != predCalls.length) {
+      throw new IllegalArgumentException("Trying to replace " + predCalls.length + " calls with " + shs.length + " symbolic heaps")
+    }
+
+    val stateHeapPairs = predCalls zip shs
+    val renamedHeaps : Seq[SymbolicHeap] = stateHeapPairs map {
+      case (call, heap) =>
+        heap.instantiateFVs(call.args)
+    }
+    val shFiltered = this.withoutCalls
+    //    logger.debug("Filtered heap: " + shFiltered)
+    //    logger.debug("State-heap pairs: " + stateHeapPairs.mkString("\n"))
+    //    logger.debug("Renamed heaps:" + renamedHeaps.mkString("\n"))
+    val combined = SymbolicHeap.combineAllHeaps(shFiltered +: renamedHeaps)
+    combined
+
   }
 
 }
