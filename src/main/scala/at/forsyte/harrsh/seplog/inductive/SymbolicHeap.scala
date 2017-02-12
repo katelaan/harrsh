@@ -21,7 +21,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV :
   override final def toString = toStringWithVarNames(DefaultNaming)
 
   def toStringWithVarNames(naming: VarNaming): String = {
-    val prefix = boundVars map naming map ("\u2203"+_) mkString " "
+    val prefix = (boundVars map naming map ("\u2203"+_)).sorted.mkString(" ")
     val spatialString = spatial.map(_.toStringWithVarNames(naming)).mkString(" * ")
     val pureString = if (pure.isEmpty) "" else pure.map(_.toStringWithVarNames(naming)).mkString(" : {", ", ", "}")
     prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString //+ " [" + numFV + "/" + boundVars.size + "]"
@@ -127,7 +127,7 @@ object SymbolicHeap extends LazyLogging {
 
   @tailrec
   private def combineAllHeapsAcc(heaps : Seq[SymbolicHeap], acc : SymbolicHeap) : SymbolicHeap = if (heaps.isEmpty) acc else {
-    val comb = combineHeaps(heaps.head, acc)
+    val comb = combineHeaps(acc, heaps.head)
     combineAllHeapsAcc(heaps.tail, comb)
   }
 

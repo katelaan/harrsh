@@ -16,6 +16,8 @@ class DefaultSIDParserTest extends HarrshTableTest {
     ("parser", "input", "result"),
     (parseRule, "sll <= emp : {x1 = x2}", Success),
     (parseRule, "sll <= x1 -> y * sll(y,x2)", Success),
+    (parseRule, "dll <= emp : { x1 = x3, x2 = x4 }", Success),
+    (parseRule, "dll <= x1 -> (u,x2) * dll(u,x1,x3,x4)", Success),
     (parseSID, fullExample, Success),
     (parseSID, fullExample2, Success)
   )

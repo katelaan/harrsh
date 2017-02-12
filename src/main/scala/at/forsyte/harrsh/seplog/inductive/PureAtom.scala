@@ -31,7 +31,7 @@ sealed trait PureAtom extends SepLogAtom with SlexLogging {
 }
 
 case class True() extends PureAtom {
-  override def toStringWithVarNames(names: VarNaming): String = ???
+  override def toStringWithVarNames(names: VarNaming): String = "true"
 }
 
 case class PtrEq(l : PtrExpr, r : PtrExpr) extends PureAtom {

@@ -27,8 +27,8 @@ object DefaultSIDParser extends SIDParser {
 
   def parseRule : Parser[Rule] = parseHead ~ ("<=" ~> parseBody) ^^ {
     case head ~ body =>
-      // TODO Do variable ordering in SID parsing?
-      val (freeVars,boundVars) = body.getVars.toSeq.partition(isFV)
+      val (freeVarsUnsorted,boundVarsUnsorted) = body.getVars.toSeq.partition(isFV)
+      val (freeVars,boundVars) = (freeVarsUnsorted.sorted, boundVarsUnsorted.sorted)
 
       val naming : VarUnNaming = mkUnNaming(freeVars, boundVars)
 
