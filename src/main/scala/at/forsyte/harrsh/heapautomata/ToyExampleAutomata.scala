@@ -41,5 +41,34 @@ object ToyExampleAutomata {
 
   }
 
+  lazy val EvenAutomaton = moduloAutomaton(0,2)
+
+  def moduloAutomaton(remainder : Int, divisor : Int) = new HeapAutomaton with SlexLogging {
+
+    override val description: String = "Has " + remainder + " mod " + divisor + " pointers"
+
+    override type State = Int
+
+    override val states: Set[State] = Set() ++ (0 until divisor)
+
+    override def isFinal(s: State): Boolean = s == remainder
+
+    // No restrictions regarding the SH
+    override def doesAlphabetContain(lab: SymbolicHeap): Boolean = true
+
+    override def isTransitionDefined(src: Seq[State], trg: State, lab: SymbolicHeap): Boolean = {
+      val sum = (src.sum + lab.pointers.size) % divisor
+      val res = sum == trg
+      logger.debug("Transition " + src.mkString(", ") + "--[" + lab + "]-->" + trg + " : " + res)
+      res
+    }
+
+    override def implementsTargetComputation: Boolean = true
+
+    override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
+      Set((src.sum + lab.pointers.size) % divisor)
+    }
+
+  }
 
 }

@@ -11,6 +11,7 @@ sealed trait AutomatonTask {
 
   def getAutomaton(numFV : Int) : HeapAutomaton = this match {
     case RunHasPointer() => ToyExampleAutomata.HasPointerAutomaton
+    case RunModulo(remainder : Int, divisor : Int) => ToyExampleAutomata.moduloAutomaton(remainder, divisor)
     case RunTracking(alloc, pure) => TrackingAutomata.singleTargetStateTracking(numFV, alloc, pure)
     case RunSat() => TrackingAutomata.satAutomaton(numFV)
     case RunUnsat() => TrackingAutomata.unsatAutomaton(numFV)
@@ -23,18 +24,20 @@ sealed trait AutomatonTask {
 
   override def toString = this match {
     case RunHasPointer() => "HASPTR"
+    case RunModulo(remainder : Int, divisor : Int) => "MOD[" + remainder + "," + divisor + "]"
     case RunSat() => "SAT"
     case RunUnsat() => "UNSAT"
     case RunEstablishment() => "EST"
     case RunNonEstablishment() => "NON-EST"
     case RunGarbageFreedom() => "GF"
     case RunAcyclicity() => "ACYC"
-    case RunReachability(from, to) => "REACH(" + from + "," + to + ")"
-    case RunTracking(alloc, pure) => "TRACK(" + alloc.mkString(",") + ")"
+    case RunReachability(from, to) => "REACH[" + from + "," + to + "]"
+    case RunTracking(alloc, pure) => "TRACK[" + alloc.mkString(",") + "]"
   }
 
   def resultToString(isEmpty : Boolean) : String = this match {
     case RunHasPointer() => if (isEmpty) "no alloc" else "alloc"
+    case RunModulo(remainder : Int, divisor : Int) => "#ptr " + (if (isEmpty) "!= " else "== ") + remainder + "%" + divisor
     case RunTracking(alloc, pure) => if (isEmpty) "no target" else "target"
     case RunSat() => if (isEmpty) "unsat" else "sat"
     case RunUnsat() => if (isEmpty) "sat" else "unsat"
@@ -48,6 +51,8 @@ sealed trait AutomatonTask {
 }
 
 case class RunHasPointer() extends AutomatonTask
+
+case class RunModulo(remainder : Int, divisor : Int) extends AutomatonTask
 
 case class RunTracking(alloc : Set[Var], pure : Set[PureAtom]) extends AutomatonTask
 
@@ -67,16 +72,34 @@ case class RunAcyclicity() extends AutomatonTask
 
 object AutomatonTask {
 
+  // TODO Clean this up a little bit. Is getting very long + somewhat repetitive
   def fromString(s : String) : Option[AutomatonTask] = s match {
     case "SAT" => Some(RunSat())
     case "UNSAT" => Some(RunUnsat())
     case "HASPTR" => Some(RunHasPointer())
+    case "EVEN" => Some(RunModulo(0,2))
+    case "ODD" => Some(RunModulo(1,2))
     case "EST" => Some(RunEstablishment())
     case "NON-EST" => Some(RunNonEstablishment())
     case "ACYC" => Some(RunAcyclicity())
     case "GF" => Some(RunGarbageFreedom())
     case other =>
-      if ((other.startsWith("REACH(") && other.endsWith(")")) || (other.startsWith("REACH[") && other.endsWith("]"))) {
+      if ((other.startsWith("MOD(") && other.endsWith(")")) || (other.startsWith("MOD[") && other.endsWith("]"))) {
+        val params = other.drop(4).init.split(",")
+        if (params.size == 2) {
+          try {
+            val remainder = Integer.parseInt(params(0))
+            val divisor = Integer.parseInt(params(1))
+            Some(RunModulo(remainder,divisor))
+          } catch {
+            case e : Exception =>
+              println("Could not parse modulo task: " + e.getMessage)
+              None
+          }
+        } else None
+      }
+
+      else if ((other.startsWith("REACH(") && other.endsWith(")")) || (other.startsWith("REACH[") && other.endsWith("]"))) {
         val params = other.drop(6).init.split(",")
         //println(s + " => " + params.mkString(" : "))
 
