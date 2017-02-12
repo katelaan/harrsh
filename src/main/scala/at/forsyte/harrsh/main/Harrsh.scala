@@ -4,6 +4,7 @@ import java.io.FileNotFoundException
 
 import at.forsyte.harrsh.heapautomata.{AutomatonTask, RefinementAlgorithms, RunSat}
 import at.forsyte.harrsh.seplog.inductive.SID
+import at.forsyte.harrsh.util.IOUtils
 
 import scala.concurrent._
 import scala.concurrent.duration.{Duration, SECONDS}
@@ -13,6 +14,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
   * Created by jens on 10/19/16.
   */
 object Harrsh {
+
+  val PreviousSidFileName = "LAST"
 
   def main(args : Array[String]) = {
     var success : Boolean = false
@@ -81,12 +84,14 @@ object Harrsh {
           sid match {
             case Some(vsid) =>
               println(vsid)
+              IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(vsid))
             case None =>
               println("Refinement failed.")
           }
         } else if (showSID) {
           val (sid,_) = Benchmarking.getSidFromFile(file)
           println(sid)
+          IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(sid))
         } else if (unfoldSID) {
           val (sid,_) = Benchmarking.getSidFromFile(file)
           println(SID.unfold(sid, unfoldLimit, returnReducedOnly).mkString("\n"))
@@ -139,7 +144,7 @@ object Harrsh {
   private def printUsage() = {
     println("This is HARRSH. Usage:")
     println()
-    println("Batch / becnhmarking mode:")
+    println("Batch / benchmarking mode:")
     println("  --batch <relative-path-to-file-with-list-of-tasks>          batch benchmarking")
     println()
     println("Refinement mode:")

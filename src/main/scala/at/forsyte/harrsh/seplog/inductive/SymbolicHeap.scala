@@ -133,4 +133,11 @@ object SymbolicHeap extends LazyLogging {
 
   val empty = SymbolicHeap(Seq())
 
+  def toHarrshFormat(sh : SymbolicHeap, naming : VarNaming) : String = {
+    // TODO This is somewhat redundant wrt ordinary string conversion
+    val spatialString = sh.spatial.map(_.toStringWithVarNames(naming)).mkString(" * ")
+    val pureString = if (sh.pure.isEmpty) "" else sh.pure.map(_.toStringWithVarNames(naming)).mkString(" : {", ", ", "}")
+    spatialString.replaceAll("\u21a6", "->") ++ pureString.replaceAll("\u2248", "=").replaceAll("\u2249", "!=")
+  }
+
 }

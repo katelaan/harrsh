@@ -49,4 +49,14 @@ object SID {
     }
   }
 
+  def toHarrshFormat(sid : SID) : Seq[String] = {
+    val (start, rest) = sid.rules.partition(_.head == sid.startPred)
+    val rulesWithStartFirst : Seq[Rule] = start.toSeq ++ rest
+    val undelimitedLines = for {
+      rule <- rulesWithStartFirst
+      sh = rule.body
+    } yield rule.head + " <= " + SymbolicHeap.toHarrshFormat(sh, DefaultNaming)
+    undelimitedLines.init.map(_ + " ;") :+ undelimitedLines.last
+  }
+
 }
