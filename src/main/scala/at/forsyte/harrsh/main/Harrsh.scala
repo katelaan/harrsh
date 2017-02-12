@@ -31,12 +31,19 @@ object Harrsh {
     var help : Boolean = parseSwitch("--help", "-h")
 
     var file : String = parseSwitchWithArg("--batch", "-b", "", setSuccess = true)
-    val runBatch = if (!file.isEmpty) {
-      true
-    } else {
+    val runBatch = !file.isEmpty
+
+    if (file.isEmpty)
       file = parseSwitchWithArg("--refine", "-r", "", setSuccess = true)
-      false
-    }
+    val runRefinement = !file.isEmpty
+
+    if (file.isEmpty)
+      file = parseSwitchWithArg("--show", "-s", "", setSuccess = true)
+    val showSID = !file.isEmpty
+
+    if (file.isEmpty)
+      file = parseSwitchWithArg("--unfold", "-u", "", setSuccess = true)
+    val unfoldSID = !file.isEmpty
 
     val propertyString = parseSwitchWithArg("--prop", "-p", "SAT")
     val prop = AutomatonTask.fromString(propertyString).getOrElse(RunSat())
@@ -45,9 +52,17 @@ object Harrsh {
     val timeout = tryParseAsInt(timeoutString) match {
                     case Some(i) =>  Duration(i, SECONDS)
                     case None =>
-                      println("Could not parse '" + args(3) + "' as timeout. Please pass a positive integer (denoting the timeout in seconds)")
+                      println("Could not parse argument to --timeout. Please pass a positive integer (denoting the timeout in seconds)")
                       Benchmarking.DefaultTimeout
                   }
+
+    val unfoldString : String = parseSwitchWithArg("--limit", "-l", "3")
+    val unfoldLimit = tryParseAsInt(unfoldString) match {
+      case Some(i) =>  i
+      case None =>
+        println("Could not parse argument to --limit. Please pass a positive integer (denoting the maximum unfolding depth)")
+        Benchmarking.DefaultTimeout
+    }
 
     val verbose = parseSwitch("--verbose", "-v")
     val reportProgress = parseSwitch("--showprogress", "-sp")
@@ -58,8 +73,7 @@ object Harrsh {
       try {
         if (runBatch) {
             Benchmarking.runBenchmarkFile(file, timeout, verbose = verbose, reportProgress = reportProgress)
-        } else {
-
+        } else if (runRefinement) {
           println("Will refine SID definition in file " + file + " by " + prop)
           val sid = refineSID(file, prop, timeout, reportProgress = reportProgress)
           sid match {
@@ -68,6 +82,12 @@ object Harrsh {
             case None =>
               println("Refinement failed.")
           }
+        } else if (showSID) {
+          println("TODO")
+        } else if (unfoldSID) {
+          println("TODO")
+        } else {
+          println("Terminating with unspecified task.")
         }
       } catch {
         case e : Throwable =>

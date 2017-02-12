@@ -24,7 +24,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV :
     val prefix = boundVars map naming map ("\u2203"+_) mkString " "
     val spatialString = spatial.map(_.toStringWithVarNames(naming)).mkString(" * ")
     val pureString = if (pure.isEmpty) "" else pure.map(_.toStringWithVarNames(naming)).mkString(" : {", ", ", "}")
-    prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString + " [" + numFV + "/" + boundVars.size + "]"
+    prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString //+ " [" + numFV + "/" + boundVars.size + "]"
   }
 
   lazy val hasPointer: Boolean = spatial.exists(_.isInstanceOf[PointsTo])

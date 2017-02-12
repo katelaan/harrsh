@@ -76,7 +76,7 @@ object AutomatonTask {
     case "ACYC" => Some(RunAcyclicity())
     case "GF" => Some(RunGarbageFreedom())
     case other =>
-      if (other.startsWith("REACH(") && other.endsWith(")")) {
+      if ((other.startsWith("REACH(") && other.endsWith(")")) || (other.startsWith("REACH[") && other.endsWith("]"))) {
         val params = other.drop(6).init.split(",")
         //println(s + " => " + params.mkString(" : "))
 
@@ -92,7 +92,7 @@ object AutomatonTask {
         } else None
       }
 
-      else if (other.startsWith("TRACK(") && other.endsWith(")")) {
+      else if ((other.startsWith("TRACK(") && other.endsWith(")")) || (other.startsWith("TRACK[") && other.endsWith("]"))) {
         val params = other.drop(6).init.split(",")
         //println(s + " => " + params.mkString(" : "))
 
