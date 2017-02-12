@@ -31,22 +31,24 @@ object Harrsh {
       } else default
     }
 
-    var help : Boolean = parseSwitch("--help", "-h")
+    var file : String = ""
 
-    var file : String = parseSwitchWithArg("--batch", "-b", "", setSuccess = true)
-    val runBatch = !file.isEmpty
+    def tryParseFileArg(long : String, short : String) : Boolean = {
+      if (file.isEmpty) {
+        file = parseSwitchWithArg(long, short, "", setSuccess = true)
+        !file.isEmpty
+      } else {
+        false
+      }
+    }
 
-    if (file.isEmpty)
-      file = parseSwitchWithArg("--refine", "-r", "", setSuccess = true)
-    val runRefinement = !file.isEmpty
+    val help : Boolean = parseSwitch("--help", "-h")
 
-    if (file.isEmpty)
-      file = parseSwitchWithArg("--show", "-s", "", setSuccess = true)
-    val showSID = !file.isEmpty
-
-    if (file.isEmpty)
-      file = parseSwitchWithArg("--unfold", "-u", "", setSuccess = true)
-    val unfoldSID = !file.isEmpty
+    val runBatch = tryParseFileArg("--batch", "-b")
+    val runRefinement = tryParseFileArg("--refine", "-r")
+    val decideProp = tryParseFileArg("--decide", "-d")
+    val showSID = tryParseFileArg("--show", "-s")
+    val unfoldSID = tryParseFileArg("--unfold", "-u")
 
     val propertyString = parseSwitchWithArg("--prop", "-p", "SAT")
     val prop = AutomatonTask.fromString(propertyString).getOrElse(RunSat())
@@ -77,8 +79,10 @@ object Harrsh {
     } else {
       try {
         if (runBatch) {
-            Benchmarking.runBenchmarkFile(file, timeout, verbose = verbose, reportProgress = reportProgress)
+          // Batch mode
+          Benchmarking.runBenchmarkFile(file, timeout, verbose = verbose, reportProgress = reportProgress)
         } else if (runRefinement) {
+          // Refinement mode
           println("Will refine SID definition in file " + file + " by " + prop)
           val sid = refineSID(file, prop, timeout, reportProgress = reportProgress)
           sid match {
@@ -88,14 +92,21 @@ object Harrsh {
             case None =>
               println("Refinement failed.")
           }
+        } else if (decideProp) {
+          // Decision procedure mode
+          val task = TaskConfig(file, prop, None)
+          Benchmarking.runBenchmarks(Seq(task), timeout, verbose, reportProgress)
         } else if (showSID) {
+          // Print mode
           val (sid,_) = Benchmarking.getSidFromFile(file)
           println(sid)
           IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(sid))
         } else if (unfoldSID) {
+          // Unfold mode
           val (sid,_) = Benchmarking.getSidFromFile(file)
           println(SID.unfold(sid, unfoldLimit, returnReducedOnly).mkString("\n"))
         } else {
+          // Unknown task
           println("Terminating with unspecified task.")
         }
       } catch {
@@ -144,11 +155,20 @@ object Harrsh {
   private def printUsage() = {
     println("This is HARRSH. Usage:")
     println()
+    println("Refinement mode:")
+    println("  --refine <relative-path-to-sid-file> --prop <property>      refine sid by prop")
+    println()
+    println("Decision procedure mode:")
+    println("  --decide <relative-path-to-sid-file> --prop <property>   check if sid has prop")
+    println()
     println("Batch / benchmarking mode:")
     println("  --batch <relative-path-to-file-with-list-of-tasks>          batch benchmarking")
     println()
-    println("Refinement mode:")
-    println("  --refine <relative-path-to-sid-file> --prop <property>      refine sid by prop")
+    println("Exploration mode:")
+    println("  --refine <relative-path-to-sid-file>                      print sid to std out")
+    println("  --unfold <relative-path-to-sid-file>     generate all unfoldings of the sid...")
+    println("     [--depth <depth>]                    ...up to depth <depth> (default: 3)...")
+    println("     [--reduced]                          ...showing only reduced symbolic heaps")
     println()
     println("Optional arguments:")
     println("  --timeout <timeout in s                                       optional timeout")

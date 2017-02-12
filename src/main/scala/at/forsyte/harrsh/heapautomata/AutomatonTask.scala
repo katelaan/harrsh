@@ -38,12 +38,12 @@ sealed trait AutomatonTask {
   def resultToString(isEmpty : Boolean) : String = this match {
     case RunHasPointer() => if (isEmpty) "no alloc" else "alloc"
     case RunModulo(remainder : Int, divisor : Int) => "#ptr " + (if (isEmpty) "!= " else "== ") + remainder + "%" + divisor
-    case RunTracking(alloc, pure) => if (isEmpty) "no target" else "target"
-    case RunSat() => if (isEmpty) "unsat" else "sat"
-    case RunUnsat() => if (isEmpty) "sat" else "unsat"
+    case RunTracking(alloc, pure) => if (isEmpty) "no target unf." else "ex. target unf."
+    case RunSat() => if (isEmpty) "all unsat" else "ex. sat"
+    case RunUnsat() => if (isEmpty) "all sat" else "ex. unsat"
     case RunEstablishment() => if (isEmpty) "all non-est." else "ex. est."
     case RunNonEstablishment() => if (isEmpty) "all est." else "ex. non-est"
-    case RunReachability(from, to) => if (isEmpty) "unreach" else "reach"
+    case RunReachability(from, to) => if (isEmpty) "all unreach" else "ex. reach"
     case RunGarbageFreedom() => if (isEmpty) "all garbage" else "ex. garbage-free"
     case RunAcyclicity() => if (isEmpty) "all cyclic" else "ex. weak. acyc."
   }

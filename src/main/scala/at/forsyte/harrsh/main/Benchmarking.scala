@@ -38,6 +38,7 @@ object Benchmarking extends SlexLogging {
   }
 
   def generateAndPrintTasks() = {
+    // Auto-generate benchmark suite
     println(generateTasks() map (_.toString) mkString ("\n"))
   }
 
@@ -101,7 +102,7 @@ object Benchmarking extends SlexLogging {
     writeFile(ResultFile, preamble + header + resultLines + ending)
   }
 
-  private def runBenchmarks(tasks : Seq[TaskConfig], timeout : Duration = DefaultTimeout, verbose : Boolean, reportProgress : Boolean): Unit = {
+  def runBenchmarks(tasks : Seq[TaskConfig], timeout : Duration = DefaultTimeout, verbose : Boolean, reportProgress : Boolean): Unit = {
 
     val globalStartTime = System.currentTimeMillis()
     var analysisTime : Long = 0
@@ -144,25 +145,31 @@ object Benchmarking extends SlexLogging {
     }
 
     val globalEndTime = System.currentTimeMillis()
-    println()
-    printLinesOf('#', 2)
-    println("FINISHED BENCHMARK SUITE")
-    printLinesOf('#', 2)
-    println()
 
-    printBenchmarkResults(results.reverse)
+    if (tasks.size > 1) {
+      // Print statistics of benchmark suite
+      println()
+      printLinesOf('#', 2)
+      println("FINISHED BENCHMARK SUITE")
+      printLinesOf('#', 2)
+      println()
 
-    println()
-    val totalTime = globalEndTime-globalStartTime
-    val summary = ("Completed number of benchmarks: " + (tasks.size - numTimeouts) + " / " + tasks.size + "\n" +
+      printBenchmarkResults(results.reverse)
+
+      println()
+      val totalTime = globalEndTime - globalStartTime
+      val summary = ("Completed number of benchmarks: " + (tasks.size - numTimeouts) + " / " + tasks.size + "\n" +
         "Timeout (TO):             " + timeout.toMillis + " ms\n"
-      + "Total time:               " + totalTime + " ms\n"
-      + "Analysis time (with TOs): " + (analysisTime+timeout.toMillis*numTimeouts) + " ms\n"
-      + "Analysis time (w/o TOs):  " + analysisTime + " ms")
-    println(summary)
-    println()
-    println("Will write results to " + ResultFile)
-    writeLatexFile(results.reverse, summary)
+        + "Total time:               " + totalTime + " ms\n"
+        + "Analysis time (with TOs): " + (analysisTime + timeout.toMillis * numTimeouts) + " ms\n"
+        + "Analysis time (w/o TOs):  " + analysisTime + " ms")
+      println(summary)
+      println()
+      println("Will write results to " + ResultFile)
+      writeLatexFile(results.reverse, summary)
+    } else {
+      printBenchmarkResults(results)
+    }
 
   }
 
