@@ -166,9 +166,11 @@ object Benchmarking extends SlexLogging {
 
   }
 
-  def prepareBenchmark(task : TaskConfig) : (SID, HeapAutomaton) = {
-
-    val parser = if (task.fileName.endsWith(CyclistSuffix)) {
+  /*
+   * Returns SID + number of free variables
+   */
+  def getSidFromFile(fileName : String) : (SID, Int) = {
+    val parser = if (fileName.endsWith(CyclistSuffix)) {
       logger.debug("File ends in .defs, will assume cyclist format")
       CyclistSIDParser.run _
     } else {
@@ -176,16 +178,20 @@ object Benchmarking extends SlexLogging {
       DefaultSIDParser.run _
     }
 
-    val content = readFile(task.fileName)
+    val content = readFile(fileName)
 
     parser(content) match {
       case Some((sid,numFV)) =>
-        (sid, task.decisionProblem.getAutomaton(numFV))
+        (sid, numFV)
       case None =>
         println("Parsing failed, exiting")
-        throw new Exception("Parsing failed during benchmark run for task " + task)
+        throw new Exception("Parsing of file '" + fileName + "'failed")
     }
+  }
 
+  def prepareBenchmark(task : TaskConfig) : (SID, HeapAutomaton) = {
+    val (sid,numFV) = getSidFromFile(task.fileName)
+    (sid, task.decisionProblem.getAutomaton(numFV))
   }
 
   private def generateTasks() =

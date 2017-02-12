@@ -83,7 +83,8 @@ object Harrsh {
               println("Refinement failed.")
           }
         } else if (showSID) {
-          println("TODO")
+          val (sid,_) = Benchmarking.getSidFromFile(file)
+          println(sid)
         } else if (unfoldSID) {
           println("TODO")
         } else {
