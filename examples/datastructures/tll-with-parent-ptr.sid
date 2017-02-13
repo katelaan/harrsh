@@ -1,0 +1,3 @@
+# Trees with linked leaves and parent pointer
+tllwp <= x1 -> (nil, nil, x3, x4) : { x1 = x2 } ;
+tllwp <= x1 -> (l, r, nil, x4) * tllwp(l, x2, z, x1) * tllwp(r, z, x3, x1)
