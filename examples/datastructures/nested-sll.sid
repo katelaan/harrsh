@@ -1,0 +1,7 @@
+# Nested singly-linked list of singly-linked lists
+sll_of_sll <= emp : {x1 = x2} ;
+sll_of_sll <= x1 -> (y, h) * sll(h, null) * sll_of_sll(y, x2) ;
+
+# Singly-linked lists
+sll <= emp : {x1 = x2} ;
+sll <= x1 -> y * sll(y,x2)

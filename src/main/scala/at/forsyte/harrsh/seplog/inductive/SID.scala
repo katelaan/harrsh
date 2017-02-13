@@ -1,5 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
+import java.util.NoSuchElementException
+
 import at.forsyte.harrsh.seplog.{PtrExpr, PtrVar, Var}
 import at.forsyte.harrsh.util.Combinators
 
@@ -30,7 +32,14 @@ object SID {
     val initialArgs : Seq[PtrExpr] = (1 to sid.arityOfStartPred) map (i => PtrVar(Var.mkVar(i)).asInstanceOf[PtrExpr])
     val initial = SymbolicHeap(Seq(PredCall(sid.startPred, initialArgs)))
 
-    val unfolded = unfoldStep(predsToBodies, Seq(), Seq(initial), depth)
+    val unfolded = try {
+      unfoldStep(predsToBodies, Seq(), Seq(initial), depth)
+    } catch {
+      case e : NoSuchElementException =>
+        println("Aborting. The SID appears to contain undefined predicates: " + e.getMessage)
+        Seq()
+    }
+
     if (reducedOnly) unfolded.filter(_.predCalls.isEmpty) else unfolded
   }
 

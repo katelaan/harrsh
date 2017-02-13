@@ -37,7 +37,7 @@ sealed trait AutomatonTask {
 
   def resultToString(isEmpty : Boolean) : String = this match {
     case RunHasPointer() => if (isEmpty) "no alloc" else "alloc"
-    case RunModulo(remainder : Int, divisor : Int) => "#ptr " + (if (isEmpty) "!= " else "== ") + remainder + "%" + divisor
+    case RunModulo(remainder : Int, divisor : Int) => (if (isEmpty) "all" else "ex.") + " #ptr " + (if (isEmpty) "!= " else "== ") + remainder + "%" + divisor
     case RunTracking(alloc, pure) => if (isEmpty) "no target unf." else "ex. target unf."
     case RunSat() => if (isEmpty) "all unsat" else "ex. sat"
     case RunUnsat() => if (isEmpty) "all sat" else "ex. unsat"

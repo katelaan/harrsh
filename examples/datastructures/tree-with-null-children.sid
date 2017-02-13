@@ -1,0 +1,4 @@
+# Null-terminated trees
+tree <= x1 -> (nil, nil) ;
+tree <= emp : { x1 = nil } ;
+tree <= x1 -> (y, z) * tree(y) * tree(z)

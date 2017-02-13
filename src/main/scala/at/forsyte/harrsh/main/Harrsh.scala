@@ -111,9 +111,10 @@ object Harrsh {
         }
       } catch {
         case e : Throwable =>
-          println("Terminating with " + e.getClass.toString + " (Message: " + e.getMessage + ")")
+          println("Terminating with exception: " + e.getMessage)
           // TODO Only do this in debug mode
-          throw e
+          //println("Terminating with " + e.getClass.toString + " (Message: " + e.getMessage + ")")
+          //throw e
       }
     }
   }
