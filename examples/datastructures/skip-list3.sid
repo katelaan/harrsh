@@ -1,0 +1,11 @@
+# 3-level skip list
+# (adapted from Enea et al.: "Compositional Entailment Checking for a Fragment of Separation Logic")
+
+skl3 <= emp : { x1 = x2 } ;
+skl3 <= x1 -> (y, z, w) * skl1(w, z) * skl2(z, y) * skl3(y, x2) : {x1 != x2} ;
+
+skl2 <= emp : { x1 = x2 } ;
+skl2 <= x1 -> (null, y, z) * skl1(z, y) * skl2(y, x2) : {x1 != x2} ;
+
+skl1 <= emp : { x1 = x2 } ;
+skl1 <= x1 -> (null, null, y) * skl1(y, x2) : {x1 != x2}
