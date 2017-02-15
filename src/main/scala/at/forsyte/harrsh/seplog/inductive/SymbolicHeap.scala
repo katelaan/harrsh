@@ -1,9 +1,9 @@
 package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.heapautomata.HeapAutomataSafeModeEnabled
+import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, Renaming, Var}
 import at.forsyte.harrsh.seplog.Var._
-import com.typesafe.scalalogging.LazyLogging
 
 import scala.annotation.tailrec
 
@@ -83,10 +83,13 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV :
       throw new IllegalArgumentException("Trying to replace " + predCalls.length + " calls with " + shs.length + " symbolic heaps")
     }
 
+    //logger.debug("Instantiating calls in " + this + " with SHs " + shs.mkString(", "))
     val stateHeapPairs = predCalls zip shs
     val renamedHeaps : Seq[SymbolicHeap] = stateHeapPairs map {
       case (call, heap) =>
-        heap.instantiateFVs(call.args)
+        /*val res =*/ heap.instantiateFVs(call.args)
+        //logger.debug("Unfolding call " + call + ": Instantiating vars in " + heap + " with " + call.args.mkString("(",",",")") + " yielding " + res)
+        //res
     }
     val shFiltered = this.withoutCalls
     //    logger.debug("Filtered heap: " + shFiltered)
@@ -99,7 +102,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV :
 
 }
 
-object SymbolicHeap extends LazyLogging {
+object SymbolicHeap {
 
   def apply(pure : Seq[PureAtom], spatial: Seq[SpatialAtom]) : SymbolicHeap = {
     val vars = Set.empty ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars)

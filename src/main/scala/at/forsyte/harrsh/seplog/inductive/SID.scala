@@ -2,6 +2,7 @@ package at.forsyte.harrsh.seplog.inductive
 
 import java.util.NoSuchElementException
 
+import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog.{PtrExpr, PtrVar, Var}
 import at.forsyte.harrsh.util.Combinators
 
@@ -15,22 +16,35 @@ case class SID(startPred : String, rules : Set[Rule], description : String = "Un
     description + " (start predicate '" + startPred + "'): " + rules.toSeq.sortBy(_.head).mkString("\n    ", "\n    ", "")
   }
 
-  // TODO Should we record the arity of the predicates explicitly?
-  def arityOfStartPred : Int = rules.filter(_.head == startPred).map(rule => rule.freeVars.size).max
+  // Note that we take the maximum here, because we allow that some of the rules do not mention all FVs (and in particular not the maxFV; see also DefaultSID parser
+  lazy val arityOfStartPred : Int = rules.filter(_.head == startPred).map(rule => rule.freeVars.size).max
 
 }
 
-object SID {
+object SID extends SlexLogging {
 
   def apply(startPred : String, description : String, rules : (String, Seq[String], SymbolicHeap)*) = new SID(startPred, Set()++(rules map Rule.fromTuple), description)
 
   def unfold(sid : SID, depth: Int, reducedOnly : Boolean = false): Seq[SymbolicHeap] = {
 
-    def extractBodies(group : (String,Set[Rule])) = (group._1,group._2 map (_.body))
+    logger.debug("Unfolding sid " + sid)
+
+    //def extractBodies(group : (String,Set[Rule])) = (group._1,group._2 map (_.body))
+    def extractBodies(group : (String,Set[Rule])) = {
+      (group._1,group._2 map (_.body))
+    }
     val predsToBodies : Map[String, Set[SymbolicHeap]] = Map() ++ sid.rules.groupBy(_.head).map(extractBodies _)
 
     val initialArgs : Seq[PtrExpr] = (1 to sid.arityOfStartPred) map (i => PtrVar(Var.mkVar(i)).asInstanceOf[PtrExpr])
     val initial = SymbolicHeap(Seq(PredCall(sid.startPred, initialArgs)))
+
+    logger.debug("Will unfold using the following rules: ")
+    for ((k,vs) <- predsToBodies) {
+      logger.debug("Pred " + k + ":")
+      for (v <- vs) {
+        logger.debug(" * " + v)
+      }
+    }
 
     val unfolded = try {
       unfoldStep(predsToBodies, Seq(), Seq(initial), depth)
@@ -44,6 +58,7 @@ object SID {
   }
 
   private def unfoldStep(predsToBodies: Map[String, Set[SymbolicHeap]], acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int): Seq[SymbolicHeap] = {
+    logger.debug("Currently active instances:" + curr.mkString(", "))
     if (depth == 0) acc ++ curr
     else {
       val allNewInstances = for {

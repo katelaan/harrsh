@@ -1,12 +1,14 @@
 package at.forsyte.harrsh.seplog.parsers
 
+import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive._
 
 /**
   * Created by jkatelaa on 10/20/16.
   */
-object DefaultSIDParser extends SIDParser {
+object DefaultSIDParser extends SIDParser with SlexLogging {
 
   def run(input : String) : Option[(SID,Int)] = {
     val inputWithoutComments = stripCommentLines(input, "#")
@@ -25,14 +27,17 @@ object DefaultSIDParser extends SIDParser {
       (new SID(startPred, rules.toSet, desc), maxNumFV)
   }
 
+  // TODO This is still somewhat brittle, in that the parser does not detect if the largest free variable of this rule is less than the max free var for other rules of the same predicate, thus erroneously assuming an arity that is too low
   def parseRule : Parser[Rule] = parseHead ~ ("<=" ~> parseBody) ^^ {
     case head ~ body =>
       val (freeVarsUnsorted,boundVarsUnsorted) = body.getVars.toSeq.partition(isFV)
       val (freeVars,boundVars) = (freeVarsUnsorted.sorted, boundVarsUnsorted.sorted)
+      val filledFreeVars : Seq[String] = (1 to (freeVars.map(stringToFV).max)) map toDefaultString
 
-      val naming : VarUnNaming = mkUnNaming(freeVars, boundVars)
-
-      Rule(head, freeVars, boundVars, body.replaceStringsByIds(naming))
+      val naming : VarUnNaming = mkUnNaming(filledFreeVars,boundVars) //mkUnNamingFromIncompleteDefaultNames(freeVars, boundVars)
+      val renamedBody = body.replaceStringsByIds(naming)
+      logger.debug("Assembling rule out of head " + head + " and body " + body + " yielding modified body " + renamedBody)
+      Rule(head, filledFreeVars, boundVars, renamedBody)
   }
 
   def parseHead : Parser[String] = ident

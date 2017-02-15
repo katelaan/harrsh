@@ -25,7 +25,6 @@ package object inductive {
   }
 
   def mkUnNaming(freeVars : Seq[String], boundVars : Seq[String]) : VarUnNaming = {
-    // TODO Some code duplication here
     val freeVarNaming = freeVars.zipWithIndex map (p => (p._1,p._2+1))
     val boundVarNaming = boundVars.zipWithIndex map (p => (p._1,-(p._2+1)))
     Map.empty[String, Var] ++ freeVarNaming ++ boundVarNaming
