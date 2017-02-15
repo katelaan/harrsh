@@ -1,0 +1,7 @@
+# Nested singly-linked list of acyclic singly-linked lists
+nlcl <= emp : {x1 = x2} ;
+nlcl <= x1 -> (y, h) * nell(h, h) * nlcl(y, x2) ;
+
+# Possibly cyclic nonempty singly-linked lists
+nell <= x1 -> x2 ;
+nell <= x1 -> y * nell(y,x2)
