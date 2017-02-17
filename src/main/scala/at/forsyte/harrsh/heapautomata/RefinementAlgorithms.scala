@@ -1,22 +1,30 @@
 package at.forsyte.harrsh.heapautomata
 
+import java.io.FileNotFoundException
 import java.text.SimpleDateFormat
 
-import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.main.{Benchmarking, SlexLogging, TaskConfig}
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.{PtrExpr, Var}
 import at.forsyte.harrsh.seplog.inductive.{PredCall, Rule, SID, SymbolicHeap}
 import at.forsyte.harrsh.util.IOUtils
 
 import scala.annotation.tailrec
-
+import scala.concurrent._
+import scala.concurrent.duration.Duration
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by jens on 10/15/16.
   */
 class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
 
-  def refineSID(reportProgress : Boolean) : SID = {
+  /**
+    * Refine the given SID
+    * @param reportProgress Regularly print info about current iteration
+    * @return The refined SID as well as a flag indicating whether it is empty
+    */
+  def refineSID(reportProgress : Boolean) : (SID,Boolean) = {
 
     val (empty, reach) = computeRefinementFixedPoint(sid.startPred, computeFullRefinement = true, reportProgress = reportProgress)(Set(), Set(), 1)
 
@@ -42,15 +50,13 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
 
     if (reachedFinalStates.isEmpty) {
       logger.info("Refined SID is empty")
-      IOUtils.printWarningToConsole("Language of refined SID is empty (no rules for start predicate '" + sid.startPred + "').")
     }
 
-    SID(
+    (SID(
       startPred = sid.startPred,
       rules = innerRules ++ finalRules,
       description = "Refinement of " + sid.description + " with " + ha.description
-    )
-
+    ), reachedFinalStates.isEmpty)
   }
 
   /**
@@ -176,5 +182,103 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
   }
 
   private lazy val dateFormat : SimpleDateFormat = new SimpleDateFormat("hh:mm:ss.SSS");
+
+}
+
+object RefinementAlgorithms {
+
+  def refineSID(file : String, property : AutomatonTask, timeout : Duration, reportProgress : Boolean) : Option[(SID,Boolean)] = {
+
+    val task = TaskConfig(file, property, None)
+    try {
+      val (sid, ha) = Benchmarking.prepareBenchmark(task)
+      refineWithTimeout(timeout, reportProgress, sid, ha)
+    } catch {
+      case e : FileNotFoundException =>
+        println("Could not open file " + file)
+        None
+    }
+  }
+
+  private def refineWithTimeout(timeout: Duration, reportProgress: Boolean, sid: SID, ha: HeapAutomaton): Option[(SID,Boolean)] = {
+    val f: Future[(SID,Boolean)] = Future {
+      new RefinementAlgorithms(sid, ha).refineSID(reportProgress = reportProgress)
+    }
+
+    try {
+      val sid = Await.result(f, timeout)
+      Some(sid)
+    } catch {
+      case e: TimeoutException =>
+        println("reached timeout (" + timeout + ")")
+        None
+    }
+  }
+
+  /**
+    * Task to perform, is refined SID empty (or None if timeout), witness if nonempty
+   */
+  type AnalysisResult = (AutomatonTask, Option[Boolean], Option[SymbolicHeap])
+
+  def performFullAnalysis(sid: SID, numFV : Int, timeout: Duration): Unit = {
+
+    val tasks : Seq[AutomatonTask] = Seq(RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunMayHaveGarbage(), RunGarbageFreedom(), RunWeakAcyclicity(), RunStrongCyclicity())
+
+    println("Beginning analysis...")
+    val results : Seq[AnalysisResult] = for (task <- tasks) yield analyze(task, sid, numFV, timeout)
+    println("Finished analysis.")
+    println()
+
+    val shCol : Int = Math.max(40, results.map(_._3.toString.length).max - 5)
+    val cols = Seq(20,20,shCol)
+    val delimLine = IOUtils.delimLine(cols)
+    val headings = Seq("Property", "Result", "Witness")
+
+    // TODO Abstract printing result tables into its own function? (Compare Benchmarking.printBenchmarkResults)
+    println("Analysis results for: " + sid)
+    println()
+
+    println(delimLine)
+    println(IOUtils.inColumns(headings zip cols))
+    println(delimLine)
+    for ((task, res, witness) <- results) {
+      val entries : Seq[String] = Seq( task.toString, res.map(task.resultToString(_)).getOrElse("TO"), witness.map(_.toString).getOrElse("-") )
+      println(IOUtils.inColumns(entries zip cols))
+    }
+    println(delimLine)
+
+  }
+
+  private def firstSatisfyingUnfolding(sid : SID) : SymbolicHeap = {
+
+    // TODO This is an extremely inefficient way to implement this functionality; we should at least short circuit the unfold process upon finding an RSH, or better, implement the obvious linear time algorithm for generating the minimal unfolding
+    def unfoldAndGetFirst(depth : Int) : SymbolicHeap = SID.unfold(sid, depth, true).headOption match {
+      case None => unfoldAndGetFirst(depth+1)
+      case Some(sh) => sh
+    }
+
+    unfoldAndGetFirst(1)
+  }
+
+  private def analyze(task : AutomatonTask, sid : SID, numFV : Int, timeout : Duration) : AnalysisResult = {
+    val refined = refineWithTimeout(timeout, false, sid, task.getAutomaton(numFV))
+    refined match {
+      case None =>
+        println(task + " did not finish within timeout (" + timeout.toSeconds + "s)")
+        (task, None, None)
+      case Some((refinedSid,empty)) =>
+        println("Finished " + task + ": " + task.resultToString(empty))
+
+        val witness : Option[SymbolicHeap] = if (!empty) {
+          val w = firstSatisfyingUnfolding(refinedSid)
+          //println("Witness: " + w)
+          Some(w)
+        } else {
+          None
+        }
+
+        (task, Some(empty), witness)
+    }
+  }
 
 }

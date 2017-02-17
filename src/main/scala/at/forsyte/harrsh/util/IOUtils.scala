@@ -50,4 +50,7 @@ object IOUtils {
     for (_ <- 1 to numLines) println(s * 80)
   }
 
+  def inColumns(cols : Seq[(String,Int)]) : String = if (cols.isEmpty) "|" else "|" + (" "*(Math.max(0,cols.head._2 - cols.head._1.length))) + cols.head._1 + inColumns(cols.tail)
+  def delimLine(cols : Seq[Int]) = "+" + "-"*(cols.sum+cols.size-1) + "+"
+
 }

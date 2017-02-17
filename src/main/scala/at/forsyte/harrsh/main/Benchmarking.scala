@@ -7,6 +7,7 @@ import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.seplog.parsers.{CyclistSIDParser, DefaultSIDParser}
 import at.forsyte.harrsh.util.IOUtils._
 import at.forsyte.harrsh.seplog.Var._
+import at.forsyte.harrsh.util.IOUtils
 
 import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration.Duration
@@ -29,6 +30,7 @@ object Benchmarking extends SlexLogging {
 
   type Result = (Boolean,Long)
 
+  // Uncomment & run this class to generate benchmark suites
   //def main(args : Array[String]) = generateAndPrintTasks()
 
   def runBenchmarkFile(file : String, timeout : Duration = DefaultTimeout, verbose : Boolean = false, reportProgress : Boolean = false) = {
@@ -68,18 +70,15 @@ object Benchmarking extends SlexLogging {
 
   private def printBenchmarkResults(results: List[(TaskConfig, Result)]): Unit = {
 
-    def inColumns(cols : Seq[(String,Int)]) : String = if (cols.isEmpty) "|" else "|" + (" "*(Math.max(0,cols.head._2 - cols.head._1.length))) + cols.head._1 + inColumns(cols.tail)
-
     val cols = Seq(30,20,20,10)
-
-    val delimLine = "+" + "-"*(cols.sum+cols.size-1) + "+"
+    val delimLine = IOUtils.delimLine(cols)
 
     println(delimLine)
-    println(inColumns(headings zip cols))
+    println(IOUtils.inColumns(headings zip cols))
     println(delimLine)
     for ( (task,res) <- results ) {
       val entries : Seq[String] = Seq(task.fileName.split("/").last, task.decisionProblem.toString, task.decisionProblem.resultToString(res._1), ""+res._2)
-      println(inColumns(entries zip cols))
+      println(IOUtils.inColumns(entries zip cols))
     }
     println(delimLine)
 
@@ -203,8 +202,8 @@ object Benchmarking extends SlexLogging {
 
   private def generateTasks() =
     for {
-      automaton <- Seq(RunHasPointer(), RunTracking(Set(mkVar(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(mkVar(1), mkVar(0)), RunGarbageFreedom(), RunWeakAcyclicity())
-      file <- getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) ++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
+      automaton <- Seq(RunHasPointer(), RunTracking(Set(mkVar(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(mkVar(1), mkVar(0)), RunGarbageFreedom(), RunMayHaveGarbage(), RunWeakAcyclicity(), RunStrongCyclicity(), RunModulo(0,2), RunModulo(5,11), RunModulo(126,128), RunModulo(127,128))
+      file <- getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) //++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
     } yield TaskConfig(file.getAbsolutePath, automaton, None)
 
 }

@@ -1,14 +1,10 @@
 package at.forsyte.harrsh.main
 
-import java.io.FileNotFoundException
-
 import at.forsyte.harrsh.heapautomata.{AutomatonTask, RefinementAlgorithms, RunSat}
 import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.util.IOUtils
 
-import scala.concurrent._
 import scala.concurrent.duration.{Duration, SECONDS}
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by jens on 10/19/16.
@@ -16,6 +12,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 object Harrsh {
 
   val PreviousSidFileName = "LAST"
+  val DefaultAnalysisTimeout = Duration(5, scala.concurrent.duration.SECONDS)
 
   def main(args : Array[String]) = {
     var success : Boolean = false
@@ -49,6 +46,7 @@ object Harrsh {
     val decideProp = tryParseFileArg("--decide", "-d")
     val showSID = tryParseFileArg("--show", "-s")
     val unfoldSID = tryParseFileArg("--unfold", "-u")
+    val analyzeSID = tryParseFileArg("--analyze", "-a")
 
     val propertyString = parseSwitchWithArg("--prop", "-p", "SAT")
     val prop = AutomatonTask.fromString(propertyString).getOrElse({
@@ -56,11 +54,13 @@ object Harrsh {
       RunSat()
     })
 
-    val timeoutString : String = parseSwitchWithArg("--timeout", "-t", "" + Benchmarking.DefaultTimeout.toSeconds)
+    val applicableDefaultTimeout = if (analyzeSID) DefaultAnalysisTimeout else Benchmarking.DefaultTimeout
+
+    val timeoutString : String = parseSwitchWithArg("--timeout", "-t", "" + applicableDefaultTimeout.toSeconds)
     val timeout = tryParseAsInt(timeoutString) match {
                     case Some(i) =>  Duration(i, SECONDS)
                     case None =>
-                      println("Could not parse argument to --timeout; will use default " + Benchmarking.DefaultTimeout + ". Please pass a positive integer (denoting the timeout in seconds)")
+                      println("Could not parse argument to --timeout; will use default " + applicableDefaultTimeout + ". Please pass a positive integer (denoting the timeout in seconds)")
                       Benchmarking.DefaultTimeout
                   }
 
@@ -87,13 +87,17 @@ object Harrsh {
         } else if (runRefinement) {
           // Refinement mode
           println("Will refine SID definition in file " + file + " by " + prop)
-          val sid = refineSID(file, prop, timeout, reportProgress = reportProgress)
+          val sid = RefinementAlgorithms.refineSID(file, prop, timeout, reportProgress = reportProgress)
           sid match {
             case Some(vsid) =>
-              println(vsid)
-              IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(vsid))
+              println(vsid._1)
+              IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(vsid._1))
+
+              if (vsid._2) {
+                IOUtils.printWarningToConsole("Language of refined SID is empty (no rules for start predicate '" + vsid._1.startPred + "').")
+              }
             case None =>
-              println("Refinement failed.")
+              IOUtils.printWarningToConsole("Refinement failed.")
           }
         } else if (decideProp) {
           // Decision procedure mode
@@ -108,9 +112,12 @@ object Harrsh {
           // Unfold mode
           val (sid,_) = Benchmarking.getSidFromFile(file)
           println(SID.unfold(sid, unfoldLimit, returnReducedOnly).mkString("\n"))
+        } else if (analyzeSID) {
+          val (sid,numfv) = Benchmarking.getSidFromFile(file)
+          println(RefinementAlgorithms.performFullAnalysis(sid, numfv, timeout))
         } else {
           // Unknown task
-          println("Terminating with unspecified task.")
+          IOUtils.printWarningToConsole("Terminating with unspecified task.")
         }
       } catch {
         case e : Throwable =>
@@ -130,32 +137,6 @@ object Harrsh {
     }
   }
 
-  private def refineSID(file : String, property : AutomatonTask, timeout : Duration, reportProgress : Boolean) : Option[SID] = {
-
-    val task = TaskConfig(file, property, None)
-    try {
-      val (sid, ha) = Benchmarking.prepareBenchmark(task)
-
-      val f: Future[SID] = Future {
-        new RefinementAlgorithms(sid, ha).refineSID(reportProgress = reportProgress)
-      }
-
-      try {
-        val sid = Await.result(f, timeout)
-        Some(sid)
-      } catch {
-        case e : TimeoutException =>
-          println("reached timeout (" + timeout + ")")
-          None
-      }
-
-    } catch {
-      case e : FileNotFoundException =>
-        println("Could not open file " + file)
-        None
-    }
-  }
-
   private def printUsage() = {
     println("This is HARRSH. Usage:")
     println()
@@ -168,8 +149,11 @@ object Harrsh {
     println("Batch / benchmarking mode:")
     println("  --batch <relative-path-to-file-with-list-of-tasks>          batch benchmarking")
     println()
+    println("Analysis mode:")
+    println(" --analyze <relative-path-to-sid-file>           analyze robustness of given sid")
+    println()
     println("Exploration mode:")
-    println("  --refine <relative-path-to-sid-file>                      print sid to std out")
+    println("  --show <relative-path-to-sid-file>                        print sid to std out")
     println("  --unfold <relative-path-to-sid-file>     generate all unfoldings of the sid...")
     println("     [--depth <depth>]                    ...up to depth <depth> (default: 3)...")
     println("     [--reduced]                          ...showing only reduced symbolic heaps")
