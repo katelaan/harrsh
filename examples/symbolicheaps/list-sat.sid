@@ -1,0 +1,8 @@
+# Top-level symbolic heap 
+P <= sll(x1, z) * z -> (y, w) * sll(y, w) * sll(w,y) ;
+
+# Singly-linked lists
+sll <= emp : {x1 = x2} ;
+sll <= x1 -> y * sll(y,x2)
+
+

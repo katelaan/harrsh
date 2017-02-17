@@ -130,11 +130,11 @@ class HeapAutomataTest extends HarrshTableTest {
     /*
      * Acyclicity automata
      */
-    (TrackingAutomata.acyclicityAutomaton(2), ExampleSIDs.Sll, NonEmpty),
-    (TrackingAutomata.acyclicityAutomaton(4), ExampleSIDs.Dll, NonEmpty),
-    (TrackingAutomata.acyclicityAutomaton(1), ExampleSIDs.Tree, NonEmpty),
-    (TrackingAutomata.acyclicityAutomaton(3), ExampleSIDs.Tll, NonEmpty),
-    (TrackingAutomata.acyclicityAutomaton(2), ExampleSIDs.CyclicSll, Empty)
+    (TrackingAutomata.weakAcyclicityAutomaton(2), ExampleSIDs.Sll, NonEmpty),
+    (TrackingAutomata.weakAcyclicityAutomaton(4), ExampleSIDs.Dll, NonEmpty),
+    (TrackingAutomata.weakAcyclicityAutomaton(1), ExampleSIDs.Tree, NonEmpty),
+    (TrackingAutomata.weakAcyclicityAutomaton(3), ExampleSIDs.Tll, NonEmpty),
+    (TrackingAutomata.weakAcyclicityAutomaton(2), ExampleSIDs.CyclicSll, Empty)
     
   )
 

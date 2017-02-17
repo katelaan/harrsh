@@ -51,7 +51,10 @@ object Harrsh {
     val unfoldSID = tryParseFileArg("--unfold", "-u")
 
     val propertyString = parseSwitchWithArg("--prop", "-p", "SAT")
-    val prop = AutomatonTask.fromString(propertyString).getOrElse(RunSat())
+    val prop = AutomatonTask.fromString(propertyString).getOrElse({
+      IOUtils.printWarningToConsole("No valid property specified via --prop, will default to SAT")
+      RunSat()
+    })
 
     val timeoutString : String = parseSwitchWithArg("--timeout", "-t", "" + Benchmarking.DefaultTimeout.toSeconds)
     val timeout = tryParseAsInt(timeoutString) match {

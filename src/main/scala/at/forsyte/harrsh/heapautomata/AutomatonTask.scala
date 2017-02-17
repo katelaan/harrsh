@@ -9,6 +9,8 @@ import at.forsyte.harrsh.seplog.inductive.PureAtom
   */
 sealed trait AutomatonTask {
 
+  // TODO Possibly give Boolean param to SAT, EST etc instead of having two separate case classes?
+
   def getAutomaton(numFV : Int) : HeapAutomaton = this match {
     case RunHasPointer() => ToyExampleAutomata.HasPointerAutomaton
     case RunModulo(remainder : Int, divisor : Int) => ToyExampleAutomata.moduloAutomaton(remainder, divisor)
@@ -19,9 +21,12 @@ sealed trait AutomatonTask {
     case RunNonEstablishment() => TrackingAutomata.nonEstablishmentAutomaton(numFV)
     case RunReachability(from, to) => TrackingAutomata.reachabilityAutomaton(numFV, from, to)
     case RunGarbageFreedom() => TrackingAutomata.garbageFreedomAutomaton(numFV)
-    case RunAcyclicity() => TrackingAutomata.acyclicityAutomaton(numFV)
+    case RunWeakAcyclicity() => TrackingAutomata.weakAcyclicityAutomaton(numFV)
+    case RunMayHaveGarbage() => TrackingAutomata.mayHaveGarbageAutomaton(numFV)
+    case RunStrongCyclicity() => TrackingAutomata.strongCyclicityAutomaton(numFV)
   }
 
+  // TODO Code duplication with fromString
   override def toString = this match {
     case RunHasPointer() => "HASPTR"
     case RunModulo(remainder : Int, divisor : Int) => "MOD[" + remainder + "," + divisor + "]"
@@ -30,7 +35,9 @@ sealed trait AutomatonTask {
     case RunEstablishment() => "EST"
     case RunNonEstablishment() => "NON-EST"
     case RunGarbageFreedom() => "GF"
-    case RunAcyclicity() => "ACYC"
+    case RunWeakAcyclicity() => "ACYC"
+    case RunMayHaveGarbage() => "GARB"
+    case RunStrongCyclicity() => "CYC"
     case RunReachability(from, to) => "REACH[" + from + "," + to + "]"
     case RunTracking(alloc, pure) => "TRACK[" + alloc.mkString(",") + "]"
   }
@@ -44,8 +51,10 @@ sealed trait AutomatonTask {
     case RunEstablishment() => if (isEmpty) "all non-est." else "ex. est."
     case RunNonEstablishment() => if (isEmpty) "all est." else "ex. non-est"
     case RunReachability(from, to) => if (isEmpty) "all unreach" else "ex. reach"
-    case RunGarbageFreedom() => if (isEmpty) "all garbage" else "ex. garbage-free"
-    case RunAcyclicity() => if (isEmpty) "all cyclic" else "ex. weak. acyc."
+    case RunGarbageFreedom() => if (isEmpty) "all garbage" else "ex. garbage free"
+    case RunWeakAcyclicity() => if (isEmpty) "all cyclic" else "ex. weak. acyc."
+    case RunMayHaveGarbage() => if (isEmpty) "all garb. free" else "may ex. garb."
+    case RunStrongCyclicity() => if (isEmpty) "all weak. acyc" else "ex. strong. cyc."
   }
 
 }
@@ -68,7 +77,11 @@ case class RunReachability(from : Var, to : Var) extends AutomatonTask
 
 case class RunGarbageFreedom() extends AutomatonTask
 
-case class RunAcyclicity() extends AutomatonTask
+case class RunWeakAcyclicity() extends AutomatonTask
+
+case class RunMayHaveGarbage() extends AutomatonTask
+
+case class RunStrongCyclicity() extends AutomatonTask
 
 object AutomatonTask {
 
@@ -81,8 +94,10 @@ object AutomatonTask {
     case "ODD" => Some(RunModulo(1,2))
     case "EST" => Some(RunEstablishment())
     case "NON-EST" => Some(RunNonEstablishment())
-    case "ACYC" => Some(RunAcyclicity())
+    case "ACYC" => Some(RunWeakAcyclicity())
+    case "CYC" => Some(RunStrongCyclicity())
     case "GF" => Some(RunGarbageFreedom())
+    case "GARB" => Some(RunMayHaveGarbage())
     case other =>
       if ((other.startsWith("MOD(") && other.endsWith(")")) || (other.startsWith("MOD[") && other.endsWith("]"))) {
         val params = other.drop(4).init.split(",")

@@ -37,7 +37,7 @@ object TrackingAutomata extends SlexLogging {
 
   def nonEstablishmentAutomaton(numFV : Int) = new EstablishmentAutomaton(numFV, false)
 
-  // TODO The reachability automaton would be nicer if the Unit didn't show up all over the place...
+  // TODO The reachability automaton would be nicer if Unit didn't show up all over the place...
   // TODO In general, the paramaterization of the reachability automata is very ugly / spaghetti code
   // TODO Make sure to <= numFV...
   def reachabilityAutomaton(numFV : Int, from : Var, to : Var) = new BaseReachabilityAutomaton[Unit](
@@ -56,12 +56,31 @@ object TrackingAutomata extends SlexLogging {
     valsOfTag = Set(true, false),
     description = "GF_" + numFV)
 
-  def acyclicityAutomaton(numFV : Int) = new BaseReachabilityAutomaton[Boolean](
+  def weakAcyclicityAutomaton(numFV : Int) = new BaseReachabilityAutomaton[Boolean](
     numFV,
     isFinalPredicate = (_, _, tag : Boolean) => tag,
     tagComputation = (tags : Seq[Boolean], ti : TrackingInfo, pairs : Set[(Var,Var)], vars : Set[Var]) => !tags.exists(!_) && BaseReachabilityAutomaton.isAcyclic(ti, pairs, vars + mkVar(0), numFV),
     inconsistentTag = true, // An inconsistent heap is acyclic
     valsOfTag = Set(true, false),
     description = "ACYC_" + numFV)
+
+  // TODO Are the following negations of the reachability-based automata correct?
+  // TODO If so, we can reduce code duplication (only differences are in tagComputation and description)
+
+  def mayHaveGarbageAutomaton(numFV : Int) = new BaseReachabilityAutomaton[Boolean](
+    numFV,
+    isFinalPredicate = (_, _, tag : Boolean) => tag,
+    tagComputation = (tags : Seq[Boolean], ti : TrackingInfo, pairs : Set[(Var,Var)], vars : Set[Var]) => tags.exists(b => b) || !BaseReachabilityAutomaton.isGarbageFree(ti, pairs, vars + mkVar(0), numFV),
+    inconsistentTag = true, // An inconsistent heap has garbage
+    valsOfTag = Set(true, false),
+    description = "GARB_" + numFV)
+
+  def strongCyclicityAutomaton(numFV : Int) = new BaseReachabilityAutomaton[Boolean](
+    numFV,
+    isFinalPredicate = (_, _, tag : Boolean) => tag,
+    tagComputation = (tags : Seq[Boolean], ti : TrackingInfo, pairs : Set[(Var,Var)], vars : Set[Var]) => tags.exists(b => b) || !BaseReachabilityAutomaton.isAcyclic(ti, pairs, vars + mkVar(0), numFV),
+    inconsistentTag = true, // An inconsistent heap is cyclic
+    valsOfTag = Set(true, false),
+    description = "CYC_" + numFV)
 
 }

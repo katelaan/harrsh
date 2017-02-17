@@ -1,0 +1,10 @@
+# Top-level symbolic heap that has...
+# - unfoldings with possible garbage (if w != x1)
+# - definitely garbage-free unfoldings (if w = x1)
+P <= x1 -> (y,z) * sll(y, x1) * sll(z, x1) * sll(w, x1);
+
+# Singly-linked lists
+sll <= emp : {x1 = x2} ;
+sll <= x1 -> y * sll(y,x2)
+
+

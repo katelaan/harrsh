@@ -53,7 +53,7 @@ class AcyclicityAutomataTest extends HarrshTableTest {
 
     property("Transitions of the acyclicity automaton") {
 
-      val acyc3 = TrackingAutomata.acyclicityAutomaton(3)
+      val acyc3 = TrackingAutomata.weakAcyclicityAutomaton(3)
 
       forAll(transitions) {
         (src: Seq[(BaseReachabilityAutomaton.ReachabilityInfo,Boolean)], sh: SymbolicHeap, result: Boolean) =>

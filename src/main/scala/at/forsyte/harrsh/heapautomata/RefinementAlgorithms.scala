@@ -6,6 +6,7 @@ import at.forsyte.harrsh.main.SlexLogging
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.{PtrExpr, Var}
 import at.forsyte.harrsh.seplog.inductive.{PredCall, Rule, SID, SymbolicHeap}
+import at.forsyte.harrsh.util.IOUtils
 
 import scala.annotation.tailrec
 
@@ -41,7 +42,7 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
 
     if (reachedFinalStates.isEmpty) {
       logger.info("Refined SID is empty")
-      println("WARNING: Language of refined SID is empty (no rules for start predicate '" + sid.startPred + "').")
+      IOUtils.printWarningToConsole("Language of refined SID is empty (no rules for start predicate '" + sid.startPred + "').")
     }
 
     SID(
@@ -86,10 +87,20 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
       if (ha.implementsTargetComputation) {
         for {
           Rule(head, _, _, body) <- sid.rules
-          src <- allDefinedSources(r, body.identsOfCalledPreds)
+          src <- {
+            val srcs  = allDefinedSources(r, body.identsOfCalledPreds)
+            logger.debug("Looking at defined sources for " + head + " <= " + body + "; found " + srcs.size)
+            srcs
+          }
           // Only go on if we haven't tried this combination in a previous iteration
-          if !previousCombinations.contains((src, body, head))
-          trg <- ha.getTargetsFor(src, body)
+          if {
+            logger.debug("Computing targets for " + head + " <= " + body + " from source " + src + " ?")
+            !previousCombinations.contains((src, body, head))
+          }
+          trg <- {
+            logger.debug("Yes, targets not computed previously, get targets for " + body)
+            ha.getTargetsFor(src, body)
+          }
         } yield ((head, trg), (src,body,head))
       } else {
         // No dedicated target computation, need to brute-force
@@ -125,6 +136,7 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
       logger.debug("Reached " + discoveredStartPredicate.get + " => language is non-empty")
       (false, Set.empty)
     } else {
+      logger.debug("Beginning iteration #" + iteration)
       val iterationResult = performSingleIteration
       val (newPairs, newCombs) = iterationResult.unzip
       val union = r union newPairs
@@ -143,13 +155,15 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
         }
       }
 
-      logger.debug("Refinement iteration: #" + iteration + " " + (if (newPairs.isEmpty) "--" else newPairs.mkString(", ")))
+      logger.debug("Refinement iteration: #" + iteration + " " + (if (newPairs.isEmpty) "--" else (newPairs.mkString(", "))))
       if (reportProgress) println(dateFormat.format(new java.util.Date()) + " -- Refinement iteration: #" + iteration + " Discovered " + newPairs.size + " targets; total w/o duplicates: " + union.size)
 
       if (union.size == r.size) {
         // Fixed point reached without reaching a pred--final-state pair
         logger.debug("Fixed point: " + union.mkString(", "))
-        logger.debug("=> Language is empty")
+        if (!discoveredStartPredicate.isDefined) {
+          logger.debug("=> Language is empty")
+        }
         // Only compute the new combinations + mapping to targets if desired (i.e., if full refinement was asked for)
         // (to save some computation time in the cases where we're only interested in a yes/no-answer)
         (true, if (computeFullRefinement) (previousCombinations union newCombs).flatMap(t => combinationsToTargets(t) map (trg => (t._1,t._2,t._3,trg))) else Set.empty)

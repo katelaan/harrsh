@@ -1,0 +1,9 @@
+# Top-level symbolic heap whose models are strongly cyclic,
+# i.e. contain cycles that do not make use of dangling pointers
+P <= x1 -> z * sll(z, x1) ;
+
+# Singly-linked lists
+sll <= emp : {x1 = x2} ;
+sll <= x1 -> y * sll(y,x2)
+
+

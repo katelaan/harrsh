@@ -203,7 +203,7 @@ object Benchmarking extends SlexLogging {
 
   private def generateTasks() =
     for {
-      automaton <- Seq(RunHasPointer(), RunTracking(Set(mkVar(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(mkVar(1), mkVar(0)), RunGarbageFreedom(), RunAcyclicity())
+      automaton <- Seq(RunHasPointer(), RunTracking(Set(mkVar(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(mkVar(1), mkVar(0)), RunGarbageFreedom(), RunWeakAcyclicity())
       file <- getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) ++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
     } yield TaskConfig(file.getAbsolutePath, automaton, None)
 

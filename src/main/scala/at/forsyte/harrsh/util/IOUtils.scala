@@ -9,6 +9,10 @@ import scala.io.Source
   */
 object IOUtils {
 
+  def printWarningToConsole(warning : String): Unit = {
+    println(Console.BLUE + "Warning: " + warning + Console.RESET)
+  }
+
   def getListOfFiles(dir: String) : List[File] = {
     val d = new File(dir)
     if (d.exists && d.isDirectory) {

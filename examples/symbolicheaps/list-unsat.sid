@@ -1,0 +1,8 @@
+# Top-level symbolic heap without satisfiable unfoldigs
+P <= x1 -> (q, r) * z -> (y, w) * sll(y, w) * sll(r,c) * q -> y : { y != w, r != q, c = q, r = y };
+
+# Singly-linked lists
+sll <= emp : {x1 = x2} ;
+sll <= x1 -> y * sll(y,x2)
+
+
