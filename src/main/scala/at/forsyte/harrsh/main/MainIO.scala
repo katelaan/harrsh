@@ -8,8 +8,6 @@ import at.forsyte.harrsh.util.IOUtils
 import at.forsyte.harrsh.util.IOUtils._
 import DecisionProcedures.{AnalysisResult, AnalysisStatistics}
 
-import scala.concurrent.duration.Duration
-
 /**
   * Created by jens on 2/24/17.
   */

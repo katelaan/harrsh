@@ -1,13 +1,11 @@
 package at.forsyte.harrsh.main
 
-import java.io.{File, FileNotFoundException}
+import java.io.File
 
 import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.seplog.inductive.SID
-import at.forsyte.harrsh.seplog.parsers.{CyclistSIDParser, DefaultSIDParser}
 import at.forsyte.harrsh.util.IOUtils._
 import at.forsyte.harrsh.seplog.Var._
-import at.forsyte.harrsh.util.IOUtils
 
 import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration.Duration
@@ -25,12 +23,10 @@ object DecisionProcedures extends SlexLogging {
   val PathToDatastructureExamples = "examples" + File.separator + "datastructures"
   val PathToCyclistExamples = "examples" + File.separator + "cyclist"
 
-  val DefaultTimeout = Duration(120, scala.concurrent.duration.SECONDS)
-
   // Uncomment & run this class to generate benchmark suites
   //def main(args : Array[String]) = generateAndPrintInstances()
 
-  def decideInstance(task : TaskConfig, timeout : Duration = DefaultTimeout, verbose : Boolean, reportProgress : Boolean): AnalysisResult = {
+  def decideInstance(task : TaskConfig, timeout : Duration, verbose : Boolean, reportProgress : Boolean): AnalysisResult = {
     val (sid, ha) = prepareInstanceForAnalysis(task)
     if (verbose) {
       printLinesOf('%', 1)
@@ -61,7 +57,7 @@ object DecisionProcedures extends SlexLogging {
     result
   }
 
-  def decideInstances(tasks : Seq[TaskConfig], timeout : Duration = DefaultTimeout, verbose : Boolean, reportProgress : Boolean): (Seq[(TaskConfig,AnalysisResult)],AnalysisStatistics) = {
+  def decideInstances(tasks : Seq[TaskConfig], timeout : Duration, verbose : Boolean, reportProgress : Boolean): (Seq[(TaskConfig,AnalysisResult)],AnalysisStatistics) = {
 
     val globalStartTime = System.currentTimeMillis()
     var analysisTime : Long = 0

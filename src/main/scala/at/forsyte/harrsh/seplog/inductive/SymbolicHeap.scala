@@ -1,6 +1,5 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.heapautomata.HeapAutomataSafeModeEnabled
 import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, Renaming, Var}
 import at.forsyte.harrsh.seplog.Var._
@@ -13,7 +12,7 @@ import scala.annotation.tailrec
 case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV : Int, boundVars : Seq[Var]) {
 
   // Sanity check
-  if (HeapAutomataSafeModeEnabled) {
+  if (Config.HeapAutomataSafeModeEnabled) {
     val (free, bound) = (pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars)).partition(isFV)
     if (!free.isEmpty && free.max > numFV) throw new IllegalStateException("NumFV = " + numFV + " but contained FVs are " + free.distinct)
   }

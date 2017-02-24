@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.heapautomata._
+import at.forsyte.harrsh.main.Config
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
@@ -9,7 +10,7 @@ import at.forsyte.harrsh.seplog.inductive.PureAtom
   */
 case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends Closure {
 
-  if (HeapAutomataSafeModeEnabled) {
+  if (Config.HeapAutomataSafeModeEnabled) {
     val computedClosure = new ClosureOfAtomSet(closure).asSetOfAtoms
     if (closure != computedClosure)
       throw new IllegalStateException("Assumed " + closure + " is closure, but actual closure is" + computedClosure)

@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.main.{Config, SlexLogging}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.util.Combinators
@@ -13,7 +13,7 @@ case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) extends SlexL
 
   private val dim = numFV + 1
 
-  if (HeapAutomataSafeModeEnabled) {
+  if (Config.HeapAutomataSafeModeEnabled) {
     if (reach.length != dim * dim) throw new IllegalStateException("Reachability info is not a " + dim + "*" + dim + " matrix")
   }
 

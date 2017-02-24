@@ -8,8 +8,6 @@ import at.forsyte.harrsh.seplog.inductive._
   */
 package object heapautomata {
 
-  val HeapAutomataSafeModeEnabled : Boolean = false
-
   import Var._
 
   def allEqualitiesOverFVs(numFV : Int) : Set[PureAtom] = {

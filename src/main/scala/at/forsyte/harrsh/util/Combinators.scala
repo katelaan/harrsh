@@ -7,6 +7,20 @@ import scala.annotation.tailrec
   */
 object Combinators {
 
+  def swallowExceptions[A](f : A => Unit, debug : Boolean)(a : A) : Unit = {
+    try {
+      f(a)
+    } catch {
+      case e: Throwable =>
+        println("Terminating with exception: " + e.getMessage)
+
+        if (debug) {
+          println("Terminating with " + e.getClass.toString + " (Message: " + e.getMessage + ")")
+          throw e
+        }
+    }
+  }
+
   def iteratedBinOp[A](binop : (A, A) => A, zero : A)(ops: Seq[A]) : A =
     if (ops.isEmpty) zero else ops.tail.foldLeft(ops.head)(binop)
 
@@ -20,10 +34,6 @@ object Combinators {
       } yield a +: seq
     }
   }
-
-//  def square[A](seq : Seq[A]) : Seq[(A,A)] =
-//  if (seq.isEmpty || seq.tail.isEmpty) Nil
-//  else (seq.tail map (rhs => (seq.head, rhs))) ++ square(seq.tail)
 
   /**
     * Computes all ordered pairs (a,b) with seq.indexOf(a) < seq.indexOf(b)

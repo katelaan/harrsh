@@ -1,10 +1,12 @@
 package at.forsyte.harrsh.main
 
-import at.forsyte.harrsh.heapautomata.{AutomatonTask, RefinementAlgorithms, RunSat}
+import at.forsyte.harrsh.heapautomata.{AutomatonTask, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SID
-import at.forsyte.harrsh.util.IOUtils
+import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
 import scala.concurrent.duration.{Duration, SECONDS}
+import scalaz.State
+import scalaz.State._
 
 /**
   * Created by jens on 10/19/16.
@@ -12,126 +14,135 @@ import scala.concurrent.duration.{Duration, SECONDS}
 object Harrsh {
 
   val PreviousSidFileName = "LAST"
-  val DefaultAnalysisTimeout = Duration(5, scala.concurrent.duration.SECONDS)
+
+  val S = scalaz.StateT.stateMonad[Config]
 
   def main(args : Array[String]) : Unit = {
-    var success : Boolean = false
 
-    def parseSwitch[A](long : String, short : String) : Boolean = args.contains(long) || args.contains(short)
+    val config: Config = parseAll(args).run(Config.DefaultConfig)._1
+    println(config)
 
-    def parseSwitchWithArg(long : String, short : String, default : String, setSuccess : Boolean = false) : String = {
-      val arg = Math.max(args.indexOf(long), args.indexOf(short))
-      if (arg > -1 && args.length > arg + 1) {
-        //println("Found " + long + " at index " + arg + "; will return " + args(arg+1))
-        if (setSuccess) success = true
-        args(arg+1)
-      } else default
+    // Run unless something is missing from the config
+    if (config.mode != Help() && config.oFile.isEmpty) {
+      println("No file specified => Terminating")
     }
-
-    var file : String = ""
-
-    def tryParseFileArg(long : String, short : String) : Boolean = {
-      if (file.isEmpty) {
-        file = parseSwitchWithArg(long, short, "", setSuccess = true)
-        !file.isEmpty
-      } else {
-        false
-      }
-    }
-
-    val help : Boolean = parseSwitch("--help", "-h")
-
-    val runBatch = tryParseFileArg("--batch", "-b")
-    val runRefinement = tryParseFileArg("--refine", "-r")
-    val decideProp = tryParseFileArg("--decide", "-d")
-    val showSID = tryParseFileArg("--show", "-s")
-    val unfoldSID = tryParseFileArg("--unfold", "-u")
-    val analyzeSID = tryParseFileArg("--analyze", "-a")
-
-    val propertyString = parseSwitchWithArg("--prop", "-p", "SAT")
-    val prop = AutomatonTask.fromString(propertyString).getOrElse({
-      IOUtils.printWarningToConsole("No valid property specified via --prop, will default to SAT")
-      RunSat()
-    })
-
-    val applicableDefaultTimeout = if (analyzeSID) DefaultAnalysisTimeout else DecisionProcedures.DefaultTimeout
-
-    val timeoutString : String = parseSwitchWithArg("--timeout", "-t", "" + applicableDefaultTimeout.toSeconds)
-    val timeout = tryParseAsInt(timeoutString) match {
-                    case Some(i) =>  Duration(i, SECONDS)
-                    case None =>
-                      println("Could not parse argument to --timeout; will use default " + applicableDefaultTimeout + ". Please pass a positive integer (denoting the timeout in seconds)")
-                      applicableDefaultTimeout
-                  }
-
-    val DefaultDepth = 3
-    val unfoldString : String = parseSwitchWithArg("--depth", "-d", ""+DefaultDepth)
-    val unfoldLimit = tryParseAsInt(unfoldString) match {
-      case Some(i) =>  i
-      case None =>
-        println("Could not parse argument to --limit; will use default " + DefaultDepth + ". Please pass a positive integer (denoting the maximum unfolding depth)")
-        DefaultDepth
-    }
-    val returnReducedOnly = parseSwitch("--reduced", "-red")
-
-    val verbose = parseSwitch("--verbose", "-v")
-    val reportProgress = parseSwitch("--showprogress", "-sp")
-
-    if (!success) {
-      printUsage()
+    else if (config.mode.requiresProp && config.oProp.isEmpty) {
+      println("No property specified => Terminating")
     } else {
-      try {
-        if (runBatch) {
-          // Batch mode
-          println("Will run all benchmarks in " + file)
-          val tasks = MainIO.readTasksFromFile(file)
-          val (results,stats) = DecisionProcedures.decideInstances(tasks, timeout, verbose, reportProgress)
-          MainIO.printAnalysisResults(results, stats)
-        } else if (runRefinement) {
-          // Refinement mode
-          println("Will refine SID definition in file " + file + " by " + prop)
-          val sid = RefinementAlgorithms.refineSID(file, prop, timeout, reportProgress = reportProgress)
-          sid match {
-            case Some(vsid) =>
-              println(vsid._1)
-              IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(vsid._1))
-
-              if (vsid._2) {
-                IOUtils.printWarningToConsole("Language of refined SID is empty (no rules for start predicate '" + vsid._1.startPred + "').")
-              }
-            case None =>
-              IOUtils.printWarningToConsole("Refinement failed.")
-          }
-        } else if (decideProp) {
-          // Decision procedure mode
-          val task = TaskConfig(file, prop, None)
-          val result = DecisionProcedures.decideInstance(task, timeout, verbose, reportProgress)
-          MainIO.printAnalysisResult(task, result)
-        } else if (showSID) {
-          // Print mode
-          val (sid,_) = MainIO.getSidFromFile(file)
-          println(sid)
-          IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(sid))
-        } else if (unfoldSID) {
-          // Unfold mode
-          val (sid,_) = MainIO.getSidFromFile(file)
-          println(SID.unfold(sid, unfoldLimit, returnReducedOnly).mkString("\n"))
-        } else if (analyzeSID) {
-          val (sid,numfv) = MainIO.getSidFromFile(file)
-          println(RefinementAlgorithms.performFullAnalysis(sid, numfv, timeout))
-        } else {
-          // Unknown task
-          IOUtils.printWarningToConsole("Terminating with unspecified task.")
-        }
-      } catch {
-        case e : Throwable =>
-          println("Terminating with exception: " + e.getMessage)
-          // TODO Only do this in debug mode
-//          println("Terminating with " + e.getClass.toString + " (Message: " + e.getMessage + ")")
-//          throw e
-      }
+      Combinators.swallowExceptions(run, config.debug)(config)
     }
   }
+
+  def parseAll(args : Array[String]) : State[Config, Unit] = {
+
+    def parseSwitchWithArg(long: String, short: String, default: String): String = {
+      val arg = Math.max(args.indexOf(long), args.indexOf(short))
+      if (arg > -1 && args.length > arg + 1) args(arg + 1) else default
+    }
+
+    def parseSwitch[A](long: String, short: String, update : Config => Config): State[Config, Unit] = for {
+      cnf <- get
+      _ <- modify[Config](cnf => if (args.contains(long) || args.contains(short)) update(cnf) else cnf)
+    } yield ()
+
+    def tryParseMode(long: String, short: String, mode: ExecutionMode): State[Config, Unit] = for {
+      cnf <- get[Config]
+      file = parseSwitchWithArg(long, short, "")
+      _ <- put(if (!file.isEmpty) cnf.copy(mode = mode, oFile = Some(file)) else cnf)
+    } yield ()
+
+    for {
+    /*
+       * Parse mode
+       */
+      _ <- parseSwitch("--help", "-h", _.copy(mode = Help()))
+      _ <- tryParseMode("--batch", "-b", Batch())
+      _ <- tryParseMode("--refine", "-r", Refine())
+      _ <- tryParseMode("--decide", "-d", Decide())
+      _ <- tryParseMode("--show", "-s", Show())
+      _ <- tryParseMode("--unfold", "-u", Unfold())
+      _ <- tryParseMode("--analyze", "-a", Analyze())
+      mode <- gets[Config,ExecutionMode](_.mode)
+
+      /*
+       * Parse other args
+       */
+      // Prop
+      propertyString = parseSwitchWithArg("--prop", "-p", "")
+      prop = AutomatonTask.fromString(propertyString)
+      _ <- modify[Config](cnf => cnf.copy(oProp = prop))
+
+      // Timeout
+      timeoutString = parseSwitchWithArg("--timeout", "-t", "")
+      timeout = tryParseAsInt(timeoutString) map (Duration(_, SECONDS)) getOrElse {
+        if (mode.defaultTimeout.toSeconds != 0) {
+          println("Could not parse argument to --timeout; will use default " + mode.defaultTimeout + ". Please pass a positive integer (denoting the timeout in seconds)")
+        }
+        mode.defaultTimeout
+      }
+      _ <- modify[Config](cnf => cnf.copy(oTimeout = Some(timeout)))
+
+      // Unfolding depth
+      unfoldingString = parseSwitchWithArg("--depth", "-d", "")
+      unfoldingDepth = tryParseAsInt(unfoldingString)
+      _ <- modify[Config](cnf => cnf.copy(oUnfoldingDepth = unfoldingDepth))
+
+      // Boolean flags
+      _ <- parseSwitch("--reduced", "-red", _.copy(oUnfoldingsReduced = Some(true)))
+      _ <- parseSwitch("--verbose", "-v", _.copy(verbose = true))
+      _ <- parseSwitch("--showprogress", "-sp", _.copy(reportProgress = true))
+    } yield ()
+  }
+
+  private def run(config : Config) : Unit = config.mode match {
+      case Help() =>
+        printUsage()
+
+      case Decide() =>
+        // Decision procedure mode
+        val task = TaskConfig(config.file, config.prop, None)
+        val result = DecisionProcedures.decideInstance(task, config.timeout, config.verbose, config.reportProgress)
+        MainIO.printAnalysisResult(task, result)
+
+      case Refine() =>
+        // Refinement mode
+        println("Will refine SID definition in file " + config.file + " by " + config.prop)
+        val sid = RefinementAlgorithms.refineSID(config.file, config.prop, config.timeout, reportProgress = config.reportProgress)
+        sid match {
+          case Some(vsid) =>
+            println(vsid._1)
+            IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(vsid._1))
+
+            if (vsid._2) {
+              IOUtils.printWarningToConsole("Language of refined SID is empty (no rules for start predicate '" + vsid._1.startPred + "').")
+            }
+          case None =>
+            IOUtils.printWarningToConsole("Refinement failed.")
+        }
+
+      case Batch() =>
+          // Batch mode
+          println("Will run all benchmarks in " + config.file)
+          val tasks = MainIO.readTasksFromFile(config.file)
+          val (results, stats) = DecisionProcedures.decideInstances(tasks, config.timeout, config.verbose, config.reportProgress)
+          MainIO.printAnalysisResults(results, stats)
+
+      case Show() =>
+          // Print mode
+          val (sid, _) = MainIO.getSidFromFile(config.file)
+          println(sid)
+          IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(sid))
+
+      case Unfold() =>
+          // Unfold mode
+          val (sid, _) = MainIO.getSidFromFile(config.file)
+          println(SID.unfold(sid, config.unfoldingDepth, config.unfoldingsReduced).mkString("\n"))
+
+      case Analyze() =>
+          val (sid, numfv) = MainIO.getSidFromFile(config.file)
+          println(RefinementAlgorithms.performFullAnalysis(sid, numfv, config.timeout))
+  }
+
 
   private def tryParseAsInt(s : String) : Option[Int] = {
     try {
