@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.seplog.parsers
 
-import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive._
@@ -8,7 +8,7 @@ import at.forsyte.harrsh.seplog.inductive._
 /**
   * Created by jkatelaa on 10/20/16.
   */
-object DefaultSIDParser extends SIDParser with SlexLogging {
+object DefaultSIDParser extends SIDParser with HarrshLogging {
 
   def run(input : String) : Option[(SID,Int)] = {
     val inputWithoutComments = stripCommentLines(input, "#")

@@ -10,7 +10,7 @@ import at.forsyte.harrsh.seplog.inductive.PureAtom
 /**
   * Created by jens on 10/16/16.
   */
-object TrackingAutomata extends SlexLogging {
+object TrackingAutomata extends HarrshLogging {
 
   /**
     * Get tracking automaton for the given number of free variables, whose target state is specified by alloc and pure.

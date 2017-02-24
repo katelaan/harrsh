@@ -9,7 +9,7 @@ import scalaz.State
 import scalaz.State._
 
 /**
-  * Created by jens on 10/19/16.
+  * The main command-line interface of Harrsh.
   */
 object Harrsh {
 
@@ -19,10 +19,10 @@ object Harrsh {
 
   def main(args : Array[String]) : Unit = {
 
-    val config: Config = parseAll(args).run(Config.DefaultConfig)._1
-    println(config)
+    val config: Config = parseAll(args)
+    //println(config)
 
-    // Run unless something is missing from the config
+    // Run in specified mode unless something is missing from the config
     if (config.mode != Help() && config.oFile.isEmpty) {
       println("No file specified => Terminating")
     }
@@ -33,7 +33,14 @@ object Harrsh {
     }
   }
 
-  def parseAll(args : Array[String]) : State[Config, Unit] = {
+  /**
+    * Parse command line arguments
+    * @param args Array of arguments
+    * @return Config built from arguments
+    */
+  def parseAll(args : Array[String]) : Config = parseAllAux(args).run(Config.DefaultConfig)._1
+
+  private def parseAllAux(args : Array[String]) : State[Config, Unit] = {
 
     def parseSwitchWithArg(long: String, short: String, default: String): String = {
       val arg = Math.max(args.indexOf(long), args.indexOf(short))
@@ -94,6 +101,10 @@ object Harrsh {
     } yield ()
   }
 
+  /**
+    * Run Harrsh according to the given config
+    * @param config Configuration specifying what to run and how to run it
+    */
   private def run(config : Config) : Unit = config.mode match {
       case Help() =>
         printUsage()

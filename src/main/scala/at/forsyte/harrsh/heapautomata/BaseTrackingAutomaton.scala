@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.heapautomata.utils.{EqualityUtils, UnsafeAtomsAsClosure}
-import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, PtrVar, Var}
 import at.forsyte.harrsh.seplog.inductive._
@@ -45,7 +45,7 @@ class BaseTrackingAutomaton(
 
 }
 
-object BaseTrackingAutomaton extends SlexLogging {
+object BaseTrackingAutomaton extends HarrshLogging {
 
   type TrackingInfo = (Set[Var], Set[PureAtom])
 

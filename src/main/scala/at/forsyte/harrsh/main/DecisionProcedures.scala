@@ -14,7 +14,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 /**
   * Created by jkatelaa on 10/20/16.
   */
-object DecisionProcedures extends SlexLogging {
+object DecisionProcedures extends HarrshLogging {
 
   //type Result = (Boolean,Long)
   case class AnalysisResult(isEmpty: Boolean, analysisTime: Long, timedOut: Boolean)

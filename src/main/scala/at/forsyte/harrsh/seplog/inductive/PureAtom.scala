@@ -1,12 +1,12 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{PtrExpr, Renaming, Var}
 
 /**
   * Created by jkatelaa on 10/3/16.
   */
-sealed trait PureAtom extends SepLogAtom with SlexLogging {
+sealed trait PureAtom extends SepLogAtom with HarrshLogging {
 
   override def isSpatial = false
 

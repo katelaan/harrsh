@@ -7,6 +7,6 @@ import com.typesafe.scalalogging.LazyLogging
   */
 package object main {
 
-  type SlexLogging = LazyLogging
+  type HarrshLogging = LazyLogging
 
 }

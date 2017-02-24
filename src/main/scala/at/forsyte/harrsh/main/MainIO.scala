@@ -11,7 +11,7 @@ import DecisionProcedures.{AnalysisResult, AnalysisStatistics}
 /**
   * Created by jens on 2/24/17.
   */
-object MainIO extends SlexLogging {
+object MainIO extends HarrshLogging {
 
   val ResultFile = "benchmark-results.tex"
 

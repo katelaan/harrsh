@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.heapautomata
 
-import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 import scala.annotation.tailrec
@@ -13,7 +13,7 @@ object ToyExampleAutomata {
   /**
     * An automaton that reaches a final state iff there is at least one points-to assertion
     */
-  lazy val HasPointerAutomaton = new HeapAutomaton with SlexLogging {
+  lazy val HasPointerAutomaton = new HeapAutomaton with HarrshLogging {
 
     override val description: String = "Contains-a-pointer example automaton"
 
@@ -43,7 +43,7 @@ object ToyExampleAutomata {
 
   lazy val EvenAutomaton = moduloAutomaton(0,2)
 
-  def moduloAutomaton(remainder : Int, divisor : Int) = new HeapAutomaton with SlexLogging {
+  def moduloAutomaton(remainder : Int, divisor : Int) = new HeapAutomaton with HarrshLogging {
 
     override val description: String = "Has " + remainder + " mod " + divisor + " pointers"
 

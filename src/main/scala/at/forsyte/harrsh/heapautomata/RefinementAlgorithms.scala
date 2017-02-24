@@ -3,7 +3,7 @@ package at.forsyte.harrsh.heapautomata
 import java.io.FileNotFoundException
 import java.text.SimpleDateFormat
 
-import at.forsyte.harrsh.main.{DecisionProcedures, SlexLogging, TaskConfig}
+import at.forsyte.harrsh.main.{DecisionProcedures, HarrshLogging, TaskConfig}
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.{PtrExpr, Var}
 import at.forsyte.harrsh.seplog.inductive.{PredCall, Rule, SID, SymbolicHeap}
@@ -17,7 +17,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 /**
   * Created by jens on 10/15/16.
   */
-class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends SlexLogging {
+class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends HarrshLogging {
 
   /**
     * Refine the given SID

@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.heapautomata
 
-import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
@@ -11,7 +11,7 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
   *
   * Created by jkatelaa on 10/18/16.
   */
-abstract class BoundedFvAutomatonWithTargetComputation(numFV : Int) extends HeapAutomaton with SlexLogging {
+abstract class BoundedFvAutomatonWithTargetComputation(numFV : Int) extends HeapAutomaton with HarrshLogging {
 
   override final def doesAlphabetContain(lab: SymbolicHeap): Boolean = getMaxVarIndex(lab.allVars) <= numFV
 

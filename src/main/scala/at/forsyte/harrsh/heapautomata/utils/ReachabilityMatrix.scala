@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.main.{Config, SlexLogging}
+import at.forsyte.harrsh.main.{Config, HarrshLogging}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.util.Combinators
@@ -9,7 +9,7 @@ import at.forsyte.harrsh.util.Combinators
 /**
   * Created by jkatelaa on 10/19/16.
   */
-case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) extends SlexLogging {
+case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) extends HarrshLogging {
 
   private val dim = numFV + 1
 

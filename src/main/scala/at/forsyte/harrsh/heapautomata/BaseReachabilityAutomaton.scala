@@ -2,7 +2,7 @@ package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.main.SlexLogging
+import at.forsyte.harrsh.main.HarrshLogging
 import Var._
 import BaseTrackingAutomaton._
 import at.forsyte.harrsh.heapautomata.utils.{EqualityUtils, ReachabilityMatrix, UnsafeAtomsAsClosure}
@@ -51,7 +51,7 @@ class BaseReachabilityAutomaton[A](
   }
 }
 
-object BaseReachabilityAutomaton extends SlexLogging {
+object BaseReachabilityAutomaton extends HarrshLogging {
 
   type ReachabilityInfo = (TrackingInfo,ReachabilityMatrix)
 

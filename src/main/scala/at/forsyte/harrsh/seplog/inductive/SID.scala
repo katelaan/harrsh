@@ -21,7 +21,7 @@ case class SID(startPred : String, rules : Set[Rule], description : String = "Un
 
 }
 
-object SID extends SlexLogging {
+object SID extends HarrshLogging {
 
   def apply(startPred : String, description : String, rules : (String, Seq[String], SymbolicHeap)*) = new SID(startPred, Set()++(rules map Rule.fromTuple), description)
 
