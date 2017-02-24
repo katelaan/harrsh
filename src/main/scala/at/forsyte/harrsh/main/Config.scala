@@ -2,7 +2,7 @@ package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.heapautomata.AutomatonTask
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, SECONDS}
 
 /**
   * Created by jens on 2/24/17.
@@ -42,9 +42,24 @@ case class Config(
 }
 
 object Config {
+
+  /**
+    * Default configuration prior to parsing command-line args
+    */
   val DefaultConfig = Config(Help(), None, None, None, None, None, false, false, false)
 
+  /**
+    * Default unfolding depth in unfolding mode
+    */
   val DefaultDepth = 3
 
+  /**
+    * Timeout used in the preprocessing of SIDs in MC/Entailment modes
+    */
+  val PreprocessingTimeout = Duration(1200, SECONDS)
+
+  /**
+    * Should additional sanity checks be performed (incurring small performance penalties)?
+    */
   val HeapAutomataSafeModeEnabled : Boolean = false
 }

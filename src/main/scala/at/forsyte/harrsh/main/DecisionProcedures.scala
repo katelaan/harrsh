@@ -26,8 +26,10 @@ object DecisionProcedures extends HarrshLogging {
   // Uncomment & run this class to generate benchmark suites
   //def main(args : Array[String]) = generateAndPrintInstances()
 
+
   def decideInstance(task : TaskConfig, timeout : Duration, verbose : Boolean, reportProgress : Boolean): AnalysisResult = {
     val (sid, ha) = prepareInstanceForAnalysis(task)
+
     if (verbose) {
       printLinesOf('%', 1)
       println("File: " + task.fileName)
@@ -37,6 +39,10 @@ object DecisionProcedures extends HarrshLogging {
       print("Running " + task.decisionProblem + " on " + task.fileName + "...")
     }
 
+    decideInstance(sid, ha, timeout, verbose, reportProgress)
+  }
+
+  def decideInstance(sid : SID, ha : HeapAutomaton, timeout : Duration, verbose : Boolean, reportProgress : Boolean): AnalysisResult = {
     val startTime = System.currentTimeMillis()
 
     val f: Future[Boolean] = Future {

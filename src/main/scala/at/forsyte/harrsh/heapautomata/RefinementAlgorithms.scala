@@ -187,12 +187,19 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends HarrshLogging 
 
 object RefinementAlgorithms {
 
+  /**
+    * Refines SID
+    * @param file File that contains the SID
+    * @param property Property to refine by
+    * @param timeout Return None after this timeout has passed
+    * @param reportProgress Periodically report the number of iterations
+    * @return The refined SID + emptiness flag (true iff empty) or None in case of timeout
+    */
   def refineSID(file : String, property : AutomatonTask, timeout : Duration, reportProgress : Boolean) : Option[(SID,Boolean)] = {
-
     val task = TaskConfig(file, property, None)
     try {
       val (sid, ha) = DecisionProcedures.prepareInstanceForAnalysis(task)
-      refineWithTimeout(timeout, reportProgress, sid, ha)
+      refineSID(sid, ha, timeout, reportProgress)
     } catch {
       case e : FileNotFoundException =>
         println("Could not open file " + file)
@@ -200,7 +207,15 @@ object RefinementAlgorithms {
     }
   }
 
-  private def refineWithTimeout(timeout: Duration, reportProgress: Boolean, sid: SID, ha: HeapAutomaton): Option[(SID,Boolean)] = {
+  /**
+    * Refines SID
+    * @param sid The SID to refine
+    * @param ha Automaton by which we refine
+    * @param timeout Return None after this timeout has passed
+    * @param reportProgress Periodically report the number of iterations
+    * @return The refined SID + emptiness flag (true iff empty) or None in case of timeout
+    */
+  def refineSID(sid: SID, ha: HeapAutomaton, timeout: Duration, reportProgress: Boolean): Option[(SID,Boolean)] = {
     val f: Future[(SID,Boolean)] = Future {
       new RefinementAlgorithms(sid, ha).refineSID(reportProgress = reportProgress)
     }
@@ -216,7 +231,7 @@ object RefinementAlgorithms {
   }
 
   /**
-    * Task to perform, is refined SID empty (or None if timeout), witness if nonempty
+    * (Task to perform, is refined SID empty (or None if timeout), witness if nonempty)
    */
   type AnalysisResult = (AutomatonTask, Option[Boolean], Option[SymbolicHeap])
 
@@ -261,7 +276,7 @@ object RefinementAlgorithms {
   }
 
   private def analyze(task : AutomatonTask, sid : SID, numFV : Int, timeout : Duration) : AnalysisResult = {
-    val refined = refineWithTimeout(timeout, false, sid, task.getAutomaton(numFV))
+    val refined = refineSID(sid, task.getAutomaton(numFV), timeout, false)
     refined match {
       case None =>
         println(task + " did not finish within timeout (" + timeout.toSeconds + "s)")

@@ -19,6 +19,8 @@ case class SID(startPred : String, rules : Set[Rule], description : String = "Un
   // Note that we take the maximum here, because we allow that some of the rules do not mention all FVs (and in particular not the maxFV; see also DefaultSID parser
   lazy val arityOfStartPred : Int = rules.filter(_.head == startPred).map(rule => rule.freeVars.size).max
 
+  lazy val maximumArity : Int = rules.map(rule => rule.freeVars.size).max
+
 }
 
 object SID extends HarrshLogging {
