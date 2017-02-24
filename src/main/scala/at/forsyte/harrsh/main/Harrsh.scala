@@ -14,7 +14,7 @@ object Harrsh {
   val PreviousSidFileName = "LAST"
   val DefaultAnalysisTimeout = Duration(5, scala.concurrent.duration.SECONDS)
 
-  def main(args : Array[String]) = {
+  def main(args : Array[String]) : Unit = {
     var success : Boolean = false
 
     def parseSwitch[A](long : String, short : String) : Boolean = args.contains(long) || args.contains(short)
@@ -54,14 +54,14 @@ object Harrsh {
       RunSat()
     })
 
-    val applicableDefaultTimeout = if (analyzeSID) DefaultAnalysisTimeout else Benchmarking.DefaultTimeout
+    val applicableDefaultTimeout = if (analyzeSID) DefaultAnalysisTimeout else DecisionProcedures.DefaultTimeout
 
     val timeoutString : String = parseSwitchWithArg("--timeout", "-t", "" + applicableDefaultTimeout.toSeconds)
     val timeout = tryParseAsInt(timeoutString) match {
                     case Some(i) =>  Duration(i, SECONDS)
                     case None =>
                       println("Could not parse argument to --timeout; will use default " + applicableDefaultTimeout + ". Please pass a positive integer (denoting the timeout in seconds)")
-                      Benchmarking.DefaultTimeout
+                      applicableDefaultTimeout
                   }
 
     val DefaultDepth = 3
@@ -83,7 +83,10 @@ object Harrsh {
       try {
         if (runBatch) {
           // Batch mode
-          Benchmarking.runBenchmarkFile(file, timeout, verbose = verbose, reportProgress = reportProgress)
+          println("Will run all benchmarks in " + file)
+          val tasks = MainIO.readTasksFromFile(file)
+          val (results,stats) = DecisionProcedures.decideInstances(tasks, timeout, verbose, reportProgress)
+          MainIO.printAnalysisResults(results, stats)
         } else if (runRefinement) {
           // Refinement mode
           println("Will refine SID definition in file " + file + " by " + prop)
@@ -102,18 +105,19 @@ object Harrsh {
         } else if (decideProp) {
           // Decision procedure mode
           val task = TaskConfig(file, prop, None)
-          Benchmarking.runBenchmarks(Seq(task), timeout, verbose, reportProgress)
+          val result = DecisionProcedures.decideInstance(task, timeout, verbose, reportProgress)
+          MainIO.printAnalysisResult(task, result)
         } else if (showSID) {
           // Print mode
-          val (sid,_) = Benchmarking.getSidFromFile(file)
+          val (sid,_) = MainIO.getSidFromFile(file)
           println(sid)
           IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(sid))
         } else if (unfoldSID) {
           // Unfold mode
-          val (sid,_) = Benchmarking.getSidFromFile(file)
+          val (sid,_) = MainIO.getSidFromFile(file)
           println(SID.unfold(sid, unfoldLimit, returnReducedOnly).mkString("\n"))
         } else if (analyzeSID) {
-          val (sid,numfv) = Benchmarking.getSidFromFile(file)
+          val (sid,numfv) = MainIO.getSidFromFile(file)
           println(RefinementAlgorithms.performFullAnalysis(sid, numfv, timeout))
         } else {
           // Unknown task

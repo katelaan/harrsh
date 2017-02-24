@@ -1,7 +1,8 @@
 package at.forsyte.harrsh.seplog.parsers
 
-import at.forsyte.harrsh.main.Benchmarking._
+import at.forsyte.harrsh.main.DecisionProcedures._
 import at.forsyte.harrsh.util.IOUtils._
+import at.forsyte.harrsh.main.MainIO._
 
 /**
   * Created by jkatelaa on 10/20/16.

@@ -3,7 +3,7 @@ package at.forsyte.harrsh.heapautomata
 import java.io.FileNotFoundException
 import java.text.SimpleDateFormat
 
-import at.forsyte.harrsh.main.{Benchmarking, SlexLogging, TaskConfig}
+import at.forsyte.harrsh.main.{DecisionProcedures, SlexLogging, TaskConfig}
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.{PtrExpr, Var}
 import at.forsyte.harrsh.seplog.inductive.{PredCall, Rule, SID, SymbolicHeap}
@@ -191,7 +191,7 @@ object RefinementAlgorithms {
 
     val task = TaskConfig(file, property, None)
     try {
-      val (sid, ha) = Benchmarking.prepareBenchmark(task)
+      val (sid, ha) = DecisionProcedures.prepareInstanceForAnalysis(task)
       refineWithTimeout(timeout, reportProgress, sid, ha)
     } catch {
       case e : FileNotFoundException =>
