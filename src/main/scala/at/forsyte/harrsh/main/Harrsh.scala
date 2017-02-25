@@ -66,9 +66,10 @@ object Harrsh {
       _ <- tryParseMode("--batch", "-b", Batch())
       _ <- tryParseMode("--refine", "-r", Refine())
       _ <- tryParseMode("--decide", "-d", Decide())
-      _ <- tryParseMode("--show", "-s", Show())
+      _ <- tryParseMode("--show", "--show", Show())
       _ <- tryParseMode("--unfold", "-u", Unfold())
       _ <- tryParseMode("--analyze", "-a", Analyze())
+      _ <- tryParseMode("--spec", "-s", ModelChecking())
       mode <- gets[Config,ExecutionMode](_.mode)
 
       /*
@@ -94,6 +95,10 @@ object Harrsh {
       unfoldingDepth = tryParseAsInt(unfoldingString)
       _ <- modify[Config](cnf => cnf.copy(oUnfoldingDepth = unfoldingDepth))
 
+      // Model
+      modelFile = parseSwitchWithArg("--modelcheck", "-mc", "")
+      _ <- modify[Config](cnf => cnf.copy(oModelFile = Some(modelFile)))
+
       // Boolean flags
       _ <- parseSwitch("--reduced", "-red", _.copy(oUnfoldingsReduced = Some(true)))
       _ <- parseSwitch("--verbose", "-v", _.copy(verbose = true))
@@ -110,13 +115,11 @@ object Harrsh {
         printUsage()
 
       case Decide() =>
-        // Decision procedure mode
         val task = TaskConfig(config.file, config.prop, None)
         val result = DecisionProcedures.decideInstance(task, config.timeout, config.verbose, config.reportProgress)
         MainIO.printAnalysisResult(task, result)
 
       case Refine() =>
-        // Refinement mode
         println("Will refine SID definition in file " + config.file + " by " + config.prop)
         val sid = RefinementAlgorithms.refineSID(config.file, config.prop, config.timeout, reportProgress = config.reportProgress)
         sid match {
@@ -132,26 +135,26 @@ object Harrsh {
         }
 
       case Batch() =>
-          // Batch mode
           println("Will run all benchmarks in " + config.file)
           val tasks = MainIO.readTasksFromFile(config.file)
           val (results, stats) = DecisionProcedures.decideInstances(tasks, config.timeout, config.verbose, config.reportProgress)
           MainIO.printAnalysisResults(results, stats)
 
       case Show() =>
-          // Print mode
           val (sid, _) = MainIO.getSidFromFile(config.file)
           println(sid)
           IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(sid))
 
       case Unfold() =>
-          // Unfold mode
           val (sid, _) = MainIO.getSidFromFile(config.file)
           println(SID.unfold(sid, config.unfoldingDepth, config.unfoldingsReduced).mkString("\n"))
 
       case Analyze() =>
           val (sid, numfv) = MainIO.getSidFromFile(config.file)
           println(RefinementAlgorithms.performFullAnalysis(sid, numfv, config.timeout))
+
+      case ModelChecking() =>
+          println(config)
   }
 
 
@@ -171,6 +174,9 @@ object Harrsh {
     println()
     println("Decision procedure mode:")
     println("  --decide <relative-path-to-sid-file> --prop <property>   check if sid has prop")
+    println()
+    println("Model checking mode:")
+    println("  --modelcheck <path-to-model> --spec <path-to-sid>       check if model |= spec")
     println()
     println("Batch / benchmarking mode:")
     println("  --batch <relative-path-to-file-with-list-of-tasks>          batch benchmarking")

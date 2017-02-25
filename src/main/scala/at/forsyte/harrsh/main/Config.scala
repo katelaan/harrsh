@@ -14,6 +14,7 @@ case class Config(
     oTimeout : Option[Duration],
     oUnfoldingsReduced : Option[Boolean],
     oUnfoldingDepth : Option[Int],
+    oModelFile : Option[String],
     reportProgress : Boolean,
     verbose : Boolean,
     debug : Boolean
@@ -24,10 +25,12 @@ case class Config(
   def prop = oProp.get
   def unfoldingsReduced = oUnfoldingsReduced.getOrElse(false)
   def unfoldingDepth = oUnfoldingDepth.getOrElse(Config.DefaultDepth)
+  def modelFile = oModelFile.get
 
   override def toString : String =
     ("Config[\n    mode = " + mode + ",\n"
-      + showOptional(oFile, "file")
+      + showOptional(oModelFile, "model file")
+      + showOptional(oFile, "sid file")
       + showOptional(oProp, "prop")
       + showOptional(oTimeout, "timeout")
       + showOptional(oUnfoldingsReduced, "unf. reduced")
@@ -46,7 +49,7 @@ object Config {
   /**
     * Default configuration prior to parsing command-line args
     */
-  val DefaultConfig = Config(Help(), None, None, None, None, None, false, false, false)
+  val DefaultConfig = Config(Help(), None, None, None, None, None, None, false, false, false)
 
   /**
     * Default unfolding depth in unfolding mode
