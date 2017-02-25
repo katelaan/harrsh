@@ -12,7 +12,7 @@ object CyclistSIDParser extends SIDParser {
   type PredSpec = (String, Int, Seq[Rule])
 
   def run(input : String) : Option[(SID,Int)] = {
-    val inputWithoutComments = stripCommentLines(input, "#")
+    val inputWithoutComments = ParseUtils.stripCommentLines(input, "#")
     parseAll(parseSID, inputWithoutComments) match {
       case Success(result, next) => Some(result)
       case Failure(msg,_) => println("FAILURE: " + msg); None

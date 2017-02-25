@@ -43,10 +43,4 @@ trait SIDParser extends JavaTokenParsers {
 
   override def ident: Parser[String] = """[a-zA-Z_][a-zA-Z0-9_']*""".r
 
-  def stripCommentLines(input : String, commentPrefix : String) = {
-    val lines = input.split("\n")
-    val strippedLines = lines.filterNot(_.startsWith(commentPrefix))
-    strippedLines.mkString("\n")
-  }
-
 }
