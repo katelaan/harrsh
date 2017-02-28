@@ -28,7 +28,7 @@ object ModelChecking {
     val nullVars = model.stack.filter(pair => pair._2 == 0).keySet.toSeq
     val nullEqualities : Seq[PureAtom] = nullVars map (v => PtrEq(PtrVar(v), NullPtr()).asInstanceOf[PureAtom])
 
-    SymbolicHeap(varEqualities ++ nullEqualities, pointers, model.stack.size, boundVars.toList.sorted.reverse)
+    SymbolicHeap(varEqualities ++ nullEqualities, pointers, List.empty, model.stack.size, boundVars.toList.sorted.reverse)
   }
 
   private def equalities(vs : List[Var]) : Seq[PureAtom] = vs match {
