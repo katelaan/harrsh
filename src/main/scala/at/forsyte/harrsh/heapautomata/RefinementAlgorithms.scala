@@ -45,7 +45,7 @@ class RefinementAlgorithms(sid : SID, ha : HeapAutomaton) extends HarrshLogging 
           head = sid.startPred,
           freeVars = (1 to sid.arityOfStartPred) map Var.toDefaultString,
           qvars = Seq(),
-          body = SymbolicHeap(Seq(PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map mkVar map PtrExpr.fromFV))))
+          body = SymbolicHeap(Seq.empty, Seq(PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map mkVar map PtrExpr.fromFV))))
     }
 
     if (reachedFinalStates.isEmpty) {

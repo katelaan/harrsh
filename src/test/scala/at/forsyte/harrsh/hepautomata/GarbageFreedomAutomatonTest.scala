@@ -32,27 +32,27 @@ class GarbageFreedomAutomatonTest extends HarrshTableTest {
     (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)))), GarbageFree),
     (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), nil))), GarbageFree),
     (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(2), mkVar(1)))), GarbageFree),
-    (Seq(), SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq(ptr(mkVar(1), mkVar(2)))), GarbageFree),
+    (Seq(), SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq(ptr(mkVar(1), mkVar(2))), Seq()), GarbageFree),
 
     // - RHSs with free variables
-    (Seq(), SymbolicHeap(Seq(), Seq(), 0, Seq(-1)), HasGarbage),
+    (Seq(), SymbolicHeap(Seq(), Seq(), Seq(), 0, Seq(-1)), HasGarbage),
     (Seq(), SymbolicHeap(Seq(ptr(qv(1),qv(2)), ptr(qv(2), qv(3)), ptr(qv(3), mkVar(1)), ptr(mkVar(1), mkVar(1)))), HasGarbage),
     (Seq(), SymbolicHeap( Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), mkVar(3)))), GarbageFree),
-    (Seq(), SymbolicHeap(Seq(ptreq(mkVar(2), qv(2))), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), qv(2)), ptr(mkVar(2), mkVar(1)))), GarbageFree),
+    (Seq(), SymbolicHeap(Seq(ptreq(mkVar(2), qv(2))), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), qv(2)), ptr(mkVar(2), mkVar(1))), Seq()), GarbageFree),
 
     // - Inconsistent RSHs
-    (Seq(), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(1), mkVar(2)))), GarbageFree),
-    (Seq(), SymbolicHeap(Seq(ptrneq(mkVar(1), mkVar(1))), Seq(ptr(qv(1), mkVar(1), nil))), GarbageFree),
+    (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(1), mkVar(2)))), GarbageFree),
+    (Seq(), SymbolicHeap(Seq(ptrneq(mkVar(1), mkVar(1))), Seq(ptr(qv(1), mkVar(1), nil)), Seq()), GarbageFree),
 
     // - Non-R SHs
-    (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 1), isAcyclic = false)), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), mkVar(2)), call("dummy", mkVar(2), mkVar(1)))), HasGarbage), // To test propagation of tag bit
-    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(mkVar(1), qv(1)), call("sll", qv(1), mkVar(2)))), GarbageFree),
-    (Seq(mk(mkAllVar(2), mx3(2 -> 1))), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), call("dummy", mkVar(1), qv(1)))), HasGarbage),
+    (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 1), isAcyclic = false)), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2))), Seq(call("dummy", mkVar(2), mkVar(1)))), HasGarbage), // To test propagation of tag bit
+    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(mkVar(1), qv(1))), Seq(call("sll", qv(1), mkVar(2)))), GarbageFree),
+    (Seq(mk(mkAllVar(2), mx3(2 -> 1))), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2))), Seq(call("dummy", mkVar(1), qv(1)))), HasGarbage),
     (Seq(mk(mkAllVar(1,2), mkPure((1,2,true)), mx3(1 -> 2, 1 -> 3)), mk(mkAllVar(2,3), mkPure(), mx3(3 -> 2, 2 -> 1))),
-      SymbolicHeap(Seq(), Seq(ptr(mkVar(1), mkVar(2)), call("dummy", mkVar(2), qv(1), qv(2)), call("dummy", mkVar(1), mkVar(3), qv(2)))),
+      SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2))), Seq(call("dummy", mkVar(2), qv(1), qv(2)), call("dummy", mkVar(1), mkVar(3), qv(2)))),
       GarbageFree),
     (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 2, 1 -> 3)), mk(mkAllVar(1,2), mkPure((1,2,true)), mx3(1 -> 3, 2 -> 3))),
-      SymbolicHeap(Seq(), Seq(ptr(qv(2), qv(3)), call("dummy", qv(1), qv(2), qv(3)), call("dummy", mkVar(1), mkVar(3), qv(2)))),
+      SymbolicHeap(Seq(ptr(qv(2), qv(3))), Seq(call("dummy", qv(1), qv(2), qv(3)), call("dummy", mkVar(1), mkVar(3), qv(2)))),
       HasGarbage)
   )
 

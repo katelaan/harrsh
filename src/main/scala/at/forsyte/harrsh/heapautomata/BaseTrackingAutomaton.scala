@@ -110,7 +110,7 @@ object BaseTrackingAutomaton extends HarrshLogging {
 
     val alloc : Set[SpatialAtom] = nonredundantAlloc map (p => ptr(p, nil))
 
-    val res = SymbolicHeap(s._2.toSeq, alloc.toSeq)
+    val res = SymbolicHeap(s._2.toSeq, alloc.toSeq, Seq.empty)
     logger.debug("Converting " + s + " to " + res)
     res
   }
