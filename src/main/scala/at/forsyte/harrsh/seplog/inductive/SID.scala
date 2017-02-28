@@ -38,7 +38,7 @@ object SID extends HarrshLogging {
     val predsToBodies : Map[String, Set[SymbolicHeap]] = Map() ++ sid.rules.groupBy(_.head).map(extractBodies _)
 
     val initialArgs : Seq[PtrExpr] = (1 to sid.arityOfStartPred) map (i => PtrVar(Var.mkVar(i)).asInstanceOf[PtrExpr])
-    val initial = SymbolicHeap(Seq(PredCall(sid.startPred, initialArgs)))
+    val initial = SymbolicHeap(Seq.empty, Seq(PredCall(sid.startPred, initialArgs)))
 
     logger.debug("Will unfold using the following rules: ")
     for ((k,vs) <- predsToBodies) {

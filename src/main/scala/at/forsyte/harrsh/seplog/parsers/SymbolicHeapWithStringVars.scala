@@ -7,7 +7,13 @@ import at.forsyte.harrsh.seplog.inductive._
   * Exact copy of the symbolic heap class hierarchy, but with strings rather than integers as variable identifiers
   */
 case class StringSymbolicHeap(pure : Seq[StringPureAtom], spatial : Seq[StringSpatialAtom]) {
-  def replaceStringsByIds(naming: VarUnNaming): SymbolicHeap = SymbolicHeap(pure map (_.replaceStringsByIds(naming)), spatial map (_.replaceStringsByIds(naming)))
+
+  def replaceStringsByIds(naming: VarUnNaming): SymbolicHeap = {
+    val allSpatial = spatial map (_.replaceStringsByIds(naming))
+    val (predCalls, nonCalls) = allSpatial.partition(_.isInstanceOf[PredCall])
+
+    SymbolicHeap(pure map (_.replaceStringsByIds(naming)), nonCalls map (_.asInstanceOf[SpatialAtom]), predCalls map (_.asInstanceOf[PredCall]))
+  }
 
   def getVars : Set[String] = Set.empty ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars)
 }
@@ -45,7 +51,7 @@ sealed trait StringSpatialAtom extends StringSepLogAtom {
     case StringPredCall(name, args) => Set.empty ++ args.flatMap(_.getVars)
   }
 
-  override def replaceStringsByIds(naming: VarUnNaming) : SpatialAtom = this match {
+  override def replaceStringsByIds(naming: VarUnNaming) : SepLogAtom = this match {
     case StringEmp() => Emp()
     case StringPointsTo(from, to) => PointsTo(from.replaceStringsByIds(naming), to.map(_.replaceStringsByIds(naming)))
     case StringPredCall(name, args) => PredCall(name, args.map(_.replaceStringsByIds(naming)))

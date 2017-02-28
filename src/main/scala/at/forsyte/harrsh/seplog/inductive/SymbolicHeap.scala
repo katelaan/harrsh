@@ -9,7 +9,7 @@ import scala.annotation.tailrec
 /**
   * Created by jkatelaa on 10/3/16.
   */
-case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV : Int, boundVars : Seq[Var]) {
+case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], predCalls : Seq[PredCall], numFV : Int, boundVars : Seq[Var]) {
 
   // Sanity check
   if (Config.HeapAutomataSafeModeEnabled) {
@@ -28,9 +28,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV :
 
   lazy val hasPointer: Boolean = spatial.exists(_.isInstanceOf[PointsTo])
 
-  lazy val identsOfCalledPreds: Seq[String] = spatial filter (_.isInductiveCall) map (_.getPredicateName.get)
-
-  lazy val predCalls : Seq[PredCall] = spatial filter (_.isInductiveCall) map (_.asInstanceOf[PredCall])
+  lazy val identsOfCalledPreds: Seq[String] = predCalls map (_.name)
 
   lazy val pointers : Seq[PointsTo] = spatial filter (_.isInstanceOf[PointsTo]) map (_.asInstanceOf[PointsTo])
 
@@ -43,15 +41,14 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV :
 
   lazy val freeVars : Seq[Var] =  1 to numFV
 
-  def withoutCalls : SymbolicHeap = copy(spatial = spatial.filter(!_.isInductiveCall))
+  def withoutCalls : SymbolicHeap = copy(predCalls = Seq.empty)
 
   def addToCallPreds(tags : Seq[String]) : SymbolicHeap = {
     if (tags.size != predCalls.size) throw new IllegalArgumentException("Wrong number of tags passed")
     val newCalls = predCalls zip tags map {
       case (call,tag) => call.copy(name = call.name + tag)
     }
-    val wo = withoutCalls
-    wo.copy(spatial = wo.spatial ++ newCalls)
+    copy(predCalls = newCalls)
   }
 
   def renameVars(f : Renaming) = {
@@ -62,7 +59,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV :
         (extended(v) +: seq, extended)
     })
 
-    SymbolicHeap(pure map (_.renameVars(extendedF)), spatial map (_.renameVars(extendedF)), numFV, qvarsRenamed)
+    SymbolicHeap(pure map (_.renameVars(extendedF)), spatial map (_.renameVars(extendedF)), predCalls map (_.renameVars(extendedF)), numFV, qvarsRenamed)
   }
 
   def instantiateFVs(args : Seq[PtrExpr]): SymbolicHeap = {
@@ -103,26 +100,28 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], numFV :
 
 object SymbolicHeap {
 
-  def apply(pure : Seq[PureAtom], spatial: Seq[SpatialAtom]) : SymbolicHeap = {
-    val vars = Set.empty ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars)
+  def apply(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], calls : Seq[PredCall]) : SymbolicHeap = {
+    val vars = Set.empty ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars) ++ calls.flatMap(_.getVars)
     val fvars = vars.filter(_ > 0)
     val qvars = vars.filter(_ < 0)
 
     // If nothing else is given, we assume the max index gives us the number of free vars
-    SymbolicHeap(pure, spatial, if (fvars.isEmpty) 0 else fvars.max, qvars.toSeq)
+    SymbolicHeap(pure, spatial, calls, if (fvars.isEmpty) 0 else fvars.max, qvars.toSeq)
   }
 
-  def apply(spatial: Seq[SpatialAtom]) : SymbolicHeap = apply(Seq.empty, spatial)
+  def apply(spatial: Seq[SpatialAtom], calls: Seq[PredCall]) : SymbolicHeap = apply(Seq.empty, spatial, calls)
+
+  def apply(spatial: Seq[SpatialAtom]) : SymbolicHeap = apply(Seq.empty, spatial, Seq.empty)
 
   def combineHeaps(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
-    val SymbolicHeap(pure, spatial, numfv, qvars) = phi
+    val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
 
     // Shift the quantified variables in the right SH to avoid name clashes
-    val SymbolicHeap(pure2, spatial2, numfv2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars))
+    val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars))
 
     // Free variables remain the same, so we take the maximum
     // Quantified variables are renamed, so we take the sum
-    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, Math.max(numfv, numfv2), qvars ++ qvars2)
+    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2)
   }
 
   def combineAllHeaps(heaps : Seq[SymbolicHeap]) : SymbolicHeap = combineAllHeapsAcc(heaps, empty)

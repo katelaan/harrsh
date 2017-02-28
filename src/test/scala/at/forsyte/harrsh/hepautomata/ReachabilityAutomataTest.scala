@@ -25,22 +25,22 @@ class ReachabilityAutomataTest extends HarrshTableTest {
     (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)))), mkVar(1), mkVar(2), true),
     (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), nil))), mkVar(1), nil, true),
     (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)))), mkVar(2), mkVar(1), false),
-    (Seq(), SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(2))), Seq(ptr(mkVar(1), mkVar(2)))), mkVar(2), mkVar(1), true),
-    (Seq(), SymbolicHeap(Seq(ptrneq(mkVar(1),mkVar(2))), Seq(ptr(mkVar(1), mkVar(2)))), mkVar(2), mkVar(1), false),
-    (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(2), mkVar(3)))), mkVar(1), mkVar(3), true),
+    (Seq(), SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(2))), Seq(ptr(mkVar(1), mkVar(2))), Seq()), mkVar(2), mkVar(1), true),
+    (Seq(), SymbolicHeap(Seq(ptrneq(mkVar(1),mkVar(2))), Seq(ptr(mkVar(1), mkVar(2))), Seq()), mkVar(2), mkVar(1), false),
+    (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(2), mkVar(3))), Seq()), mkVar(1), mkVar(3), true),
 
     // - RHSs with free variables
     (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), mkVar(3)))), mkVar(1), mkVar(3), true),
-    (Seq(), SymbolicHeap(Seq(ptreq(mkVar(2), qv(2))), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), qv(2)), ptr(mkVar(2), mkVar(3)))), mkVar(1), mkVar(3), true),
+    (Seq(), SymbolicHeap(Seq(ptreq(mkVar(2), qv(2))), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), qv(2)), ptr(mkVar(2), mkVar(3))), Seq()), mkVar(1), mkVar(3), true),
 
     // - Inconsistent RSH
-    (Seq(), SymbolicHeap(Seq(ptrneq(mkVar(1), mkVar(1))), Seq(ptr(mkVar(1), nil))), mkVar(1), mkVar(2), true),
+    (Seq(), SymbolicHeap(Seq(ptrneq(mkVar(1), mkVar(1))), Seq(ptr(mkVar(1), nil)), Seq()), mkVar(1), mkVar(2), true),
 
     // - Non-R SHs
-    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(mkVar(1), qv(1)), call("sll", qv(1), mkVar(2)))), mkVar(1), mkVar(2), true),
-    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(mkVar(1), qv(1)), call("sll", qv(1), mkVar(2)))), mkVar(1), mkVar(2), true), // To test renaming of fresh var
+    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(mkVar(1), qv(1))), Seq(call("sll", qv(1), mkVar(2)))), mkVar(1), mkVar(2), true),
+    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(mkVar(1), qv(1))), Seq(call("sll", qv(1), mkVar(2)))), mkVar(1), mkVar(2), true), // To test renaming of fresh var
     (Seq(mk(mkAllVar(), mkPure((1,2,true)), mx3()), mk(mkAllVar(2,3), mkPure(), mx3(3 -> 2, 2 -> 1))), // 1st call : y=x1, 2nd call : x3 -> w -> y
-      SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), call("dummy", qv(1), mkVar(1), mkVar(3)), call("dummy", qv(1), qv(2), mkVar(3)))),
+      SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2))), Seq(call("dummy", qv(1), mkVar(1), mkVar(3)), call("dummy", qv(1), qv(2), mkVar(3)))),
       mkVar(3), mkVar(2), true)
   )
 

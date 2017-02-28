@@ -30,24 +30,24 @@ class AcyclicityAutomataTest extends HarrshTableTest {
       (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(2), mkVar(3)))), WeaklyAcyclic),
       (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(2), mkVar(1)))), Cyclic),
       (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(2), mkVar(2)))), Cyclic),
-      (Seq(), SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(2))), Seq(ptr(mkVar(1), mkVar(2)))), Cyclic),
+      (Seq(), SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(2))), Seq(ptr(mkVar(1), mkVar(2))), Seq.empty), Cyclic),
 
       // - RHSs with free variables
-      (Seq(), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), mkVar(3)))), WeaklyAcyclic),
-      (Seq(), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), mkVar(3)), ptr(mkVar(3), mkVar(1)))), Cyclic),
-      (Seq(), SymbolicHeap(Seq(ptreq(mkVar(2), qv(2))), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), qv(2)), ptr(mkVar(2), mkVar(1)))), Cyclic),
+      (Seq(), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), mkVar(3))), Seq.empty), WeaklyAcyclic),
+      (Seq(), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), mkVar(3)), ptr(mkVar(3), mkVar(1))), Seq.empty), Cyclic),
+      (Seq(), SymbolicHeap(Seq(ptreq(mkVar(2), qv(2))), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), qv(2)), ptr(mkVar(2), mkVar(1))), Seq.empty), Cyclic),
 
       // - Inconsistent RSHs
       (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(1), mkVar(2)))), WeaklyAcyclic),
-      (Seq(), SymbolicHeap(Seq(ptrneq(mkVar(1), mkVar(1))), Seq(ptr(mkVar(1), nil))), WeaklyAcyclic),
+      (Seq(), SymbolicHeap(Seq(ptrneq(mkVar(1), mkVar(1))), Seq(ptr(mkVar(1), nil)), Seq.empty), WeaklyAcyclic),
 
       // - Non-R SHs
-      (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 1), isAcyclic = false)), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), mkVar(2)), call("dummy", mkVar(2), mkVar(1)))), Cyclic), // To test propagation of tag bit
-      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1)), call("sll", qv(1), mkVar(2)))), WeaklyAcyclic),
-      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1)), call("sll", qv(1), mkVar(2)))), WeaklyAcyclic), // To test renaming of fresh var
-      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(mkVar(2), qv(1)), call("sll", qv(1), mkVar(2)))), Cyclic),
+      (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 1), isAcyclic = false)), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), mkVar(2))), Seq(call("dummy", mkVar(2), mkVar(1)))), Cyclic), // To test propagation of tag bit
+      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1))), Seq(call("sll", qv(1), mkVar(2)))), WeaklyAcyclic),
+      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1))), Seq(call("sll", qv(1), mkVar(2)))), WeaklyAcyclic), // To test renaming of fresh var
+      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(mkVar(2), qv(1))), Seq(call("sll", qv(1), mkVar(2)))), Cyclic),
       (Seq(mk(mkAllVar(1,2), mkPure((1,2,true)), mx3(1 -> 2, 1 -> 3)), mk(mkAllVar(2,3), mkPure(), mx3(3 -> 2, 2 -> 1))),
-        SymbolicHeap(Seq(), Seq(ptr(mkVar(1), mkVar(2)), call("dummy", mkVar(2), qv(1), qv(2)), call("dummy", mkVar(1), mkVar(3), qv(2)))),
+        SymbolicHeap(Seq(), Seq(ptr(mkVar(1), mkVar(2))), Seq(call("dummy", mkVar(2), qv(1), qv(2)), call("dummy", mkVar(1), mkVar(3), qv(2)))),
         Cyclic)
     )
 
