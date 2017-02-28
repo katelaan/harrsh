@@ -1,12 +1,14 @@
 package at.forsyte.harrsh.heapautomata
 
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 import at.forsyte.harrsh.util.Combinators
+import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 /**
   * Created by jens on 10/15/16.
   */
-trait HeapAutomaton {
+trait HeapAutomaton extends HarrshLogging {
 
   type State
 
@@ -25,7 +27,14 @@ trait HeapAutomaton {
     * Evaluates the transition function on the given src, trg, and SH; only meant for evaluating single transitions;
     * to iterate over defined transitions for a fixed SH, use getDefinedTransitions
     */
-  def isTransitionDefined(src : Seq[State], trg : State, lab : SymbolicHeap) : Boolean
+  def isTransitionDefined(src: Seq[State], trg: State, lab: SymbolicHeap): Boolean = {
+    if (implementsTargetComputation) {
+      val targets = getTargetsFor(src, lab)
+      val res = targets.contains(trg)
+      logger.debug("Transition " + src.mkString(", ") + " --[" + lab + "]--> " + trg + " : " + res)
+      res
+    } else throw new NotImplementedException
+  }
 
   /**
     * Returns all the state sequences on which transitions are defined for the given SH.

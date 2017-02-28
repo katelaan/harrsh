@@ -6,7 +6,7 @@ import at.forsyte.harrsh.seplog.Var
 import scala.util.parsing.combinator.JavaTokenParsers
 
 /**
-  * Created by jens on 2/25/17.
+  * Parser for our simple abstract model format
   */
 object ModelParser extends JavaTokenParsers {
   def run(input : String) : Option[Model] = {
