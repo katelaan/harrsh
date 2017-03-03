@@ -1,0 +1,6 @@
+# Top-level symbolic heap whose models are null-terminated lists
+P <= sll(x1, null) ;
+
+# Singly-linked lists
+sll <= emp : {x1 = x2} ;
+sll <= x1 -> y * sll(y,x2)

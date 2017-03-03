@@ -8,9 +8,9 @@ import scala.annotation.tailrec
 /**
   * Created by jens on 2/24/17.
   */
-object ModelChecking {
+object ModelToFormula {
 
-  def modelToFormula(model : Model) : SymbolicHeap = {
+  def apply(model : Model) : SymbolicHeap = {
 
     // Get a map from locations to vars
     // Note that if multiple vars point to the same loc, we will lose this info here

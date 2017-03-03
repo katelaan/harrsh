@@ -7,7 +7,7 @@ import at.forsyte.harrsh.test.{HarrshTableTest, HarrshTest}
 /**
   * Created by jens on 2/24/17.
   */
-class ModelCheckingTest extends HarrshTableTest {
+class ModelToFormulaTest extends HarrshTableTest {
 
   // TODO Add test cases violating the assertions
 
@@ -37,7 +37,7 @@ class ModelCheckingTest extends HarrshTableTest {
   property("The conversion of models to symbolic heaps") {
     forAll(testCases) {
       (stack : Map[Var,Loc], heap : Map[Loc,Seq[Loc]], expectedRes : SymbolicHeap) =>
-        val res = ModelChecking.modelToFormula(Model(stack, heap))
+        val res = ModelToFormula(Model(stack, heap))
         res shouldEqual expectedRes
     }
   }

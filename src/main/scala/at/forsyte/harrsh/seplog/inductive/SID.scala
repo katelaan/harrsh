@@ -6,6 +6,8 @@ import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog.{PtrExpr, PtrVar, Var}
 import at.forsyte.harrsh.util.Combinators
 
+import scala.NoSuchElementException
+
 /**
   * System of inductive definitions
   * Created by jens on 10/15/16.
@@ -21,24 +23,35 @@ case class SID(startPred : String, rules : Set[Rule], description : String = "Un
 
   lazy val maximumArity : Int = rules.map(rule => rule.freeVars.size).max
 
+  def callToStartPred: SymbolicHeap = {
+    val initialArgs: Seq[PtrExpr] = (1 to arityOfStartPred) map (i => PtrVar(Var.mkVar(i)).asInstanceOf[PtrExpr])
+    val initial = SymbolicHeap(Seq.empty, Seq(PredCall(startPred, initialArgs)))
+    initial
+  }
+
 }
 
 object SID extends HarrshLogging {
 
   def apply(startPred : String, description : String, rules : (String, Seq[String], SymbolicHeap)*) = new SID(startPred, Set()++(rules map Rule.fromTuple), description)
 
+  def unfoldSingleCall(sh : SymbolicHeap, call : PredCall, sid : SID) : Seq[SymbolicHeap] = {
+    unfoldSingleCall(sh, call, rulesToHeadBodyMap(sid))
+  }
+
+  def unfoldSingleCall(sh : SymbolicHeap, call : PredCall, headBodyMap : Map[String, Set[SymbolicHeap]]) : Seq[SymbolicHeap] = {
+    logger.debug("Unfolding " + call + " in " + sh)
+
+    (for (body <- headBodyMap(call.name)) yield sh.instantiateCall(call, body)).toSeq
+  }
+
   def unfold(sid : SID, depth: Int, reducedOnly : Boolean = false): Seq[SymbolicHeap] = {
 
     logger.debug("Unfolding sid " + sid)
 
-    //def extractBodies(group : (String,Set[Rule])) = (group._1,group._2 map (_.body))
-    def extractBodies(group : (String,Set[Rule])) = {
-      (group._1,group._2 map (_.body))
-    }
-    val predsToBodies : Map[String, Set[SymbolicHeap]] = Map() ++ sid.rules.groupBy(_.head).map(extractBodies _)
+    val predsToBodies: Map[String, Set[SymbolicHeap]] = rulesToHeadBodyMap(sid)
 
-    val initialArgs : Seq[PtrExpr] = (1 to sid.arityOfStartPred) map (i => PtrVar(Var.mkVar(i)).asInstanceOf[PtrExpr])
-    val initial = SymbolicHeap(Seq.empty, Seq(PredCall(sid.startPred, initialArgs)))
+    val initial: SymbolicHeap = sid.callToStartPred
 
     logger.debug("Will unfold using the following rules: ")
     for ((k,vs) <- predsToBodies) {
@@ -59,16 +72,23 @@ object SID extends HarrshLogging {
     if (reducedOnly) unfolded.filter(_.predCalls.isEmpty) else unfolded
   }
 
+  def rulesToHeadBodyMap(sid: SID): Map[String, Set[SymbolicHeap]] = {
+    def extractBodies(group: (String, Set[Rule])) = {
+      (group._1, group._2 map (_.body))
+    }
+    Map() ++ sid.rules.groupBy(_.head).map(extractBodies _)
+  }
+
   private def unfoldStep(predsToBodies: Map[String, Set[SymbolicHeap]], acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int): Seq[SymbolicHeap] = {
     logger.debug("Currently active instances:" + curr.mkString(", "))
     if (depth == 0) acc ++ curr
     else {
       val allNewInstances = for {
-        h <- curr
-        if !h.predCalls.isEmpty
-        callReplacements = h.predCalls.map(_.name) map predsToBodies
+        sh <- curr
+        if !sh.predCalls.isEmpty
+        callReplacements = sh.predCalls.map(_.name) map predsToBodies
         replacementChoices: Seq[Seq[SymbolicHeap]] = Combinators.choices(callReplacements)
-        newInstances: Seq[SymbolicHeap] = replacementChoices.map(h.instantiateCalls(_))
+        newInstances: Seq[SymbolicHeap] = replacementChoices.map(sh.instantiateCalls(_))
       } yield newInstances
 
       unfoldStep(predsToBodies, acc ++ curr, allNewInstances.flatten, depth - 1)

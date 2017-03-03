@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.main
 
+import at.forsyte.harrsh.entailment.GreedyUnfoldingModelChecker
 import at.forsyte.harrsh.heapautomata.{AutomatonTask, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
@@ -12,6 +13,7 @@ import scalaz.State._
   * The main command-line interface of Harrsh.
   */
 object Harrsh {
+  // TODO Option to feed in arbitrary symbolic heaps in addition to SID (and then automatically adapt the SID with new start predicate)
 
   val PreviousSidFileName = "LAST"
 
@@ -103,6 +105,7 @@ object Harrsh {
       _ <- parseSwitch("--reduced", "-red", _.copy(oUnfoldingsReduced = Some(true)))
       _ <- parseSwitch("--verbose", "-v", _.copy(verbose = true))
       _ <- parseSwitch("--showprogress", "-sp", _.copy(reportProgress = true))
+      _ <- parseSwitch("--debug", "--debug", _.copy(debug = true))
     } yield ()
   }
 
@@ -155,6 +158,10 @@ object Harrsh {
 
       case ModelChecking() =>
           println(config)
+          val (sid, numfv) = MainIO.getSidFromFile(config.file)
+          val model = MainIO.getModelFromFile(config.modelFile)
+          val modelChecker = GreedyUnfoldingModelChecker
+          modelChecker.isModel(model, sid)
   }
 
 

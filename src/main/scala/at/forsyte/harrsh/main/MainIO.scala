@@ -3,10 +3,11 @@ package at.forsyte.harrsh.main
 import java.io.FileNotFoundException
 
 import at.forsyte.harrsh.seplog.inductive.SID
-import at.forsyte.harrsh.seplog.parsers.{CyclistSIDParser, DefaultSIDParser}
+import at.forsyte.harrsh.seplog.parsers.{CyclistSIDParser, DefaultSIDParser, ModelParser}
 import at.forsyte.harrsh.util.IOUtils
 import at.forsyte.harrsh.util.IOUtils._
 import DecisionProcedures.{AnalysisResult, AnalysisStatistics}
+import at.forsyte.harrsh.entailment.Model
 
 /**
   * Created by jens on 2/24/17.
@@ -38,7 +39,19 @@ object MainIO extends HarrshLogging {
       case Some((sid,numFV)) =>
         (sid, numFV)
       case None =>
-        println("Parsing failed, exiting")
+        IOUtils.printWarningToConsole("Parsing the SID failed, exiting")
+        throw new Exception("Parsing of file '" + fileName + "'failed")
+    }
+  }
+
+  def getModelFromFile(fileName : String) : Model = {
+    val content = readFile(fileName)
+
+    ModelParser.run(content) match {
+      case Some(model) =>
+        model
+      case None =>
+        IOUtils.printWarningToConsole("Parsing the model failed, exiting")
         throw new Exception("Parsing of file '" + fileName + "'failed")
     }
   }
@@ -48,7 +61,7 @@ object MainIO extends HarrshLogging {
       readFile(filename)
     } catch {
       case e : FileNotFoundException =>
-        println("File '" + filename + "' does not exist.")
+        IOUtils.printWarningToConsole("File '" + filename + "' does not exist.")
         throw e
       case e : Throwable =>
         throw e

@@ -21,12 +21,14 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], predCal
 
   def toStringWithVarNames(naming: VarNaming): String = {
     val prefix = (boundVars map naming map ("\u2203"+_)).sorted.mkString(" ")
-    val spatialString = spatial.map(_.toStringWithVarNames(naming)).mkString(" * ")
+    val spatialString = (spatial.map(_.toStringWithVarNames(naming)) ++ predCalls.map(_.toStringWithVarNames(naming))).mkString(" * ")
     val pureString = if (pure.isEmpty) "" else pure.map(_.toStringWithVarNames(naming)).mkString(" : {", ", ", "}")
     prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString //+ " [" + numFV + "/" + boundVars.size + "]"
   }
 
   lazy val hasPointer: Boolean = spatial.exists(_.isInstanceOf[PointsTo])
+
+  def hasPredCalls: Boolean = predCalls.nonEmpty
 
   lazy val identsOfCalledPreds: Seq[String] = predCalls map (_.name)
 
@@ -62,6 +64,13 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], predCal
     SymbolicHeap(pure map (_.renameVars(extendedF)), spatial map (_.renameVars(extendedF)), predCalls map (_.renameVars(extendedF)), numFV, qvarsRenamed)
   }
 
+  def instantiateBoundVar(qvar : Var, instance : Var) : SymbolicHeap = {
+    if (!Var.isFV(instance)) throw new IllegalArgumentException("Cannot instantiate bound variable by different bound variable")
+
+    val renaming = MapBasedRenaming(Map(qvar -> instance))
+    SymbolicHeap(pure map (_.renameVars(renaming)), spatial map (_.renameVars(renaming)), predCalls map (_.renameVars(renaming)), numFV, boundVars filterNot (_ == qvar))
+  }
+
   def instantiateFVs(args : Seq[PtrExpr]): SymbolicHeap = {
     // Rename the free variables of SH to the actual arguments of the predicate calls,
     // i.e. replace the i-th FV with the call argument at index i-1
@@ -94,6 +103,16 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], predCal
     val combined = SymbolicHeap.combineAllHeaps(shFiltered +: renamedHeaps)
     combined
 
+  }
+
+  def instantiateCall(call : PredCall, instance : SymbolicHeap): SymbolicHeap = {
+    if (!predCalls.contains(call)) {
+      throw new IllegalArgumentException("Trying to replace call " + call + " which does not appear in " + this)
+    }
+
+    val renamedInstance = instance.instantiateFVs(call.args)
+    val shFiltered = this.copy(predCalls = predCalls.filterNot(_ == call))
+    SymbolicHeap.combineHeaps(shFiltered, renamedInstance)
   }
 
 }

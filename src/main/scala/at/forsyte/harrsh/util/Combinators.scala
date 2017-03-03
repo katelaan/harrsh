@@ -83,4 +83,11 @@ object Combinators {
     }
   }
 
+  @tailrec def lazyAny[A](seq : Seq[A], f : A => Boolean) : Boolean = {
+    if (seq.isEmpty) false
+    else {
+      if (f(seq.head)) true else lazyAny(seq.tail, f)
+    }
+  }
+
 }
