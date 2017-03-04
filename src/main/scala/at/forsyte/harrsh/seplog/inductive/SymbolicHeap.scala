@@ -67,8 +67,9 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], predCal
   def instantiateBoundVar(qvar : Var, instance : Var) : SymbolicHeap = {
     if (!Var.isFV(instance)) throw new IllegalArgumentException("Cannot instantiate bound variable by different bound variable")
 
+    val newNumFV = Math.max(numFV, instance)
     val renaming = MapBasedRenaming(Map(qvar -> instance))
-    SymbolicHeap(pure map (_.renameVars(renaming)), spatial map (_.renameVars(renaming)), predCalls map (_.renameVars(renaming)), numFV, boundVars filterNot (_ == qvar))
+    SymbolicHeap(pure map (_.renameVars(renaming)), spatial map (_.renameVars(renaming)), predCalls map (_.renameVars(renaming)), newNumFV, boundVars filterNot (_ == qvar))
   }
 
   def instantiateFVs(args : Seq[PtrExpr]): SymbolicHeap = {

@@ -34,6 +34,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
   }
 
   private def greedyUnfolding(formulaToMatch : SymbolicHeap, partialUnfolding : SymbolicHeap, history : History, headsToBodies: Map[String, Set[SymbolicHeap]], iteration : Int) : Boolean = {
+    logger.debug("#"*80)
     logger.debug("Iteration " + iteration + ": Greedy model checking of \n     " + formulaToMatch + "\n |?= " + partialUnfolding +"\n}")
     if (formulaToMatch.numFV > partialUnfolding.numFV) {
       // FIXME We should enforce the same number of FVs, but formula instantiation apparently does not currently deal correctly with numFV
@@ -215,17 +216,15 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
   private def unfoldFirstCallWithSatisfyingBodies(sh : SymbolicHeap, headsToBodies: Map[String, Set[SymbolicHeap]], pBody : SymbolicHeap => Boolean) : Set[SymbolicHeap] = {
     val call = sh.predCalls.head
     val applicableBodies = headsToBodies(call.name) filter (pBody)
-    logger.debug("Will unfold by...\n" + applicableBodies.map("  - " + _).mkString("\n"))
+    logger.debug("Will unfold " + call + " by...\n" + applicableBodies.map("  - " + _).mkString("\n"))
     val unfolded = for (body <- applicableBodies) yield sh.instantiateCall(call, body)
     unfolded
   }
 
   private def lazyRecursiveGreedyUnfolding(modelFormula : SymbolicHeap, candidateUnfoldings : Set[SymbolicHeap], history: History, headsToBodies: Map[String, Set[SymbolicHeap]], iteration : Int) : Boolean = {
     // Depth-first traversal of candidate unfoldings
-    Combinators.lazyAny(candidateUnfoldings.toSeq, (sh : SymbolicHeap) => greedyUnfolding(modelFormula, sh, history, headsToBodies, iteration + 1))
-    // TODO Heuristics, e.g. based on #ptrs in base rule and branching factor?
-    // Explanation: We could sort according to descending size of the spatial part to avoid unfolding with empty bodies. In the case of linear structures, this will be a big benefit (only the very last unfolding will be empty). In cases with at least two predicate calls in recursive calls, this is, however, not true, as in that case a large portion of unfoldings will actually have to use the base rule.
-    //Combinators.lazyAny(candidateUnfoldings.toSeq.sortWith(_.spatial.size > _.spatial.size), greedyUnfolding(formulaToMatch, _, headsToBodies))
+    // TODO Better heuristics, e.g. based on #ptrs in base rule and branching factor?
+    Combinators.lazyAny(candidateUnfoldings.toSeq.sortWith(_.predCalls.size > _.predCalls.size), (sh : SymbolicHeap) => greedyUnfolding(modelFormula, sh, history, headsToBodies, iteration + 1))
   }
 
   private def areEqualModuloPure(pure : Seq[PureAtom], fst : Var, snd : Var) : Boolean = {
