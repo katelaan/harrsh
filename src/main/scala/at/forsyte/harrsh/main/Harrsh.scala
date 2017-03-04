@@ -157,11 +157,11 @@ object Harrsh {
           println(RefinementAlgorithms.performFullAnalysis(sid, numfv, config.timeout))
 
       case ModelChecking() =>
-          println(config)
           val (sid, numfv) = MainIO.getSidFromFile(config.file)
           val model = MainIO.getModelFromFile(config.modelFile)
           val modelChecker = GreedyUnfoldingModelChecker
-          modelChecker.isModel(model, sid)
+          val result = modelChecker.isModel(model, sid)
+          println("Finished model checking. Result: " + result)
   }
 
 

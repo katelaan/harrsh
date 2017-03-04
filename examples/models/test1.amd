@@ -1,0 +1,12 @@
+# A simple model mainly for testing the parser
+STACK {
+        x1 -> 5;
+        x2 -> 42;
+        x3 -> 55;
+}
+HEAP {
+  5 -> 42, 55;
+  42 -> 55;
+  55 -> 3;
+  3 -> 0;
+}

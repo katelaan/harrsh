@@ -24,8 +24,14 @@ trait PureAtom extends SepLogAtom with HarrshLogging {
 
   def getVars : Set[Var] = this match {
     case True() => Set()
-    case PtrEq(l, r) => l.getVar union r.getVar // TODO Building so many sets is quite inefficient
+    case PtrEq(l, r) => l.getVar union r.getVar
     case PtrNEq(l, r) => l.getVar union r.getVar
+  }
+
+  def getVarsWithNull : Set[Var] = this match {
+    case True() => Set()
+    case PtrEq(l, r) => Set(l.getVarOrZero, r.getVarOrZero)
+    case PtrNEq(l, r) => Set(l.getVarOrZero, r.getVarOrZero)
   }
 
 }

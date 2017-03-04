@@ -46,7 +46,9 @@ case class Emp() extends SpatialAtom {
 case class PointsTo(from : PtrExpr, to : Seq[PtrExpr]) extends SpatialAtom {
 
   def fromAsVar : Var = from.getVarUnsafe
+  // TODO Check if we actually need the first variant
   def toAsVar : Seq[Var] = to map (_.getVarUnsafe)
+  def toAsVarOrZero : Seq[Var] = to map (_.getVarOrZero)
 
   override def toStringWithVarNames(names: VarNaming): String = from.toStringWithVarNames(names) + " \u21a6 " + (if (to.tail.isEmpty) to.head.toStringWithVarNames(names).toString else to.map(_.toStringWithVarNames(names)).mkString("(", ", ", ")"))
 }
