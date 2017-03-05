@@ -9,6 +9,6 @@ case class Model(stack : Map[Var, Loc], heap : Map[Loc,Seq[Loc]]) {
 
   assert(stack.keySet.min > 0) // Only non-null free variables are in the stack
   assert(!heap.keySet.contains(0)) // Null is not allocated
-  assert(stack.values.toSet subsetOf (heap.keySet ++ Set(0)))
+  assert(stack.values.toSet subsetOf (heap.keySet ++ heap.values.flatten ++ Set(0)))
 
 }

@@ -1,8 +1,0 @@
---modelcheck examples/models/three-elem-list.amd --spec examples/symbolicheaps/list-to-null.sid --debug # true
---modelcheck examples/models/ten-elem-list.amd --spec examples/symbolicheaps/list-to-null.sid --debug # true
---modelcheck examples/models/three-elem-list.amd --spec examples/symbolicheaps/list-cyc.sid --debug # false
---modelcheck examples/models/three-elem-list.amd --spec examples/symbolicheaps/list-unsat.sid --debug # false
---modelcheck examples/models/null-terminated-tree.amd --spec examples/datastructures/tree.sid --debug # true
---modelcheck examples/models/null-terminated-tree2.amd --spec examples/datastructures/tree.sid --debug # true
---modelcheck examples/models/tree.amd --spec examples/datastructures/tree.sid --debug # false
---modelcheck examples/models/tree.amd --spec examples/datastructures/tree-with-null-children.sid --debug # true
