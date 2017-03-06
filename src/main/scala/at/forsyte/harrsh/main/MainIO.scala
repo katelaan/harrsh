@@ -6,8 +6,9 @@ import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.seplog.parsers.{CyclistSIDParser, DefaultSIDParser, ModelParser}
 import at.forsyte.harrsh.util.IOUtils
 import at.forsyte.harrsh.util.IOUtils._
-import DecisionProcedures.{AnalysisResult, AnalysisStatistics}
+import at.forsyte.harrsh.heapautomata.DecisionProcedures.{AnalysisResult, AnalysisStatistics}
 import at.forsyte.harrsh.entailment.Model
+import at.forsyte.harrsh.heapautomata.{AutomatonTask, HeapAutomaton}
 
 /**
   * Created by jens on 2/24/17.
@@ -42,6 +43,11 @@ object MainIO extends HarrshLogging {
         IOUtils.printWarningToConsole("Parsing the SID failed, exiting")
         throw new Exception("Parsing of file '" + fileName + "'failed")
     }
+  }
+
+  def getSidAndAutomaton(sidFile : String, prop: AutomatonTask) : (SID, HeapAutomaton) = {
+    val (sid,numFV) = MainIO.getSidFromFile(sidFile)
+    (sid, prop.getAutomaton(numFV))
   }
 
   def getModelFromFile(fileName : String) : Model = {

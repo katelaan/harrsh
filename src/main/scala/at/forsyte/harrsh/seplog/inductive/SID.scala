@@ -1,12 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import java.util.NoSuchElementException
-
 import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog.{PtrExpr, PtrVar, Var}
-import at.forsyte.harrsh.util.Combinators
-
-import scala.NoSuchElementException
 
 /**
   * System of inductive definitions
@@ -29,74 +24,15 @@ case class SID(startPred : String, rules : Set[Rule], description : String = "Un
     initial
   }
 
-}
-
-object SID extends HarrshLogging {
-
-  def apply(startPred : String, description : String, rules : (String, Seq[String], SymbolicHeap)*) = new SID(startPred, Set()++(rules map Rule.fromTuple), description)
-
-  def unfoldSingleCall(sh : SymbolicHeap, call : PredCall, sid : SID) : Seq[SymbolicHeap] = {
-    unfoldSingleCall(sh, call, rulesToHeadBodyMap(sid))
-  }
-
-  def unfoldSingleCall(sh : SymbolicHeap, call : PredCall, headBodyMap : Map[String, Set[SymbolicHeap]]) : Seq[SymbolicHeap] = {
-    logger.debug("Unfolding " + call + " in " + sh)
-
-    (for (body <- headBodyMap(call.name)) yield sh.instantiateCall(call, body)).toSeq
-  }
-
-  def unfold(sid : SID, depth: Int, reducedOnly : Boolean = false): Seq[SymbolicHeap] = {
-
-    logger.debug("Unfolding sid " + sid)
-
-    val predsToBodies: Map[String, Set[SymbolicHeap]] = rulesToHeadBodyMap(sid)
-
-    val initial: SymbolicHeap = sid.callToStartPred
-
-    logger.debug("Will unfold using the following rules: ")
-    for ((k,vs) <- predsToBodies) {
-      logger.debug("Pred " + k + ":")
-      for (v <- vs) {
-        logger.debug(" * " + v)
-      }
-    }
-
-    val unfolded = try {
-      unfoldStep(predsToBodies, Seq(), Seq(initial), depth)
-    } catch {
-      case e : NoSuchElementException =>
-        println("Aborting. The SID appears to contain undefined predicates: " + e.getMessage)
-        Seq()
-    }
-
-    if (reducedOnly) unfolded.filter(_.predCalls.isEmpty) else unfolded
-  }
-
-  def rulesToHeadBodyMap(sid: SID): Map[String, Set[SymbolicHeap]] = {
+  lazy val rulesAsHeadToBodyMap: Map[String, Set[SymbolicHeap]] = {
     def extractBodies(group: (String, Set[Rule])) = {
       (group._1, group._2 map (_.body))
     }
-    Map() ++ sid.rules.groupBy(_.head).map(extractBodies _)
+    Map() ++ rules.groupBy(_.head).map(extractBodies _)
   }
 
-  private def unfoldStep(predsToBodies: Map[String, Set[SymbolicHeap]], acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int): Seq[SymbolicHeap] = {
-    logger.debug("Currently active instances:" + curr.mkString(", "))
-    if (depth == 0) acc ++ curr
-    else {
-      val allNewInstances = for {
-        sh <- curr
-        if !sh.predCalls.isEmpty
-        callReplacements = sh.predCalls.map(_.name) map predsToBodies
-        replacementChoices: Seq[Seq[SymbolicHeap]] = Combinators.choices(callReplacements)
-        newInstances: Seq[SymbolicHeap] = replacementChoices.map(sh.instantiateCalls(_))
-      } yield newInstances
-
-      unfoldStep(predsToBodies, acc ++ curr, allNewInstances.flatten, depth - 1)
-    }
-  }
-
-  def toHarrshFormat(sid : SID) : Seq[String] = {
-    val (start, rest) = sid.rules.partition(_.head == sid.startPred)
+  def toHarrshFormat : Seq[String] = {
+    val (start, rest) = rules.partition(_.head == startPred)
     val rulesWithStartFirst : Seq[Rule] = start.toSeq ++ rest
     val undelimitedLines = for {
       rule <- rulesWithStartFirst
@@ -104,5 +40,11 @@ object SID extends HarrshLogging {
     } yield rule.head + " <= " + SymbolicHeap.toHarrshFormat(sh, DefaultNaming)
     undelimitedLines.init.map(_ + " ;") :+ undelimitedLines.last
   }
+
+}
+
+object SID extends HarrshLogging {
+
+  def apply(startPred : String, description : String, rules : (String, Seq[String], SymbolicHeap)*) = new SID(startPred, Set()++(rules map Rule.fromTuple), description)
 
 }

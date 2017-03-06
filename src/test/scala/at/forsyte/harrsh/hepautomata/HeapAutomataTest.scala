@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.hepautomata
 
+import at.forsyte.harrsh.ExampleSIDs
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.heapautomata.{TrackingAutomata, _}
 import at.forsyte.harrsh.seplog.inductive.nil
@@ -148,7 +149,7 @@ class HeapAutomataTest extends HarrshTableTest {
 
         println("#"*80)
         println("Testing emptiness for refinement of " + sid + "\n with the automaton '" + automaton.description + "'; expected result: " + result)
-        new RefinementAlgorithms(sid, automaton).onTheFlyEmptinessCheck(true) should be(result)
+        RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, automaton, reportProgress = true) should be(result)
         println()
     }
 

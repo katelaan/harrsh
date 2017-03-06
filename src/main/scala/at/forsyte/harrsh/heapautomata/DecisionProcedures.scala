@@ -1,15 +1,15 @@
-package at.forsyte.harrsh.main
+package at.forsyte.harrsh.heapautomata
 
 import java.io.File
 
-import at.forsyte.harrsh.heapautomata._
+import at.forsyte.harrsh.main.{MainIO, TaskConfig, _}
+import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.util.IOUtils._
-import at.forsyte.harrsh.seplog.Var._
 
-import scala.concurrent.{Await, Future, TimeoutException}
-import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future, TimeoutException}
 
 /**
   * Created by jkatelaa on 10/20/16.
@@ -28,7 +28,7 @@ object DecisionProcedures extends HarrshLogging {
 
 
   def decideInstance(task : TaskConfig, timeout : Duration, verbose : Boolean, reportProgress : Boolean): AnalysisResult = {
-    val (sid, ha) = prepareInstanceForAnalysis(task)
+    val (sid, ha) = MainIO.getSidAndAutomaton(task.fileName, task.decisionProblem)
 
     if (verbose) {
       printLinesOf('%', 1)
@@ -46,7 +46,7 @@ object DecisionProcedures extends HarrshLogging {
     val startTime = System.currentTimeMillis()
 
     val f: Future[Boolean] = Future {
-      new RefinementAlgorithms(sid, ha).onTheFlyEmptinessCheck(reportProgress = reportProgress)
+      RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, reportProgress = reportProgress)
     }
 
     val result = try {
@@ -72,7 +72,7 @@ object DecisionProcedures extends HarrshLogging {
     var numTimeouts : Int = 0
 
     for (task <- tasks) {
-      val (sid, ha) = prepareInstanceForAnalysis(task)
+      val (sid, ha) = MainIO.getSidAndAutomaton(task.fileName, task.decisionProblem)
       if (verbose) {
         printLinesOf('%', 1)
         println("File: " + task.fileName)
@@ -85,7 +85,7 @@ object DecisionProcedures extends HarrshLogging {
       val startTime = System.currentTimeMillis()
 
       val f: Future[Boolean] = Future {
-        new RefinementAlgorithms(sid, ha).onTheFlyEmptinessCheck(reportProgress = reportProgress)
+        RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, reportProgress = reportProgress)
       }
 
       val result = try {
@@ -108,11 +108,6 @@ object DecisionProcedures extends HarrshLogging {
     val globalEndTime = System.currentTimeMillis()
 
     (results.reverse, AnalysisStatistics(globalStartTime, globalEndTime, analysisTime, timeout, numTimeouts))
-  }
-
-  def prepareInstanceForAnalysis(task : TaskConfig) : (SID, HeapAutomaton) = {
-    val (sid,numFV) = MainIO.getSidFromFile(task.fileName)
-    (sid, task.decisionProblem.getAutomaton(numFV))
   }
 
   def generateAndPrintInstances() = {

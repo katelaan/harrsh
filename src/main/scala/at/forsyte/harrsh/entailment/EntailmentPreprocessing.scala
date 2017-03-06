@@ -1,8 +1,8 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.heapautomata.{AutomatonTask, RefinementAlgorithms, RunSat, RunUnsat}
-import at.forsyte.harrsh.main.DecisionProcedures.AnalysisResult
-import at.forsyte.harrsh.main.{Config, DecisionProcedures, TaskConfig}
+import at.forsyte.harrsh.heapautomata._
+import at.forsyte.harrsh.heapautomata.DecisionProcedures.AnalysisResult
+import at.forsyte.harrsh.main.{Config, TaskConfig}
 import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.util.IOUtils
 

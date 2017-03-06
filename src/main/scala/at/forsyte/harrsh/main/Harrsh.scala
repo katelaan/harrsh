@@ -1,8 +1,8 @@
 package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.entailment.GreedyUnfoldingModelChecker
-import at.forsyte.harrsh.heapautomata.{AutomatonTask, RefinementAlgorithms}
-import at.forsyte.harrsh.seplog.inductive.SID
+import at.forsyte.harrsh.heapautomata.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
+import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
 import scala.concurrent.duration.{Duration, SECONDS}
@@ -124,11 +124,13 @@ object Harrsh {
 
       case Refine() =>
         println("Will refine SID definition in file " + config.file + " by " + config.prop)
-        val sid = RefinementAlgorithms.refineSID(config.file, config.prop, config.timeout, reportProgress = config.reportProgress)
-        sid match {
+        val (sid, ha) = MainIO.getSidAndAutomaton(config.file, config.prop)
+        val result = RefinementAlgorithms.refineSID(sid, ha, config.timeout, reportProgress = config.reportProgress)
+
+        result match {
           case Some(vsid) =>
             println(vsid._1)
-            IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(vsid._1))
+            IOUtils.writeFile(PreviousSidFileName, vsid._1.toHarrshFormat)
 
             if (vsid._2) {
               IOUtils.printWarningToConsole("Language of refined SID is empty (no rules for start predicate '" + vsid._1.startPred + "').")
@@ -146,11 +148,11 @@ object Harrsh {
       case Show() =>
           val (sid, _) = MainIO.getSidFromFile(config.file)
           println(sid)
-          IOUtils.writeFile(PreviousSidFileName, SID.toHarrshFormat(sid))
+          IOUtils.writeFile(PreviousSidFileName, sid.toHarrshFormat)
 
       case Unfold() =>
           val (sid, _) = MainIO.getSidFromFile(config.file)
-          println(SID.unfold(sid, config.unfoldingDepth, config.unfoldingsReduced).mkString("\n"))
+          println(SIDUnfolding.unfold(sid, config.unfoldingDepth, config.unfoldingsReduced).mkString("\n"))
 
       case Analyze() =>
           val (sid, numfv) = MainIO.getSidFromFile(config.file)

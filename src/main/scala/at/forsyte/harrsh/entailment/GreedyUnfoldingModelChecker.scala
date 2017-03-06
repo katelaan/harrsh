@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.heapautomata.utils.{Closure, ClosureOfAtomSet}
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{MapBasedRenaming, NullPtr, PtrVar, Var}
+import at.forsyte.harrsh.seplog.{NullPtr, PtrVar, Var}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
@@ -28,7 +28,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
   override def isModel(model: Model, formula : SymbolicHeap, sid: SID): Boolean = {
 
     val modelFormula = ModelToFormula(model)
-    val map = SID.rulesToHeadBodyMap(sid)
+    val map = sid.rulesAsHeadToBodyMap
 
     greedyUnfolding(modelFormula, formula, emptyHistory, map, 1)
   }

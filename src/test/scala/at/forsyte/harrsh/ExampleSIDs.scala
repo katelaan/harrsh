@@ -1,8 +1,8 @@
-package at.forsyte.harrsh.heapautomata
+package at.forsyte.harrsh
 
+import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.seplog.Var._
-import at.forsyte.harrsh.main._
 
 /**
   * Created by jens on 10/15/16.
