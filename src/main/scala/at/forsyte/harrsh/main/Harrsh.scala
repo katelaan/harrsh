@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.main
 
-import at.forsyte.harrsh.entailment.GreedyUnfoldingModelChecker
+import at.forsyte.harrsh.entailment.{GenerateEntailmentAutomata, GreedyUnfoldingModelChecker}
 import at.forsyte.harrsh.heapautomata.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
@@ -61,7 +61,7 @@ object Harrsh {
     } yield ()
 
     for {
-    /*
+      /*
        * Parse mode
        */
       _ <- parseSwitch("--help", "-h", _.copy(mode = Help()))
@@ -72,6 +72,7 @@ object Harrsh {
       _ <- tryParseMode("--unfold", "-u", Unfold())
       _ <- tryParseMode("--analyze", "-a", Analyze())
       _ <- tryParseMode("--spec", "-s", ModelChecking())
+      _ <- tryParseMode("--gen-aut", "-ga", GenerateEntailmentAutomaton())
       mode <- gets[Config,ExecutionMode](_.mode)
 
       /*
@@ -86,7 +87,7 @@ object Harrsh {
       timeoutString = parseSwitchWithArg("--timeout", "-t", "")
       timeout = tryParseAsInt(timeoutString) map (Duration(_, SECONDS)) getOrElse {
         if (mode.defaultTimeout.toSeconds != 0) {
-          println("Could not parse argument to --timeout; will use default " + mode.defaultTimeout + ". Please pass a positive integer (denoting the timeout in seconds)")
+          println("No timeout specified; will use default " + mode.defaultTimeout)
         }
         mode.defaultTimeout
       }
@@ -96,6 +97,11 @@ object Harrsh {
       unfoldingString = parseSwitchWithArg("--depth", "-d", "")
       unfoldingDepth = tryParseAsInt(unfoldingString)
       _ <- modify[Config](cnf => cnf.copy(oUnfoldingDepth = unfoldingDepth))
+
+      // Num. FV for entailment automaton
+      numfvString = parseSwitchWithArg("--numfv", "-n", "")
+      numfv = tryParseAsInt(numfvString)
+      _ <- modify[Config](cnf => cnf.copy(oNumFV = numfv))
 
       // Model
       modelFile = parseSwitchWithArg("--modelcheck", "-mc", "")
@@ -164,6 +170,16 @@ object Harrsh {
           val modelChecker = GreedyUnfoldingModelChecker
           val result = modelChecker.isModel(model, sid)
           println("Finished model checking. Result: " + result)
+
+      case GenerateEntailmentAutomaton() =>
+          val (sid, numfv) = MainIO.getSidFromFile(config.file)
+          val autNumfv = config.oNumFV.getOrElse{
+            IOUtils.printWarningToConsole("Number of free variables for entailment automaton not specified. Will default to number of free variables in start predicate (" + numfv + ")")
+            numfv
+          }
+          val aut = GenerateEntailmentAutomata(autNumfv, sid, config.reportProgress)
+          // TODO Write automaton to file
+          println("Finished computation of entailment automaton")
   }
 
 

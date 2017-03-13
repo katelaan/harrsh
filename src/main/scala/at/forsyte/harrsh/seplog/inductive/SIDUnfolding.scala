@@ -43,7 +43,13 @@ object SIDUnfolding extends HarrshLogging {
     if (reducedOnly) unfolded.filter(_.predCalls.isEmpty) else unfolded
   }
 
-  def unfoldOnce(sid : SID, heaps : Set[SymbolicHeap]) = ???
+  /**
+    * Unfold all given heaps exactly once, returning both reduced and non-reduced results
+    * @param sid Underlying SID
+    * @param heaps Heaps to unfold
+    * @return Unfolded heaps
+    */
+  def unfoldOnce(sid : SID, heaps : Seq[SymbolicHeap]) : Seq[SymbolicHeap] = unfoldStep(sid.rulesAsHeadToBodyMap, Seq.empty, heaps, 1)
 
   private def unfoldStep(predsToBodies: Map[String, Set[SymbolicHeap]], acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int): Seq[SymbolicHeap] = {
     logger.debug("Currently active instances:" + curr.mkString(", "))

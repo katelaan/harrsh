@@ -1,0 +1,3 @@
+# Acyclic Singly-linked lists
+sll <= emp : {x1 = x2} ;
+sll <= x1 -> y * sll(y,x2) : { x1 != x2 }

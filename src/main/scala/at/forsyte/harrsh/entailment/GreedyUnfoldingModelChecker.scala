@@ -33,6 +33,18 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     greedyUnfolding(modelFormula, formula, emptyHistory, map, 1)
   }
 
+  /**
+    * Solve the reduced entailment problem via greedy pointer matching. Sound for well-determined heaps?
+    * TODO Also sound for some other heaps?
+    * @param lhs Reduced symbolic heap on the lhs of the entailment
+    * @param rhs Arbitrary symbolic heap on the rhs of the entailment
+    * @param sid Underlying SID
+    * @return true iff lhs |= rhs
+    */
+  def reducedEntailmentAsModelChecking(lhs : SymbolicHeap, rhs : SymbolicHeap, sid : SID): Boolean = {
+    greedyUnfolding(lhs, rhs, emptyHistory, sid.rulesAsHeadToBodyMap, 1)
+  }
+
   private def greedyUnfolding(formulaToMatch : SymbolicHeap, partialUnfolding : SymbolicHeap, history : History, headsToBodies: Map[String, Set[SymbolicHeap]], iteration : Int) : Boolean = {
     logger.debug("#"*80)
     logger.debug("Iteration " + iteration + ": Greedy model checking of \n     " + formulaToMatch + "\n |?= " + partialUnfolding +"\n}")
