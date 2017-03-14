@@ -38,8 +38,6 @@ package object inductive {
 
   def qv(i : Int) : Var = -i
 
-  def emp : SpatialAtom = Emp()
-
   def ptreq(left : Var, right : Var) : PureAtom = PtrEq(PtrExpr.fromFV(left), PtrExpr.fromFV(right))
 
   def ptrneq(left : Var, right : Var) : PureAtom = PtrNEq(PtrExpr.fromFV(left), PtrExpr.fromFV(right))

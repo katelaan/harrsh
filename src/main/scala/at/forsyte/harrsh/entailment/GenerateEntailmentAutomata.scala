@@ -92,11 +92,11 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
     private def partitions(rsh: SymbolicHeap, printProgress : String => Unit): Set[ECD] = {
       val res = for {
-        sigma1 <- Combinators.powerSet(rsh.spatial.toSet)
+        sigma1 <- Combinators.powerSet(rsh.pointers.toSet)
         if !sigma1.isEmpty
         pi1 <- Combinators.powerSet(rsh.pure.toSet)
         // TODO Powerset computation that returns subsets together with their complements
-        sigma2 = rsh.spatial.toSet -- sigma1
+        sigma2 = rsh.pointers.toSet -- sigma1
         pi2 = rsh.pure.toSet -- pi1
         representative = SymbolicHeap(pi1.toSeq, sigma1.toSeq, Seq.empty)
         extension = SymbolicHeap(pi2.toSeq, sigma2.toSeq, Seq.empty)

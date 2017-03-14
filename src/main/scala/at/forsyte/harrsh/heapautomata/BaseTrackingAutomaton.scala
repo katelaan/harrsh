@@ -108,7 +108,7 @@ object BaseTrackingAutomaton extends HarrshLogging {
 
     val nonredundantAlloc = s._1 filter closure.isMinimumInItsClass
 
-    val alloc : Set[SpatialAtom] = nonredundantAlloc map (p => ptr(p, nil))
+    val alloc : Set[PointsTo] = nonredundantAlloc map (p => ptr(p, nil))
 
     val res = SymbolicHeap(s._2.toSeq, alloc.toSeq, Seq.empty)
     logger.debug("Converting " + s + " to " + res)

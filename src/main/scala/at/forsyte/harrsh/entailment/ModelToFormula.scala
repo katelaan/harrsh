@@ -16,7 +16,7 @@ object ModelToFormula {
     // Note that if multiple vars point to the same loc, we will lose this info here
     val locToVar : Map[Loc,Var] = Map() ++ model.stack.toSeq.map(p => (p._2,p._1)) ++ Map(0 -> 0)
 
-    val (pointers,boundVars) : (Seq[SpatialAtom],Set[Var]) = generatePointers(locToVar, model.heap.toList)
+    val (pointers,boundVars) : (Seq[PointsTo],Set[Var]) = generatePointers(locToVar, model.heap.toList)
 
     // Add equalities for variables that map to the same location
     // Recall that we previously lost that info when building the locToVar map

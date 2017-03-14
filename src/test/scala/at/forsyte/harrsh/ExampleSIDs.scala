@@ -12,7 +12,7 @@ object ExampleSIDs {
   lazy val Sll = SID("sll",
     "Singly-linked list",
     // sll <= emp : { a = b }
-    ("sll", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq(emp), Seq.empty)),
+    ("sll", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq.empty)),
     // sll <= ∃ y . a -> y * sll(y, b)
     ("sll", Seq("y"), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1))), Seq(call("sll", qv(1), mkVar(2)))))
   )
@@ -28,7 +28,7 @@ object ExampleSIDs {
   lazy val Dll = SID("dll",
     "Doubly-linked list",
     // dll <= emp : { a = c, b = d }
-    ("dll", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(3)), ptreq(mkVar(2), mkVar(4))), Seq(emp), Seq.empty)),
+    ("dll", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(3)), ptreq(mkVar(2), mkVar(4))), Seq.empty, Seq.empty)),
     // dll <= ∃ u . a -> (u,b) * dll(u,a,c,d)
     ("dll", Seq("u"), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1), mkVar(2))), Seq(call("dll", qv(1), mkVar(1), mkVar(3), mkVar(4)))))
   )
@@ -49,7 +49,7 @@ object ExampleSIDs {
     ("a", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq(call("b", mkVar(2), mkVar(1))))),
     ("b", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq(call("c", mkVar(1), mkVar(2))))),
     ("c", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq(call("d", mkVar(2), mkVar(1))))),
-    ("d", Seq.empty, SymbolicHeap(Seq(emp)))
+    ("d", Seq.empty, SymbolicHeap(Seq.empty))
   )
 
   /**
@@ -71,7 +71,7 @@ object ExampleSIDs {
     ("a", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq(call("b", mkVar(1), mkVar(2)), call("b", mkVar(2), mkVar(1))))),
     ("b", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq(call("c", mkVar(1), mkVar(2)), call("c", mkVar(2), mkVar(1))))),
     ("c", Seq.empty, SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2))))),
-    ("c", Seq.empty, SymbolicHeap(Seq(emp)))
+    ("c", Seq.empty, SymbolicHeap(Seq.empty))
   )
 
   /**
@@ -83,7 +83,7 @@ object ExampleSIDs {
     ("b", Seq.empty, SymbolicHeap(Seq.empty, Seq(call("c", mkVar(1), mkVar(2)), call("c", mkVar(2), mkVar(1))))),
     ("c", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq.empty)),
     ("c", Seq.empty, SymbolicHeap(Seq(ptrneq(mkVar(1), mkVar(2))), Seq.empty, Seq.empty)),
-    ("c", Seq.empty, SymbolicHeap(Seq(emp)))
+    ("c", Seq.empty, SymbolicHeap(Seq.empty))
   )
 
   /**
@@ -94,15 +94,15 @@ object ExampleSIDs {
     ("a", Seq.empty, SymbolicHeap(Seq.empty, Seq(call("b", mkVar(1), mkVar(2)), call("b", mkVar(2), mkVar(1))))),
     ("b", Seq.empty, SymbolicHeap(Seq.empty, Seq(call("c", mkVar(1), mkVar(2)), call("c", mkVar(2), mkVar(1))))),
     ("c", Seq.empty, SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2))))),
-    ("c", Seq.empty, SymbolicHeap(Seq(emp))),
-    ("c", Seq.empty, SymbolicHeap(Seq(ptrneq(mkVar(1), mkVar(2))), Seq(emp), Seq.empty))
+    ("c", Seq.empty, SymbolicHeap(Seq.empty)),
+    ("c", Seq.empty, SymbolicHeap(Seq(ptrneq(mkVar(1), mkVar(2))), Seq.empty, Seq.empty))
   )
 
   lazy val UnsatSID = SID("unsat",
     "Unsat singly-linked list",
     ("unsat", Seq.empty, SymbolicHeap(Seq(ptrneq(mkVar(1),mkVar(2))), Seq(ptr(mkVar(1), nil)), Seq(call("sll", mkVar(1), mkVar(2))))),
     // sll <= emp : { a = b }
-    ("sll", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq(emp), Seq.empty)),
+    ("sll", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq.empty)),
     // sll <= ∃ y . a -> y * sll(y, b)
     ("sll", Seq("y"), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1))), Seq(call("sll", qv(1), mkVar(2)))))
   )
@@ -117,7 +117,7 @@ object ExampleSIDs {
   lazy val OptionallyEstablishedSID = SID("start",
     "Optionally Established SID",
     ("start", Seq("z", "y"), SymbolicHeap(Seq(), Seq(call("pred", qv(1), mkVar(1)), call("pred", qv(2), mkVar(1))))),
-    ("pred", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(2))), Seq(emp), Seq.empty)),
+    ("pred", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(2))), Seq.empty, Seq.empty)),
     ("pred", Seq.empty, SymbolicHeap(Seq(ptr(mkVar(2),mkVar(1)))))
   )
 
@@ -126,9 +126,9 @@ object ExampleSIDs {
     ("a", Seq("y","z","w"), SymbolicHeap(Seq(), Seq(call("b", qv(1), qv(2)), call("b", qv(1), qv(3)), call("d", qv(2), qv(1))))),
     ("b", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq(call("c", mkVar(1), mkVar(2)), call("c", mkVar(2), mkVar(1))))),
     ("c", Seq.empty, SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2))))),
-    ("c", Seq.empty, SymbolicHeap(Seq(emp))),
-    ("d", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq(emp), Seq.empty)),
-    ("d", Seq.empty, SymbolicHeap(Seq(emp)))
+    ("c", Seq.empty, SymbolicHeap(Seq.empty)),
+    ("d", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq.empty)),
+    ("d", Seq.empty, SymbolicHeap(Seq.empty))
   )
 
   lazy val OptionallyEstablishedSID3 = SID("a",
@@ -136,22 +136,22 @@ object ExampleSIDs {
     ("a", Seq("y","z"), SymbolicHeap(Seq(), Seq(call("b", qv(1), qv(2)), call("b", qv(2), qv(1))))),
     ("b", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq(call("c", mkVar(1), mkVar(2)), call("c", mkVar(2), mkVar(1))))),
     ("c", Seq.empty, SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2))))),
-    ("c", Seq.empty, SymbolicHeap(Seq(emp)))
+    ("c", Seq.empty, SymbolicHeap(Seq.empty))
   )
 
   lazy val OptionallyEstablishedSID4 = SID("a",
     "Optionally Established SID 2",
     ("a", Seq("y","z","w"), SymbolicHeap(Seq(), Seq(call("b", qv(3), qv(2)), call("b", qv(1), qv(2)), call("d", qv(2), mkVar(1))))),
-    ("b", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq(emp), Seq.empty)),
-    ("b", Seq.empty, SymbolicHeap(Seq(emp))),
-    ("d", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq(emp), Seq.empty)),
-    ("d", Seq.empty, SymbolicHeap(Seq(emp)))
+    ("b", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq.empty)),
+    ("b", Seq.empty, SymbolicHeap(Seq.empty)),
+    ("d", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq.empty)),
+    ("d", Seq.empty, SymbolicHeap(Seq.empty))
   )
 
   lazy val NonEstablishedSID = SID("start",
     "Non-Established SID",
     ("start", Seq("z","y"), SymbolicHeap(Seq.empty, Seq.empty, Seq(call("pred", qv(1), mkVar(1))), 1, Seq(-1,-2))),
-    ("pred", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(2))), Seq(emp), Seq.empty)),
+    ("pred", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(2))), Seq.empty, Seq.empty)),
     ("pred", Seq.empty, SymbolicHeap(Seq(ptr(mkVar(2),mkVar(1)))))
   )
 
@@ -160,9 +160,9 @@ object ExampleSIDs {
     ("a", Seq("y","z","w"), SymbolicHeap(Seq(), Seq(call("b", qv(1), qv(2)), call("b", qv(1), qv(3)), call("d", qv(2), mkVar(2))))),
     ("b", Seq.empty, SymbolicHeap(Seq.empty, Seq(call("c", mkVar(1), mkVar(2))))),
     ("c", Seq.empty, SymbolicHeap(Seq(ptr(mkVar(2), mkVar(1))))),
-    ("c", Seq.empty, SymbolicHeap(Seq(emp))),
-    ("d", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq(emp), Seq.empty)),
-    ("d", Seq.empty, SymbolicHeap(Seq(emp)))
+    ("c", Seq.empty, SymbolicHeap(Seq.empty)),
+    ("d", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq.empty)),
+    ("d", Seq.empty, SymbolicHeap(Seq.empty))
   )
 
   lazy val CyclicSll = SID("cll",

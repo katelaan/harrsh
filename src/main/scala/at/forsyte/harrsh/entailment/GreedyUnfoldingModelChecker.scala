@@ -137,8 +137,8 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
 
   def applyParamMatchingToHeaps(modelFormula: SymbolicHeap, partialUnfolding: SymbolicHeap, history: History, headsToBodies: Map[String, Set[SymbolicHeap]], iteration: Loc, freePtr: PointsTo, matchingPtr: PointsTo): Boolean = {
     // TODO This is also needlessly inefficient; should get rid of the pointer immediately when we find it to avoid second iteration over the seq
-    val smallerUnfolding = partialUnfolding.copy(spatial = partialUnfolding.spatial.filterNot(_ == freePtr))
-    val smallerModel = modelFormula.copy(spatial = modelFormula.spatial.filterNot(_ == matchingPtr))
+    val smallerUnfolding = partialUnfolding.copy(pointers = partialUnfolding.pointers.filterNot(_ == freePtr))
+    val smallerModel = modelFormula.copy(pointers = modelFormula.pointers.filterNot(_ == matchingPtr))
     // Add allocation to history for later comparison
     val newHistory = history + matchingPtr.fromAsVar
 
@@ -151,7 +151,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
         logger.debug("New rhs: " + renamedUnfolding)
 
         // Check if we now have null pointers on the lhs in the model; if so, abort
-        if (renamedModel.spatial.exists(atom => atom.isInstanceOf[PointsTo] && atom.asInstanceOf[PointsTo].from.getVarOrZero == 0)) {
+        if (renamedModel.pointers.exists(atom => atom.isInstanceOf[PointsTo] && atom.asInstanceOf[PointsTo].from.getVarOrZero == 0)) {
           logger.debug("Introduced null pointer allocation into model " + renamedModel + " => no model => abort branch")
           NoModel
         } else {

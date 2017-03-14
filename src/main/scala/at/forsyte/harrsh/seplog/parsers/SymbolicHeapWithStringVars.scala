@@ -9,10 +9,10 @@ import at.forsyte.harrsh.seplog.inductive._
 case class StringSymbolicHeap(pure : Seq[StringPureAtom], spatial : Seq[StringSpatialAtom]) {
 
   def replaceStringsByIds(naming: VarUnNaming): SymbolicHeap = {
-    val allSpatial = spatial map (_.replaceStringsByIds(naming))
+    val allSpatial : Seq[SepLogAtom] = spatial map (_.replaceStringsByIds(naming)) filter (_.isDefined) map (_.get)
     val (predCalls, nonCalls) = allSpatial.partition(_.isInstanceOf[PredCall])
 
-    SymbolicHeap(pure map (_.replaceStringsByIds(naming)), nonCalls map (_.asInstanceOf[SpatialAtom]), predCalls map (_.asInstanceOf[PredCall]))
+    SymbolicHeap(pure map (_.replaceStringsByIds(naming).get), nonCalls map (_.asInstanceOf[PointsTo]), predCalls map (_.asInstanceOf[PredCall]))
   }
 
   def getVars : Set[String] = Set.empty ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars)
@@ -21,7 +21,7 @@ case class StringSymbolicHeap(pure : Seq[StringPureAtom], spatial : Seq[StringSp
 trait StringSepLogAtom {
   def getVars : Set[String]
 
-  def replaceStringsByIds(naming: VarUnNaming) : SepLogAtom
+  def replaceStringsByIds(naming: VarUnNaming) : Option[SepLogAtom]
 }
 
 sealed trait StringPureAtom extends StringSepLogAtom {
@@ -31,11 +31,11 @@ sealed trait StringPureAtom extends StringSepLogAtom {
     case StringPtrNEq(l, r) => l.getVars union r.getVars
   }
 
-  override def replaceStringsByIds(naming: VarUnNaming) : PureAtom = this match {
+  override def replaceStringsByIds(naming: VarUnNaming) : Option[PureAtom] = Some(this match {
     case StringTrue() => True()
     case StringPtrEq(l, r) => PtrEq(l.replaceStringsByIds(naming), r.replaceStringsByIds(naming))
     case StringPtrNEq(l, r) => PtrNEq(l.replaceStringsByIds(naming), r.replaceStringsByIds(naming))
-  }
+  })
 }
 
 case class StringTrue() extends StringPureAtom
@@ -51,10 +51,10 @@ sealed trait StringSpatialAtom extends StringSepLogAtom {
     case StringPredCall(name, args) => Set.empty ++ args.flatMap(_.getVars)
   }
 
-  override def replaceStringsByIds(naming: VarUnNaming) : SepLogAtom = this match {
-    case StringEmp() => Emp()
-    case StringPointsTo(from, to) => PointsTo(from.replaceStringsByIds(naming), to.map(_.replaceStringsByIds(naming)))
-    case StringPredCall(name, args) => PredCall(name, args.map(_.replaceStringsByIds(naming)))
+  override def replaceStringsByIds(naming: VarUnNaming) : Option[SepLogAtom] = this match {
+    case StringEmp() => None
+    case StringPointsTo(from, to) => Some(PointsTo(from.replaceStringsByIds(naming), to.map(_.replaceStringsByIds(naming))))
+    case StringPredCall(name, args) => Some(PredCall(name, args.map(_.replaceStringsByIds(naming))))
   }
 }
 

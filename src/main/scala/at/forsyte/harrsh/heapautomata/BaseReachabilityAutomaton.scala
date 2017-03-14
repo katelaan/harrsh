@@ -161,7 +161,7 @@ object BaseReachabilityAutomaton extends HarrshLogging {
 
     val freshVar = Var.getFirstBoundVar
 
-    val kernelPtrs : Set[SpatialAtom] = nonredundantAlloc map (reachInfoToPtr(_, reach, freshVar))
+    val kernelPtrs : Set[PointsTo] = nonredundantAlloc map (reachInfoToPtr(_, reach, freshVar))
 
     val res = SymbolicHeap(pure.toSeq, kernelPtrs.toSeq, Seq.empty)
     logger.trace("Converting source state " + s + " to " + res)

@@ -9,11 +9,11 @@ import scala.annotation.tailrec
 /**
   * Created by jkatelaa on 10/3/16.
   */
-case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], predCalls : Seq[PredCall], numFV : Int, boundVars : Seq[Var]) {
+case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls : Seq[PredCall], numFV : Int, boundVars : Seq[Var]) {
 
   // Sanity check
   if (Config.HeapAutomataSafeModeEnabled) {
-    val (free, bound) = (pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars)).partition(isFV)
+    val (free, bound) = (pure.flatMap(_.getVars) ++ pointers.flatMap(_.getVars)).partition(isFV)
     if (!free.isEmpty && free.max > numFV) throw new IllegalStateException("NumFV = " + numFV + " but contained FVs are " + free.distinct)
   }
 
@@ -21,18 +21,20 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], predCal
 
   def toStringWithVarNames(naming: VarNaming): String = {
     val prefix = (boundVars map naming map ("\u2203"+_)).sorted.mkString(" ")
-    val spatialString = (spatial.map(_.toStringWithVarNames(naming)) ++ predCalls.map(_.toStringWithVarNames(naming))).mkString(" * ")
+    val spatialString = if (pointers.isEmpty && predCalls.isEmpty) {
+      "emp"
+    } else {
+      (pointers.map(_.toStringWithVarNames(naming)) ++ predCalls.map(_.toStringWithVarNames(naming))).mkString(" * ")
+    }
     val pureString = if (pure.isEmpty) "" else pure.map(_.toStringWithVarNames(naming)).mkString(" : {", ", ", "}")
     prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString //+ " [" + numFV + "/" + boundVars.size + "]"
   }
 
-  lazy val hasPointer: Boolean = spatial.exists(_.isInstanceOf[PointsTo])
+  lazy val hasPointer: Boolean = pointers.nonEmpty
 
   def hasPredCalls: Boolean = predCalls.nonEmpty
 
   lazy val identsOfCalledPreds: Seq[String] = predCalls map (_.name)
-
-  lazy val pointers : Seq[PointsTo] = spatial filter (_.isInstanceOf[PointsTo]) map (_.asInstanceOf[PointsTo])
 
   lazy val equalities : Seq[PtrEq] = pure filter (_.isInstanceOf[PtrEq]) map (_.asInstanceOf[PtrEq])
 
@@ -61,7 +63,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], predCal
         (extended(v) +: seq, extended)
     })
 
-    SymbolicHeap(pure map (_.renameVars(extendedF)), spatial map (_.renameVars(extendedF)), predCalls map (_.renameVars(extendedF)), numFV, qvarsRenamed)
+    SymbolicHeap(pure map (_.renameVars(extendedF)), pointers map (_.renameVars(extendedF)), predCalls map (_.renameVars(extendedF)), numFV, qvarsRenamed)
   }
 
   def instantiateBoundVar(qvar : Var, instance : Var) : SymbolicHeap = {
@@ -69,7 +71,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], predCal
 
     val newNumFV = Math.max(numFV, instance)
     val renaming = MapBasedRenaming(Map(qvar -> instance))
-    SymbolicHeap(pure map (_.renameVars(renaming)), spatial map (_.renameVars(renaming)), predCalls map (_.renameVars(renaming)), newNumFV, boundVars filterNot (_ == qvar))
+    SymbolicHeap(pure map (_.renameVars(renaming)), pointers map (_.renameVars(renaming)), predCalls map (_.renameVars(renaming)), newNumFV, boundVars filterNot (_ == qvar))
   }
 
   def instantiateFVs(args : Seq[PtrExpr]): SymbolicHeap = {
@@ -120,7 +122,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], predCal
 
 object SymbolicHeap {
 
-  def apply(pure : Seq[PureAtom], spatial: Seq[SpatialAtom], calls : Seq[PredCall]) : SymbolicHeap = {
+  def apply(pure : Seq[PureAtom], spatial: Seq[PointsTo], calls : Seq[PredCall]) : SymbolicHeap = {
     val vars = Set.empty ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars) ++ calls.flatMap(_.getVars)
     val fvars = vars.filter(_ > 0)
     val qvars = vars.filter(_ < 0)
@@ -129,9 +131,9 @@ object SymbolicHeap {
     SymbolicHeap(pure, spatial, calls, if (fvars.isEmpty) 0 else fvars.max, qvars.toSeq)
   }
 
-  def apply(spatial: Seq[SpatialAtom], calls: Seq[PredCall]) : SymbolicHeap = apply(Seq.empty, spatial, calls)
+  def apply(spatial: Seq[PointsTo], calls: Seq[PredCall]) : SymbolicHeap = apply(Seq.empty, spatial, calls)
 
-  def apply(spatial: Seq[SpatialAtom]) : SymbolicHeap = apply(Seq.empty, spatial, Seq.empty)
+  def apply(spatial: Seq[PointsTo]) : SymbolicHeap = apply(Seq.empty, spatial, Seq.empty)
 
   def combineHeaps(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
     val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
@@ -156,7 +158,7 @@ object SymbolicHeap {
 
   def toHarrshFormat(sh : SymbolicHeap, naming : VarNaming) : String = {
     // TODO This is somewhat redundant wrt ordinary string conversion
-    val spatialString = sh.spatial.map(_.toStringWithVarNames(naming)).mkString(" * ")
+    val spatialString = sh.pointers.map(_.toStringWithVarNames(naming)).mkString(" * ")
     val pureString = if (sh.pure.isEmpty) "" else sh.pure.map(_.toStringWithVarNames(naming)).mkString(" : {", ", ", "}")
     spatialString.replaceAll("\u21a6", "->") ++ pureString.replaceAll("\u2248", "=").replaceAll("\u2249", "!=")
   }

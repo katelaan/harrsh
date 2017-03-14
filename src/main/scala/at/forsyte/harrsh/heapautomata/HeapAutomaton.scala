@@ -41,7 +41,7 @@ trait HeapAutomaton extends HarrshLogging {
     * By default, this is implemented naively in terms of isTransitionDefined. Override if more efficient implementation exists for your SH
     */
   def getDefinedTransitions(lab : SymbolicHeap) : Set[(Seq[State], State)] = {
-    val sizeOfSig = lab.spatial.length
+    val sizeOfSig = lab.pointers.length
     val srcSeqs : Set[Seq[State]] = Combinators.allSeqsOfLength(sizeOfSig, states)
 
     for {
