@@ -44,7 +44,9 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     * @return true iff lhs |= rhs
     */
   def reducedEntailmentAsModelChecking(lhs : SymbolicHeap, rhs : SymbolicHeap, sid : SID, reportProgress: Boolean = false): Boolean = {
-    new GreedyUnfolding(sid.rulesAsHeadToBodyMap, reportProgress).run(lhs, rhs, emptyHistory, 1)
+    val res = new GreedyUnfolding(sid.rulesAsHeadToBodyMap, reportProgress).run(lhs, rhs, emptyHistory, 1)
+    if (reportProgress) println("    REDENT result: " + res)
+    res
   }
 
   private class GreedyUnfolding(headsToBodies: Map[String, Set[SymbolicHeap]], reportProgress : Boolean) {

@@ -49,10 +49,13 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
       def printProgress(msg: String): Unit = if (reportProgress) println("Iteration " + i + ": " + msg)
 
-      printProgress("Starting new iteration")
+      printProgress("Starting new iteration; ECDs so far: " + ecdPrev.mkString(", "))
+      printProgress("Will unfold the following formulas:\n" + partialUnfoldings.map(" - " + _).mkString("\n"))
 
       val nextUnfs = SIDUnfolding.unfoldOnce(sid, partialUnfoldings)
       val (reducedUnfs, newPartialUnfs) = nextUnfs.partition(_.predCalls.isEmpty)
+      printProgress("Reduced unfs for current iteration:\n" + reducedUnfs.map(" - " + _).mkString("\n"))
+      printProgress("Non-reduced unfs for next iteration:\n" + newPartialUnfs.map(" - " + _).mkString("\n"))
 
       printProgress("Old ECDs: " + ecdPrev.size + "; Partial lvl. i-1 unfs.: " + partialUnfoldings.size + "; Lvl. i reduced/non-reduced unfs.: " + reducedUnfs.size + "/" + newPartialUnfs.size)
 
@@ -73,6 +76,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
     @tailrec private def processUnfoldings(reducedUnfs : Seq[SymbolicHeap], ecdAcc : Seq[ECD], printProgress : String => Unit) : Seq[ECD] = {
       if (reducedUnfs.isEmpty) ecdAcc else {
+        printProgress("Processing Unfolding: " + reducedUnfs.head)
         val candidates = partitions(reducedUnfs.head)
         printProgress("Partitions to consider: " + candidates.size)
         val ecdAccwithEcdsForUnfolding = processPartitions(candidates, ecdAcc, printProgress)
@@ -82,9 +86,11 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
     @tailrec private def processPartitions(candidates : Set[ECD], ecdAcc : Seq[ECD], printProgress : String => Unit) : Seq[ECD] = {
       if (candidates.isEmpty) ecdAcc else {
-        val newAcc = if (ecdAcc.isEmpty || isNew(ecdAcc, candidates.head)) {
-          printProgress("Found " + candidates.head)
-          ecdAcc :+ candidates.head
+        val ecd = candidates.head
+        printProgress("Processing Partition: " + ecd)
+        val newAcc = if (ecdAcc.isEmpty || (!ecdAcc.contains(ecd) && isNew(ecdAcc, ecd))) {
+          printProgress("*** New ECD " + ecd + " ***")
+          ecdAcc :+ ecd
         } else ecdAcc
 
         processPartitions(candidates.tail, newAcc, printProgress : String => Unit)
