@@ -5,6 +5,8 @@ import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{SID, SIDUnfolding, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
+import scala.annotation.tailrec
+
 /**
   * Created by jens on 3/6/17.
   */
@@ -54,16 +56,9 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
       printProgress("Old ECDs: " + ecdPrev.size + "; Partial lvl. i-1 unfs.: " + partialUnfoldings.size + "; Lvl. i reduced/non-reduced unfs.: " + reducedUnfs.size + "/" + newPartialUnfs.size)
 
-      val ecdNew = for {
-        unf <- reducedUnfs
-        candidate <- partitions(unf, printProgress)
-        if ecdPrev.isEmpty || isNew(ecdPrev, candidate)
-      } yield {
-        printProgress("Found " + candidate)
-        candidate
-      }
+      val ecdNew = processUnfoldings(reducedUnfs, ecdPrev, printProgress)
 
-      if (ecdNew.isEmpty) {
+      if (ecdNew.size == ecdPrev.size) {
         val termMsg = "ECD computation reached fixed point";
         logger.debug(termMsg);
         printProgress(termMsg)
@@ -73,6 +68,26 @@ object GenerateEntailmentAutomata extends HarrshLogging {
         printProgress("Found " + ecdNew.size + " new ECDs");
         logger.debug("Iteration " + i + ": Found " + ecdNew.size + " new ECDs")
         ecdIteration(i + 1, ecdPrev ++ ecdNew, newPartialUnfs)
+      }
+    }
+
+    @tailrec private def processUnfoldings(reducedUnfs : Seq[SymbolicHeap], ecdAcc : Seq[ECD], printProgress : String => Unit) : Seq[ECD] = {
+      if (reducedUnfs.isEmpty) ecdAcc else {
+        val candidates = partitions(reducedUnfs.head)
+        printProgress("Partitions to consider: " + candidates.size)
+        val ecdAccwithEcdsForUnfolding = processPartitions(candidates, ecdAcc, printProgress)
+        processUnfoldings(reducedUnfs.tail, ecdAccwithEcdsForUnfolding, printProgress)
+      }
+    }
+
+    @tailrec private def processPartitions(candidates : Set[ECD], ecdAcc : Seq[ECD], printProgress : String => Unit) : Seq[ECD] = {
+      if (candidates.isEmpty) ecdAcc else {
+        val newAcc = if (ecdAcc.isEmpty || isNew(ecdAcc, candidates.head)) {
+          printProgress("Found " + candidates.head)
+          ecdAcc :+ candidates.head
+        } else ecdAcc
+
+        processPartitions(candidates.tail, newAcc, printProgress : String => Unit)
       }
     }
 
@@ -90,10 +105,11 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       reducedEntailment(fstExt, sid.callToStartPred) && reducedEntailment(sndExt, sid.callToStartPred)
     }
 
-    private def partitions(rsh: SymbolicHeap, printProgress : String => Unit): Set[ECD] = {
-      val res = for {
+    private def partitions(rsh: SymbolicHeap): Set[ECD] = {
+      for {
         sigma1 <- Combinators.powerSet(rsh.pointers.toSet)
-        if !sigma1.isEmpty
+        // FIXME Handling of emp?
+        //if !sigma1.isEmpty
         pi1 <- Combinators.powerSet(rsh.pure.toSet)
         // TODO Powerset computation that returns subsets together with their complements
         sigma2 = rsh.pointers.toSet -- sigma1
@@ -105,8 +121,6 @@ object GenerateEntailmentAutomata extends HarrshLogging {
         if repWithExtPoints.numFV <= maxNumFv
         extWithExtPoints = unbindShared(extension, representative)
       } yield (repWithExtPoints, extWithExtPoints)
-      printProgress("Partitions to consider: " + res.size)
-      res
     }
 
     private def unbindShared(rshToModify : SymbolicHeap, sharedWith : SymbolicHeap) : SymbolicHeap = {
@@ -120,7 +134,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       unbindAll(sharedVars.toSeq, rshToModify)
     }
 
-    private def reducedEntailment(lhs: SymbolicHeap, rhs: SymbolicHeap) : Boolean = GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(lhs, rhs, sid)
+    private def reducedEntailment(lhs: SymbolicHeap, rhs: SymbolicHeap) : Boolean = GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(lhs, rhs, sid, reportProgress)
 
   }
 
