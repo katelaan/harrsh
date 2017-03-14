@@ -49,11 +49,11 @@ object SIDUnfolding extends HarrshLogging {
     * @param heaps Heaps to unfold
     * @return Unfolded heaps
     */
-  def unfoldOnce(sid : SID, heaps : Seq[SymbolicHeap]) : Seq[SymbolicHeap] = unfoldStep(sid.rulesAsHeadToBodyMap, Seq.empty, heaps, 1)
+  def unfoldOnce(sid : SID, heaps : Seq[SymbolicHeap]) : Seq[SymbolicHeap] = unfoldStep(sid.rulesAsHeadToBodyMap, Seq.empty, heaps, 1, doAccumulateSteps = false)
 
-  private def unfoldStep(predsToBodies: Map[String, Set[SymbolicHeap]], acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int): Seq[SymbolicHeap] = {
-    logger.debug("Currently active instances:" + curr.mkString(", "))
-    if (depth == 0) acc ++ curr
+  private def unfoldStep(predsToBodies: Map[String, Set[SymbolicHeap]], acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int, doAccumulateSteps: Boolean = true): Seq[SymbolicHeap] = {
+    logger.debug("Currently active instances: " + curr.mkString(", "))
+    if (depth == 0) if (doAccumulateSteps) acc ++ curr else curr
     else {
       val allNewInstances = for {
         sh <- curr
@@ -63,7 +63,7 @@ object SIDUnfolding extends HarrshLogging {
         newInstances: Seq[SymbolicHeap] = replacementChoices.map(sh.instantiateCalls(_))
       } yield newInstances
 
-      unfoldStep(predsToBodies, acc ++ curr, allNewInstances.flatten, depth - 1)
+      unfoldStep(predsToBodies, acc ++ curr, allNewInstances.flatten, depth - 1, doAccumulateSteps)
     }
   }
 
