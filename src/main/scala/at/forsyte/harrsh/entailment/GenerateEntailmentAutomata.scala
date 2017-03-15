@@ -88,27 +88,39 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       if (candidates.isEmpty) ecdAcc else {
         val ecd = candidates.head
         printProgress("Processing Partition: " + ecd)
-        val newAcc = if (ecdAcc.isEmpty || (!ecdAcc.contains(ecd) && isNew(ecdAcc, ecd))) {
+        val newAcc = if (!ecdAcc.contains(ecd) && isNew(ecdAcc, ecd, printProgress)) {
           printProgress("*** New ECD " + ecd + " ***")
           ecdAcc :+ ecd
-        } else ecdAcc
+        } else {
+          printProgress("=> " + ecd + " assumed equal to previous ECD.")
+          ecdAcc
+        }
 
         processPartitions(candidates.tail, newAcc, printProgress : String => Unit)
       }
     }
 
-    private def isNew(ecds: Seq[ECD], candidate: ECD): Boolean = if (ecds.isEmpty) {
-      false
+    @tailrec private def isNew(oldECDs: Seq[ECD], candidate: ECD, printProgress : String => Unit): Boolean = if (oldECDs.isEmpty) {
+      true
     } else {
-      val (hd, tl) = (ecds.head, ecds.tail)
-      val notNew = areBiExtensible(hd, candidate)
-      if (notNew) isNew(tl, candidate) else true
+      val (hd, tl) = (oldECDs.head, oldECDs.tail)
+      printProgress("Comparing against " + hd)
+      val notNew = areBiExtensible(hd, candidate, printProgress)
+      if (notNew) false else isNew(tl, candidate, printProgress)
     }
 
-    private def areBiExtensible(fst: ECD, snd: ECD): Boolean = {
+    private def areBiExtensible(fst: ECD, snd: ECD, printProgress : String => Unit): Boolean = {
       val fstExt = SymbolicHeap.combineHeaps(fst._1, snd._2)
-      val sndExt = SymbolicHeap.combineHeaps(snd._1, fst._2)
-      reducedEntailment(fstExt, sid.callToStartPred) && reducedEntailment(sndExt, sid.callToStartPred)
+      val fstRes = reducedEntailment(fstExt, sid.callToStartPred)
+      printProgress("Checking 1st extension " + fst._1 + " * " + snd._2 + " |?= " + sid.callToStartPred + " ---> " + fstRes)
+      if (fstRes) {
+        val sndExt = SymbolicHeap.combineHeaps(snd._1, fst._2)
+        val sndRes = reducedEntailment(sndExt, sid.callToStartPred)
+        printProgress("Checking 2nd extension " + snd._1 + " * " + fst._2 + " |?= " + sid.callToStartPred + " ---> " + sndRes)
+        sndRes
+      } else {
+        false
+      }
     }
 
     private def partitions(rsh: SymbolicHeap): Set[ECD] = {

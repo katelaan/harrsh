@@ -54,7 +54,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     def run(formulaToMatch: SymbolicHeap, partialUnfolding: SymbolicHeap, history: History, iteration: Int): Boolean = {
       logger.debug("#" * 80)
       logger.debug("Iteration " + iteration + ": Greedy model checking of \n     " + formulaToMatch + "\n |?= " + partialUnfolding + "\n}")
-      if (reportProgress) println("    MC #" + iteration + ": " + formulaToMatch + "|?=" + partialUnfolding)
+      if (reportProgress) println("    MC #" + iteration + ": " + formulaToMatch + " |?= " + partialUnfolding)
       if (formulaToMatch.numFV > partialUnfolding.numFV) {
         // FIXME We should enforce the same number of FVs, but formula instantiation apparently does not currently deal correctly with numFV
         throw new IllegalStateException("Greedy model checker can only deal with tight models, but (intermediate) model has " + formulaToMatch.numFV + " free variables, (intermediate) unfolding has " + partialUnfolding.numFV)
