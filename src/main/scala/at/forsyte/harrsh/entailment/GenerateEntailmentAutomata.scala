@@ -41,6 +41,10 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
   private class ECDComputation(sid : SID, maxNumFv : Int, reportProgress : Boolean) {
 
+    // TODO Pure formula treatment: Should probably look just at spatial part of partitions and keep track of pure part separately (tracking)? But then have to modify the reduced entailment check?
+
+    def FindOnlyNonEmpty = true // Only generate non-empty left-hand sides. Still have to figure out if this is the right approach
+
     def run(): Seq[ECD] = {
       ecdIteration(1, Seq.empty, Seq(sid.callToStartPred))
     }
@@ -61,7 +65,8 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
       val ecdNew = processUnfoldings(reducedUnfs, ecdPrev, printProgress)
 
-      if (ecdNew.size == ecdPrev.size) {
+      if (!ecdPrev.isEmpty && ecdNew.size == ecdPrev.size) {
+        // If we've already found at least one ECD, but now don't find a new one, we terminate
         val termMsg = "ECD computation reached fixed point";
         logger.debug(termMsg);
         printProgress(termMsg)
@@ -78,7 +83,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       if (reducedUnfs.isEmpty) ecdAcc else {
         printProgress("Processing Unfolding: " + reducedUnfs.head)
         val candidates = partitions(reducedUnfs.head)
-        printProgress("Partitions to consider: " + candidates.size)
+        printProgress("Partitions with " + (if (FindOnlyNonEmpty) "(non-empty)" else "(possibly empty)") + " left part to consider: " + candidates.size)
         val ecdAccwithEcdsForUnfolding = processPartitions(candidates, ecdAcc, printProgress)
         processUnfoldings(reducedUnfs.tail, ecdAccwithEcdsForUnfolding, printProgress)
       }
@@ -126,8 +131,8 @@ object GenerateEntailmentAutomata extends HarrshLogging {
     private def partitions(rsh: SymbolicHeap): Set[ECD] = {
       for {
         sigma1 <- Combinators.powerSet(rsh.pointers.toSet)
-        // FIXME Handling of emp?
-        //if !sigma1.isEmpty
+        // TODO Separate handling of emp?
+        if FindOnlyNonEmpty && !sigma1.isEmpty
         pi1 <- Combinators.powerSet(rsh.pure.toSet)
         // TODO Powerset computation that returns subsets together with their complements
         sigma2 = rsh.pointers.toSet -- sigma1
