@@ -21,9 +21,9 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
     // TODO Should of course do this on the fly while computing the ECDs...
     val stateDescriptors = for {
-      (r,e) <- ecds
-      entailsP = GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(r, sid.callToStartPred, sid)
-    } yield (r,e,entailsP)
+      ecd <- ecds
+      entailsP = GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(ecd.rep, sid.callToStartPred, sid)
+    } yield (ecd.rep, ecd.ext, entailsP)
 
     for {
       (r,e,f) <- stateDescriptors
@@ -37,7 +37,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
   /**
     * Equivalence class descriptors
     */
-  type ECD = (SymbolicHeap, SymbolicHeap)
+  //type ECD = (SymbolicHeap, SymbolicHeap)
 
   private class ECDComputation(sid : SID, maxNumFv : Int, reportProgress : Boolean) {
 
@@ -115,13 +115,12 @@ object GenerateEntailmentAutomata extends HarrshLogging {
     }
 
     private def areBiExtensible(fst: ECD, snd: ECD, printProgress : String => Unit): Boolean = {
-      val fstExt = SymbolicHeap.combineHeaps(fst._1, snd._2)
+      val (fstExt, sndExt) = fst.combine(snd)
       val fstRes = reducedEntailment(fstExt, sid.callToStartPred)
-      printProgress("Checking 1st extension " + fst._1 + " * " + snd._2 + " |?= " + sid.callToStartPred + " ---> " + fstRes)
+      printProgress("Checking 1st extension " + fst.rep + " * " + snd.ext + " |?= " + sid.callToStartPred + " ---> " + fstRes)
       if (fstRes) {
-        val sndExt = SymbolicHeap.combineHeaps(snd._1, fst._2)
         val sndRes = reducedEntailment(sndExt, sid.callToStartPred)
-        printProgress("Checking 2nd extension " + snd._1 + " * " + fst._2 + " |?= " + sid.callToStartPred + " ---> " + sndRes)
+        printProgress("Checking 2nd extension " + snd.rep + " * " + fst.ext + " |?= " + sid.callToStartPred + " ---> " + sndRes)
         sndRes
       } else {
         false
@@ -140,21 +139,9 @@ object GenerateEntailmentAutomata extends HarrshLogging {
         representative = SymbolicHeap(pi1.toSeq, sigma1.toSeq, Seq.empty)
         extension = SymbolicHeap(pi2.toSeq, sigma2.toSeq, Seq.empty)
         // FIXME Must consider all ways to name the new FVs in the representative...
-        repWithExtPoints = unbindShared(representative, extension)
-        if repWithExtPoints.numFV <= maxNumFv
-        extWithExtPoints = unbindShared(extension, representative)
-      } yield (repWithExtPoints, extWithExtPoints)
-    }
-
-    private def unbindShared(rshToModify : SymbolicHeap, sharedWith : SymbolicHeap) : SymbolicHeap = {
-      def unbindAll(vars : Seq[Var], sh : SymbolicHeap) : SymbolicHeap = if (vars.isEmpty) sh else {
-        val nextSH = sh.instantiateBoundVar(vars.head, sh.numFV+1)
-        unbindAll(vars.tail, nextSH)
-      }
-
-      val sharedVars = rshToModify.boundVars.toSet intersect sharedWith.boundVars.toSet
-      // FIXME Actually should consider all ways to order the FVs? See also the comment above
-      unbindAll(sharedVars.toSeq, rshToModify)
+        ecd = ECD(representative, extension)
+        if ecd.repFV <= maxNumFv
+      } yield ecd
     }
 
     private def reducedEntailment(lhs: SymbolicHeap, rhs: SymbolicHeap) : Boolean = GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(lhs, rhs, sid, reportProgress)
