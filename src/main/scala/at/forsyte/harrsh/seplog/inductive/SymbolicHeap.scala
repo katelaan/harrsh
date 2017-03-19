@@ -146,6 +146,15 @@ object SymbolicHeap {
     SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2)
   }
 
+  def combineHeapsWithoutAlphaConversion(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
+    val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
+    val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi
+
+    // Free variables remain the same, so we take the maximum
+    // Quantified variables are partially identified, so we have to filter out the duplicates
+    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2.filterNot(qvars.contains))
+  }
+
   def combineAllHeaps(heaps : Seq[SymbolicHeap]) : SymbolicHeap = combineAllHeapsAcc(heaps, empty)
 
   @tailrec

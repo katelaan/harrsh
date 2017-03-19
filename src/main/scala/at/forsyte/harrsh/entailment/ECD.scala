@@ -16,6 +16,10 @@ case class ECD(rep : SymbolicHeap, ext : SymbolicHeap, repRenaming : Renaming, e
     (SymbolicHeap.combineHeaps(rep, that.ext), SymbolicHeap.combineHeaps(that.rep, ext))
   }
 
+  lazy val recombined = SymbolicHeap.combineHeapsWithoutAlphaConversion(rep.renameVars(repRenaming), ext.renameVars(extRenaming))
+
+  override def toString = "ECD_" + repFV + "(rep = " + rep + ", ext = " + ext + ", unf = " + recombined + ")"
+
 }
 
 object ECD {

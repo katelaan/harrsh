@@ -116,13 +116,13 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
     private def areBiExtensible(fst: ECD, snd: ECD, printProgress : String => Unit): Boolean = {
       val (fstExt, sndExt) = fst.combine(snd)
+      printProgress("Checking 1st extension (" + fst.rep + ") * (" + snd.ext + "):\n    " +  fstExt + " |?= " + sid.callToStartPred)
       val fstRes = reducedEntailment(fstExt, sid.callToStartPred)
-      printProgress("Checking 1st extension " + fst.rep + " * " + snd.ext + " |?= " + sid.callToStartPred + " ---> " + fstRes)
       if (fstRes) {
-        val sndRes = reducedEntailment(sndExt, sid.callToStartPred)
-        printProgress("Checking 2nd extension " + snd.rep + " * " + fst.ext + " |?= " + sid.callToStartPred + " ---> " + sndRes)
-        sndRes
+        printProgress("Checking 2nd extension (" + snd.rep + ") * (" + fst.ext + "):\n    " +  sndExt + " |?= " + sid.callToStartPred)
+        reducedEntailment(sndExt, sid.callToStartPred)
       } else {
+        printProgress("1st entailment false => return false")
         false
       }
     }
