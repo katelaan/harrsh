@@ -66,6 +66,24 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     SymbolicHeap(pure map (_.renameVars(extendedF)), pointers map (_.renameVars(extendedF)), predCalls map (_.renameVars(extendedF)), numFV, qvarsRenamed)
   }
 
+  /**
+    * In addition to just renaming vars, this variant also introduces new quantifiers if there are new bound vars in the codomain of the renaming
+    * @param f
+    * @return
+    */
+  def renameVarsWithAdditionalQuantification(f : Renaming) = {
+    // Rename bound variables if applicable
+    val (qvarsRenamed, extendedF) : (Seq[Var], Renaming) = boundVars.foldLeft((Seq[Var](), f))({
+      case ((seq, intermediateF), v) =>
+        val extended = intermediateF.addBoundVarWithOptionalAlphaConversion(v)
+        (extended(v) +: seq, extended)
+    })
+
+    val newQVars = extendedF.codomain.filter(Var.isBound).filterNot(qvarsRenamed.contains)
+    val allQVars = (qvarsRenamed ++ newQVars).sortWith(_>_)
+    SymbolicHeap(pure map (_.renameVars(extendedF)), pointers map (_.renameVars(extendedF)), predCalls map (_.renameVars(extendedF)), numFV, allQVars)
+  }
+
   def instantiateBoundVar(qvar : Var, instance : Var) : SymbolicHeap = {
     if (!Var.isFV(instance)) throw new IllegalArgumentException("Cannot instantiate bound variable by different bound variable")
 

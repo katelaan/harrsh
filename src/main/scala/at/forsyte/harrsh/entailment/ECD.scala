@@ -14,11 +14,13 @@ case class ECD(rep : SymbolicHeap, ext : SymbolicHeap, repRenaming : Renaming, e
 
   def combine(that: ECD) : (SymbolicHeap, SymbolicHeap) = {
     (SymbolicHeap.combineHeaps(rep, that.ext), SymbolicHeap.combineHeaps(that.rep, ext))
+    //assert(repFV == that.repFV)
+    //(SymbolicHeap.combineHeaps(rep.renameVars(that.repRenaming), that.ext), SymbolicHeap.combineHeaps(that.rep, ext))
   }
 
-  lazy val recombined = SymbolicHeap.combineHeapsWithoutAlphaConversion(rep.renameVars(repRenaming), ext.renameVars(extRenaming))
+  lazy val recombined = SymbolicHeap.combineHeapsWithoutAlphaConversion(rep.renameVarsWithAdditionalQuantification(repRenaming), ext.renameVarsWithAdditionalQuantification(extRenaming))
 
-  override def toString = "ECD_" + repFV + "(rep = " + rep + ", ext = " + ext + ", unf = " + recombined + ")"
+  override def toString = "ECD_" + repFV + "(rep = " + rep + repRenaming + ", ext = " + ext + extRenaming + ", unf = " + recombined + ")"
 
 }
 
@@ -30,6 +32,12 @@ object ECD {
     ECD(repWithExtPoints._1, extWithExtPoints._1, MapBasedRenaming(repWithExtPoints._2), MapBasedRenaming(extWithExtPoints._2))
   }
 
+  /**
+    * Converts the bound variables in rshToModify thar are shared with sharedWith into additional free variables and returns the result
+    * @param rshToModify Heap in which variables will be renamed
+    * @param sharedWith Heap with (potentially) shared variables that rshToModify's vars are compared against
+    * @return rshToModify with renamed vars + map witnessing the renaming
+    */
   private def unbindShared(rshToModify : SymbolicHeap, sharedWith : SymbolicHeap) : (SymbolicHeap,Map[Var,Var]) = {
     def unbindAll(vars : Seq[Var], sh : SymbolicHeap, map : Map[Var,Var]) : (SymbolicHeap,Map[Var,Var]) = if (vars.isEmpty) {
       (sh,map)

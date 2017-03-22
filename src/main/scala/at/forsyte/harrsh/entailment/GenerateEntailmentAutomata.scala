@@ -12,6 +12,8 @@ import scala.annotation.tailrec
   */
 object GenerateEntailmentAutomata extends HarrshLogging {
 
+  val DebugLimit = 4
+
   def apply(maxNumFV : Int, sid : SID, reportProgress : Boolean = false) : EntailmentHeapAutomaton = {
 
     val ecds = new ECDComputation(sid, maxNumFV, reportProgress = reportProgress).run()
@@ -26,18 +28,13 @@ object GenerateEntailmentAutomata extends HarrshLogging {
     } yield (ecd.rep, ecd.ext, entailsP)
 
     for {
-      (r,e,f) <- stateDescriptors
+      ((r,e,f),i) <- stateDescriptors.zipWithIndex
     } {
-      println("representative: " + r + " extension: " + e + " final: " + f)
+      println("ECD #" + (i+1) + ": representative: " + r + " @ " + r.numFV + "; extension: " + e + " @ " + e.numFV + "; final: " + f)
     }
 
     new EntailmentHeapAutomaton(maxNumFV, stateDescriptors)
   }
-
-  /**
-    * Equivalence class descriptors
-    */
-  //type ECD = (SymbolicHeap, SymbolicHeap)
 
   private class ECDComputation(sid : SID, maxNumFv : Int, reportProgress : Boolean) {
 
@@ -53,7 +50,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
       def printProgress(msg: String): Unit = if (reportProgress) println("Iteration " + i + ": " + msg)
 
-      printProgress("Starting new iteration; ECDs so far: " + ecdPrev.mkString(", "))
+      printProgress("Starting new iteration; ECDs so far: " + ecdPrev.map(" - " + _).mkString("\n"))
       printProgress("Will unfold the following formulas:\n" + partialUnfoldings.map(" - " + _).mkString("\n"))
 
       val nextUnfs = SIDUnfolding.unfoldOnce(sid, partialUnfoldings)
@@ -61,21 +58,28 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       printProgress("Reduced unfs for current iteration:\n" + reducedUnfs.map(" - " + _).mkString("\n"))
       printProgress("Non-reduced unfs for next iteration:\n" + newPartialUnfs.map(" - " + _).mkString("\n"))
 
-      printProgress("Old ECDs: " + ecdPrev.size + "; Partial lvl. i-1 unfs.: " + partialUnfoldings.size + "; Lvl. i reduced/non-reduced unfs.: " + reducedUnfs.size + "/" + newPartialUnfs.size)
+      printProgress("Stats: ecds(" + (i-1) + ")="+ ecdPrev.size + "; part-unf(" + (i-1) + ")=" + partialUnfoldings.size + "; red-unf(" + i + ")=" + reducedUnfs.size + "; part-unf(" + i + ")=" + newPartialUnfs.size)
 
       val ecdNew = processUnfoldings(reducedUnfs, ecdPrev, printProgress)
 
       if (!ecdPrev.isEmpty && ecdNew.size == ecdPrev.size) {
         // If we've already found at least one ECD, but now don't find a new one, we terminate
-        val termMsg = "ECD computation reached fixed point";
+        val termMsg = "ECD computation reached fixed point"
         logger.debug(termMsg);
         printProgress(termMsg)
-        ecdPrev
+        ecdNew
       } else {
-        // Found at least one new ECD => recurse
-        printProgress("Found " + ecdNew.size + " new ECDs");
-        logger.debug("Iteration " + i + ": Found " + ecdNew.size + " new ECDs")
-        ecdIteration(i + 1, ecdPrev ++ ecdNew, newPartialUnfs)
+        if (i < DebugLimit) {
+          // Found at least one new ECD => recurse
+          printProgress("Found " + (ecdNew.size-ecdPrev.size) + " new ECDs")
+          logger.debug("Iteration " + i + ": Found " + (ecdNew.size-ecdPrev.size) + " new ECDs")
+          ecdIteration(i + 1, ecdNew, newPartialUnfs)
+        } else {
+          printProgress("Debug limit => Aborting ECD computation")
+          logger.debug("Debug limit => Aborting ECD computation")
+          ecdNew
+        }
+
       }
     }
 
@@ -94,7 +98,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
         val ecd = candidates.head
         printProgress("Processing Partition: " + ecd)
         val newAcc = if (!ecdAcc.contains(ecd) && isNew(ecdAcc, ecd, printProgress)) {
-          printProgress("*** New ECD " + ecd + " ***")
+          printProgress("*** New ECD #" + (ecdAcc.size+1) + ": " + ecd + " ***")
           ecdAcc :+ ecd
         } else {
           printProgress("=> " + ecd + " assumed equal to previous ECD.")
