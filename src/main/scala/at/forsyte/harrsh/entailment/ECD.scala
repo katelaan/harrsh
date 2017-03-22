@@ -15,12 +15,12 @@ case class ECD(rep : SymbolicHeap, ext : SymbolicHeap, repParamInstantiation : R
   def isCombinableWith(that : ECD) = repFV == that.repFV
 
   def combine(that: ECD) : (SymbolicHeap, SymbolicHeap) = {
-    //(SymbolicHeap.combineHeaps(rep, that.ext), SymbolicHeap.combineHeaps(that.rep, ext))
-    //assert(repFV == that.repFV)
-    (SymbolicHeap.combineHeaps(rep.renameVars(that.repParamInstantiation), that.ext), SymbolicHeap.combineHeaps(that.rep.renameVars(repParamInstantiation), ext))
+    assert(repFV == that.repFV)
+    (SymbolicHeap.combineHeaps(rep.renameVars(that.repParamInstantiation), that.ext, performAlphaConversion = true),
+      SymbolicHeap.combineHeaps(that.rep.renameVars(repParamInstantiation), ext, performAlphaConversion = true))
   }
 
-  lazy val recombined = SymbolicHeap.combineHeapsWithoutAlphaConversion(rep.renameVarsWithAdditionalQuantification(repParamInstantiation), ext)
+  lazy val recombined = SymbolicHeap.combineHeaps(rep.renameVarsWithAdditionalQuantification(repParamInstantiation), ext, performAlphaConversion = false)
 
   override def toString = "ECD_" + repFV + "(rep = " + rep + repParamInstantiation + ", ext = " + ext + ", unf = " + recombined + ")"
 

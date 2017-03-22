@@ -22,7 +22,7 @@ trait PureAtom extends SepLogAtom with HarrshLogging {
     case PtrNEq(l, r) => PtrNEq(l.renameVars(f), r.renameVars(f))
   }
 
-  def getVars : Set[Var] = this match {
+  override def getVars : Set[Var] = this match {
     case True() => Set()
     case PtrEq(l, r) => l.getVar union r.getVar
     case PtrNEq(l, r) => l.getVar union r.getVar

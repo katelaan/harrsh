@@ -140,7 +140,7 @@ object ExampleSIDs {
   )
 
   lazy val OptionallyEstablishedSID4 = SID("a",
-    "Optionally Established SID 2",
+    "Optionally Established SID 4",
     ("a", Seq("y","z","w"), SymbolicHeap(Seq(), Seq(call("b", qv(3), qv(2)), call("b", qv(1), qv(2)), call("d", qv(2), mkVar(1))))),
     ("b", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq.empty, Seq.empty)),
     ("b", Seq.empty, SymbolicHeap(Seq.empty)),

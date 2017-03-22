@@ -13,7 +13,7 @@ object SIDUnfolding extends HarrshLogging {
   def unfoldSingleCall(sh : SymbolicHeap, call : PredCall, sid : SID) : Seq[SymbolicHeap] = {
     logger.debug("Unfolding " + call + " in " + sh)
 
-    (for (body <- sid.rulesAsHeadToBodyMap(call.name)) yield sh.instantiateCall(call, body)).toSeq
+    (for (body <- sid.rulesAsHeadToBodyMap(call.name)) yield sh.replaceCall(call, body, performAlphaConversion = true)).toSeq
   }
 
   def unfold(sid : SID, depth: Int, reducedOnly : Boolean = false): Seq[SymbolicHeap] = {
@@ -60,7 +60,7 @@ object SIDUnfolding extends HarrshLogging {
         if !sh.predCalls.isEmpty
         callReplacements = sh.predCalls.map(_.name) map predsToBodies
         replacementChoices: Seq[Seq[SymbolicHeap]] = Combinators.choices(callReplacements)
-        newInstances: Seq[SymbolicHeap] = replacementChoices.map(sh.instantiateCalls(_))
+        newInstances: Seq[SymbolicHeap] = replacementChoices.map(sh.replaceCalls(_, performAlphaConversion = true))
       } yield newInstances
 
       unfoldStep(predsToBodies, acc ++ curr, allNewInstances.flatten, depth - 1, doAccumulateSteps)

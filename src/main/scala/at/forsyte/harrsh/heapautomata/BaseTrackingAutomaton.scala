@@ -98,7 +98,7 @@ object BaseTrackingAutomaton extends HarrshLogging {
 
   def compressWithKernelization[A](kernelization : A => SymbolicHeap)(sh : SymbolicHeap, qs : Seq[A]) : SymbolicHeap = {
     val newHeaps = qs map kernelization
-    sh.instantiateCalls(newHeaps)
+    sh.replaceCalls(newHeaps, performAlphaConversion = false)
   }
 
   def trackingKernel(s : TrackingInfo) : SymbolicHeap = {

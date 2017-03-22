@@ -17,7 +17,7 @@ case class PointsTo(from : PtrExpr, to : Seq[PtrExpr]) extends SepLogAtom {
 
   override def renameVars(f : Renaming) : PointsTo = PointsTo(from.renameVars(f), to map (_.renameVars(f)))
 
-  def getVars : Set[Var] = (from +: to).toSet[PtrExpr] flatMap (_.getVar)
+  override def getVars : Set[Var] = (from +: to).toSet[PtrExpr] flatMap (_.getVar)
 
   def fromAsVar : Var = from.getVarUnsafe
   // TODO Check if we actually need the first variant

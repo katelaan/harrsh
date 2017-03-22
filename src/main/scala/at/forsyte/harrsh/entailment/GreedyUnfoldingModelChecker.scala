@@ -63,7 +63,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
 
       // The entailment/modelchecking result is trivially false if we have too few FVs on the left. View this as error on the caller's part
       if (formulaToMatch.numFV < partialUnfolding.numFV) {
-        throw new IllegalStateException("Trivially false MC result: (Intermediate) model has " + formulaToMatch.numFV + " free variables, (intermediate) unfolding has " + partialUnfolding.numFV)
+        throw new IllegalStateException("Trivially false MC result: (Intermediate) model " + formulaToMatch + " has " + formulaToMatch.numFV + " free variables, (intermediate) unfolding " + partialUnfolding + " has " + partialUnfolding.numFV)
       }
 
       val res = if (!formulaToMatch.hasPointer) {
@@ -247,7 +247,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
       val call = sh.predCalls.head
       val applicableBodies = headsToBodies(call.name) filter (pBody)
       logger.debug("Will unfold " + call + " by...\n" + applicableBodies.map("  - " + _).mkString("\n"))
-      val unfolded = for (body <- applicableBodies) yield sh.instantiateCall(call, body)
+      val unfolded = for (body <- applicableBodies) yield sh.replaceCall(call, body, performAlphaConversion = true)
       unfolded
     }
 

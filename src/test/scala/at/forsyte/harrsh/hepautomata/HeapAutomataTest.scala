@@ -156,12 +156,9 @@ class HeapAutomataTest extends HarrshTableTest {
   }
 
   // Note: To try a single test case, comment out the following
-
-//  val extraAUT = TrackingAutomata.establishmentAutomaton(2)
-//  val extraSID = ExampleSIDs.NonEstablishedSID2
-//  val extraRes = Empty
+//  val (extraAUT, extraSID, extraRes) = (TrackingAutomata.reachabilityAutomaton(2, mkVar(1), mkVar(2)), ExampleSIDs.Sll, NonEmpty)
 //
 //  println("Testing emptiness for refinement of " + extraSID + "\n with the automaton '" + extraAUT.description + "'; expected result: " + extraRes)
-//  new RefinementAlgorithms(extraSID, extraAUT).onTheFlyEmptinessCheck() should be(extraRes)
+//  RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(extraSID, extraAUT, reportProgress = true) should be(extraRes)
 
 }

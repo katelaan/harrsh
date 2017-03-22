@@ -9,7 +9,7 @@ import scala.annotation.tailrec
 /**
   * Created by jkatelaa on 10/3/16.
   */
-case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls : Seq[PredCall], numFV : Int, boundVars : Seq[Var]) {
+case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls : Seq[PredCall], numFV : Int, boundVars : Seq[Var]) extends HarrshLogging {
 
   // Sanity check
   if (Config.HeapAutomataSafeModeEnabled) {
@@ -56,15 +56,39 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
   }
 
   def renameVars(f : Renaming) = {
-    // Rename bound variables if applicable
-    val (qvarsRenamed, extendedF) : (Seq[Var], Renaming) = boundVars.foldLeft((Seq[Var](), f))({
-      case ((seq, intermediateF), v) =>
-        val extended = intermediateF.addBoundVarWithOptionalAlphaConversion(v)
-        (extended(v) +: seq, extended)
-    })
+    logger.info("Renaming vars in " + this)
+    logger.debug("Map used for renaming " + f.toString)
 
-    SymbolicHeap(pure map (_.renameVars(extendedF)), pointers map (_.renameVars(extendedF)), predCalls map (_.renameVars(extendedF)), numFV, qvarsRenamed)
+    // Rename bound variables if applicable
+    val extendedF : Renaming = boundVars.foldLeft(f)({
+      case (intermediateF, v) =>
+        intermediateF.addBoundVarWithOptionalAlphaConversion(v)
+    })
+    logger.debug("Extended map used for renaming" + extendedF.toString)
+
+    val pureRenamed = pure map (_.renameVars(extendedF))
+    val ptrsRenamed = pointers map (_.renameVars(extendedF))
+    val callsRenamed = predCalls map (_.renameVars(extendedF))
+    logger.debug("Pure = " + pureRenamed.mkString(", ") + "; Pointers = " + ptrsRenamed.mkString(", ") + "; Calls = " + callsRenamed.mkString(", "))
+    // Have the constructor figure out the new number of FVs + the new set of qvars
+    val res = SymbolicHeap(pureRenamed, ptrsRenamed, callsRenamed)
+    logger.debug("After renaming: " + res)
+    res
   }
+
+//  def renameVars(f : Renaming) = {
+//    // Rename bound variables if applicable
+//    val (qvarsRenamed, extendedF) : (Seq[Var], Renaming) = boundVars.foldLeft((Seq[Var](), f))({
+//      case ((seq, intermediateF), v) =>
+//        val extended = intermediateF.addBoundVarWithOptionalAlphaConversion(v)
+//        (extended(v) +: seq, extended)
+//    })
+//
+//    val pureRenamed = pure map (_.renameVars(extendedF))
+//    val ptrsRenamed = pointers map (_.renameVars(extendedF))
+//    val callsRenamed = predCalls map (_.renameVars(extendedF))
+//    SymbolicHeap(pureRenamed, ptrsRenamed, callsRenamed, numFV, qvarsRenamed)
+//  }
 
   /**
     * In addition to just renaming vars, this variant also introduces new quantifiers if there are new bound vars in the codomain of the renaming
@@ -104,41 +128,41 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     * Replaces the predicates calls with the given symbolic heaps, renaming variables as necessary
     * @param shs
     */
-  def instantiateCalls(shs : Seq[SymbolicHeap]): SymbolicHeap = {
+  def replaceCalls(shs : Seq[SymbolicHeap], performAlphaConversion : Boolean): SymbolicHeap = {
     if (shs.length != predCalls.length) {
       throw new IllegalArgumentException("Trying to replace " + predCalls.length + " calls with " + shs.length + " symbolic heaps")
     }
 
-    //logger.debug("Instantiating calls in " + this + " with SHs " + shs.mkString(", "))
+    logger.debug("Instantiating calls in " + this + " with SHs " + shs.mkString(", "))
     val stateHeapPairs = predCalls zip shs
     val renamedHeaps : Seq[SymbolicHeap] = stateHeapPairs map {
       case (call, heap) =>
-        /*val res =*/ heap.instantiateFVs(call.args)
-        //logger.debug("Unfolding call " + call + ": Instantiating vars in " + heap + " with " + call.args.mkString("(",",",")") + " yielding " + res)
-        //res
+        val res = heap.instantiateFVs(call.args)
+        logger.debug("Unfolding call " + call + ": Instantiating vars in " + heap + " with " + call.args.mkString("(",",",")") + " yielding " + res)
+        res
     }
     val shFiltered = this.withoutCalls
-    //    logger.debug("Filtered heap: " + shFiltered)
-    //    logger.debug("State-heap pairs: " + stateHeapPairs.mkString("\n"))
-    //    logger.debug("Renamed heaps:" + renamedHeaps.mkString("\n"))
-    val combined = SymbolicHeap.combineAllHeaps(shFiltered +: renamedHeaps)
+        logger.debug("Filtered heap: " + shFiltered)
+        logger.debug("State-heap pairs: " + stateHeapPairs.mkString("\n"))
+        logger.debug("Renamed heaps:" + renamedHeaps.mkString("\n"))
+    val combined = SymbolicHeap.combineAllHeaps(shFiltered +: renamedHeaps, performAlphaConversion)
     combined
 
   }
 
-  def instantiateCall(call : PredCall, instance : SymbolicHeap): SymbolicHeap = {
+  def replaceCall(call : PredCall, instance : SymbolicHeap, performAlphaConversion : Boolean): SymbolicHeap = {
     if (!predCalls.contains(call)) {
       throw new IllegalArgumentException("Trying to replace call " + call + " which does not appear in " + this)
     }
 
     val renamedInstance = instance.instantiateFVs(call.args)
     val shFiltered = this.copy(predCalls = predCalls.filterNot(_ == call))
-    SymbolicHeap.combineHeaps(shFiltered, renamedInstance)
+    SymbolicHeap.combineHeaps(shFiltered, renamedInstance, performAlphaConversion)
   }
 
 }
 
-object SymbolicHeap {
+object SymbolicHeap extends HarrshLogging {
 
   def apply(pure : Seq[PureAtom], spatial: Seq[PointsTo], calls : Seq[PredCall]) : SymbolicHeap = {
     val vars = Set.empty ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars) ++ calls.flatMap(_.getVars)
@@ -153,7 +177,14 @@ object SymbolicHeap {
 
   def apply(spatial: Seq[PointsTo]) : SymbolicHeap = apply(Seq.empty, spatial, Seq.empty)
 
-  def combineHeaps(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
+  def combineHeaps(phi : SymbolicHeap, psi : SymbolicHeap, performAlphaConversion : Boolean) : SymbolicHeap = {
+    if (performAlphaConversion)
+      combineHeapsWithAlphaConversion(phi, psi)
+    else
+      combineHeapsWithoutAlphaConversion(phi, psi)
+  }
+
+  private def combineHeapsWithAlphaConversion(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
     val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
 
     // Shift the quantified variables in the right SH to avoid name clashes
@@ -164,7 +195,7 @@ object SymbolicHeap {
     SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2)
   }
 
-  def combineHeapsWithoutAlphaConversion(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
+  private def combineHeapsWithoutAlphaConversion(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
     val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
     val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi
 
@@ -173,12 +204,14 @@ object SymbolicHeap {
     SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2.filterNot(qvars.contains))
   }
 
-  def combineAllHeaps(heaps : Seq[SymbolicHeap]) : SymbolicHeap = combineAllHeapsAcc(heaps, empty)
+  def combineAllHeaps(heaps : Seq[SymbolicHeap], performAlphaConversion : Boolean) : SymbolicHeap ={
+    @tailrec def combineAllHeapsAcc(heaps : Seq[SymbolicHeap], acc : SymbolicHeap) : SymbolicHeap = if (heaps.isEmpty) acc else {
+      val comb = combineHeaps(acc, heaps.head, performAlphaConversion)
+      combineAllHeapsAcc(heaps.tail, comb)
+    }
 
-  @tailrec
-  private def combineAllHeapsAcc(heaps : Seq[SymbolicHeap], acc : SymbolicHeap) : SymbolicHeap = if (heaps.isEmpty) acc else {
-    val comb = combineHeaps(acc, heaps.head)
-    combineAllHeapsAcc(heaps.tail, comb)
+    logger.debug("Will cobmine all heaps:\n " + heaps.map(" - " + _).mkString("\n"))
+    combineAllHeapsAcc(heaps, empty)
   }
 
   val empty = SymbolicHeap(Seq())

@@ -56,25 +56,41 @@ class GarbageFreedomAutomatonTest extends HarrshTableTest {
       HasGarbage)
   )
 
-  property("Transitions of the garbage-freedom automaton") {
+//  property("Transitions of the garbage-freedom automaton") {
+//
+//    val garb3 = TrackingAutomata.garbageFreedomAutomaton(3)
+//
+//    forAll(transitions) {
+//      (src: Seq[(BaseReachabilityAutomaton.ReachabilityInfo, Boolean)], sh: SymbolicHeap, result: Boolean) =>
+//
+//        Given(src.mkString(", ") + ", " + sh)
+//        Then("The transition " + src.mkString(", ") + " --[" + sh + "]--> " + " <trg> should yield to a " + (if (result) "FINAL STATE" else "NON-FINAL STATE"))
+//
+//        println("#" * 80)
+//        val succs = garb3.getTargetsFor(src, sh)
+//        println()
+//
+//        succs.size should be(1)
+//        info("Reached state: " + succs.head)
+//        garb3.isFinal(succs.head) should be(result)
+//    }
+//
+//  }
 
-    val garb3 = TrackingAutomata.garbageFreedomAutomaton(3)
+  val (src, sh, result) = (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 2, 1 -> 3)), mk(mkAllVar(1,2), mkPure((1,2,true)), mx3(1 -> 3, 2 -> 3))),
+    SymbolicHeap(Seq(ptr(qv(2), qv(3))), Seq(call("dummy", qv(1), qv(2), qv(3)), call("dummy", mkVar(1), mkVar(3), qv(2)))),
+    HasGarbage)
 
-    forAll(transitions) {
-      (src: Seq[(BaseReachabilityAutomaton.ReachabilityInfo, Boolean)], sh: SymbolicHeap, result: Boolean) =>
+  println(src.mkString(", ") + ", " + sh)
+  println("The transition " + src.mkString(", ") + " --[" + sh + "]--> " + " <trg> should yield to a " + (if (result) "FINAL STATE" else "NON-FINAL STATE"))
 
-        Given(src.mkString(", ") + ", " + sh)
-        Then("The transition " + src.mkString(", ") + " --[" + sh + "]--> " + " <trg> should yield to a " + (if (result) "FINAL STATE" else "NON-FINAL STATE"))
+  println("#" * 80)
+  val garb3 = TrackingAutomata.garbageFreedomAutomaton(3)
+  val succs = garb3.getTargetsFor(src, sh)
+  println()
 
-        println("#" * 80)
-        val succs = garb3.getTargetsFor(src, sh)
-        println()
-
-        succs.size should be(1)
-        info("Reached state: " + succs.head)
-        garb3.isFinal(succs.head) should be(result)
-    }
-
-  }
+  succs.size should be(1)
+  println("Reached state: " + succs.head)
+  garb3.isFinal(succs.head) should be(result)
 
 }
