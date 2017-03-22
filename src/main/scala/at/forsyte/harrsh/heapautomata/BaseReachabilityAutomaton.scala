@@ -146,7 +146,7 @@ object BaseReachabilityAutomaton extends HarrshLogging {
     if (newPairs == pairs) pairs else reachabilityFixedPoint(compressedHeap, equalities, newPairs)
   }
 
-  def reachabilityCompression(sh : SymbolicHeap, qs : Seq[ReachabilityInfo]) : SymbolicHeap = compressWithKernelization(reachabilityKernel)(sh, qs)
+  def reachabilityCompression(sh : SymbolicHeap, qs : Seq[ReachabilityInfo]) : SymbolicHeap = compressWithQuantifierFreeKernel(reachabilityKernel)(sh, qs)
 
   // TODO Reduce code duplication in kernelization? cf BaseTracking
   // TODO This is the kernel from the paper, i.e. introducing free vars; this is NOT necessary in our implementation with variable-length pointers
@@ -159,21 +159,18 @@ object BaseReachabilityAutomaton extends HarrshLogging {
 
     val nonredundantAlloc = alloc filter closure.isMinimumInItsClass
 
-    val freshVar = Var.getFirstBoundVar
-
-    val kernelPtrs : Set[PointsTo] = nonredundantAlloc map (reachInfoToPtr(_, reach, freshVar))
+    val kernelPtrs : Set[PointsTo] = nonredundantAlloc map (reachInfoToPtr(_, reach))
 
     val res = SymbolicHeap(pure.toSeq, kernelPtrs.toSeq, Seq.empty)
     logger.trace("Converting source state " + s + " to " + res)
     res
   }
 
-  private def reachInfoToPtr(src : Var, reach : ReachabilityMatrix, placeholder : Var) : PointsTo = {
+  private def reachInfoToPtr(src : Var, reach : ReachabilityMatrix) : PointsTo = {
     val info : Seq[Boolean] = reach.getRowFor(src)
 
-    val targets = info.zipWithIndex map {
-      case (r,i) => if (r) mkVar(i) else placeholder
-    }
+    val targets = info.zipWithIndex filter (_._1) map (p=>mkVar(p._2))
+
     PointsTo(PtrVar(src), targets map PtrExpr.fromFV)
   }
 

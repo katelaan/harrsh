@@ -6,7 +6,7 @@ import at.forsyte.harrsh.seplog.{PtrExpr, Renaming, Var}
 /**
   * Created by jkatelaa on 10/3/16.
   */
-trait PureAtom extends SepLogAtom with HarrshLogging {
+sealed trait PureAtom extends SepLogAtom with HarrshLogging {
 
   override def isSpatial = false
 

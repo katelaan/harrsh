@@ -94,10 +94,11 @@ object BaseTrackingAutomaton extends HarrshLogging {
       }))
   }
 
-  def trackingCompression(sh : SymbolicHeap, qs : Seq[TrackingInfo]) : SymbolicHeap = compressWithKernelization(trackingKernel)(sh, qs)
+  def trackingCompression(sh : SymbolicHeap, qs : Seq[TrackingInfo]) : SymbolicHeap = compressWithQuantifierFreeKernel(trackingKernel)(sh, qs)
 
-  def compressWithKernelization[A](kernelization : A => SymbolicHeap)(sh : SymbolicHeap, qs : Seq[A]) : SymbolicHeap = {
+  def compressWithQuantifierFreeKernel[A](kernelization : A => SymbolicHeap)(sh : SymbolicHeap, qs : Seq[A]) : SymbolicHeap = {
     val newHeaps = qs map kernelization
+    // Since we deal only with quantifier-free kernels, no alpha-conversion is necessary
     sh.replaceCalls(newHeaps, performAlphaConversion = false)
   }
 
