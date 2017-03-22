@@ -12,7 +12,7 @@ import scala.annotation.tailrec
   */
 object GenerateEntailmentAutomata extends HarrshLogging {
 
-  val DebugLimit = 4
+  val DebugLimit = 10
 
   def apply(maxNumFV : Int, sid : SID, reportProgress : Boolean = false) : EntailmentHeapAutomaton = {
 

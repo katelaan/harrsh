@@ -5,22 +5,24 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
   * Created by jens on 3/19/17.
-  * Contract: rep.renameVars(repRenaming) * ext.renameVars(extRenaming) |= P x
+  * Idea: An equivalence class is characterized by the ways its members can be extended to P-unfoldings.
+  * Each ECD object represents one such extension, corresponding to the entailment (ext * I)[I/rep] |= P x.
+  * Contract: rep.renameVars(repParamInstantiation) * ext |= P x
   */
-case class ECD(rep : SymbolicHeap, ext : SymbolicHeap, repRenaming : Renaming, extRenaming : Renaming) {
+case class ECD(rep : SymbolicHeap, ext : SymbolicHeap, repParamInstantiation : Renaming) {
   def repFV = rep.numFV
 
   def isCombinableWith(that : ECD) = repFV == that.repFV
 
   def combine(that: ECD) : (SymbolicHeap, SymbolicHeap) = {
-    (SymbolicHeap.combineHeaps(rep, that.ext), SymbolicHeap.combineHeaps(that.rep, ext))
+    //(SymbolicHeap.combineHeaps(rep, that.ext), SymbolicHeap.combineHeaps(that.rep, ext))
     //assert(repFV == that.repFV)
-    //(SymbolicHeap.combineHeaps(rep.renameVars(that.repRenaming), that.ext), SymbolicHeap.combineHeaps(that.rep, ext))
+    (SymbolicHeap.combineHeaps(rep.renameVars(that.repParamInstantiation), that.ext), SymbolicHeap.combineHeaps(that.rep.renameVars(repParamInstantiation), ext))
   }
 
-  lazy val recombined = SymbolicHeap.combineHeapsWithoutAlphaConversion(rep.renameVarsWithAdditionalQuantification(repRenaming), ext.renameVarsWithAdditionalQuantification(extRenaming))
+  lazy val recombined = SymbolicHeap.combineHeapsWithoutAlphaConversion(rep.renameVarsWithAdditionalQuantification(repParamInstantiation), ext)
 
-  override def toString = "ECD_" + repFV + "(rep = " + rep + repRenaming + ", ext = " + ext + extRenaming + ", unf = " + recombined + ")"
+  override def toString = "ECD_" + repFV + "(rep = " + rep + repParamInstantiation + ", ext = " + ext + ", unf = " + recombined + ")"
 
 }
 
@@ -28,8 +30,7 @@ object ECD {
 
   def apply(rep : SymbolicHeap, ext : SymbolicHeap) : ECD = {
     val repWithExtPoints = unbindShared(rep, ext)
-    val extWithExtPoints = unbindShared(ext, rep)
-    ECD(repWithExtPoints._1, extWithExtPoints._1, MapBasedRenaming(repWithExtPoints._2), MapBasedRenaming(extWithExtPoints._2))
+    ECD(repWithExtPoints._1, ext, MapBasedRenaming(repWithExtPoints._2))
   }
 
   /**
