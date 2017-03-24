@@ -2,6 +2,7 @@ package at.forsyte.harrsh.seplog.inductive
 
 import java.util.NoSuchElementException
 
+import at.forsyte.harrsh.entailment.GreedyUnfoldingModelChecker._
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.util.Combinators
 
@@ -76,6 +77,36 @@ object SIDUnfolding extends HarrshLogging {
     }
 
     unfoldAndGetFirst(1)
+  }
+
+  /**
+    * Replaces all remaining calls in sh with rule bodies with empty spatial parts. If no such bodies exist, an empty set is returned.
+    * @param predsToBodies Preds-to-bodies map of the SID
+    * @param sh Arbitrary symbolic heap to unfold
+    * @return Set of all possible instantiations of calls with empty spatial part
+    */
+  // FIXME Do we want to be able to unfold multiple calls here?
+//  def unfoldCallsByEmpty(predsToBodies: Map[String, Set[SymbolicHeap]], sh: SymbolicHeap): Set[SymbolicHeap] = {
+//    if (sh.hasPredCalls) {
+//      unfoldFirstCallWithSatisfyingBodies(predsToBodies, sh, body => !body.hasPointer && !body.hasPredCalls)
+//    } else {
+//      Set(sh)
+//    }
+//  }
+
+  /**
+    * Unfolds the first call in the given symbolic heap using only and all the rules that satisfy the predicate pBody
+    * @param predsToBodies Preds-to-bodies map of the SID
+    * @param sh Arbitrary symbolic heap to unfold
+    * @param pBody Predicate indicating which rules are enabled
+    * @return The given symbolic heap with the first call replaced by enabled bodies
+    */
+  def unfoldFirstCallWithSatisfyingBodies(predsToBodies: Map[String, Set[SymbolicHeap]], sh: SymbolicHeap, pBody: SymbolicHeap => Boolean): Set[SymbolicHeap] = {
+    val call = sh.predCalls.head
+    val applicableBodies = predsToBodies(call.name) filter pBody
+    logger.debug("Will unfold " + call + " by...\n" + applicableBodies.map("  - " + _).mkString("\n"))
+    val unfolded = for (body <- applicableBodies) yield sh.replaceCall(call, body, performAlphaConversion = true)
+    unfolded
   }
 
 }

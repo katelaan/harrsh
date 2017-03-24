@@ -41,7 +41,7 @@ class ModelCheckingTest extends HarrshTableTest {
 //    }
 //  }
 
-  val (modelFile, sidFile, expectedRes) = ("examples/models/tll2.amd", "examples/datastructures/tll.sid", true)
+  val (modelFile, sidFile, expectedRes) = ("examples/models/tll-wrong.amd", "examples/datastructures/tll.sid", false)
 
   val model = MainIO.getModelFromFile(modelFile)
   val (sid,_) = MainIO.getSidFromFile(sidFile)

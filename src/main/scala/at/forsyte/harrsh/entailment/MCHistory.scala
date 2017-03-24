@@ -2,11 +2,11 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{NullPtr, PtrVar, _}
-import at.forsyte.harrsh.seplog.inductive.{PointsTo, PtrEq, PtrNEq, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive._
 
 // TODO Track additional equalities imposed by matching free vars in pointer matching? (Already in the History data structure, but not set anywhere.)
 case class MCHistory(iteration: Int, alloc : Set[Var], pure : Set[PtrEq], stepLogger : MCHistory.StepLogger) extends HarrshLogging {
-  def addAlloc(v : Var) = copy(alloc = alloc + v)
+  def addAlloc(vs : Set[Var]) = copy(alloc = alloc ++ vs)
   def addPure(p : PtrEq) = copy(pure = pure + p)
   def nextIteration = copy(iteration = iteration+1)
 
