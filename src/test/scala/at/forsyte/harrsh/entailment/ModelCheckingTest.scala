@@ -22,9 +22,9 @@ class ModelCheckingTest extends HarrshTableTest {
     ("examples/models/tree-with-larger-stack.amd", "examples/datastructures/tll.sid", false),
     ("examples/models/tll.amd", "examples/datastructures/tll.sid", true),
     ("examples/models/tll2.amd", "examples/datastructures/tll.sid", true),
-    ("examples/models/tll-wrong.amd", "examples/datastructures/tll.sid", false)//,
-//    ("examples/models/tll-cyc.amd", "examples/datastructures/tll.sid", true),
-//    ("examples/models/tll-cyc.amd", "examples/datastructures/tll-acyc.sid", false)
+    ("examples/models/tll-wrong.amd", "examples/datastructures/tll.sid", false),
+    ("examples/models/tll-cyc.amd", "examples/datastructures/tll.sid", true),
+    ("examples/models/tll-cyc.amd", "examples/datastructures/tll-acyc.sid", false)
   )
 
   property("Correctness of the model checker") {
@@ -41,7 +41,7 @@ class ModelCheckingTest extends HarrshTableTest {
     }
   }
 
-//  val (modelFile, sidFile, expectedRes) = ("examples/models/tll-wrong.amd", "examples/datastructures/tll.sid", false)
+//  val (modelFile, sidFile, expectedRes) = ("examples/models/tll-cyc.amd", "examples/datastructures/tll.sid", true)
 //
 //  val model = MainIO.getModelFromFile(modelFile)
 //  val (sid,_) = MainIO.getSidFromFile(sidFile)

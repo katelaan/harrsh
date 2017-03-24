@@ -17,5 +17,5 @@ CALL                                                                            
 ./harrsh --modelcheck examples/models/tree.amd --spec examples/datastructures/tree-with-null-children.sid     # true
 ./harrsh --modelcheck examples/models/tree.amd --spec examples/datastructures/tll.sid                         # false
 ./harrsh --modelcheck examples/models/tll.amd --spec examples/datastructures/tll.sid                          # true
-./harrsh --modelcheck examples/models/tll-wrong.amd --spec examples/datastructures/tll.sid                    # true
+./harrsh --modelcheck examples/models/tll2.amd --spec examples/datastructures/tll.sid                         # true
 ./harrsh --modelcheck examples/models/tll-wrong.amd --spec examples/datastructures/tll.sid                    # false
