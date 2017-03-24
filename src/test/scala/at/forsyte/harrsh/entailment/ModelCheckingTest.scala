@@ -22,34 +22,34 @@ class ModelCheckingTest extends HarrshTableTest {
     ("examples/models/tree-with-larger-stack.amd", "examples/datastructures/tll.sid", false),
     ("examples/models/tll.amd", "examples/datastructures/tll.sid", true),
     ("examples/models/tll2.amd", "examples/datastructures/tll.sid", true),
-    ("examples/models/tll-wrong.amd", "examples/datastructures/tll.sid", false),
-    ("examples/models/tll-cyc.amd", "examples/datastructures/tll.sid", true),
-    ("examples/models/tll-cyc.amd", "examples/datastructures/tll-acyc.sid", false)
+    ("examples/models/tll-wrong.amd", "examples/datastructures/tll.sid", false)//,
+//    ("examples/models/tll-cyc.amd", "examples/datastructures/tll.sid", true),
+//    ("examples/models/tll-cyc.amd", "examples/datastructures/tll-acyc.sid", false)
   )
 
-//  property("Correctness of the model checker") {
-//    forAll(testCases) {
-//      (modelFile : String, sidFile : String, expectedRes : Boolean) =>
-//        val model = MainIO.getModelFromFile(modelFile)
-//        val (sid,_) = MainIO.getSidFromFile(sidFile)
+  property("Correctness of the model checker") {
+    forAll(testCases) {
+      (modelFile : String, sidFile : String, expectedRes : Boolean) =>
+        val model = MainIO.getModelFromFile(modelFile)
+        val (sid,_) = MainIO.getSidFromFile(sidFile)
+
+        val modelFormula = ModelToFormula(model)
+        Given("Model formula: " + modelFormula + "\n SID: " + sid)
+
+        val res = GreedyUnfoldingModelChecker.isModel(model, sid)
+        res shouldEqual expectedRes
+    }
+  }
+
+//  val (modelFile, sidFile, expectedRes) = ("examples/models/tll-wrong.amd", "examples/datastructures/tll.sid", false)
 //
-//        val modelFormula = ModelToFormula(model)
-//        Given("Model formula: " + modelFormula + "\n SID: " + sid)
+//  val model = MainIO.getModelFromFile(modelFile)
+//  val (sid,_) = MainIO.getSidFromFile(sidFile)
 //
-//        val res = GreedyUnfoldingModelChecker.isModel(model, sid)
-//        res shouldEqual expectedRes
-//    }
-//  }
-
-  val (modelFile, sidFile, expectedRes) = ("examples/models/tll-wrong.amd", "examples/datastructures/tll.sid", false)
-
-  val model = MainIO.getModelFromFile(modelFile)
-  val (sid,_) = MainIO.getSidFromFile(sidFile)
-
-  val modelFormula = ModelToFormula(model)
-  println("Model formula: " + modelFormula + "\n SID: " + sid)
-
-  val res = GreedyUnfoldingModelChecker.isModel(model, sid)
-  println("Expected res " + expectedRes + ", actual res " + res)
+//  val modelFormula = ModelToFormula(model)
+//  println("Model formula: " + modelFormula + "\n SID: " + sid)
+//
+//  val res = GreedyUnfoldingModelChecker.isModel(model, sid)
+//  println("Expected res " + expectedRes + ", actual res " + res)
   
 }

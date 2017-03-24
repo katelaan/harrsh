@@ -14,7 +14,7 @@ object SIDUnfolding extends HarrshLogging {
   def unfoldSingleCall(sh : SymbolicHeap, call : PredCall, sid : SID) : Seq[SymbolicHeap] = {
     logger.debug("Unfolding " + call + " in " + sh)
 
-    (for (body <- sid.rulesAsHeadToBodyMap(call.name)) yield sh.replaceCall(call, body, performAlphaConversion = true)).toSeq
+    (for (body <- sid.rulesAsHeadToBodyMap(call.name)) yield sh.replaceCall(call, body)).toSeq
   }
 
   def unfold(sid : SID, depth: Int, reducedOnly : Boolean = false): Seq[SymbolicHeap] = {
@@ -105,7 +105,7 @@ object SIDUnfolding extends HarrshLogging {
     val call = sh.predCalls.head
     val applicableBodies = predsToBodies(call.name) filter pBody
     logger.debug("Will unfold " + call + " by...\n" + applicableBodies.map("  - " + _).mkString("\n"))
-    val unfolded = for (body <- applicableBodies) yield sh.replaceCall(call, body, performAlphaConversion = true)
+    val unfolded = for (body <- applicableBodies) yield sh.replaceCall(call, body)
     unfolded
   }
 

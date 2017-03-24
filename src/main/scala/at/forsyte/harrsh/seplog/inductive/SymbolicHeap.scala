@@ -90,23 +90,23 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
 //    SymbolicHeap(pureRenamed, ptrsRenamed, callsRenamed, numFV, qvarsRenamed)
 //  }
 
-  /**
-    * In addition to just renaming vars, this variant also introduces new quantifiers if there are new bound vars in the codomain of the renaming
-    * @param f
-    * @return
-    */
-  def renameVarsWithAdditionalQuantification(f : Renaming) = {
-    // Rename bound variables if applicable
-    val (qvarsRenamed, extendedF) : (Seq[Var], Renaming) = boundVars.foldLeft((Seq[Var](), f))({
-      case ((seq, intermediateF), v) =>
-        val extended = intermediateF.addBoundVarWithOptionalAlphaConversion(v)
-        (extended(v) +: seq, extended)
-    })
-
-    val newQVars = extendedF.codomain.filter(Var.isBound).filterNot(qvarsRenamed.contains)
-    val allQVars = (qvarsRenamed ++ newQVars).sortWith(_>_)
-    SymbolicHeap(pure map (_.renameVars(extendedF)), pointers map (_.renameVars(extendedF)), predCalls map (_.renameVars(extendedF)), numFV, allQVars)
-  }
+//  /**
+//    * In addition to just renaming vars, this variant also introduces new quantifiers if there are new bound vars in the codomain of the renaming
+//    * @param f
+//    * @return
+//    */
+//  def renameVarsWithAdditionalQuantification(f : Renaming) = {
+//    // Rename bound variables if applicable
+//    val (qvarsRenamed, extendedF) : (Seq[Var], Renaming) = boundVars.foldLeft((Seq[Var](), f))({
+//      case ((seq, intermediateF), v) =>
+//        val extended = intermediateF.addBoundVarWithOptionalAlphaConversion(v)
+//        (extended(v) +: seq, extended)
+//    })
+//
+//    val newQVars = extendedF.codomain.filter(Var.isBound).filterNot(qvarsRenamed.contains)
+//    val allQVars = (qvarsRenamed ++ newQVars).sortWith(_>_)
+//    SymbolicHeap(pure map (_.renameVars(extendedF)), pointers map (_.renameVars(extendedF)), predCalls map (_.renameVars(extendedF)), numFV, allQVars)
+//  }
 
   def instantiateBoundVar(qvar : Var, instance : Var) : SymbolicHeap = {
     if (!Var.isFV(instance)) throw new IllegalArgumentException("Cannot instantiate bound variable by different bound variable")
@@ -136,29 +136,33 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     }
 
     logger.debug("Instantiating calls in " + this + " with SHs " + shs.mkString(", "))
+//    val stateHeapPairs = predCalls zip shs
+//    val renamedHeaps : Seq[SymbolicHeap] = stateHeapPairs map {
+//      case (call, heap) =>
+//        val res = heap.instantiateFVs(call.args)
+//        logger.debug("Unfolding call " + call + ": Instantiating vars in " + heap + " with " + call.args.mkString("(",",",")") + " yielding " + res)
+//        res
+//    }
+//    val shFiltered = this.withoutCalls
+//        logger.debug("Filtered heap: " + shFiltered)
+//        logger.debug("State-heap pairs: " + stateHeapPairs.mkString("\n"))
+//        logger.debug("Renamed heaps:" + renamedHeaps.mkString("\n"))
+//    val combined = SymbolicHeap.combineAllHeaps(shFiltered +: renamedHeaps, performAlphaConversion)
+//    combined
+
     val stateHeapPairs = predCalls zip shs
-    val renamedHeaps : Seq[SymbolicHeap] = stateHeapPairs map {
-      case (call, heap) =>
-        val res = heap.instantiateFVs(call.args)
-        logger.debug("Unfolding call " + call + ": Instantiating vars in " + heap + " with " + call.args.mkString("(",",",")") + " yielding " + res)
-        res
+    stateHeapPairs.foldLeft(this){
+      case (partiallyInstantiedHeap, (call,instance)) => partiallyInstantiedHeap.replaceCall(call, instance)
     }
-    val shFiltered = this.withoutCalls
-        logger.debug("Filtered heap: " + shFiltered)
-        logger.debug("State-heap pairs: " + stateHeapPairs.mkString("\n"))
-        logger.debug("Renamed heaps:" + renamedHeaps.mkString("\n"))
-    val combined = SymbolicHeap.combineAllHeaps(shFiltered +: renamedHeaps, performAlphaConversion)
-    combined
 
   }
 
   /**
     * Replaces a single predicate call with the given symbolic heap, renaming variables as necessary
     * @param call Instantiation of the symbolic heap
-    * @param performAlphaConversion Should quantified variables be renamed to avoid double capture? In a regular unfolding, this will be necessary, whereas it may be undesired in the combination of heaps that deliberately share bound variables, e.g. in kernelization or ECD recombination.
     * @return
     */
-  def replaceCall(call : PredCall, instance : SymbolicHeap, performAlphaConversion : Boolean): SymbolicHeap = {
+  def replaceCall(call : PredCall, instance : SymbolicHeap): SymbolicHeap = {
     if (!predCalls.contains(call)) {
       throw new IllegalArgumentException("Trying to replace call " + call + " which does not appear in " + this)
     }
@@ -166,7 +170,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     val renamedInstance = instance.instantiateFVs(call.args)
     val shFiltered = this.copy(predCalls = predCalls.filterNot(_ == call))
     logger.warn("Renamed " + instance + " to " +renamedInstance + " which will be combined with " + shFiltered)
-    val res = SymbolicHeap.combineHeaps(shFiltered, renamedInstance, performAlphaConversion)
+    val res = SymbolicHeap.mergeHeaps(shFiltered, renamedInstance, sharedVars = call.args map (_.getVarOrZero))
     logger.warn("Result of combination: " + res)
     res
   }
@@ -189,54 +193,60 @@ object SymbolicHeap extends HarrshLogging {
   def apply(spatial: Seq[PointsTo]) : SymbolicHeap = apply(Seq.empty, spatial, Seq.empty)
 
   /**
-    * Combines the two given heaps into a single, larger heap, avoding name clashes of bound variables iff performAlphaConversion is true.
+    * Combines the two given heaps into a single, larger heap, avoding name clashes of bound variables that are not in the sequence of shared variables
     * @param phi First heap
     * @param psi Second heap
-    * @param performAlphaConversion Should quantified variables be renamed to avoid double capture? In a regular unfolding, this will be necessary, whereas it may be undesired in the combination of heaps that deliberately share bound variables, e.g. in kernelization or ECD recombination.
+    * @param sharedVars Shared quantified variables that are not to be renamed by alpha conversion
     * @return
     */
-  def combineHeaps(phi : SymbolicHeap, psi : SymbolicHeap, performAlphaConversion : Boolean) : SymbolicHeap = {
-    if (performAlphaConversion)
-      combineHeapsWithAlphaConversion(phi, psi)
-    else
-      combineHeapsWithoutAlphaConversion(phi, psi)
-  }
+  def mergeHeaps(phi : SymbolicHeap, psi : SymbolicHeap, sharedVars : Seq[Var]) : SymbolicHeap = {
 
-  private def combineHeapsWithAlphaConversion(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
     val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
 
     // Shift the quantified variables in the right SH to avoid name clashes
-    val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars))
+    val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars filterNot sharedVars.contains))
 
     // Free variables remain the same, so we take the maximum
     // Quantified variables are renamed, so we take the sum
     SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2)
+
   }
 
-  private def combineHeapsWithoutAlphaConversion(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
-    val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
-    val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi
+//  private def combineHeapsWithAlphaConversion(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
+//    val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
+//
+//    // Shift the quantified variables in the right SH to avoid name clashes
+//    val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars))
+//
+//    // Free variables remain the same, so we take the maximum
+//    // Quantified variables are renamed, so we take the sum
+//    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2)
+//  }
+//
+//  private def combineHeapsWithoutAlphaConversion(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
+//    val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
+//    val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi
+//
+//    // Free variables remain the same, so we take the maximum
+//    // Quantified variables are partially identified, so we have to filter out the duplicates
+//    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2.filterNot(qvars.contains))
+//  }
 
-    // Free variables remain the same, so we take the maximum
-    // Quantified variables are partially identified, so we have to filter out the duplicates
-    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2.filterNot(qvars.contains))
-  }
-
-  /**
-    * Combines all given heaps into a single, larger heap, avoding name clashes of bound variables iff performAlphaConversion is true.
-    * @param heaps Heaps to combine
-    * @param performAlphaConversion Should quantified variables be renamed to avoid double capture? In a regular unfolding, this will be necessary, whereas it may be undesired in the combination of heaps that deliberately share bound variables, e.g. in kernelization or ECD recombination.
-    * @return
-    */
-  def combineAllHeaps(heaps : Seq[SymbolicHeap], performAlphaConversion : Boolean) : SymbolicHeap ={
-    @tailrec def combineAllHeapsAcc(heaps : Seq[SymbolicHeap], acc : SymbolicHeap) : SymbolicHeap = if (heaps.isEmpty) acc else {
-      val comb = combineHeaps(acc, heaps.head, performAlphaConversion)
-      combineAllHeapsAcc(heaps.tail, comb)
-    }
-
-    logger.debug("Will cobmine all heaps:\n " + heaps.map(" - " + _).mkString("\n"))
-    combineAllHeapsAcc(heaps, empty)
-  }
+//  /**
+//    * Combines all given heaps into a single, larger heap, avoding name clashes of bound variables iff performAlphaConversion is true.
+//    * @param heaps Heaps to combine
+//    * @param performAlphaConversion Should quantified variables be renamed to avoid double capture? In a regular unfolding, this will be necessary, whereas it may be undesired in the combination of heaps that deliberately share bound variables, e.g. in kernelization or ECD recombination.
+//    * @return
+//    */
+//  def combineAllHeaps(heaps : Seq[SymbolicHeap], performAlphaConversion : Boolean) : SymbolicHeap ={
+//    @tailrec def combineAllHeapsAcc(heaps : Seq[SymbolicHeap], acc : SymbolicHeap) : SymbolicHeap = if (heaps.isEmpty) acc else {
+//      val comb = combineHeaps(acc, heaps.head, performAlphaConversion)
+//      combineAllHeapsAcc(heaps.tail, comb)
+//    }
+//
+//    logger.debug("Will cobmine all heaps:\n " + heaps.map(" - " + _).mkString("\n"))
+//    combineAllHeapsAcc(heaps, empty)
+//  }
 
   val empty = SymbolicHeap(Seq())
 

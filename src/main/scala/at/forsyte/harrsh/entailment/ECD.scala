@@ -16,11 +16,14 @@ case class ECD(rep : SymbolicHeap, ext : SymbolicHeap, repParamInstantiation : R
 
   def combine(that: ECD) : (SymbolicHeap, SymbolicHeap) = {
     assert(repFV == that.repFV)
-    (SymbolicHeap.combineHeaps(rep.renameVars(that.repParamInstantiation), that.ext, performAlphaConversion = true),
-      SymbolicHeap.combineHeaps(that.rep.renameVars(repParamInstantiation), ext, performAlphaConversion = true))
+    (SymbolicHeap.mergeHeaps(rep.renameVars(that.repParamInstantiation), that.ext, Seq.empty),
+      SymbolicHeap.mergeHeaps(that.rep.renameVars(repParamInstantiation), ext, Seq.empty))
   }
 
-  lazy val recombined = SymbolicHeap.combineHeaps(rep.renameVarsWithAdditionalQuantification(repParamInstantiation), ext, performAlphaConversion = false)
+  //lazy val recombined = SymbolicHeap.mergeHeaps(rep.renameVarsWithAdditionalQuantification(repParamInstantiation), ext, sharedVars = ext.boundVars)
+  // TODO After changes to the semantics of rename vars, we should not need the variant any more, right?
+  // Do not rename any quantified variables, they are all shared between the two parts of the partition!
+  lazy val recombined = SymbolicHeap.mergeHeaps(rep.renameVars(repParamInstantiation), ext, sharedVars = ext.boundVars)
 
   override def toString = "ECD_" + repFV + "(rep = " + rep + repParamInstantiation + ", ext = " + ext + ", unf = " + recombined + ")"
 
