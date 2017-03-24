@@ -23,28 +23,6 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
   val IsModel = true
   val NoModel = false
 
-  // TODO Track additional equalities imposed by matching free vars in pointer matching? (Already in the History data structure, but not set anywhere.)
-  case class History(alloc : Set[Var], pure : Set[PtrEq]) {
-    def addAlloc(v : Var) = copy(alloc = alloc + v)
-    def addPure(p : PtrEq) = copy(pure = pure + p)
-
-    def toFormula = {
-      logger.debug("Generating formula from allocation set " + alloc + " and additional pure constraints " + pure)
-      val contradiction = pure.find(eq => alloc.contains(eq.l.getVarOrZero) && alloc.contains(eq.r.getVarOrZero))
-      val contradictoryConstraint = contradiction match {
-        case Some(eq@PtrEq(l,r)) =>
-          logger.debug("CONTRADICTORY CONSTRAINT: " + eq + ", but both allocated")
-          Seq(PtrNEq(l,r))
-        case None => Seq.empty
-      }
-
-      val allocPure = alloc map (v => PtrNEq(PtrVar(v), NullPtr()))
-      allocPure ++ contradictoryConstraint
-    }
-  }
-  val emptyHistory = History(Set.empty, Set.empty)
-
-
   override def isModel(model: Model, formula : SymbolicHeap, sid: SID) = isModel(model, formula, sid, false)
 
   def isModel(model: Model, formula : SymbolicHeap, sid: SID, reportProgress: Boolean): Boolean = {
@@ -52,7 +30,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     val modelFormula = ModelToFormula(model)
     val map = sid.rulesAsHeadToBodyMap
 
-    new GreedyUnfolding(map, reportProgress).run(modelFormula, formula, emptyHistory, 1)
+    new GreedyUnfolding(map, reportProgress).run(modelFormula, formula, MCHistory.emptyHistory)
   }
 
   /**
@@ -64,17 +42,19 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     * @return true iff lhs |= rhs
     */
   def reducedEntailmentAsModelChecking(lhs : SymbolicHeap, rhs : SymbolicHeap, sid : SID, reportProgress: Boolean = false): Boolean = {
-    val res = new GreedyUnfolding(sid.rulesAsHeadToBodyMap, reportProgress).run(lhs, rhs, emptyHistory, 1)
+    val res = new GreedyUnfolding(sid.rulesAsHeadToBodyMap, reportProgress).run(lhs, rhs, MCHistory.emptyHistory)
     if (reportProgress) println("    REDENT result: " + res)
     res
   }
 
   private class GreedyUnfolding(headsToBodies: Map[String, Set[SymbolicHeap]], reportProgress : Boolean) {
 
-    def run(formulaToMatch: SymbolicHeap, partialUnfolding: SymbolicHeap, history: History, iteration: Int): Boolean = {
+    def run(formulaToMatch: SymbolicHeap, partialUnfolding: SymbolicHeap, prevHistory: MCHistory): Boolean = {
+      val history = prevHistory.nextIteration
       logger.debug("#" * 80)
-      logger.debug("Iteration " + iteration + ": Greedy model checking of \n     " + formulaToMatch + "\n |?= " + partialUnfolding + "\n}")
-      if (reportProgress) println("    MC #" + iteration + ": " + formulaToMatch + " |?= " + partialUnfolding)
+      logger.debug("Iteration " + history.iteration + ": Greedy model checking of \n     " + formulaToMatch + "\n |?= " + partialUnfolding + "\n}")
+      logger.debug("Steps so far:\n" + history.stepLogger)
+      if (reportProgress) println("    MC #" + history.iteration + ": " + formulaToMatch + " |?= " + partialUnfolding)
       // There actually shouldn't be a problem with additionally FVs on the lhs --
 //      if (formulaToMatch.numFV > partialUnfolding.numFV) {
 //        // We should enforce the same number of FVs, but formula instantiation apparently does not currently deal correctly with numFV
@@ -89,27 +69,27 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
       val res = if (!formulaToMatch.hasPointer) {
         // No pointers left => Solve the model checking problem for empty models
         logger.debug("Remaining Model " + formulaToMatch + " is now empty")
-        checkEmptyModel(formulaToMatch, partialUnfolding, history, iteration)
+        checkEmptyModel(formulaToMatch, partialUnfolding, history)
       } else {
         if (partialUnfolding.hasPointer) {
           // Match pair of pointers that are already there
           logger.debug("Unfolding has pointer, will try to match")
-          matchUnfoldedPointer(formulaToMatch, partialUnfolding, history, iteration)
+          matchUnfoldedPointer(formulaToMatch, partialUnfolding, history)
         } else if (partialUnfolding.hasPredCalls) {
           // If none, unfold to (possibly) get pointers
           logger.debug("Unfolding has no pointer but predicate call, will unfold")
-          unfoldAndRecurse(formulaToMatch, partialUnfolding, history, iteration)
+          unfoldAndRecurse(formulaToMatch, partialUnfolding, history)
         } else {
           // Unfolding empty, model non-empty => model checking failed
           logger.debug("Model-checking non-empty model against empty candidate unfolding failed, aborting branch")
           NoModel
         }
       }
-      logger.debug("Returning from iteration " + iteration)
+      logger.debug("Returning from iteration " + history.iteration)
       res
     }
 
-    private def checkEmptyModel(formulaToMatch: SymbolicHeap, partialUnfolding: SymbolicHeap, history: History, iteration: Int): Boolean = {
+    private def checkEmptyModel(formulaToMatch: SymbolicHeap, partialUnfolding: SymbolicHeap, history: MCHistory): Boolean = {
       if (partialUnfolding.hasPointer) {
         // Have matched everything in the model, but there is still a pointer left in the unfolding => not a model
         logger.debug("...but unfolding has pointer => no model, aborting branch")
@@ -120,7 +100,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
         val unfoldings = unfoldCallsByEmpty(partialUnfolding)
         logger.debug("Found the following " + unfoldings.size + " empty unfoldings:\n" + unfoldings.mkString("\n"))
         // Depth-first recursion (on arbitrary ordering!) of the models
-        lazyRecursiveGreedyUnfolding(formulaToMatch, unfoldings, history, iteration)
+        lazyRecursiveGreedyUnfolding(formulaToMatch, partialUnfolding, unfoldings, history)
       } else {
         // Return true iff pure constraints of partial unfolding are met
         val res = pureFormulaEntailment(formulaToMatch.pure, partialUnfolding.pure, history)
@@ -129,6 +109,11 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
       }
     }
 
+    /**
+      * Replaces all remaining calls in sh with rule bodies with empty spatial parts. If no such bodies exist, an empty set is returned.
+      * @param sh Arbitrary symbolic heap
+      * @return Set of all possible instantiations of calls with empty spatial part
+      */
     private def unfoldCallsByEmpty(sh: SymbolicHeap): Set[SymbolicHeap] = {
       if (sh.hasPredCalls) {
         unfoldFirstCallWithSatisfyingBodies(sh, body => !body.hasPointer && !body.hasPredCalls)
@@ -137,7 +122,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
       }
     }
 
-    private def matchUnfoldedPointer(modelFormula: SymbolicHeap, partialUnfolding: SymbolicHeap, history: History, iteration: Int): Boolean = {
+    private def matchUnfoldedPointer(modelFormula: SymbolicHeap, partialUnfolding: SymbolicHeap, history: MCHistory): Boolean = {
       val ptrs: Seq[PointsTo] = partialUnfolding.pointers
 
       val lhsPtr = try {
@@ -168,13 +153,13 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
             }
             else {
               // Found a pointer that matches lhs and length of rhs => perform the acutal matching
-              applyParamMatchingToHeaps(modelFormula, partialUnfolding, history, headsToBodies, iteration, lhsPtr, matchingPtr)
+              applyParamMatchingToHeaps(modelFormula, partialUnfolding, history, headsToBodies, lhsPtr, matchingPtr)
             }
         }
       }
     }
 
-    def applyParamMatchingToHeaps(modelFormula: SymbolicHeap, partialUnfolding: SymbolicHeap, history: History, headsToBodies: Map[String, Set[SymbolicHeap]], iteration: Loc, freePtr: PointsTo, matchingPtr: PointsTo): Boolean = {
+    def applyParamMatchingToHeaps(modelFormula: SymbolicHeap, partialUnfolding: SymbolicHeap, history: MCHistory, headsToBodies: Map[String, Set[SymbolicHeap]], freePtr: PointsTo, matchingPtr: PointsTo): Boolean = {
       // TODO This is also needlessly inefficient; should get rid of the pointer immediately when we find it to avoid second iteration over the seq
       val smallerUnfolding = partialUnfolding.copy(pointers = partialUnfolding.pointers.filterNot(_ == freePtr))
       val smallerModel = modelFormula.copy(pointers = modelFormula.pointers.filterNot(_ == matchingPtr))
@@ -194,8 +179,8 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
             logger.debug("Introduced null pointer allocation into model " + renamedModel + " => no model => abort branch")
             NoModel
           } else {
-            // Recurse for continued matching
-            run(renamedModel, renamedUnfolding, newHistory, iteration + 1)
+            // Recurse for continued model checking
+            run(renamedModel, renamedUnfolding, newHistory.logStep(MCHistory.PointerMatch(modelFormula, partialUnfolding, freePtr, matchingPtr)))
           }
         case None =>
           // Matching parameters failed, formula is not a model of the unfolding
@@ -204,7 +189,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
       }
     }
 
-    @tailrec private def renameToMatchParameters(lhs: SymbolicHeap, lhsParams: Seq[Var], rhs: SymbolicHeap, rhsParams: Seq[Var], history: History, maxIntroducedFV: Int = 0): Option[(SymbolicHeap, SymbolicHeap)] = {
+    @tailrec private def renameToMatchParameters(lhs: SymbolicHeap, lhsParams: Seq[Var], rhs: SymbolicHeap, rhsParams: Seq[Var], history: MCHistory, maxIntroducedFV: Int = 0): Option[(SymbolicHeap, SymbolicHeap)] = {
       // We exploit that both sequences have the same length
       assert(lhsParams.size == rhsParams.size)
       //logger.debug("Renaming " + lhs + " / " + rhs + " to match " + lhsParams.mkString(", ") + " / " + rhsParams.mkString(", "))
@@ -258,10 +243,10 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
       }
     }
 
-    private def unfoldAndRecurse(formulaToMatch: SymbolicHeap, partialUnfolding: SymbolicHeap, history: History, iteration: Int): Boolean = {
+    private def unfoldAndRecurse(formulaToMatch: SymbolicHeap, partialUnfolding: SymbolicHeap, history: MCHistory): Boolean = {
       // Arbitrarily pick first call
       val heaps = unfoldFirstCallWithSatisfyingBodies(partialUnfolding, _ => true)
-      lazyRecursiveGreedyUnfolding(formulaToMatch, heaps, history, iteration: Int)
+      lazyRecursiveGreedyUnfolding(formulaToMatch, partialUnfolding, heaps, history)
     }
 
     private def unfoldFirstCallWithSatisfyingBodies(sh: SymbolicHeap, pBody: SymbolicHeap => Boolean): Set[SymbolicHeap] = {
@@ -272,10 +257,14 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
       unfolded
     }
 
-    private def lazyRecursiveGreedyUnfolding(modelFormula: SymbolicHeap, candidateUnfoldings: Set[SymbolicHeap], history: History, iteration: Int): Boolean = {
+    /**
+      * Depth-first recursion, using the candidateUnfoldings as new right-hand sides, stopping as soon as one computation path succeeds
+      */
+    private def lazyRecursiveGreedyUnfolding(modelFormula: SymbolicHeap, partialUnfolding: SymbolicHeap, candidateUnfoldings: Set[SymbolicHeap], history: MCHistory): Boolean = {
       // Depth-first traversal of candidate unfoldings
       // TODO Better heuristics, e.g. based on #ptrs in base rule and branching factor?
-      Combinators.lazyAny(candidateUnfoldings.toSeq.sortWith(_.predCalls.size > _.predCalls.size), (sh: SymbolicHeap) => run(modelFormula, sh, history, iteration + 1))
+      Combinators.lazyAny(candidateUnfoldings.toSeq.sortWith(_.predCalls.size > _.predCalls.size),
+        (sh: SymbolicHeap) => run(modelFormula, sh, history.logStep(MCHistory.UnfoldingStep(modelFormula, partialUnfolding, sh))))
     }
 
     private def areEqualModuloPureSameSide(pure: Seq[PureAtom], fst: Var, snd: Var): Boolean = {
@@ -311,7 +300,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     }
 
     // FIXME Is this the correct entailment check?
-    private def pureFormulaEntailment(lhs: Seq[PureAtom], rhs: Seq[PureAtom], history: History): Boolean = {
+    private def pureFormulaEntailment(lhs: Seq[PureAtom], rhs: Seq[PureAtom], history: MCHistory): Boolean = {
       // Add pure formulas according to history
       val historyConstraint = history.toFormula
       val lhsPure = lhs ++ historyConstraint
