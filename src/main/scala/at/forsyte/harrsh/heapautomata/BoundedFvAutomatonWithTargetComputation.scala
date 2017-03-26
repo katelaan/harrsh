@@ -11,7 +11,7 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
   */
 abstract class BoundedFvAutomatonWithTargetComputation(numFV : Int) extends HeapAutomaton {
 
-  override final def doesAlphabetContain(lab: SymbolicHeap): Boolean = getMaxVarIndex(lab.allVars) <= numFV
+  override final def doesAlphabetContain(lab: SymbolicHeap): Boolean = lab.numFV <= numFV
 
   override final def implementsTargetComputation: Boolean = true
 

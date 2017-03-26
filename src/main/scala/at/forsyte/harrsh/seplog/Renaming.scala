@@ -42,7 +42,7 @@ object Renaming {
     * @param varClashes Set of potentially clashing variables
     * @return Renaming with codomain varClashes
     */
-  def clashAvoidanceRenaming(varClashes : Seq[Var]) = {
+  def clashAvoidanceRenaming(varClashes : Iterable[Var]) = {
     val entries = varClashes.zipWithIndex map {
       case (v,i) => (Integer.MIN_VALUE + i, v)
     }

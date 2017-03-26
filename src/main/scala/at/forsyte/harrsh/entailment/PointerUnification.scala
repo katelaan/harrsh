@@ -134,8 +134,8 @@ object PointerUnification extends HarrshLogging {
       val usedFVIdents = Seq(allDisallowedFVs.max, lhs.numFV, rhs.numFV)
       val newFV = Var.mkVar(usedFVIdents.max + 1)
       logger.debug("Introducing new free variable " + PtrVar(newFV) + " replacing " + lvar + " (model formula) and " + rvar + " (unfolding)")
-      val newLhs = lhs.instantiateBoundVar(lvar, newFV)
-      val newRhs = rhs.instantiateBoundVar(rvar, newFV)
+      val newLhs = lhs.instantiateBoundVarWithFV(lvar, newFV)
+      val newRhs = rhs.instantiateBoundVarWithFV(rvar, newFV)
       (newLhs, newRhs, Some(newFV))
     }
 
@@ -161,12 +161,12 @@ object PointerUnification extends HarrshLogging {
         case (true, false) =>
           // Left is free, right is quantified => Instantiate right-hand side
           logger.debug("Renaming " + rvar + " to " + lvar + " in unfolding")
-          val newRhs = rhs.instantiateBoundVar(rvar, lvar)
+          val newRhs = rhs.instantiateBoundVarWithFV(rvar, lvar)
           Some(lhs, newRhs, None)
         case (false, true) =>
           // Left is quantified, right is free => Instantiate left-hand side
           logger.debug("Renaming " + lvar + " to " + rvar + " in model formula")
-          val newLhs = lhs.instantiateBoundVar(lvar, rvar)
+          val newLhs = lhs.instantiateBoundVarWithFV(lvar, rvar)
           Some(newLhs, rhs, None)
         case (false, false) =>
           // Both are bound; need to introduce new free var to continue matching

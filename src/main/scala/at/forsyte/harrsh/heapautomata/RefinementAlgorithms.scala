@@ -140,7 +140,7 @@ object RefinementAlgorithms {
       } yield Rule(
         head = head+stateToIndex(headState),
         freeVars = body.freeVars map Var.toDefaultString,
-        qvars = body.boundVars map Var.toDefaultString,
+        qvars = body.boundVars.toSeq map Var.toDefaultString,
         body = SymbolicHeap.addTagsToPredCalls(body, states map (s => ""+stateToIndex(s))))
       val finalRules = reachedFinalStates.map{
         state =>

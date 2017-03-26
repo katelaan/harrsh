@@ -4,10 +4,12 @@ import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, Renaming, Var}
 import at.forsyte.harrsh.seplog.Var._
 
+import scala.collection.SortedSet
+
 /**
   * Created by jkatelaa on 10/3/16.
   */
-case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls : Seq[PredCall], numFV : Int, boundVars : Seq[Var]) extends HarrshLogging {
+case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls : Seq[PredCall], numFV : Int, boundVars : SortedSet[Var]) extends HarrshLogging {
 
   // Sanity check
   if (Config.HeapAutomataSafeModeEnabled) {
@@ -23,7 +25,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     * @return String representation of this symbolic heap
     */
   def toStringWithVarNames(naming: VarNaming): String = {
-    val prefix = (boundVars map naming map ("\u2203"+_)).sorted.mkString(" ")
+    val prefix = (boundVars map naming map ("\u2203"+_)).mkString(" ")
     val spatialString = if (pointers.isEmpty && predCalls.isEmpty) {
       "emp"
     } else {
@@ -43,8 +45,9 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
 
   lazy val ptrComparisons : Seq[PureAtom] = pure filter (_.isPointerComparison)
 
-  // FIXME Get rid of this method altogether?!
-  lazy val allVars : Set[Var] = Set.empty ++ freeVars ++ boundVars
+  lazy val allVars : Set[Var] = freeVars.toSet ++ boundVars
+
+  def hasVar(v : Var) : Boolean = (1 <= v && v <= numFV) || boundVars(v)
 
   lazy val freeVars : Seq[Var] =  1 to numFV
 
@@ -76,20 +79,32 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     res
   }
 
-  def instantiateBoundVar(qvar : Var, instance : Var) : SymbolicHeap = {
-    if (!Var.isFV(instance)) throw new IllegalArgumentException("Cannot instantiate bound variable by different bound variable")
-
-    val newNumFV = Math.max(numFV, instance)
-    val renaming = MapBasedRenaming(Map(qvar -> instance))
-    SymbolicHeap(pure map (_.renameVars(renaming)), pointers map (_.renameVars(renaming)), predCalls map (_.renameVars(renaming)), newNumFV, boundVars filterNot (_ == qvar))
-  }
-
+  /**
+    * Instantiates the free variables of this symbolic heap with the given argument expressions
+    * @param args
+    * @return
+    */
   def instantiateFVs(args : Seq[PtrExpr]): SymbolicHeap = {
     // Rename the free variables of SH to the actual arguments of the predicate calls,
     // i.e. replace the i-th FV with the call argument at index i-1
     val pairs: Seq[(Var, Var)] = ((1 to args.length) map (x => mkVar(x))) zip (args map (_.getVarOrZero))
     val map: Map[Var, Var] = Map() ++ pairs
     renameVars(MapBasedRenaming(map))
+  }
+
+  /**
+    * Replaces the given bound var with the given free var
+    * @param qvar Bound var to instantiate
+    * @param instance Free var to use
+    * @return Resulting symbolic heap
+    */
+  def instantiateBoundVarWithFV(qvar : Var, instance : Var) : SymbolicHeap = {
+    assert(Var.isBound(qvar))
+    if (!Var.isFV(instance)) throw new IllegalArgumentException("Cannot instantiate bound variable by different bound variable")
+
+    val newNumFV = Math.max(numFV, instance)
+    val renaming = MapBasedRenaming(Map(qvar -> instance))
+    SymbolicHeap(pure map (_.renameVars(renaming)), pointers map (_.renameVars(renaming)), predCalls map (_.renameVars(renaming)), newNumFV, boundVars - qvar)
   }
 
   /**
@@ -109,7 +124,6 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     stateHeapPairs.foldLeft(this){
       case (partiallyInstantiedHeap, (call,instance)) => partiallyInstantiedHeap.replaceCall(call, instance)
     }
-
   }
 
   /**
@@ -125,7 +139,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     val renamedInstance = instance.instantiateFVs(call.args)
     val shFiltered = this.copy(predCalls = predCalls.filterNot(_ == call))
     logger.debug("Renamed " + instance + " to " +renamedInstance + " which will be combined with " + shFiltered)
-    val res = SymbolicHeap.mergeHeaps(shFiltered, renamedInstance, sharedVars = Set() ++ call.args map (_.getVarOrZero))
+    val res = SymbolicHeap.mergeHeaps(shFiltered, renamedInstance, sharedVars = call.args.map(_.getVarOrZero).toSet)
     logger.debug("Result of combination: " + res)
     res
   }
@@ -134,18 +148,52 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
 
 object SymbolicHeap extends HarrshLogging {
 
+  /**
+    * The ordering used for bound variable sets. Use reverse ordering, because bound vars "grow" towards minus infinity.
+    */
+  private val boundVarOrdering = Ordering.fromLessThan[Var](_ > _)
+
+  val empty = SymbolicHeap(Seq())
+
+  /**
+    * The standard constructor for symbolic heaps: Cosntructs heap from pointers, calls and pure constraints.
+    * @param pure Pure constraints
+    * @param spatial Pointers
+    * @param calls Predicate calls
+    * @return
+    */
   def apply(pure : Seq[PureAtom], spatial: Seq[PointsTo], calls : Seq[PredCall]) : SymbolicHeap = {
-    val vars = Set.empty ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars) ++ calls.flatMap(_.getVars)
+    val vars = SortedSet.empty(boundVarOrdering) ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars) ++ calls.flatMap(_.getVars)
     val fvars = vars.filter(_ > 0)
     val qvars = vars.filter(_ < 0)
 
     // If nothing else is given, we assume the max index gives us the number of free vars
-    SymbolicHeap(pure, spatial, calls, if (fvars.isEmpty) 0 else fvars.max, qvars.toSeq)
+    SymbolicHeap(pure, spatial, calls, if (fvars.isEmpty) 0 else fvars.max, qvars)
   }
 
+  /**
+    * Constructs symbolic heap without any pure constraints
+    * @param spatial Pointers
+    * @param calls Predicate calls
+    * @return
+    */
   def apply(spatial: Seq[PointsTo], calls: Seq[PredCall]) : SymbolicHeap = apply(Seq.empty, spatial, calls)
 
+  /**
+    * Constructs symbolic heap without calls or pure constraints.
+    * @param spatial Pointers
+    * @return
+    */
   def apply(spatial: Seq[PointsTo]) : SymbolicHeap = apply(Seq.empty, spatial, Seq.empty)
+
+  /**
+    * In the rare case that you want to override the automatic computation of free variables and bound variables as per
+    * the default constructor, this method allows you to construct a symbolic heap from explicit info about free/bound
+    * vars. Consider calling the three-parameter apply method instead.
+    */
+  def fromFullDescription(pure : Seq[PureAtom], spatial: Seq[PointsTo], calls : Seq[PredCall], numFV : Int, boundVars : Iterable[Var]) = {
+    SymbolicHeap(pure, spatial, calls, numFV, SortedSet.empty(boundVarOrdering) ++ boundVars)
+  }
 
   /**
     * Adds the given tags to the given heaps predicate calls (as is necessary in refinement)
@@ -176,11 +224,9 @@ object SymbolicHeap extends HarrshLogging {
     val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars filterNot sharedVars.contains))
 
     // Free variables remain the same, so we take the maximum
-    // Quantified variables are only partially renamed, so have to filter out duplicates
-    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ (qvars2 filterNot qvars.contains))
+    // Quantified variables are only partially renamed, but since we're using sets, duplicates are filtered out automatically
+    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2)
   }
-
-  val empty = SymbolicHeap(Seq())
 
   /**
     * Serializes the given heap to the Harrsh string format

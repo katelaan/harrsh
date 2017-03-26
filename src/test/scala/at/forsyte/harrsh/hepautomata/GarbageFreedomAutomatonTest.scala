@@ -35,7 +35,7 @@ class GarbageFreedomAutomatonTest extends HarrshTableTest {
     (Seq(), SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq(ptr(mkVar(1), mkVar(2))), Seq()), GarbageFree),
 
     // - RHSs with free variables
-    (Seq(), SymbolicHeap(Seq(), Seq(), Seq(), 0, Seq(-1)), HasGarbage),
+    (Seq(), SymbolicHeap.fromFullDescription(Seq(), Seq(), Seq(), 0, Seq(-1)), HasGarbage),
     (Seq(), SymbolicHeap(Seq(ptr(qv(1),qv(2)), ptr(qv(2), qv(3)), ptr(qv(3), mkVar(1)), ptr(mkVar(1), mkVar(1)))), HasGarbage),
     (Seq(), SymbolicHeap( Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), mkVar(3)))), GarbageFree),
     (Seq(), SymbolicHeap(Seq(ptreq(mkVar(2), qv(2))), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), qv(2)), ptr(mkVar(2), mkVar(1))), Seq()), GarbageFree),
