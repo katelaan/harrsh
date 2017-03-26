@@ -170,7 +170,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     val renamedInstance = instance.instantiateFVs(call.args)
     val shFiltered = this.copy(predCalls = predCalls.filterNot(_ == call))
     logger.debug("Renamed " + instance + " to " +renamedInstance + " which will be combined with " + shFiltered)
-    val res = SymbolicHeap.mergeHeaps(shFiltered, renamedInstance, sharedVars = call.args map (_.getVarOrZero))
+    val res = SymbolicHeap.mergeHeaps(shFiltered, renamedInstance, sharedVars = Set() ++ call.args map (_.getVarOrZero))
     logger.debug("Result of combination: " + res)
     res
   }
@@ -199,7 +199,7 @@ object SymbolicHeap extends HarrshLogging {
     * @param sharedVars Shared quantified variables that are not to be renamed by alpha conversion
     * @return
     */
-  def mergeHeaps(phi : SymbolicHeap, psi : SymbolicHeap, sharedVars : Seq[Var]) : SymbolicHeap = {
+  def mergeHeaps(phi : SymbolicHeap, psi : SymbolicHeap, sharedVars : Set[Var]) : SymbolicHeap = {
 
     val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
 
