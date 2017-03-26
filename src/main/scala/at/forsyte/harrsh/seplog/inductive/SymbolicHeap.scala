@@ -4,8 +4,6 @@ import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, Renaming, Var}
 import at.forsyte.harrsh.seplog.Var._
 
-import scala.annotation.tailrec
-
 /**
   * Created by jkatelaa on 10/3/16.
   */
@@ -19,6 +17,11 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
 
   override final def toString = toStringWithVarNames(DefaultNaming)
 
+  /**
+    * Generates a string representation by mapping the (integer) variables to the given string representations
+    * @param naming Map from variables to string representations
+    * @return String representation of this symbolic heap
+    */
   def toStringWithVarNames(naming: VarNaming): String = {
     val prefix = (boundVars map naming map ("\u2203"+_)).sorted.mkString(" ")
     val spatialString = if (pointers.isEmpty && predCalls.isEmpty) {
@@ -30,7 +33,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString //+ " [" + numFV + "/" + boundVars.size + "]"
   }
 
-  lazy val hasPointer: Boolean = pointers.nonEmpty
+  def hasPointer: Boolean = pointers.nonEmpty
 
   def hasPredCalls: Boolean = predCalls.nonEmpty
 
@@ -38,7 +41,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
 
   lazy val equalities : Seq[PtrEq] = pure filter (_.isInstanceOf[PtrEq]) map (_.asInstanceOf[PtrEq])
 
-  lazy val ptrComparisons : Seq[PureAtom] = pure filter (a => a.isInstanceOf[PtrEq] || a.isInstanceOf[PtrNEq])
+  lazy val ptrComparisons : Seq[PureAtom] = pure filter (_.isPointerComparison)
 
   // FIXME Get rid of this method altogether?!
   lazy val allVars : Set[Var] = Set.empty ++ freeVars ++ boundVars
@@ -47,15 +50,12 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
 
   def withoutCalls : SymbolicHeap = copy(predCalls = Seq.empty)
 
-  def addToCallPreds(tags : Seq[String]) : SymbolicHeap = {
-    if (tags.size != predCalls.size) throw new IllegalArgumentException("Wrong number of tags passed")
-    val newCalls = predCalls zip tags map {
-      case (call,tag) => call.copy(name = call.name + tag)
-    }
-    copy(predCalls = newCalls)
-  }
-
-  def renameVars(f : Renaming) = {
+  /**
+    * Returns new symbolic heap whose variables have been renamed based on the given renaming.
+    * @param f
+    * @return
+    */
+  def renameVars(f : Renaming) : SymbolicHeap = {
     logger.info("Renaming vars in " + this)
     logger.debug("Map used for renaming " + f.toString)
 
@@ -75,38 +75,6 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     logger.debug("After renaming: " + res)
     res
   }
-
-//  def renameVars(f : Renaming) = {
-//    // Rename bound variables if applicable
-//    val (qvarsRenamed, extendedF) : (Seq[Var], Renaming) = boundVars.foldLeft((Seq[Var](), f))({
-//      case ((seq, intermediateF), v) =>
-//        val extended = intermediateF.addBoundVarWithOptionalAlphaConversion(v)
-//        (extended(v) +: seq, extended)
-//    })
-//
-//    val pureRenamed = pure map (_.renameVars(extendedF))
-//    val ptrsRenamed = pointers map (_.renameVars(extendedF))
-//    val callsRenamed = predCalls map (_.renameVars(extendedF))
-//    SymbolicHeap(pureRenamed, ptrsRenamed, callsRenamed, numFV, qvarsRenamed)
-//  }
-
-//  /**
-//    * In addition to just renaming vars, this variant also introduces new quantifiers if there are new bound vars in the codomain of the renaming
-//    * @param f
-//    * @return
-//    */
-//  def renameVarsWithAdditionalQuantification(f : Renaming) = {
-//    // Rename bound variables if applicable
-//    val (qvarsRenamed, extendedF) : (Seq[Var], Renaming) = boundVars.foldLeft((Seq[Var](), f))({
-//      case ((seq, intermediateF), v) =>
-//        val extended = intermediateF.addBoundVarWithOptionalAlphaConversion(v)
-//        (extended(v) +: seq, extended)
-//    })
-//
-//    val newQVars = extendedF.codomain.filter(Var.isBound).filterNot(qvarsRenamed.contains)
-//    val allQVars = (qvarsRenamed ++ newQVars).sortWith(_>_)
-//    SymbolicHeap(pure map (_.renameVars(extendedF)), pointers map (_.renameVars(extendedF)), predCalls map (_.renameVars(extendedF)), numFV, allQVars)
-//  }
 
   def instantiateBoundVar(qvar : Var, instance : Var) : SymbolicHeap = {
     if (!Var.isFV(instance)) throw new IllegalArgumentException("Cannot instantiate bound variable by different bound variable")
@@ -136,19 +104,6 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     }
 
     logger.debug("Instantiating calls in " + this + " with SHs " + shs.mkString(", "))
-//    val stateHeapPairs = predCalls zip shs
-//    val renamedHeaps : Seq[SymbolicHeap] = stateHeapPairs map {
-//      case (call, heap) =>
-//        val res = heap.instantiateFVs(call.args)
-//        logger.debug("Unfolding call " + call + ": Instantiating vars in " + heap + " with " + call.args.mkString("(",",",")") + " yielding " + res)
-//        res
-//    }
-//    val shFiltered = this.withoutCalls
-//        logger.debug("Filtered heap: " + shFiltered)
-//        logger.debug("State-heap pairs: " + stateHeapPairs.mkString("\n"))
-//        logger.debug("Renamed heaps:" + renamedHeaps.mkString("\n"))
-//    val combined = SymbolicHeap.combineAllHeaps(shFiltered +: renamedHeaps, performAlphaConversion)
-//    combined
 
     val stateHeapPairs = predCalls zip shs
     stateHeapPairs.foldLeft(this){
@@ -193,11 +148,25 @@ object SymbolicHeap extends HarrshLogging {
   def apply(spatial: Seq[PointsTo]) : SymbolicHeap = apply(Seq.empty, spatial, Seq.empty)
 
   /**
+    * Adds the given tags to the given heaps predicate calls (as is necessary in refinement)
+    * @param sh Symbolic heap to tag
+    * @param tags Tags to add to the calls
+    * @return Tagged heap
+    */
+  def addTagsToPredCalls(sh : SymbolicHeap, tags : Seq[String]) : SymbolicHeap = {
+    if (tags.size != sh.predCalls.size) throw new IllegalArgumentException("Wrong number of tags passed")
+    val newCalls = sh.predCalls zip tags map {
+      case (call,tag) => call.copy(name = call.name + tag)
+    }
+    sh.copy(predCalls = newCalls)
+  }
+
+  /**
     * Combines the two given heaps into a single, larger heap, avoding name clashes of bound variables that are not in the sequence of shared variables
     * @param phi First heap
     * @param psi Second heap
     * @param sharedVars Shared quantified variables that are not to be renamed by alpha conversion
-    * @return
+    * @return Merged heap
     */
   def mergeHeaps(phi : SymbolicHeap, psi : SymbolicHeap, sharedVars : Set[Var]) : SymbolicHeap = {
 
@@ -211,44 +180,14 @@ object SymbolicHeap extends HarrshLogging {
     SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ (qvars2 filterNot qvars.contains))
   }
 
-//  private def combineHeapsWithAlphaConversion(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
-//    val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
-//
-//    // Shift the quantified variables in the right SH to avoid name clashes
-//    val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars))
-//
-//    // Free variables remain the same, so we take the maximum
-//    // Quantified variables are renamed, so we take the sum
-//    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2)
-//  }
-//
-//  private def combineHeapsWithoutAlphaConversion(phi : SymbolicHeap, psi : SymbolicHeap) : SymbolicHeap = {
-//    val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
-//    val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi
-//
-//    // Free variables remain the same, so we take the maximum
-//    // Quantified variables are partially identified, so we have to filter out the duplicates
-//    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2.filterNot(qvars.contains))
-//  }
-
-//  /**
-//    * Combines all given heaps into a single, larger heap, avoding name clashes of bound variables iff performAlphaConversion is true.
-//    * @param heaps Heaps to combine
-//    * @param performAlphaConversion Should quantified variables be renamed to avoid double capture? In a regular unfolding, this will be necessary, whereas it may be undesired in the combination of heaps that deliberately share bound variables, e.g. in kernelization or ECD recombination.
-//    * @return
-//    */
-//  def combineAllHeaps(heaps : Seq[SymbolicHeap], performAlphaConversion : Boolean) : SymbolicHeap ={
-//    @tailrec def combineAllHeapsAcc(heaps : Seq[SymbolicHeap], acc : SymbolicHeap) : SymbolicHeap = if (heaps.isEmpty) acc else {
-//      val comb = combineHeaps(acc, heaps.head, performAlphaConversion)
-//      combineAllHeapsAcc(heaps.tail, comb)
-//    }
-//
-//    logger.debug("Will cobmine all heaps:\n " + heaps.map(" - " + _).mkString("\n"))
-//    combineAllHeapsAcc(heaps, empty)
-//  }
-
   val empty = SymbolicHeap(Seq())
 
+  /**
+    * Serializes the given heap to the Harrsh string format
+    * @param sh Heap to serialize
+    * @param naming Naming of the variables in the serialization
+    * @return
+    */
   def toHarrshFormat(sh : SymbolicHeap, naming : VarNaming) : String = {
     // TODO This is somewhat redundant wrt ordinary string conversion
     val spatialString = sh.pointers.map(_.toStringWithVarNames(naming)).mkString(" * ")

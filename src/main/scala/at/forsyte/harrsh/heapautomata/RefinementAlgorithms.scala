@@ -141,7 +141,7 @@ object RefinementAlgorithms {
         head = head+stateToIndex(headState),
         freeVars = body.freeVars map Var.toDefaultString,
         qvars = body.boundVars map Var.toDefaultString,
-        body = body.addToCallPreds(states map (s => ""+stateToIndex(s))))
+        body = SymbolicHeap.addTagsToPredCalls(body, states map (s => ""+stateToIndex(s))))
       val finalRules = reachedFinalStates.map{
         state =>
           Rule(

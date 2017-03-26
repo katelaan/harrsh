@@ -9,10 +9,11 @@ import at.forsyte.harrsh.seplog.inductive._
 case class StringSymbolicHeap(pure : Seq[StringPureAtom], spatial : Seq[StringSpatialAtom]) {
 
   def replaceStringsByIds(naming: VarUnNaming): SymbolicHeap = {
-    val allSpatial : Seq[SepLogAtom] = spatial map (_.replaceStringsByIds(naming)) filter (_.isDefined) map (_.get)
-    val (predCalls, nonCalls) = allSpatial.partition(_.isInstanceOf[PredCall])
+    val allUnnamedSpatial : Seq[SepLogAtom] = spatial map (_.replaceStringsByIds(naming)) filter (_.isDefined) map (_.get)
+    val (predCalls, nonCalls) = allUnnamedSpatial.partition(_.isInstanceOf[PredCall])
 
-    SymbolicHeap(pure map (_.replaceStringsByIds(naming).get), nonCalls map (_.asInstanceOf[PointsTo]), predCalls map (_.asInstanceOf[PredCall]))
+    val unnamedPure = pure map (_.replaceStringsByIds(naming)) filter (_.isDefined) map (_.get)
+    SymbolicHeap(unnamedPure, nonCalls map (_.asInstanceOf[PointsTo]), predCalls map (_.asInstanceOf[PredCall]))
   }
 
   def getVars : Set[String] = Set.empty ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars)
@@ -31,11 +32,11 @@ sealed trait StringPureAtom extends StringSepLogAtom {
     case StringPtrNEq(l, r) => l.getVars union r.getVars
   }
 
-  override def replaceStringsByIds(naming: VarUnNaming) : Option[PureAtom] = Some(this match {
-    case StringTrue() => True()
-    case StringPtrEq(l, r) => PtrEq(l.replaceStringsByIds(naming), r.replaceStringsByIds(naming))
-    case StringPtrNEq(l, r) => PtrNEq(l.replaceStringsByIds(naming), r.replaceStringsByIds(naming))
-  })
+  override def replaceStringsByIds(naming: VarUnNaming) : Option[PureAtom] = this match {
+    case StringTrue() => None
+    case StringPtrEq(l, r) => Some(PtrEq(l.replaceStringsByIds(naming), r.replaceStringsByIds(naming)))
+    case StringPtrNEq(l, r) => Some(PtrNEq(l.replaceStringsByIds(naming), r.replaceStringsByIds(naming)))
+  }
 }
 
 case class StringTrue() extends StringPureAtom
