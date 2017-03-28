@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.main.HarrshLogging
 import Var._
 import BaseTrackingAutomaton._
-import at.forsyte.harrsh.heapautomata.utils.{EqualityUtils, ReachabilityMatrix, TrackingInfo, UnsafeAtomsAsClosure}
+import at.forsyte.harrsh.heapautomata.utils.{ReachabilityMatrix, TrackingInfo, UnsafeAtomsAsClosure}
 import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
@@ -16,6 +16,7 @@ import scala.annotation.tailrec
 class BaseReachabilityAutomaton[A](
                                     numFV : Int,
                                     isFinalPredicate : (BaseReachabilityAutomaton[A], BaseReachabilityAutomaton.ReachabilityInfo, A) => Boolean,
+                                  // TODO Why do we have the set of pairs in the tag computation?
                                     tagComputation : (Seq[A], TrackingInfo, Set[(Var,Var)], Set[Var]) => A,
                                     inconsistentTag : A,
                                     valsOfTag : Set[A],
@@ -25,7 +26,7 @@ class BaseReachabilityAutomaton[A](
 
   override type State = (ReachabilityInfo, A)
 
-  lazy val InconsistentState : State = ((TrackingInfo.inconsistentTrackingInfo(numFV),inconsistentReachability(numFV)), inconsistentTag)
+  lazy val InconsistentState : State = ((TrackingInfo.inconsistentTrackingInfo(numFV), ReachabilityMatrix.inconsistentReachabilityMatrix(numFV)), inconsistentTag)
 
   override lazy val states: Set[State] = for {
     track <- computeTrackingStateSpace(numFV)
@@ -55,9 +56,6 @@ object BaseReachabilityAutomaton extends HarrshLogging {
 
   type ReachabilityInfo = (TrackingInfo,ReachabilityMatrix)
 
-  // In an inconsistent state, everything is reachable
-  def inconsistentReachability(numFV : Int) = ReachabilityMatrix(numFV, Array.fill((numFV+1)*(numFV+1))(true))
-
   def compressAndPropagateReachability[A](src : Seq[(ReachabilityInfo,A)],
                                           lab : SymbolicHeap,
                                           inconsistentState : (ReachabilityInfo,A),
@@ -73,64 +71,11 @@ object BaseReachabilityAutomaton extends HarrshLogging {
     // If the state is inconsistent, return the unique inconsistent state; otherwise compute reachability info
     if (trackingsStateWithClosure.isConsistent) {
       // Compute reachability info by following pointers
-      val (pairs, newMatrix) = reachabilityFixedPoint(numFV, compressed, trackingsStateWithClosure)
+      val newMatrix = ReachabilityMatrix.fromSymbolicHeapAndTrackingInfo(numFV, compressed, trackingsStateWithClosure)
       //tagComputation : (Seq[A], TrackingInfo, Set[(FV,FV)], Set[FV]) => A,
-      val tag = tagComputation(src map (_._2), trackingsStateWithClosure, pairs, compressed.allVars)
+      val tag = tagComputation(src map (_._2), trackingsStateWithClosure, newMatrix.underlyingPairs.get, compressed.allVars)
       ((trackingsStateWithClosure, newMatrix), tag)
     } else inconsistentState
-  }
-
-  def reachabilityFixedPoint(numFV : Int, compressedHeap : SymbolicHeap, tracking : TrackingInfo) : (Set[(Var,Var)], ReachabilityMatrix) = {
-
-    def ptrToPairs(ptr : PointsTo) : Seq[(Var,Var)] = ptr.to map (to => (ptr.fromAsVar, to.getVarOrZero))
-
-    val directReachability : Seq[(Var,Var)] = compressedHeap.pointers flatMap ptrToPairs
-    val equalities : Set[(Var,Var)] = tracking.equalities.map(atom => (atom.l.getVarOrZero, atom.r.getVarOrZero))
-    val pairs = reachabilityFixedPoint(compressedHeap, equalities, directReachability.toSet)
-    logger.trace("Reached fixed point " + pairs)
-
-    val reach = ReachabilityMatrix.emptyMatrix(numFV)
-    for {
-      (from, to) <- pairs
-      if isFV(from) && isFV(to)
-    } {
-      reach.update(from, to, setReachable = true)
-    }
-    logger.trace("Reachability matrix for compressed SH: " + reach)
-
-    (pairs, reach)
-  }
-
-  @tailrec
-  private def reachabilityFixedPoint(compressedHeap : SymbolicHeap, equalities: Set[(Var,Var)], pairs : Set[(Var, Var)]) : Set[(Var, Var)] = {
-
-    logger.trace("Iterating reachability computation from " + pairs + " modulo equalities " + equalities)
-
-    // FIXME: Reachability computation is currently extremely inefficient; should replace with a path search algorithm (that regards equalities as steps as well)
-    // Propagate equalities
-    val transitiveEqualityStep : Set[(Var,Var)] = (for {
-      (left, right) <- equalities
-      (from, to) <- pairs
-      if left == from || left == to || right == from || right == to
-    } yield (
-      Seq[(Var,Var)]()
-        ++ (if (left == from) Seq((right,to)) else Seq())
-        ++ (if (right == from) Seq((left,to)) else Seq())
-        ++ (if (left == to) Seq((from,right)) else Seq())
-        ++ (if (right == to) Seq((from, left)) else Seq()))).flatten
-    logger.trace("Equality propagation: " + transitiveEqualityStep)
-
-    // Propagate reachability
-    val transitivePointerStep = for {
-      (from, to) <- pairs
-      (from2, to2) <- pairs
-      if to == from2
-    } yield (from, to2)
-    logger.trace("Pointer propagation: " + transitivePointerStep)
-
-    val newPairs = pairs union transitiveEqualityStep union transitivePointerStep
-
-    if (newPairs == pairs) pairs else reachabilityFixedPoint(compressedHeap, equalities, newPairs)
   }
 
   def reachabilityCompression(sh : SymbolicHeap, qs : Seq[ReachabilityInfo]) : SymbolicHeap = compressWithQuantifierFreeKernel(reachabilityKernel)(sh, qs)

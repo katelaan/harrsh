@@ -1,15 +1,19 @@
 package at.forsyte.harrsh.heapautomata.utils
 
+import at.forsyte.harrsh.heapautomata.BaseReachabilityAutomaton._
 import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.main.{Config, HarrshLogging}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
+import at.forsyte.harrsh.seplog.inductive.{PointsTo, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
+
+import scala.annotation.tailrec
 
 /**
   * Created by jkatelaa on 10/19/16.
   */
-case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) extends HarrshLogging {
+case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean], underlyingPairs : Option[Set[(Var,Var)]]) extends HarrshLogging {
 
   private val dim = numFV + 1
 
@@ -41,7 +45,7 @@ case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) extends Harrs
   }
 
   override def equals(other : Any) = other match {
-    case ReachabilityMatrix(_, oreach) => reach.deep == oreach.deep
+    case ReachabilityMatrix(_, oreach, _) => reach.deep == oreach.deep
     case _ => false
   }
 
@@ -55,20 +59,76 @@ case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean]) extends Harrs
 
 }
 
-object ReachabilityMatrix {
+object ReachabilityMatrix extends HarrshLogging {
+
+  // In an inconsistent state, everything is reachable
+  def inconsistentReachabilityMatrix(numFV : Int) = ReachabilityMatrix(numFV, Array.fill((numFV+1)*(numFV+1))(true), None)
 
   def emptyMatrix(numFV : Int) : ReachabilityMatrix = {
-    ReachabilityMatrix(numFV, Array.fill((numFV+1)*(numFV+1))(false))
+    ReachabilityMatrix(numFV, Array.fill((numFV+1)*(numFV+1))(false), None)
   }
 
   def allMatrices(numFV: Int) : Set[ReachabilityMatrix] = {
     val entries = Combinators.allSeqsOfLength((numFV+1) * (numFV+1), Set(false,true))
-    entries map (e => ReachabilityMatrix(numFV, e.toArray))
+    entries map (e => ReachabilityMatrix(numFV, e.toArray, None))
   }
 
   def fromPairs(numFV : Int, pairs : Seq[(Int,Int)]) : ReachabilityMatrix = {
     val matrix = emptyMatrix(numFV)
     for ((from, to) <- pairs) matrix.update(from, to, setReachable = true)
-    matrix
+    matrix.copy(underlyingPairs = Some(pairs.toSet))
+  }
+
+  def fromSymbolicHeapAndTrackingInfo(numFV : Int, compressedHeap : SymbolicHeap, tracking : TrackingInfo) : ReachabilityMatrix = {
+
+    def ptrToPairs(ptr : PointsTo) : Seq[(Var,Var)] = ptr.to map (to => (ptr.fromAsVar, to.getVarOrZero))
+
+    val directReachability : Seq[(Var,Var)] = compressedHeap.pointers flatMap ptrToPairs
+    val equalities : Set[(Var,Var)] = tracking.equalities.map(atom => (atom.l.getVarOrZero, atom.r.getVarOrZero))
+    val pairs = reachabilityFixedPoint(compressedHeap, equalities, directReachability.toSet)
+    logger.trace("Reached fixed point " + pairs)
+
+    val reach = ReachabilityMatrix.emptyMatrix(numFV)
+    for {
+      (from, to) <- pairs
+      if isFV(from) && isFV(to)
+    } {
+      reach.update(from, to, setReachable = true)
+    }
+    logger.trace("Reachability matrix for compressed SH: " + reach)
+
+    reach.copy(underlyingPairs = Some(pairs))
+  }
+
+  @tailrec
+  private def reachabilityFixedPoint(compressedHeap : SymbolicHeap, equalities: Set[(Var,Var)], pairs : Set[(Var, Var)]) : Set[(Var, Var)] = {
+
+    logger.trace("Iterating reachability computation from " + pairs + " modulo equalities " + equalities)
+
+    // FIXME: Reachability computation is currently extremely inefficient; should replace with a path search algorithm (that regards equalities as steps as well)
+    // Propagate equalities
+    val transitiveEqualityStep : Set[(Var,Var)] = (for {
+      (left, right) <- equalities
+      (from, to) <- pairs
+      if left == from || left == to || right == from || right == to
+    } yield (
+      Seq[(Var,Var)]()
+        ++ (if (left == from) Seq((right,to)) else Seq())
+        ++ (if (right == from) Seq((left,to)) else Seq())
+        ++ (if (left == to) Seq((from,right)) else Seq())
+        ++ (if (right == to) Seq((from, left)) else Seq()))).flatten
+    logger.trace("Equality propagation: " + transitiveEqualityStep)
+
+    // Propagate reachability
+    val transitivePointerStep = for {
+      (from, to) <- pairs
+      (from2, to2) <- pairs
+      if to == from2
+    } yield (from, to2)
+    logger.trace("Pointer propagation: " + transitivePointerStep)
+
+    val newPairs = pairs union transitiveEqualityStep union transitivePointerStep
+
+    if (newPairs == pairs) pairs else reachabilityFixedPoint(compressedHeap, equalities, newPairs)
   }
 }
