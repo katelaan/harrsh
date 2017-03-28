@@ -21,7 +21,7 @@ object CyclistSIDParser extends SIDParser {
   }
 
   def parseSID : Parser[(SID,Int)] = rep1sep(parsePredSpec, ";") ^^ {
-    case preds =>
+    preds =>
       val startPred : String = preds.head._1
       val maxNumFV : Int = preds.map(_._2).max
       val desc : String = startPred + "-SID"

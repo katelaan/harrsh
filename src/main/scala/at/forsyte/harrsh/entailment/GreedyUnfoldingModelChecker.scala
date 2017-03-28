@@ -23,7 +23,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
   val IsModel = true
   val NoModel = false
 
-  override def isModel(model: Model, formula : SymbolicHeap, sid: SID) = isModel(model, formula, sid, false)
+  override def isModel(model: Model, formula : SymbolicHeap, sid: SID) = isModel(model, formula, sid, reportProgress = false)
 
   def isModel(model: Model, formula : SymbolicHeap, sid: SID, reportProgress: Boolean): Boolean = {
 
@@ -129,7 +129,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
       } else if (partialUnfolding.hasPredCalls) {
         // Try to replace predicate calls with empty heaps if possible; if so, recurse; otherwise return false
         logger.debug("...but unfolding has calls => generating unfoldings with empty spatial part (if any)")
-        unfoldFirstCallAndRecurse(formulaToMatch, partialUnfolding, history, considerRulesSatisfying = (sh => !sh.hasPointer && !sh.hasPredCalls))
+        unfoldFirstCallAndRecurse(formulaToMatch, partialUnfolding, history, considerRulesSatisfying = sh => !sh.hasPointer && !sh.hasPredCalls)
       } else {
         // Return true iff pure constraints of partial unfolding are met
         val res = PureFormulaReasoning.pureFormulaEntailment(formulaToMatch.pure ++ history.toFormula, partialUnfolding.pure)

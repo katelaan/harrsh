@@ -58,7 +58,7 @@ object SIDUnfolding extends HarrshLogging {
     else {
       val allNewInstances = for {
         sh <- curr
-        if !sh.predCalls.isEmpty
+        if sh.predCalls.nonEmpty
         callReplacements = sh.predCalls.map(_.name) map predsToBodies
         replacementChoices: Seq[Seq[SymbolicHeap]] = Combinators.choices(callReplacements)
         newInstances: Seq[SymbolicHeap] = replacementChoices.map(sh.replaceCalls(_, performAlphaConversion = true))
@@ -71,7 +71,7 @@ object SIDUnfolding extends HarrshLogging {
   def firstReducedUnfolding(sid : SID) : SymbolicHeap = {
 
     // TODO This is an extremely inefficient way to implement this functionality; we should at least short circuit the unfold process upon finding an RSH, or better, implement the obvious linear time algorithm for generating the minimal unfolding
-    def unfoldAndGetFirst(depth : Int) : SymbolicHeap = unfold(sid, depth, true).headOption match {
+    def unfoldAndGetFirst(depth : Int) : SymbolicHeap = unfold(sid, depth, reducedOnly = true).headOption match {
       case None => unfoldAndGetFirst(depth+1)
       case Some(sh) => sh
     }

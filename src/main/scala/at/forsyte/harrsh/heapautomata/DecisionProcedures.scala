@@ -57,7 +57,7 @@ object DecisionProcedures extends HarrshLogging {
     } catch {
       case e : TimeoutException =>
         println("reached timeout (" + timeout + ")")
-        AnalysisResult(true, timeout.toMillis, timedOut = true)
+        AnalysisResult(isEmpty = true, timeout.toMillis, timedOut = true)
     }
 
     result
@@ -98,7 +98,7 @@ object DecisionProcedures extends HarrshLogging {
         case e : TimeoutException =>
           println("reached timeout (" + timeout + ")")
           numTimeouts += 1
-          AnalysisResult(true, timeout.toMillis, timedOut = true)
+          AnalysisResult(isEmpty = true, timeout.toMillis, timedOut = true)
       }
 
       results = (task, result) :: results
@@ -112,7 +112,7 @@ object DecisionProcedures extends HarrshLogging {
 
   def generateAndPrintInstances() = {
     // Auto-generate benchmark suite
-    println(generateInstances() map (_.toString) mkString ("\n"))
+    println(generateInstances() map (_.toString) mkString "\n")
   }
 
   private def generateInstances() =

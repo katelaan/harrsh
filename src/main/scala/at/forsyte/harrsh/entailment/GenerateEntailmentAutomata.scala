@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{SID, SIDUnfolding, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
@@ -62,10 +61,10 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
       val ecdNew = processUnfoldings(reducedUnfs, ecdPrev, printProgress)
 
-      if (!ecdPrev.isEmpty && ecdNew.size == ecdPrev.size) {
+      if (ecdPrev.nonEmpty && ecdNew.size == ecdPrev.size) {
         // If we've already found at least one ECD, but now don't find a new one, we terminate
         val termMsg = "ECD computation reached fixed point"
-        logger.debug(termMsg);
+        logger.debug(termMsg)
         printProgress(termMsg)
         ecdNew
       } else {
@@ -135,7 +134,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       for {
         sigma1 <- Combinators.powerSet(rsh.pointers.toSet)
         // TODO Separate handling of emp?
-        if FindOnlyNonEmpty && !sigma1.isEmpty
+        if FindOnlyNonEmpty && sigma1.nonEmpty
         pi1 <- Combinators.powerSet(rsh.pure.toSet)
         // TODO Powerset computation that returns subsets together with their complements
         sigma2 = rsh.pointers.toSet -- sigma1

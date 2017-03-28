@@ -14,7 +14,7 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
   // Sanity check
   if (Config.HeapAutomataSafeModeEnabled) {
     val (free, bound) = (pure.flatMap(_.getVars) ++ pointers.flatMap(_.getVars)).partition(isFV)
-    if (!free.isEmpty && free.max > numFV) throw new IllegalStateException("NumFV = " + numFV + " but contained FVs are " + free.distinct)
+    if (free.nonEmpty && free.max > numFV) throw new IllegalStateException("NumFV = " + numFV + " but contained FVs are " + free.distinct)
   }
 
   override final def toString = toStringWithVarNames(DefaultNaming)
@@ -221,7 +221,7 @@ object SymbolicHeap extends HarrshLogging {
     val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
 
     // Shift the quantified variables in the right SH to avoid name clashes
-    val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars filterNot sharedVars.contains))
+    val SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars diff sharedVars))
 
     // Free variables remain the same, so we take the maximum
     // Quantified variables are only partially renamed, but since we're using sets, duplicates are filtered out automatically

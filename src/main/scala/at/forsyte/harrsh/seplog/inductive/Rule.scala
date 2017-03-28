@@ -17,7 +17,4 @@ object Rule {
 
   def fromTuple(tuple : (String, Seq[String], SymbolicHeap)) = Rule(tuple._1, (1 to tuple._3.numFV) map Var.toDefaultString, tuple._2, tuple._3)
 
-  // TODO Implement maybe?
-  def fromHeadAndBody(head : String, body : SymbolicHeap) : Rule = ???
-
 }

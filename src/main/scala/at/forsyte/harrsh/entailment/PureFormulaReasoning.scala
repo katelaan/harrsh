@@ -59,8 +59,8 @@ object PureFormulaReasoning extends HarrshLogging {
 
     // After we've computed the closure, we can throw away existentially quantified variables:
     // The (existentially!) quantified variables do not strengthen the constraints in any way.
-    val lhsFreeClosureSet = lhsClosureSet filterNot (atom => atom.getVars.exists(Var.isBound(_)))
-    val rhsFreeClosureSet = rhsClosureSet filterNot (atom => atom.getVars.exists(Var.isBound(_)))
+    val lhsFreeClosureSet = lhsClosureSet filterNot (atom => atom.getVars.exists(Var.isBound))
+    val rhsFreeClosureSet = rhsClosureSet filterNot (atom => atom.getVars.exists(Var.isBound))
 
     logger.debug(rhsFreeClosureSet + " subset of " + lhsFreeClosureSet + "?")
     rhsFreeClosureSet subsetOf lhsFreeClosureSet

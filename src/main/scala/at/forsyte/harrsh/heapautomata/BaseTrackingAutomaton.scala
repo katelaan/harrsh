@@ -73,7 +73,7 @@ object BaseTrackingAutomaton extends HarrshLogging {
 
     // Add inequalities for allocated variables
     val inequalitiesFromAlloc : Seq[PureAtom] = Combinators.square(allocExplicit) map {
-      case (l,r) => orderedAtom(l, r, false)
+      case (l,r) => orderedAtom(l, r, isEqual = false)
     }
     val pureWithAlloc : Set[PureAtom] = pureExplicit ++ inequalitiesFromAlloc
 

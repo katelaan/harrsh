@@ -20,7 +20,7 @@ object DefaultSIDParser extends SIDParser with HarrshLogging {
   }
 
   def parseSID : Parser[(SID,Int)] = rep1sep(parseRule, ";") <~ opt(";") ^^ {
-    case rules =>
+    rules =>
       val startPred : String = rules.head.head
       val maxNumFV : Int = rules.map(_.freeVars.size).max
       val desc : String = startPred + "-SID"
@@ -32,7 +32,7 @@ object DefaultSIDParser extends SIDParser with HarrshLogging {
     case head ~ body =>
       val (freeVarsUnsorted,boundVarsUnsorted) = body.getVars.toSeq.partition(isFV)
       val (freeVars,boundVars) = (freeVarsUnsorted.sorted, boundVarsUnsorted.sorted)
-      val filledFreeVars : Seq[String] = (1 to (freeVars.map(stringToFV).max)) map toDefaultString
+      val filledFreeVars : Seq[String] = (1 to freeVars.map(stringToFV).max) map toDefaultString
 
       val naming : VarUnNaming = mkUnNaming(filledFreeVars,boundVars) //mkUnNamingFromIncompleteDefaultNames(freeVars, boundVars)
       val renamedBody = body.replaceStringsByIds(naming)

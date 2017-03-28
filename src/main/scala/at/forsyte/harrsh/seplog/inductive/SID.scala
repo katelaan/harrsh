@@ -28,7 +28,7 @@ case class SID(startPred : String, rules : Set[Rule], description : String = "Un
     def extractBodies(group: (String, Set[Rule])) = {
       (group._1, group._2 map (_.body))
     }
-    Map() ++ rules.groupBy(_.head).map(extractBodies _)
+    Map() ++ rules.groupBy(_.head).map(extractBodies)
   }
 
   def toHarrshFormat : Seq[String] = {

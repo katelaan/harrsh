@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.seplog.parsers
 
-import at.forsyte.harrsh.test.{HarrshTableTest}
+import at.forsyte.harrsh.test.HarrshTableTest
 
 /**
   * Created by jkatelaa on 10/20/16.

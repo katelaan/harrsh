@@ -21,7 +21,7 @@ object ModelToFormula {
     // Add equalities for variables that map to the same location
     // Recall that we previously lost that info when building the locToVar map
     val groupByLocs = model.stack.toList.groupBy(_._2)
-    val varGroups : Iterable[List[Var]] = groupByLocs.map(_._2).map(ls => ls.map(_._1))
+    val varGroups : Iterable[List[Var]] = groupByLocs.values.map(ls => ls.map(_._1))
     val varEqualities : Seq[PureAtom] = (varGroups flatMap equalities).toSeq
 
     // Add equalities to null

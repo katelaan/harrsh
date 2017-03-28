@@ -12,7 +12,7 @@ package object inductive {
 
   type VarUnNaming = String => Var
 
-  lazy val DefaultNaming : VarNaming = _ match {
+  lazy val DefaultNaming : VarNaming = {
     case 0 => "null"
     case i if i > 0 => Var.FreeVarString + i
     case i => Var.BoundVarString + (-i)

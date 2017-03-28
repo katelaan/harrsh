@@ -80,7 +80,7 @@ object RefinementAlgorithms {
     println(IOUtils.inColumns(headings zip cols))
     println(delimLine)
     for ((task, res, witness) <- results) {
-      val entries : Seq[String] = Seq( task.toString, res.map(task.resultToString(_)).getOrElse("TO"), witness.map(_.toString).getOrElse("-") )
+      val entries : Seq[String] = Seq( task.toString, res.map(task.resultToString).getOrElse("TO"), witness.map(_.toString).getOrElse("-") )
       println(IOUtils.inColumns(entries zip cols))
     }
     println(delimLine)
@@ -88,7 +88,7 @@ object RefinementAlgorithms {
   }
 
   private def analyze(task : AutomatonTask, sid : SID, numFV : Int, timeout : Duration) : AnalysisResult = {
-    val refined = refineSID(sid, task.getAutomaton(numFV), timeout, false)
+    val refined = refineSID(sid, task.getAutomaton(numFV), timeout, reportProgress = false)
     refined match {
       case None =>
         println(task + " did not finish within timeout (" + timeout.toSeconds + "s)")
@@ -258,13 +258,13 @@ object RefinementAlgorithms {
           }
         }
 
-        logger.debug("Refinement iteration: #" + iteration + " " + (if (newPairs.isEmpty) "--" else (newPairs.mkString(", "))))
+        logger.debug("Refinement iteration: #" + iteration + " " + (if (newPairs.isEmpty) "--" else newPairs.mkString(", ")))
         if (reportProgress) println(dateFormat.format(new java.util.Date()) + " -- Refinement iteration: #" + iteration + " Discovered " + newPairs.size + " targets; total w/o duplicates: " + union.size)
 
         if (union.size == r.size) {
           // Fixed point reached without reaching a pred--final-state pair
           logger.debug("Fixed point: " + union.mkString(", "))
-          if (!discoveredStartPredicate.isDefined) {
+          if (discoveredStartPredicate.isEmpty) {
             logger.debug("=> Language is empty")
           }
           // Only compute the new combinations + mapping to targets if desired (i.e., if full refinement was asked for)
@@ -278,7 +278,7 @@ object RefinementAlgorithms {
       }
     }
 
-    private lazy val dateFormat : SimpleDateFormat = new SimpleDateFormat("hh:mm:ss.SSS");
+    private lazy val dateFormat : SimpleDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
 
   }
 
