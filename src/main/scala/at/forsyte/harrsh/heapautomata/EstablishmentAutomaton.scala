@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.heapautomata
 
+import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive.{PtrEq, SymbolicHeap}
@@ -27,14 +28,14 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends B
     val allSrcsEstablished = !(src exists (!_._2))
 
     // Get compression + propagation including bound variables
-    val inconsistent = inconsistentTrackingInfo(numFV)
-    val trackingTargetWithoutCleanup = compressAndPropagateTracking(trackingInfo, lab, inconsistentTrackingInfo(numFV))
+    val inconsistent = TrackingInfo.inconsistentTrackingInfo(numFV)
+    val trackingTargetWithoutCleanup = compressAndPropagateTracking(trackingInfo, lab, inconsistent)
 
     // Unless we already know that one of the children is not established,
     // check whether everything in that heap is either allocated or equal to a free variable
     // FIXME Is an inconsistent heap established? Currently we handle it like that
     // TODO Get rid of the state comparison (by returning consistency bit or something?)
-    val establishmentBit = (trackingTargetWithoutCleanup == inconsistentTrackingInfo(numFV)) ||
+    val establishmentBit = (trackingTargetWithoutCleanup == inconsistent) ||
         (if (!allSrcsEstablished) {
           false
         } else {
@@ -44,7 +45,7 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends B
         })
 
     // Drop the bound variables to get the resulting state of the tracking automaton
-    val trackingTarget = dropNonFreeVariables(trackingTargetWithoutCleanup)
+    val trackingTarget = trackingTargetWithoutCleanup.dropNonFreeVariables
     logger.debug("Reached state (" + trackingTarget + "," + establishmentBit + ")")
 
     Set((trackingTarget, establishmentBit))
@@ -54,13 +55,11 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends B
 
 object EstablishmentAutomaton extends LazyLogging {
 
-  import BaseTrackingAutomaton.TrackingInfo
-
   /**
     * Is variable v established according to tracking info s?
     */
   def isEstablished(s : TrackingInfo, v : Var) = {
-    isFV(v) || s._1.contains(v) || s._2.exists({
+    isFV(v) || s.alloc.contains(v) || s.pure.exists({
       // Return true iff the pure atom witnesses that v is equal to a free variable
       // This is enough to show establishment, because we assume that s is congruence closed
       case PtrEq(l, r) => (l.getVarOrZero == v && isFV(r.getVarOrZero)) || (r.getVarOrZero == v && isFV(l.getVarOrZero))

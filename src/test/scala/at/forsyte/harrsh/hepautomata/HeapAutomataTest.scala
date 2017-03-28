@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.hepautomata
 
 import at.forsyte.harrsh.ExampleSIDs
+import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.heapautomata.{TrackingAutomata, _}
 import at.forsyte.harrsh.seplog.inductive.nil
@@ -11,7 +12,7 @@ import at.forsyte.harrsh.test.HarrshTableTest
   */
 class HeapAutomataTest extends HarrshTableTest {
 
-  val inconsistent2 = BaseTrackingAutomaton.inconsistentTrackingInfo(2)
+  val inconsistent2 = TrackingInfo.inconsistentTrackingInfo(2)
 
   val Empty = true
   val NonEmpty = false
@@ -42,9 +43,9 @@ class HeapAutomataTest extends HarrshTableTest {
     (TrackingAutomata.singleTargetStateTracking(1, Set(mkVar(1)), mkPure()), ExampleSIDs.Tree, NonEmpty),
     (TrackingAutomata.singleTargetStateTracking(3, Set(mkVar(1),mkVar(2)), mkPure((1,2,NonEmpty))), ExampleSIDs.Tll, NonEmpty),
     // - Inconsistency checks for tracking
-    (TrackingAutomata.singleTargetStateTracking(2, inconsistent2._1, inconsistent2._2), ExampleSIDs.NonEmptyBinaryPermuter, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(2, inconsistent2._1, inconsistent2._2), ExampleSIDs.NonEmptyBinaryPermuter2, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(2, inconsistent2._1, inconsistent2._2), ExampleSIDs.NonEmptyBinaryPermuter3, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(2, inconsistent2.alloc, inconsistent2.pure), ExampleSIDs.NonEmptyBinaryPermuter, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(2, inconsistent2.alloc, inconsistent2.pure), ExampleSIDs.NonEmptyBinaryPermuter2, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(2, inconsistent2.alloc, inconsistent2.pure), ExampleSIDs.NonEmptyBinaryPermuter3, NonEmpty),
 
     /*
      * SAT automata

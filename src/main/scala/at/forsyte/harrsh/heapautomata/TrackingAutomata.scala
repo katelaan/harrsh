@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.heapautomata.BaseReachabilityAutomaton.ReachabilityInfo
-import at.forsyte.harrsh.heapautomata.BaseTrackingAutomaton.TrackingInfo
+import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
@@ -21,15 +21,16 @@ object TrackingAutomata extends HarrshLogging {
     "TRACK_" + numFV + "(" + alloc + ", " + pure + ")"
   )
 
+  // TODO Consistency check via method of TrackingInfo instead?
   def satAutomaton(numFV : Int) = new BaseTrackingAutomaton(
     numFV,
-    (self : BaseTrackingAutomaton, sAlloc : Set[Var], sPure : Set[PureAtom]) => !(sAlloc == self.InconsistentState._1 && sPure == self.InconsistentState._2),
+    (self : BaseTrackingAutomaton, sAlloc : Set[Var], sPure : Set[PureAtom]) => !(sAlloc == self.InconsistentState.alloc && sPure == self.InconsistentState.pure),
     "SAT_" + numFV
   )
 
   def unsatAutomaton(numFV : Int) = new BaseTrackingAutomaton(
     numFV,
-    (self : BaseTrackingAutomaton, sAlloc : Set[Var], sPure : Set[PureAtom]) => sAlloc == self.InconsistentState._1 && sPure == self.InconsistentState._2,
+    (self : BaseTrackingAutomaton, sAlloc : Set[Var], sPure : Set[PureAtom]) => sAlloc == self.InconsistentState.alloc && sPure == self.InconsistentState.pure,
     "UNSAT_" + numFV
   )
 

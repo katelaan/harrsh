@@ -2,7 +2,7 @@ package at.forsyte.harrsh.hepautomata
 
 import at.forsyte.harrsh.heapautomata.BaseReachabilityAutomaton._
 import at.forsyte.harrsh.heapautomata.{BaseReachabilityAutomaton, TrackingAutomata, _}
-import at.forsyte.harrsh.heapautomata.utils.ReachabilityMatrix
+import at.forsyte.harrsh.heapautomata.utils.{ReachabilityMatrix, TrackingInfo}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive._
@@ -16,11 +16,11 @@ class GarbageFreedomAutomatonTest extends HarrshTableTest {
 
   def mx3(pairs: (Int, Int)*): ReachabilityMatrix = ReachabilityMatrix.fromPairs(3, pairs)
 
-  def mk(fvs: Set[Var], pure: Set[PureAtom], mx: ReachabilityMatrix, isAcyclic: Boolean): (ReachabilityInfo, Boolean) = (((fvs, pure), mx), isAcyclic)
+  def mk(fvs: Set[Var], pure: Set[PureAtom], mx: ReachabilityMatrix, isAcyclic: Boolean): (ReachabilityInfo, Boolean) = ((TrackingInfo.fromPair(fvs, pure), mx), isAcyclic)
 
-  def mk(fvs: Set[Var], pure: Set[PureAtom], mx: ReachabilityMatrix): (ReachabilityInfo, Boolean) = (((fvs, pure), mx), true)
+  def mk(fvs: Set[Var], pure: Set[PureAtom], mx: ReachabilityMatrix): (ReachabilityInfo, Boolean) = ((TrackingInfo.fromPair(fvs, pure), mx), true)
 
-  def mk(fvs: Set[Var], mx: ReachabilityMatrix): (ReachabilityInfo, Boolean) = (((fvs, Set()), mx), true)
+  def mk(fvs: Set[Var], mx: ReachabilityMatrix): (ReachabilityInfo, Boolean) = ((TrackingInfo.fromPair(fvs, Set()), mx), true)
 
   val GarbageFree = true
   val HasGarbage = false

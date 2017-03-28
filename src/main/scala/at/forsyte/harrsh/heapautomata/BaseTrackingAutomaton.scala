@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.heapautomata
 
-import at.forsyte.harrsh.heapautomata.utils.{EqualityUtils, UnsafeAtomsAsClosure}
+import at.forsyte.harrsh.heapautomata.utils.{EqualityUtils, TrackingInfo, UnsafeAtomsAsClosure}
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, PtrVar, Var}
@@ -20,11 +20,11 @@ class BaseTrackingAutomaton(
 
   override type State = TrackingInfo
 
-  lazy val InconsistentState : State = inconsistentTrackingInfo(numFV)
+  lazy val InconsistentState : State = TrackingInfo.inconsistentTrackingInfo(numFV)
 
   override lazy val states: Set[State] = computeTrackingStateSpace(numFV)
 
-  override def isFinal(s: State): Boolean = isFinalPredicate(this, s._1, s._2)
+  override def isFinal(s: State): Boolean = isFinalPredicate(this, s.alloc, s.pure)
 
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     logger.debug("Computing possible targets " + src.mkString(", ") + " --[" + lab + "]--> ???")
@@ -33,7 +33,7 @@ class BaseTrackingAutomaton(
     // Perform compression + subsequent equality/allocation propagation
     val consistencyCheckedState = compressAndPropagateTracking(src, lab, InconsistentState)
     // Break state down to only the free variables; the other information is not kept in the state space
-    val trg = dropNonFreeVariables(consistencyCheckedState)
+    val trg = consistencyCheckedState.dropNonFreeVariables
 
     if (logger.underlying.isDebugEnabled && consistencyCheckedState != trg)
       logger.debug("After dropping bound variables: " + trg)
@@ -47,51 +47,23 @@ class BaseTrackingAutomaton(
 
 object BaseTrackingAutomaton extends HarrshLogging {
 
-  type TrackingInfo = (Set[Var], Set[PureAtom])
-
-  def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = (Set(), Set() ++ allFVs(numFV) map (fv => PtrNEq(PtrExpr.fromFV(fv),PtrExpr.fromFV(fv))))
-
-  def allFVs(numFV : Int) = (0 to numFV) map mkVar
-
   def computeTrackingStateSpace(numFV : Int) =
     for {
       // TODO: This also computes plenty (but not all) inconsistent states
       alloc <- Combinators.powerSet(Set() ++ ((1 to numFV) map mkVar))
       pure <- Combinators.powerSet(allEqualitiesOverFVs(numFV))
-    } yield (alloc, pure)
+    } yield TrackingInfo.fromPair(alloc, pure)
 
 
   def compressAndPropagateTracking(src : Seq[TrackingInfo], lab : SymbolicHeap, inconsistentState : TrackingInfo) : TrackingInfo = {
     val compressed = trackingCompression(lab, src)
     logger.debug("Compressed " + lab + " into " + compressed)
 
-    // Compute allocation set and equalities for compressed SH and compare to target
-    val allocExplicit: Seq[Var] = compressed.pointers map (_.fromAsVar)
-
-    // TODO: Ensure that we can already assume that constraints returned by compression are ordered and thus drop this step
-    val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrComparisons map orderedAtom
-
-    // Add inequalities for allocated variables
-    val inequalitiesFromAlloc : Seq[PureAtom] = Combinators.square(allocExplicit) map {
-      case (l,r) => orderedAtom(l, r, isEqual = false)
-    }
-    val pureWithAlloc : Set[PureAtom] = pureExplicit ++ inequalitiesFromAlloc
-
-    // Compute fixed point of inequalities and fill up alloc info accordingly
-    val stateWithClosure : TrackingInfo = EqualityUtils.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
+    val stateWithClosure = TrackingInfo.fromSymbolicHeap(compressed)
     logger.debug("State for compressed SH: " + stateWithClosure)
 
     // If the state is inconsistent, return the unique inconsistent state; otherwise return state as is
-    if (isConsistent(stateWithClosure)) stateWithClosure else inconsistentState
-  }
-
-  def dropNonFreeVariables(s : TrackingInfo) : TrackingInfo = {
-    (s._1.filter(isFV),
-      s._2.filter({
-        atom =>
-          val (l, r, _) = unwrapAtom(atom)
-          isFV(l) && isFV(r)
-      }))
+    if (stateWithClosure.isConsistent) stateWithClosure else inconsistentState
   }
 
   def trackingCompression(sh : SymbolicHeap, qs : Seq[TrackingInfo]) : SymbolicHeap = compressWithQuantifierFreeKernel(trackingKernel)(sh, qs)
@@ -105,22 +77,17 @@ object BaseTrackingAutomaton extends HarrshLogging {
   def trackingKernel(s : TrackingInfo) : SymbolicHeap = {
     // Here we assume that the state already contains a closure. If this is not the case, the following does not work.
     //val closure = new ClosureOfAtomSet(pure)
-    val closure = UnsafeAtomsAsClosure(s._2)
+    val closure = UnsafeAtomsAsClosure(s.pure)
 
-    val nonredundantAlloc = s._1 filter closure.isMinimumInItsClass
+    val nonredundantAlloc = s.alloc filter closure.isMinimumInItsClass
 
     val alloc : Set[PointsTo] = nonredundantAlloc map (p => ptr(p, nil))
 
-    val res = SymbolicHeap(s._2.toSeq, alloc.toSeq, Seq.empty)
+    val res = SymbolicHeap(s.pure.toSeq, alloc.toSeq, Seq.empty)
     logger.debug("Converting " + s + " to " + res)
     res
   }
 
-  def isConsistent(s : TrackingInfo) : Boolean =
-        !s._2.exists{
-          // Find inequality with two identical arguments
-          case PtrNEq(l, r) if l == r => true
-          case _ => false
-        }
+
 
 }

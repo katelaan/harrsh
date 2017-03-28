@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.main.HarrshLogging
 import Var._
 import BaseTrackingAutomaton._
-import at.forsyte.harrsh.heapautomata.utils.{EqualityUtils, ReachabilityMatrix, UnsafeAtomsAsClosure}
+import at.forsyte.harrsh.heapautomata.utils.{EqualityUtils, ReachabilityMatrix, TrackingInfo, UnsafeAtomsAsClosure}
 import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
@@ -25,7 +25,7 @@ class BaseReachabilityAutomaton[A](
 
   override type State = (ReachabilityInfo, A)
 
-  lazy val InconsistentState : State = ((inconsistentTrackingInfo(numFV),inconsistentReachability(numFV)), inconsistentTag)
+  lazy val InconsistentState : State = ((TrackingInfo.inconsistentTrackingInfo(numFV),inconsistentReachability(numFV)), inconsistentTag)
 
   override lazy val states: Set[State] = for {
     track <- computeTrackingStateSpace(numFV)
@@ -42,7 +42,7 @@ class BaseReachabilityAutomaton[A](
     // Perform compression + subsequent equality/allocation propagation
     val (consistencyCheckedState,tag) = compressAndPropagateReachability(src, lab, InconsistentState, numFV, tagComputation)
     // Break state down to only the free variables; the other information is not kept in the state space
-    val trg = (dropNonFreeVariables(consistencyCheckedState._1), consistencyCheckedState._2)
+    val trg = (consistencyCheckedState._1.dropNonFreeVariables, consistencyCheckedState._2)
 
     logger.debug("Target state: " + trg)
 
@@ -66,25 +66,12 @@ object BaseReachabilityAutomaton extends HarrshLogging {
     val compressed = reachabilityCompression(lab, src map (_._1))
     logger.debug("Compressed " + lab + " into " + compressed)
 
-    // Compute allocation set and equalities for compressed SH and compare to target
-    val allocExplicit: Seq[Var] = compressed.pointers map (_.fromAsVar)
-
-    // TODO: Ensure that we can already assume that constraints returned by compression are ordered and thus drop this step
-    val pureExplicit : Set[PureAtom] =  Set() ++ compressed.ptrComparisons map orderedAtom
-
-    // Add inequalities for allocated variables
-    val inequalitiesFromAlloc : Seq[PureAtom] = Combinators.square(allocExplicit) map {
-      case (l,r) => orderedAtom(l, r, false)
-    }
-    val pureWithAlloc : Set[PureAtom] = pureExplicit ++ inequalitiesFromAlloc
-
     // Compute fixed point of inequalities and fill up alloc info accordingly
-    val trackingsStateWithClosure : TrackingInfo = EqualityUtils.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
+    val trackingsStateWithClosure : TrackingInfo = TrackingInfo.fromSymbolicHeap(compressed)
     logger.debug("Tracking info for compressed SH: " + trackingsStateWithClosure)
 
-    // TODO Reduce code duplication wrt BaseTracking. The following part is the only one that is new to reachability
     // If the state is inconsistent, return the unique inconsistent state; otherwise compute reachability info
-    if (isConsistent(trackingsStateWithClosure)) {
+    if (trackingsStateWithClosure.isConsistent) {
       // Compute reachability info by following pointers
       val (pairs, newMatrix) = reachabilityFixedPoint(numFV, compressed, trackingsStateWithClosure)
       //tagComputation : (Seq[A], TrackingInfo, Set[(FV,FV)], Set[FV]) => A,
@@ -98,7 +85,7 @@ object BaseReachabilityAutomaton extends HarrshLogging {
     def ptrToPairs(ptr : PointsTo) : Seq[(Var,Var)] = ptr.to map (to => (ptr.fromAsVar, to.getVarOrZero))
 
     val directReachability : Seq[(Var,Var)] = compressedHeap.pointers flatMap ptrToPairs
-    val equalities : Set[(Var,Var)] = tracking._2.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq]).map(atom => (atom.l.getVarOrZero, atom.r.getVarOrZero))
+    val equalities : Set[(Var,Var)] = tracking.equalities.map(atom => (atom.l.getVarOrZero, atom.r.getVarOrZero))
     val pairs = reachabilityFixedPoint(compressedHeap, equalities, directReachability.toSet)
     logger.trace("Reached fixed point " + pairs)
 
@@ -151,7 +138,7 @@ object BaseReachabilityAutomaton extends HarrshLogging {
   // TODO Reduce code duplication in kernelization? cf BaseTracking
   // TODO This is the kernel from the paper, i.e. introducing free vars; this is NOT necessary in our implementation with variable-length pointers
   def reachabilityKernel(s : (TrackingInfo, ReachabilityMatrix)) : SymbolicHeap = {
-    val ((alloc,pure),reach) = s
+    val (TrackingInfo(alloc,pure),reach) = s
 
     // FIXME: Here we now assume that the state already contains a closure. If this is not the case, the following does not work.
     //val closure = new ClosureOfAtomSet(pure)
@@ -202,7 +189,7 @@ object BaseReachabilityAutomaton extends HarrshLogging {
 
     logger.debug("Computing garbage freedom for variables " + vars)
 
-    lazy val eqs : Set[(Var,Var)] = ti._2.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq]).map(atom => (atom.l.getVarOrZero,atom.r.getVarOrZero))
+    lazy val eqs : Set[(Var,Var)] = ti.equalities.map(atom => (atom.l.getVarOrZero,atom.r.getVarOrZero))
 
     def isEqualToFV(v : Var) = eqs.exists {
       case (left, right) => left == v && isFV(right) || right == v && isFV(left)

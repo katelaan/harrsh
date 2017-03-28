@@ -41,6 +41,7 @@ object Var {
 
   @inline def getMaxVarIndex(vars : Set[Var]) : Int = vars.max
 
+  @inline def mkAllFVs(numFV : Int) = (0 to numFV) map mkVar
 
 
 }

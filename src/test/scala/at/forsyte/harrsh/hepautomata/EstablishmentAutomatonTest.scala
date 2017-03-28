@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.hepautomata
 
 import at.forsyte.harrsh.heapautomata._
+import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive._
@@ -13,8 +14,8 @@ class EstablishmentAutomatonTest extends HarrshTableTest {
 
   val est3 = new EstablishmentAutomaton(3, true)
 
-  def mk(fvs : Set[Var], pure : Set[PureAtom], est : Boolean) : est3.State = ((fvs, pure), est)
-  def mk(fvs : Set[Var], est : Boolean) : est3.State = ((fvs, Set()), est)
+  def mk(fvs : Set[Var], pure : Set[PureAtom], est : Boolean) : est3.State = (TrackingInfo.fromPair(fvs, pure), est)
+  def mk(fvs : Set[Var], est : Boolean) : est3.State = (TrackingInfo.fromPair(fvs, Set()), est)
 
   val transitions = Table(
     ("src", "sh", "trg est"),
