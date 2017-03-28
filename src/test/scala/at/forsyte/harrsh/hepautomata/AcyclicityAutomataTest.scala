@@ -1,8 +1,7 @@
 package at.forsyte.harrsh.hepautomata
 
-import at.forsyte.harrsh.heapautomata.BaseReachabilityAutomaton._
 import at.forsyte.harrsh.heapautomata.{BaseReachabilityAutomaton, TrackingAutomata, _}
-import at.forsyte.harrsh.heapautomata.utils.{ReachabilityMatrix, TrackingInfo}
+import at.forsyte.harrsh.heapautomata.utils.{ReachabilityInfo, ReachabilityMatrix, TrackingInfo}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive._
@@ -15,9 +14,9 @@ class AcyclicityAutomataTest extends HarrshTableTest {
 
     def mx3(pairs : (Int,Int)*) : ReachabilityMatrix = ReachabilityMatrix.fromPairs(3, pairs)
 
-    def mk(fvs : Set[Var], pure : Set[PureAtom], mx : ReachabilityMatrix, isAcyclic : Boolean) : (ReachabilityInfo,Boolean) = ((TrackingInfo(fvs, pure), mx), isAcyclic)
-    def mk(fvs : Set[Var], pure : Set[PureAtom], mx : ReachabilityMatrix) : (ReachabilityInfo,Boolean) = ((TrackingInfo(fvs, pure), mx), true)
-    def mk(fvs : Set[Var], mx : ReachabilityMatrix) : (ReachabilityInfo,Boolean) = ((TrackingInfo(fvs, Set()), mx), true)
+    def mk(fvs : Set[Var], pure : Set[PureAtom], mx : ReachabilityMatrix, isAcyclic : Boolean) : (ReachabilityInfo,Boolean) = (ReachabilityInfo(TrackingInfo(fvs, pure), mx), isAcyclic)
+    def mk(fvs : Set[Var], pure : Set[PureAtom], mx : ReachabilityMatrix) : (ReachabilityInfo,Boolean) = (ReachabilityInfo(TrackingInfo(fvs, pure), mx), true)
+    def mk(fvs : Set[Var], mx : ReachabilityMatrix) : (ReachabilityInfo,Boolean) = (ReachabilityInfo(TrackingInfo(fvs, Set()), mx), true)
 
     val WeaklyAcyclic = true
     val Cyclic = false
@@ -56,7 +55,7 @@ class AcyclicityAutomataTest extends HarrshTableTest {
       val acyc3 = TrackingAutomata.weakAcyclicityAutomaton(3)
 
       forAll(transitions) {
-        (src: Seq[(BaseReachabilityAutomaton.ReachabilityInfo,Boolean)], sh: SymbolicHeap, result: Boolean) =>
+        (src: Seq[(ReachabilityInfo,Boolean)], sh: SymbolicHeap, result: Boolean) =>
 
           Given(src.mkString(", ") + ", " + sh)
           Then("The transition " + src.mkString(", ") + " --[" + sh + "]--> " + " <trg> should yield to a " + (if (result) "FINAL STATE" else "NON-FINAL STATE"))

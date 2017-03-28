@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.heapautomata
 
-import at.forsyte.harrsh.heapautomata.BaseReachabilityAutomaton.ReachabilityInfo
-import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
+import at.forsyte.harrsh.heapautomata.utils.{ReachabilityInfo,TrackingInfo}
 import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
@@ -43,7 +42,7 @@ object TrackingAutomata extends HarrshLogging {
   // TODO Make sure to <= numFV...
   def reachabilityAutomaton(numFV : Int, from : Var, to : Var) = new BaseReachabilityAutomaton[Unit](
     numFV,
-    isFinalPredicate = (_ : BaseReachabilityAutomaton[Unit], ri : ReachabilityInfo, _ : Unit) => ri._2.isReachable(from, to),
+    isFinalPredicate = (_ : BaseReachabilityAutomaton[Unit], ri : ReachabilityInfo, _ : Unit) => ri.rm.isReachable(from, to),
     tagComputation = (_, _, _, _) => (),
     inconsistentTag = (),
     valsOfTag = Set(()),

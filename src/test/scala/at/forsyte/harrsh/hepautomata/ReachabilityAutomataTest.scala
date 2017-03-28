@@ -1,9 +1,8 @@
 package at.forsyte.harrsh.hepautomata
 
-import at.forsyte.harrsh.heapautomata.BaseReachabilityAutomaton.ReachabilityInfo
 import at.forsyte.harrsh.heapautomata.TrackingAutomata
 import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.heapautomata.utils.{ReachabilityMatrix, TrackingInfo}
+import at.forsyte.harrsh.heapautomata.utils.{ReachabilityInfo, ReachabilityMatrix, TrackingInfo}
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive._
@@ -16,8 +15,8 @@ class ReachabilityAutomataTest extends HarrshTableTest {
 
   def mx3(pairs : (Int,Int)*) : ReachabilityMatrix = ReachabilityMatrix.fromPairs(3, pairs)
 
-  def mk(fvs : Set[Var], pure : Set[PureAtom], mx : ReachabilityMatrix) : ReachabilityInfo = (TrackingInfo.fromPair(fvs, pure), mx)
-  def mk(fvs : Set[Var], mx : ReachabilityMatrix) : ReachabilityInfo = (TrackingInfo.fromPair(fvs, Set()), mx)
+  def mk(fvs : Set[Var], pure : Set[PureAtom], mx : ReachabilityMatrix) : ReachabilityInfo = ReachabilityInfo(TrackingInfo.fromPair(fvs, pure), mx)
+  def mk(fvs : Set[Var], mx : ReachabilityMatrix) : ReachabilityInfo = ReachabilityInfo(TrackingInfo.fromPair(fvs, Set()), mx)
 
   val transitions = Table(
     ("src", "sh", "from", "to", "result"),
@@ -47,7 +46,7 @@ class ReachabilityAutomataTest extends HarrshTableTest {
   property("Transitions of the reachability automaton") {
 
     forAll(transitions) {
-      (src: Seq[BaseReachabilityAutomaton.ReachabilityInfo], sh: SymbolicHeap, from : Var, to : Var, result: Boolean) =>
+      (src: Seq[ReachabilityInfo], sh: SymbolicHeap, from : Var, to : Var, result: Boolean) =>
         val reach3 = TrackingAutomata.reachabilityAutomaton(3, from, to)
 
         Given(src.mkString(", ") + ", " + sh + ", query " + from + " -> " + to)

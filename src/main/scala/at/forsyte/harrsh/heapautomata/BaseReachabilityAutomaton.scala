@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.main.HarrshLogging
 import Var._
 import BaseTrackingAutomaton._
-import at.forsyte.harrsh.heapautomata.utils.{ReachabilityMatrix, TrackingInfo, UnsafeAtomsAsClosure}
+import at.forsyte.harrsh.heapautomata.utils.{ReachabilityInfo, ReachabilityMatrix, TrackingInfo, UnsafeAtomsAsClosure}
 import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
@@ -15,7 +15,7 @@ import scala.annotation.tailrec
   */
 class BaseReachabilityAutomaton[A](
                                     numFV : Int,
-                                    isFinalPredicate : (BaseReachabilityAutomaton[A], BaseReachabilityAutomaton.ReachabilityInfo, A) => Boolean,
+                                    isFinalPredicate : (BaseReachabilityAutomaton[A], ReachabilityInfo, A) => Boolean,
                                   // TODO Why do we have the set of pairs in the tag computation?
                                     tagComputation : (Seq[A], TrackingInfo, Set[(Var,Var)], Set[Var]) => A,
                                     inconsistentTag : A,
@@ -26,13 +26,13 @@ class BaseReachabilityAutomaton[A](
 
   override type State = (ReachabilityInfo, A)
 
-  lazy val InconsistentState : State = ((TrackingInfo.inconsistentTrackingInfo(numFV), ReachabilityMatrix.inconsistentReachabilityMatrix(numFV)), inconsistentTag)
+  lazy val InconsistentState : State = (ReachabilityInfo.inconsistentReachabilityInfo(numFV), inconsistentTag)
 
   override lazy val states: Set[State] = for {
     track <- computeTrackingStateSpace(numFV)
     reach <- ReachabilityMatrix.allMatrices(numFV)
     tag <- valsOfTag
-  } yield ((track, reach), tag)
+  } yield (ReachabilityInfo(track, reach), tag)
 
   override def isFinal(s: State): Boolean = isFinalPredicate(this, s._1, s._2)
 
@@ -43,7 +43,7 @@ class BaseReachabilityAutomaton[A](
     // Perform compression + subsequent equality/allocation propagation
     val (consistencyCheckedState,tag) = compressAndPropagateReachability(src, lab, InconsistentState, numFV, tagComputation)
     // Break state down to only the free variables; the other information is not kept in the state space
-    val trg = (consistencyCheckedState._1.dropNonFreeVariables, consistencyCheckedState._2)
+    val trg = consistencyCheckedState.dropNonFreeVaraibles
 
     logger.debug("Target state: " + trg)
 
@@ -53,8 +53,6 @@ class BaseReachabilityAutomaton[A](
 }
 
 object BaseReachabilityAutomaton extends HarrshLogging {
-
-  type ReachabilityInfo = (TrackingInfo,ReachabilityMatrix)
 
   def compressAndPropagateReachability[A](src : Seq[(ReachabilityInfo,A)],
                                           lab : SymbolicHeap,
@@ -74,7 +72,7 @@ object BaseReachabilityAutomaton extends HarrshLogging {
       val newMatrix = ReachabilityMatrix.fromSymbolicHeapAndTrackingInfo(numFV, compressed, trackingsStateWithClosure)
       //tagComputation : (Seq[A], TrackingInfo, Set[(FV,FV)], Set[FV]) => A,
       val tag = tagComputation(src map (_._2), trackingsStateWithClosure, newMatrix.underlyingPairs.get, compressed.allVars)
-      ((trackingsStateWithClosure, newMatrix), tag)
+      (ReachabilityInfo(trackingsStateWithClosure, newMatrix), tag)
     } else inconsistentState
   }
 
@@ -82,11 +80,11 @@ object BaseReachabilityAutomaton extends HarrshLogging {
 
   // TODO Reduce code duplication in kernelization? cf BaseTracking
   // TODO This is the kernel from the paper, i.e. introducing free vars; this is NOT necessary in our implementation with variable-length pointers
-  def reachabilityKernel(s : (TrackingInfo, ReachabilityMatrix)) : SymbolicHeap = {
-    val (TrackingInfo(alloc,pure),reach) = s
+  def reachabilityKernel(s : ReachabilityInfo) : SymbolicHeap = {
+    val ReachabilityInfo(TrackingInfo(alloc,pure),reach) = s
 
-    // FIXME: Here we now assume that the state already contains a closure. If this is not the case, the following does not work.
-    //val closure = new ClosureOfAtomSet(pure)
+    // Note: Here we now assume that the state already contains a closure. If this is not the case, the following does not work.
+    // TODO Just hide this in tracking info, where we know that we have a closure anyway?
     val closure = UnsafeAtomsAsClosure(pure)
 
     val nonredundantAlloc = alloc filter closure.isMinimumInItsClass
