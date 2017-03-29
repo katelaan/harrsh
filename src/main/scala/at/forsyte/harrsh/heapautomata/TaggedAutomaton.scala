@@ -12,11 +12,11 @@ abstract class TaggedAutomaton[A,E, B <: BoundedFvAutomatonWithTargetComputation
 
   val tags : StateTag[A]
 
-  override type State = (baseAutomaton.State, A)
+  def tagComputation(srcTags : Seq[A], lab : SymbolicHeap, baseTrg : baseAutomaton.State, extraInfo : E) : A
 
-  override lazy val InconsistentState = (baseAutomaton.InconsistentState, tags.inconsistentTag)
+  override final type State = (baseAutomaton.State, A)
 
-  def tagComputation(src : Seq[A], baseTrg : baseAutomaton.State, extraInfo : E) : A
+  override final lazy val InconsistentState = (baseAutomaton.InconsistentState, tags.inconsistentTag)
 
   override final lazy val states: Set[State] = {
     for {
@@ -25,7 +25,7 @@ abstract class TaggedAutomaton[A,E, B <: BoundedFvAutomatonWithTargetComputation
     } yield (sBase, tag)
   }
 
-  override final def isFinal(s: State) = tags.isFinalTag(s._2)
+  override def isFinal(s: State) = tags.isFinalTag(s._2)
 
   override final def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     val baseSrc = src map (_._1)
@@ -33,7 +33,7 @@ abstract class TaggedAutomaton[A,E, B <: BoundedFvAutomatonWithTargetComputation
 
     for {
       (baseTrg,extraInfo) <- baseTrgsWithExtraInfo
-      trgTag = tagComputation(src map (_._2), baseTrg, extraInfo)
+      trgTag = tagComputation(src map (_._2), lab, baseTrg, extraInfo)
     } yield (baseTrg, trgTag)
   }
 

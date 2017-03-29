@@ -3,6 +3,7 @@ package at.forsyte.harrsh.heapautomata.instances
 import at.forsyte.harrsh.heapautomata.TaggedAutomaton
 import at.forsyte.harrsh.heapautomata.utils.{ReachabilityMatrix, StateTag, TrackingInfo}
 import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
   * Created by jens on 3/29/17.
@@ -14,7 +15,7 @@ class AcyclicityAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton
 
   override val description = (if (negate) "CYC_" else "ACYC_") + numFV
 
-  override def tagComputation(srcTags: Seq[Boolean], baseTrg: baseAutomaton.State, ei : BaseReachabilityAutomaton.ExtraInfo): Boolean = {
+  override def tagComputation(srcTags: Seq[Boolean], lab : SymbolicHeap, baseTrg: baseAutomaton.State, ei : BaseReachabilityAutomaton.ExtraInfo): Boolean = {
     if (negate) {
       srcTags.exists(b => b) || !isAcyclic(ei.fullTrackingInfoWithBoundVars, ei.reachabilityPairs, ei.allVars + Var.mkVar(0), numFV)
     } else {

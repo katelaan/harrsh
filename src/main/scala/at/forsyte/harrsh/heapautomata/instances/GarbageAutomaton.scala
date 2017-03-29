@@ -4,6 +4,7 @@ import at.forsyte.harrsh.heapautomata.TaggedAutomaton
 import at.forsyte.harrsh.heapautomata.utils.{ReachabilityMatrix, StateTag, TrackingInfo}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
+import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
   * Created by jens on 3/29/17.
@@ -16,7 +17,7 @@ class GarbageAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton[Bo
 
   override val description = (if (negate) "GARB_" else "GF_") + numFV
 
-  override def tagComputation(srcTags: Seq[Boolean], baseTrg: baseAutomaton.State, ei : BaseReachabilityAutomaton.ExtraInfo): Boolean = {
+  override def tagComputation(srcTags: Seq[Boolean], lab : SymbolicHeap, baseTrg: baseAutomaton.State, ei : BaseReachabilityAutomaton.ExtraInfo): Boolean = {
     if (negate) {
       srcTags.exists(b => b) || !isGarbageFree(ei.fullTrackingInfoWithBoundVars, ei.reachabilityPairs, ei.allVars + mkVar(0), numFV)
     } else {
