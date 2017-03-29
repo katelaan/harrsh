@@ -1,9 +1,8 @@
-package at.forsyte.harrsh.heapautomata
+package at.forsyte.harrsh.heapautomata.instances
 
+import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
-
-import scala.annotation.tailrec
 
 /**
   * Created by jens on 10/15/16.

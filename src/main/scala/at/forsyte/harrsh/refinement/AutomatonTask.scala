@@ -1,5 +1,7 @@
-package at.forsyte.harrsh.heapautomata
+package at.forsyte.harrsh.refinement
 
+import at.forsyte.harrsh.heapautomata._
+import at.forsyte.harrsh.heapautomata.instances.{ToyExampleAutomata, TrackingAutomata}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive.PureAtom

@@ -1,7 +1,8 @@
-package at.forsyte.harrsh.heapautomata
+package at.forsyte.harrsh.refinement
 
 import java.io.File
 
+import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.main.{MainIO, TaskConfig, _}
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive.SID

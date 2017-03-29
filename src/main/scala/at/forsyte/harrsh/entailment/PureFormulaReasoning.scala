@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.heapautomata.utils.{Closure, ClosureOfAtomSet}
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.pure.{Closure, ClosureOfAtomSet}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PtrNEq, PureAtom}
 

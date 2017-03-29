@@ -1,5 +1,6 @@
-package at.forsyte.harrsh.heapautomata
+package at.forsyte.harrsh.heapautomata.instances
 
+import at.forsyte.harrsh.heapautomata.BoundedFvAutomatonWithTargetComputation
 import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
@@ -8,10 +9,11 @@ import com.typesafe.scalalogging.LazyLogging
 
 /**
   * Created by jkatelaa on 10/18/16.
+  * TODO EstablishmentAutomaton as Tagged BaseTrackingAutomaton?
   */
 class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends BoundedFvAutomatonWithTargetComputation(numFV) {
 
-  import BaseTrackingAutomaton._
+  import at.forsyte.harrsh.heapautomata.instances.BaseTrackingAutomaton._
 
   override val description = (if (acceptEstablished) "EST_" else "NONEST_") + numFV
 
@@ -29,7 +31,7 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends B
 
     // Get compression + propagation including bound variables
     val inconsistent = TrackingInfo.inconsistentTrackingInfo(numFV)
-    val trackingTargetWithoutCleanup = compressAndPropagateTracking(trackingInfo, lab, inconsistent)
+    val trackingTargetWithoutCleanup = BaseTrackingAutomaton.compressAndPropagateTracking(trackingInfo, lab, inconsistent)
 
     // Unless we already know that one of the children is not established,
     // check whether everything in that heap is either allocated or equal to a free variable
@@ -51,6 +53,8 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends B
     Set((trackingTarget, establishmentBit))
   }
 
+  // TODO Not needed?!
+  override val InconsistentState: (TrackingInfo, Boolean) = (TrackingInfo.inconsistentTrackingInfo(numFV), !acceptEstablished)
 }
 
 object EstablishmentAutomaton extends LazyLogging {

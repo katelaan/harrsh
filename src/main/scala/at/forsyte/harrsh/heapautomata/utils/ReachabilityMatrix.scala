@@ -1,7 +1,5 @@
 package at.forsyte.harrsh.heapautomata.utils
 
-import at.forsyte.harrsh.heapautomata.BaseReachabilityAutomaton._
-import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.main.{Config, HarrshLogging}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
@@ -130,5 +128,28 @@ object ReachabilityMatrix extends HarrshLogging {
     val newPairs = pairs union transitiveEqualityStep union transitivePointerStep
 
     if (newPairs == pairs) pairs else reachabilityFixedPoint(compressedHeap, equalities, newPairs)
+  }
+
+
+  /**
+    * Computes reachability matrix for the given set of variables (possibly including the nullptr)
+    * @param ti Tracking information AFTER congruence closure computation
+    * @param reachPairs Reachability between pairs of variables AFTER transitive closure computation
+    * @param vars Variables to take into account; add nullptr explicitly to have it included
+    * @return (variable-to-matrix-index map, matrix)
+    */
+  def computeExtendedMatrix(ti : TrackingInfo, reachPairs : Set[(Var,Var)], vars : Set[Var]) : (Map[Var, Int], ReachabilityMatrix) = {
+    val ixs : Map[Var, Int] = Map() ++ vars.zipWithIndex
+
+    // TODO Code duplication in matrix computation (plus, we're computing a second matrix on top of the FV-reachability matrix...)
+    // Note: Subtract 1, because the null pointer is either explicitly in vars, or to be ignored
+    val reach = ReachabilityMatrix.emptyMatrix(vars.size - 1)
+    for ((from, to) <- reachPairs) {
+      reach.update(ixs(from), ixs(to), setReachable = true)
+    }
+
+    logger.debug("Extended matrix for variable numbering " + ixs.toSeq.sortBy(_._2).map(p => p._1 + " -> " + p._2).mkString(", ") + ": " + reach)
+
+    (ixs, reach)
   }
 }

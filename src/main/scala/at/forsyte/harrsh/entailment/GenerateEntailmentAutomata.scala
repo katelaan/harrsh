@@ -11,7 +11,7 @@ import scala.annotation.tailrec
   */
 object GenerateEntailmentAutomata extends HarrshLogging {
 
-  val DebugLimit = 4
+  val DebugLimit = 3 //Integer.MAX_VALUE
 
   def apply(maxNumFV : Int, sid : SID, reportProgress : Boolean = false) : EntailmentHeapAutomaton = {
 
@@ -118,15 +118,21 @@ object GenerateEntailmentAutomata extends HarrshLogging {
     }
 
     private def areBiExtensible(fst: ECD, snd: ECD, printProgress : String => Unit): Boolean = {
-      val (fstExt, sndExt) = fst.combine(snd)
-      printProgress("Checking 1st extension (" + fst.rep + ") * (" + snd.ext + "):\n    " +  fstExt + " |?= " + sid.callToStartPred)
-      val fstRes = reducedEntailment(fstExt, sid.callToStartPred)
-      if (fstRes) {
-        printProgress("Checking 2nd extension (" + snd.rep + ") * (" + fst.ext + "):\n    " +  sndExt + " |?= " + sid.callToStartPred)
-        reducedEntailment(sndExt, sid.callToStartPred)
-      } else {
-        printProgress("1st entailment false => return false")
+      if (fst.repFV != snd.repFV) {
+        printProgress("Different number of FV => Not combinable")
         false
+      }
+      else {
+        val (fstExt, sndExt) = fst.combine(snd)
+        printProgress("Checking 1st extension (" + fst.rep + ") * (" + snd.ext + "):\n    " + fstExt + " |?= " + sid.callToStartPred)
+        val fstRes = reducedEntailment(fstExt, sid.callToStartPred)
+        if (fstRes) {
+          printProgress("Checking 2nd extension (" + snd.rep + ") * (" + fst.ext + "):\n    " + sndExt + " |?= " + sid.callToStartPred)
+          reducedEntailment(sndExt, sid.callToStartPred)
+        } else {
+          printProgress("1st entailment false => return false")
+          false
+        }
       }
     }
 

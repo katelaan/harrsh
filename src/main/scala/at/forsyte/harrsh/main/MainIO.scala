@@ -6,9 +6,10 @@ import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.seplog.parsers.{CyclistSIDParser, DefaultSIDParser, ModelParser}
 import at.forsyte.harrsh.util.IOUtils
 import at.forsyte.harrsh.util.IOUtils._
-import at.forsyte.harrsh.heapautomata.DecisionProcedures.{AnalysisResult, AnalysisStatistics}
+import at.forsyte.harrsh.refinement.DecisionProcedures.{AnalysisResult, AnalysisStatistics}
 import at.forsyte.harrsh.entailment.Model
-import at.forsyte.harrsh.heapautomata.{AutomatonTask, HeapAutomaton}
+import at.forsyte.harrsh.heapautomata.HeapAutomaton
+import at.forsyte.harrsh.refinement.AutomatonTask
 
 /**
   * Created by jens on 2/24/17.

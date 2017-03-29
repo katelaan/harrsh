@@ -1,8 +1,8 @@
-package at.forsyte.harrsh.heapautomata.utils
+package at.forsyte.harrsh.pure
 
-import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.Var.mkVar
 import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, PureAtom}
+import at.forsyte.harrsh.seplog.{PtrExpr, Var}
 import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
@@ -11,6 +11,34 @@ import scala.annotation.tailrec
   * Created by jkatelaa on 10/17/16.
   */
 object EqualityUtils {
+
+  def allEqualitiesOverFVs(numFV : Int) : Set[PureAtom] = {
+    for {
+      i <- Set() ++ (0 to numFV-1)
+      j <- Set() ++ (i+1 to numFV)
+      eq <- Set(true, false)
+    } yield orderedAtom(mkVar(i), mkVar(j), eq)
+  }
+
+  def mkPure(atoms : (Int, Int, Boolean)*) : Set[PureAtom] = Set() ++ (atoms.toSeq map {
+    case (l,r,isEq) => orderedAtom(mkVar(l),mkVar(r),isEq)
+  })
+
+  def unwrapAtom(atom : PureAtom) : (Var, Var, Boolean) = atom match {
+    case PtrEq(l, r) => (l.getVarOrZero, r.getVarOrZero, true)
+    case PtrNEq(l, r) => (l.getVarOrZero, r.getVarOrZero, false)
+    case _ => throw new IllegalStateException("Heap automata are not defined on arithmetical expressions")
+  }
+
+  def orderedAtom(left : Var, right : Var, isEqual : Boolean): PureAtom = {
+    val (small, large) = if (left < right) (left, right) else (right, left)
+    if (isEqual) PtrEq(PtrExpr.fromFV(small), PtrExpr.fromFV(large)) else PtrNEq(PtrExpr.fromFV(small), PtrExpr.fromFV(large))
+  }
+
+  def orderedAtom(atom : PureAtom): PureAtom = {
+    val (left, right, isEqual) = unwrapAtom(atom)
+    orderedAtom(left, right, isEqual)
+  }
 
   def propagateConstraints(alloc : Set[Var], pure : Set[PureAtom]) : (Set[Var], Set[PureAtom]) = {
 

@@ -23,6 +23,6 @@
     <logger name="at.forsyte.harrsh.entailment" level="DEBUG" />
     <logger name="at.forsyte.harrsh.heapautomata.RefinementAlgorithms" level="DEBUG" />
     <logger name="at.forsyte.harrsh.heapautomata" level="DEBUG" />
-    <logger name="at.forsyte.harrsh.heapautomata.BaseTrackingAutomaton" level="DEBUG" />
+    <logger name="at.forsyte.harrsh.heapautomata.instances.BaseTrackingAutomaton" level="DEBUG" />
     <logger name="at.forsyte.harrsh.heapautomata.BaseReachabilityAutomaton" level="INFO" />-->
 </configuration>

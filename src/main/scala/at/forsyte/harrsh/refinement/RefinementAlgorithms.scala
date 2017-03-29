@@ -1,17 +1,18 @@
-package at.forsyte.harrsh.heapautomata
+package at.forsyte.harrsh.refinement
 
 import java.text.SimpleDateFormat
 
+import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var._
-import at.forsyte.harrsh.seplog.{PtrExpr, Var}
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.seplog.{PtrExpr, Var}
 import at.forsyte.harrsh.util.IOUtils
 
 import scala.annotation.tailrec
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent._
 import scala.concurrent.duration.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by jens on 10/15/16.

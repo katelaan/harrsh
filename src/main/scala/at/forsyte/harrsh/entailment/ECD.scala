@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.seplog.{MapBasedRenaming, Renaming, Var}
-import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
+import at.forsyte.harrsh.seplog.inductive.{DefaultNaming, SymbolicHeap}
 
 /**
   * Created by jens on 3/19/17.

@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.main
 
-import at.forsyte.harrsh.heapautomata.AutomatonTask
+import at.forsyte.harrsh.refinement.AutomatonTask
 
 /**
   * Created by jkatelaa on 10/20/16.

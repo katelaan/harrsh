@@ -1,9 +1,7 @@
 package at.forsyte.harrsh.entailment
-import at.forsyte.harrsh.heapautomata.utils.{Closure, ClosureOfAtomSet}
+
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{NullPtr, PtrVar, Var}
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
 
@@ -80,9 +78,9 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
         if (reportProgress) println("    MC #" + history.iteration + ": " + formulaToMatch + " |?= " + partialUnfolding)
 
         // The entailment/modelchecking result is trivially false if we have too few FVs on the left. View this as error on the caller's part
-        if (formulaToMatch.numFV < partialUnfolding.numFV) {
-          throw new IllegalStateException("Trivially false MC result: (Intermediate) model " + formulaToMatch + " has " + formulaToMatch.numFV + " free variables, (intermediate) unfolding " + partialUnfolding + " has " + partialUnfolding.numFV)
-        }
+//        if (formulaToMatch.numFV < partialUnfolding.numFV) {
+//          throw new IllegalStateException("Trivially false MC result: (Intermediate) model " + formulaToMatch + " has " + formulaToMatch.numFV + " free variables, (intermediate) unfolding " + partialUnfolding + " has " + partialUnfolding.numFV)
+//        }
 
         val res = status(formulaToMatch, partialUnfolding) match {
           case EmptyModel() =>

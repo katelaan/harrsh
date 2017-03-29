@@ -2,8 +2,11 @@ package at.forsyte.harrsh.hepautomata
 
 import at.forsyte.harrsh.ExampleSIDs
 import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
+import at.forsyte.harrsh.pure.EqualityUtils.mkPure
 import at.forsyte.harrsh.seplog.Var._
-import at.forsyte.harrsh.heapautomata.{TrackingAutomata, _}
+import at.forsyte.harrsh.heapautomata._
+import at.forsyte.harrsh.heapautomata.instances.{ToyExampleAutomata, TrackingAutomata}
+import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.seplog.inductive.nil
 import at.forsyte.harrsh.test.HarrshTableTest
 

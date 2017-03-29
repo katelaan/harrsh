@@ -1,7 +1,8 @@
 package at.forsyte.harrsh.hepautomata
 
-import at.forsyte.harrsh.heapautomata._
+import at.forsyte.harrsh.heapautomata.instances.EstablishmentAutomaton
 import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
+import at.forsyte.harrsh.pure.EqualityUtils.mkPure
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive._

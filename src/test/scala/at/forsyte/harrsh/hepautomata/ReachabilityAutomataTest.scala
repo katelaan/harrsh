@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.hepautomata
 
-import at.forsyte.harrsh.heapautomata.TrackingAutomata
-import at.forsyte.harrsh.heapautomata._
+import at.forsyte.harrsh.pure.EqualityUtils.mkPure
+import at.forsyte.harrsh.heapautomata.instances.TrackingAutomata
 import at.forsyte.harrsh.heapautomata.utils.{ReachabilityInfo, ReachabilityMatrix, TrackingInfo}
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.Var._
@@ -52,7 +52,7 @@ class ReachabilityAutomataTest extends HarrshTableTest {
         Given(src.mkString(", ") + ", " + sh + ", query " + from + " -> " + to)
         Then("The transition " + src.mkString(", ") + " --[" + sh + "]--> " + " <trg> should yield to a " + (if (result) "FINAL STATE" else "NON-FINAL STATE"))
 
-        val succs = reach3.getTargetsFor(src map (ri => (ri,())), sh)
+        val succs = reach3.getTargetsFor(src, sh)
         succs.size should be (1)
         info("Reached state: " + succs.head)
         reach3.isFinal(succs.head) should be (result)

@@ -1,6 +1,5 @@
 package at.forsyte.harrsh.heapautomata
 
-import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
@@ -9,10 +8,12 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
   *
   * Created by jkatelaa on 10/18/16.
   */
-abstract class BoundedFvAutomatonWithTargetComputation(numFV : Int) extends HeapAutomaton {
+abstract class BoundedFvAutomatonWithTargetComputation(val numFV : Int) extends HeapAutomaton {
 
   override final def doesAlphabetContain(lab: SymbolicHeap): Boolean = lab.numFV <= numFV
 
   override final def implementsTargetComputation: Boolean = true
+
+  val InconsistentState : State
 
 }

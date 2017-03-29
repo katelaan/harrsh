@@ -1,7 +1,6 @@
-package at.forsyte.harrsh.heapautomata.utils
+package at.forsyte.harrsh.pure
 
-import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.seplog.{PtrExpr, Var}
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
 /**
@@ -14,7 +13,7 @@ class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
 
   for {
     atom <- pure
-    (left, right, isEqual) = unwrapAtom(atom)
+    (left, right, isEqual) = EqualityUtils.unwrapAtom(atom)
     if isEqual
   } {
     extendEntry(left, right)

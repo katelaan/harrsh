@@ -23,6 +23,8 @@ class EntailmentHeapAutomaton(numFV : Int, ecds : Seq[(SymbolicHeap, SymbolicHea
 
     throw new NotImplementedError("No smart target computation for this heap automaton")
   }
+
+  override val InconsistentState: Int = ???
 }
 
 object EntailmentHeapAutomaton {

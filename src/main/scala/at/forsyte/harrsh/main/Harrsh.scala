@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.entailment.{GenerateEntailmentAutomata, GreedyUnfoldingModelChecker}
-import at.forsyte.harrsh.heapautomata.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
+import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
