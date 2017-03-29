@@ -60,7 +60,7 @@ case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean], underlyingPai
 object ReachabilityMatrix extends HarrshLogging {
 
   // In an inconsistent state, everything is reachable
-  def inconsistentReachabilityMatrix(numFV : Int) = ReachabilityMatrix(numFV, Array.fill((numFV+1)*(numFV+1))(true), None)
+  def inconsistentReachabilityMatrix(numFV : Int) = ReachabilityMatrix(numFV, Array.fill((numFV+1)*(numFV+1))(true), Some(Set.empty))
 
   def emptyMatrix(numFV : Int) : ReachabilityMatrix = {
     ReachabilityMatrix(numFV, Array.fill((numFV+1)*(numFV+1))(false), None)

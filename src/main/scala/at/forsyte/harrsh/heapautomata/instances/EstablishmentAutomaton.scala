@@ -10,7 +10,7 @@ import com.typesafe.scalalogging.LazyLogging
 /**
   * Created by jkatelaa on 10/18/16.
   */
-class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends TaggedAutomaton[Boolean, TrackingInfo, BaseTrackingAutomaton](numFV) {
+class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends TaggedAutomaton[Boolean, TrackingInfo, BaseTrackingAutomaton] {
 
   override val baseAutomaton = BaseTrackingAutomaton.defaultTrackingAutomaton(numFV)
 
@@ -34,7 +34,7 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends T
       } else {
         val allVars = lab.allVars
         logger.debug("Checking establishment of " + allVars.mkString(", "))
-        !allVars.exists(!EstablishmentAutomaton.isEstablished(trackingTargetWithoutCleanup, _))
+        !allVars.exists(!isEstablished(trackingTargetWithoutCleanup, _))
       }
 
       logger.debug("Computed establishment bit: " + establishmentBit)
@@ -42,14 +42,11 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends T
       establishmentBit
     }
   }
-}
-
-object EstablishmentAutomaton extends LazyLogging {
 
   /**
     * Is variable v established according to tracking info s?
     */
-  def isEstablished(s : TrackingInfo, v : Var) = {
+  private def isEstablished(s : TrackingInfo, v : Var) = {
     isFV(v) || s.alloc.contains(v) || s.pure.exists({
       // Return true iff the pure atom witnesses that v is equal to a free variable
       // This is enough to show establishment, because we assume that s is congruence closed

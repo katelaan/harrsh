@@ -23,7 +23,7 @@ case class TrackingInfo private (alloc: Set[Var], pure: Set[PureAtom]) extends K
       }))
   }
 
-  def isConsistent : Boolean =
+  lazy val isConsistent : Boolean =
     !pure.exists {
       // Find inequality with two identical arguments
       case PtrNEq(l, r) if l == r => true

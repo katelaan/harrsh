@@ -1,12 +1,12 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.heapautomata.BoundedFvAutomatonWithTargetComputation
+import at.forsyte.harrsh.heapautomata.{FVBound, HeapAutomaton}
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
   * Created by jens on 3/6/17.
   */
-class EntailmentHeapAutomaton(numFV : Int, ecds : Seq[(SymbolicHeap, SymbolicHeap,Boolean)]) extends BoundedFvAutomatonWithTargetComputation(numFV) {
+class EntailmentHeapAutomaton(val numFV : Int, ecds : Seq[(SymbolicHeap, SymbolicHeap,Boolean)]) extends HeapAutomaton with FVBound {
 
   val stateMap : Map[Int,(SymbolicHeap,SymbolicHeap,Boolean)] = Map() ++ ecds.zipWithIndex.map(_.swap)
 
@@ -23,8 +23,6 @@ class EntailmentHeapAutomaton(numFV : Int, ecds : Seq[(SymbolicHeap, SymbolicHea
 
     throw new NotImplementedError("No smart target computation for this heap automaton")
   }
-
-  override val InconsistentState: Int = ???
 }
 
 object EntailmentHeapAutomaton {

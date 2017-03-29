@@ -7,7 +7,6 @@ class SatAutomaton(numFV : Int, negate : Boolean) extends BaseTrackingAutomaton(
 
   override val description = (if (negate) "UNSAT_" else "SAT_") + numFV
 
-  // TODO Consistency check via method of TrackingInfo instead?
-  override def isFinal(s : State) : Boolean = negate == (s.alloc == InconsistentState.alloc && s.pure == InconsistentState.pure)
+  override def isFinal(s : State) : Boolean = negate != s.isConsistent
 
 }

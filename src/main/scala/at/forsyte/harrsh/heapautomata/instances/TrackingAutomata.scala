@@ -12,17 +12,16 @@ object TrackingAutomata extends HarrshLogging {
   def singleTargetStateTracking(numFV : Int, alloc : Set[Var], pure : Set[PureAtom]) = new TrackingAutomatonWithSingleFinalState(numFV, alloc, pure)
 
   def satAutomaton(numFV : Int) = new SatAutomaton(numFV, negate = false)
-
   def unsatAutomaton(numFV : Int) = new SatAutomaton(numFV, negate = true)
 
   def establishmentAutomaton(numFV : Int) = new EstablishmentAutomaton(numFV, true)
-
   def nonEstablishmentAutomaton(numFV : Int) = new EstablishmentAutomaton(numFV, false)
 
   def reachabilityAutomaton(numFV : Int, from : Var, to : Var) = new ReachabilityAutomaton(numFV, from, to)
 
   def garbageFreedomAutomaton(numFV : Int) = new GarbageAutomaton(numFV, negate = false)
   def mayHaveGarbageAutomaton(numFV : Int) = new GarbageAutomaton(numFV, negate = false)
+
   def weakAcyclicityAutomaton(numFV : Int) = new AcyclicityAutomaton(numFV, negate = false)
   def strongCyclicityAutomaton(numFV : Int) = new AcyclicityAutomaton(numFV, negate = true)
 

@@ -9,7 +9,7 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 /**
   * Created by jens on 3/29/17.
   */
-class GarbageAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton[Boolean, BaseReachabilityAutomaton.ExtraInfo, BaseReachabilityAutomaton](numFV) {
+class GarbageAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton[Boolean, BaseReachabilityAutomaton.UncleanedTrackingInfo, BaseReachabilityAutomaton] {
 
   override val baseAutomaton = new BaseReachabilityAutomaton(numFV)
 
@@ -17,11 +17,11 @@ class GarbageAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton[Bo
 
   override val description = (if (negate) "GARB_" else "GF_") + numFV
 
-  override def tagComputation(srcTags: Seq[Boolean], lab : SymbolicHeap, baseTrg: baseAutomaton.State, ei : BaseReachabilityAutomaton.ExtraInfo): Boolean = {
+  override def tagComputation(srcTags: Seq[Boolean], lab : SymbolicHeap, baseTrg: baseAutomaton.State, ei : BaseReachabilityAutomaton.UncleanedTrackingInfo): Boolean = {
     if (negate) {
-      srcTags.exists(b => b) || !isGarbageFree(ei.fullTrackingInfoWithBoundVars, ei.reachabilityPairs, ei.allVars + mkVar(0), numFV)
+      srcTags.exists(b => b) || !isGarbageFree(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + mkVar(0), numFV)
     } else {
-      !srcTags.exists(!_) && isGarbageFree(ei.fullTrackingInfoWithBoundVars, ei.reachabilityPairs, ei.allVars + mkVar(0), numFV)
+      !srcTags.exists(!_) && isGarbageFree(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + mkVar(0), numFV)
     }
   }
 

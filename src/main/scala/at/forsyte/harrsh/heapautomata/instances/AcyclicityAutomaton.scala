@@ -8,18 +8,18 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 /**
   * Created by jens on 3/29/17.
   */
-class AcyclicityAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton[Boolean, BaseReachabilityAutomaton.ExtraInfo, BaseReachabilityAutomaton](numFV) {
+class AcyclicityAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton[Boolean, BaseReachabilityAutomaton.UncleanedTrackingInfo, BaseReachabilityAutomaton] {
   override val baseAutomaton = new BaseReachabilityAutomaton(numFV)
 
   override val tags = StateTag.instances.booleanTag
 
   override val description = (if (negate) "CYC_" else "ACYC_") + numFV
 
-  override def tagComputation(srcTags: Seq[Boolean], lab : SymbolicHeap, baseTrg: baseAutomaton.State, ei : BaseReachabilityAutomaton.ExtraInfo): Boolean = {
+  override def tagComputation(srcTags: Seq[Boolean], lab : SymbolicHeap, baseTrg: baseAutomaton.State, ei : BaseReachabilityAutomaton.UncleanedTrackingInfo): Boolean = {
     if (negate) {
-      srcTags.exists(b => b) || !isAcyclic(ei.fullTrackingInfoWithBoundVars, ei.reachabilityPairs, ei.allVars + Var.mkVar(0), numFV)
+      srcTags.exists(b => b) || !isAcyclic(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + Var.mkVar(0), numFV)
     } else {
-      !srcTags.exists(!_) && isAcyclic(ei.fullTrackingInfoWithBoundVars, ei.reachabilityPairs, ei.allVars + Var.mkVar(0), numFV)
+      !srcTags.exists(!_) && isAcyclic(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + Var.mkVar(0), numFV)
     }
 }
 
