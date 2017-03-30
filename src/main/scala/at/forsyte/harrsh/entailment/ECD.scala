@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.seplog.{MapBasedRenaming, Renaming, Var}
-import at.forsyte.harrsh.seplog.inductive.{DefaultNaming, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
   * Created by jens on 3/19/17.
@@ -24,6 +24,8 @@ case class ECD(rep : SymbolicHeap, ext : SymbolicHeap, repParamInstantiation : R
   // TODO After changes to the semantics of rename vars, we should not need the variant any more, right?
   // Do not rename any quantified variables, they are all shared between the two parts of the partition!
   lazy val recombined = SymbolicHeap.mergeHeaps(rep.renameVars(repParamInstantiation), ext, sharedVars = ext.boundVars.toSet)
+
+  def shortString : String = "" + rep + repParamInstantiation + " * " + ext + " @ " + repFV
 
   override def toString = "ECD_" + repFV + "(rep = " + rep + repParamInstantiation + ", ext = " + ext + ", unf = " + recombined + ")"
 

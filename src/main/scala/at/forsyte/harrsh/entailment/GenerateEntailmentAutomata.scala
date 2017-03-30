@@ -13,6 +13,10 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
   val DebugLimit = 3 //Integer.MAX_VALUE
 
+  val EnableDetailedLog = true
+
+  val emptyLog = if (EnableDetailedLog) ECDComputationLog.completeLog else ECDComputationLog.dummyLog
+
   def apply(maxNumFV : Int, sid : SID, reportProgress : Boolean = false) : EntailmentHeapAutomaton = {
 
     val ecds = new ECDComputation(sid, maxNumFV, reportProgress = reportProgress).run()
@@ -42,12 +46,18 @@ object GenerateEntailmentAutomata extends HarrshLogging {
     def FindOnlyNonEmpty = true // Only generate non-empty left-hand sides. Still have to figure out if this is the right approach
 
     def run(): Seq[ECD] = {
-      ecdIteration(1, Seq.empty, Seq(sid.callToStartPred))
+      val (ecds,log) = ecdIteration(1, Seq.empty, Seq(sid.callToStartPred), emptyLog)
+      if (reportProgress) {
+        println(log)
+      }
+      ecds
     }
 
-    private def ecdIteration(i: Int, ecdPrev: Seq[ECD], partialUnfoldings: Seq[SymbolicHeap]): Seq[ECD] = {
+    private def ecdIteration(i: Int, ecdPrev: Seq[ECD], partialUnfoldings: Seq[SymbolicHeap], oldLog : ECDComputationLog): (Seq[ECD],ECDComputationLog) = {
 
       def printProgress(msg: String): Unit = if (reportProgress) println("Iteration " + i + ": " + msg)
+
+      val log = oldLog.incIteration
 
       printProgress("Starting new iteration; ECDs so far: " + ecdPrev.map(" - " + _).mkString("\n"))
       printProgress("Will unfold the following formulas:\n" + partialUnfoldings.map(" - " + _).mkString("\n"))
@@ -59,68 +69,77 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
       printProgress("Stats: ecds(" + (i-1) + ")="+ ecdPrev.size + "; part-unf(" + (i-1) + ")=" + partialUnfoldings.size + "; red-unf(" + i + ")=" + reducedUnfs.size + "; part-unf(" + i + ")=" + newPartialUnfs.size)
 
-      val ecdNew = processUnfoldings(reducedUnfs, ecdPrev, printProgress)
+      val res@(ecdNew,newLog) = processUnfoldings(reducedUnfs, ecdPrev, printProgress, log)
 
       if (ecdPrev.nonEmpty && ecdNew.size == ecdPrev.size) {
         // If we've already found at least one ECD, but now don't find a new one, we terminate
         val termMsg = "ECD computation reached fixed point"
         logger.debug(termMsg)
         printProgress(termMsg)
-        ecdNew
+        res
       } else {
         if (i < DebugLimit) {
           // Found at least one new ECD => recurse
           printProgress("Found " + (ecdNew.size-ecdPrev.size) + " new ECDs")
           logger.debug("Iteration " + i + ": Found " + (ecdNew.size-ecdPrev.size) + " new ECDs")
-          ecdIteration(i + 1, ecdNew, newPartialUnfs)
+          ecdIteration(i + 1, ecdNew, newPartialUnfs, newLog)
         } else {
           printProgress("Debug limit => Aborting ECD computation")
           logger.debug("Debug limit => Aborting ECD computation")
-          ecdNew
+          res
         }
 
       }
     }
 
-    @tailrec private def processUnfoldings(reducedUnfs : Seq[SymbolicHeap], ecdAcc : Seq[ECD], printProgress : String => Unit) : Seq[ECD] = {
-      if (reducedUnfs.isEmpty) ecdAcc else {
-        printProgress("Processing Unfolding: " + reducedUnfs.head)
-        val candidates = partitions(reducedUnfs.head)
+    @tailrec private def processUnfoldings(reducedUnfs : Seq[SymbolicHeap], ecdAcc : Seq[ECD], printProgress : String => Unit, log : ECDComputationLog) : (Seq[ECD],ECDComputationLog) = {
+      if (reducedUnfs.isEmpty) (ecdAcc,log) else {
+        val nextUnf = reducedUnfs.head
+        val newLog = log.logCurrentUnfolding(nextUnf)
+        printProgress("Processing Unfolding: " + nextUnf)
+
+        val candidates = partitions(nextUnf)
         printProgress("Partitions with " + (if (FindOnlyNonEmpty) "(non-empty)" else "(possibly empty)") + " left part to consider: " + candidates.size)
-        val ecdAccwithEcdsForUnfolding = processPartitions(candidates, ecdAcc, printProgress)
-        processUnfoldings(reducedUnfs.tail, ecdAccwithEcdsForUnfolding, printProgress)
+        val (ecdAccwithEcdsForUnfolding, newLog2) = processPartitions(candidates, ecdAcc, printProgress, newLog)
+        processUnfoldings(reducedUnfs.tail, ecdAccwithEcdsForUnfolding, printProgress, newLog2)
       }
     }
 
-    @tailrec private def processPartitions(candidates : Set[ECD], ecdAcc : Seq[ECD], printProgress : String => Unit) : Seq[ECD] = {
-      if (candidates.isEmpty) ecdAcc else {
+    @tailrec private def processPartitions(candidates : Set[ECD], ecdAcc : Seq[ECD], printProgress : String => Unit, log : ECDComputationLog) : (Seq[ECD], ECDComputationLog) = {
+      if (candidates.isEmpty) (ecdAcc,log) else {
         val ecd = candidates.head
         printProgress("Processing Partition: " + ecd)
-        val newAcc = if (!ecdAcc.contains(ecd) && isNew(ecdAcc, ecd, printProgress)) {
-          printProgress("*** New ECD #" + (ecdAcc.size+1) + ": " + ecd + " ***")
-          ecdAcc :+ ecd
+        val (newAcc,newLog) = if (!ecdAcc.contains(ecd)) {
+          val (res, newLog) = isNew(ecdAcc, ecd, printProgress, log)
+          if (res) {
+            printProgress("*** New ECD #" + (ecdAcc.size + 1) + ": " + ecd + " ***")
+            (ecdAcc :+ ecd, newLog.logNewECD(ecdAcc.size + 1, ecd))
+          } else {
+            printProgress("=> " + ecd + " assumed equal to previous ECD.")
+            (ecdAcc, log)
+          }
         } else {
           printProgress("=> " + ecd + " assumed equal to previous ECD.")
-          ecdAcc
+          (ecdAcc,log)
         }
 
-        processPartitions(candidates.tail, newAcc, printProgress : String => Unit)
+        processPartitions(candidates.tail, newAcc, printProgress, newLog)
       }
     }
 
-    @tailrec private def isNew(oldECDs: Seq[ECD], candidate: ECD, printProgress : String => Unit): Boolean = if (oldECDs.isEmpty) {
-      true
+    @tailrec private def isNew(oldECDs: Seq[ECD], candidate: ECD, printProgress : String => Unit, log : ECDComputationLog): (Boolean,ECDComputationLog) = if (oldECDs.isEmpty) {
+      (true,log)
     } else {
       val (hd, tl) = (oldECDs.head, oldECDs.tail)
       printProgress("Comparing against " + hd)
-      val notNew = areBiExtensible(hd, candidate, printProgress)
-      if (notNew) false else isNew(tl, candidate, printProgress)
+      val (notNew,newLog) = areBiExtensible(hd, candidate, printProgress, log)
+      if (notNew) (false,newLog) else isNew(tl, candidate, printProgress, newLog)
     }
 
-    private def areBiExtensible(fst: ECD, snd: ECD, printProgress : String => Unit): Boolean = {
+    private def areBiExtensible(fst: ECD, snd: ECD, printProgress : String => Unit, log : ECDComputationLog): (Boolean,ECDComputationLog) = {
       if (fst.repFV != snd.repFV) {
         printProgress("Different number of FV => Not combinable")
-        false
+        (false,log)
       }
       else {
         val (fstExt, sndExt) = fst.combine(snd)
@@ -128,10 +147,11 @@ object GenerateEntailmentAutomata extends HarrshLogging {
         val fstRes = reducedEntailment(fstExt, sid.callToStartPred)
         if (fstRes) {
           printProgress("Checking 2nd extension (" + snd.rep + ") * (" + fst.ext + "):\n    " + sndExt + " |?= " + sid.callToStartPred)
-          reducedEntailment(sndExt, sid.callToStartPred)
+          val res = reducedEntailment(sndExt, sid.callToStartPred)
+          (res,log.logEntailmentCheck(snd,fstExt,fstRes=true,Some(sndExt),Some(res)))
         } else {
           printProgress("1st entailment false => return false")
-          false
+          (false,log.logEntailmentCheck(snd,fstExt,fstRes=false,None,None))
         }
       }
     }
