@@ -1,11 +1,11 @@
-package at.forsyte.harrsh.seplog.inductive
+package at.forsyte.harrsh.seplog
 
-import at.forsyte.harrsh.seplog.Renaming
+import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
   * Created by jkatelaa on 10/20/16.
   */
-trait SepLogFormula {
+trait SepLogFormula extends ToStringWithVarnames {
 
     def isSpatial : Boolean
 
@@ -16,9 +16,5 @@ trait SepLogFormula {
     def toSymbolicHeap : Option[SymbolicHeap]
 
     def renameVars(f : Renaming) : SepLogFormula
-
-    override final def toString = toStringWithVarNames(DefaultNaming)
-
-    def toStringWithVarNames(names: VarNaming): String
 
 }

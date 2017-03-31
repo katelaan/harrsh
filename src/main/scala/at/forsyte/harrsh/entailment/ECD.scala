@@ -31,7 +31,7 @@ case class ECD(rep : SymbolicHeap, ext : SymbolicHeap, repParamInstantiation : R
     // The ones in rep cannot be, because all shared bound vars have been replaced by free vars
     rep = EqualityBasedSimplifications.removeExplicitlyRedundantBoundVars(rep))
 
-  def shortString : String = "" + rep + repParamInstantiation + " * " + ext + " @ " + repFV
+  def shortString : String = "<<" + rep + repParamInstantiation + ">> * <<" + ext + ">> @ " + repFV
 
   override def toString = "ECD_" + repFV + "(rep = " + rep + repParamInstantiation + ", ext = " + ext + ", unf = " + recombined + ")"
 

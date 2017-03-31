@@ -41,6 +41,22 @@ object ExampleSIDs {
     ("tll", Seq("l","r","z"), SymbolicHeap( Seq(), Seq(ptr(mkVar(1),qv(1),qv(2),nil)), Seq(call("tll", qv(1), mkVar(2), qv(3)), call("tll", qv(2), qv(3), mkVar(3))) ))
   )
 
+  lazy val TllAcycExtraNeq = SID("tll",
+    "Acyclic tree with linked leaves, overspecified",
+    // tll <= a → (nil nil c) : { a = b }
+    ("tll", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2)), ptrneq(mkVar(1), mkVar(3))), Seq(ptr(mkVar(1),nil,nil,mkVar(3))), Seq.empty)),
+    // tll <= ∃ l r z . a → (l r nil) ∗ tll(l b z) ∗ tll(r z c)
+    ("tll", Seq("l","r","z"), SymbolicHeap( Seq(ptrneq(mkVar(1), mkVar(3)), ptrneq(mkVar(2), mkVar(3))), Seq(ptr(mkVar(1),qv(1),qv(2),nil)), Seq(call("tll", qv(1), mkVar(2), qv(3)), call("tll", qv(2), qv(3), mkVar(3))) ))
+  )
+
+  lazy val TllAcyc = SID("tll",
+    "Acyclic tree with linked leaves",
+    // tll <= a → (nil nil c) : { a = b }
+    ("tll", Seq.empty, SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2)), ptrneq(mkVar(1), mkVar(3))), Seq(ptr(mkVar(1),nil,nil,mkVar(3))), Seq.empty)),
+    // tll <= ∃ l r z . a → (l r nil) ∗ tll(l b z) ∗ tll(r z c)
+    ("tll", Seq("l","r","z"), SymbolicHeap( Seq(ptrneq(mkVar(1), mkVar(3))), Seq(ptr(mkVar(1),qv(1),qv(2),nil)), Seq(call("tll", qv(1), mkVar(2), qv(3)), call("tll", qv(2), qv(3), mkVar(3))) ))
+  )
+
   /**
     * For illustrating the iterative nature; no memory allocation
     */

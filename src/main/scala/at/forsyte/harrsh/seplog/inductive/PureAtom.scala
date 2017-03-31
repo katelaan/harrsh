@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{PtrExpr, Renaming, Var}
+import at.forsyte.harrsh.seplog.{PtrExpr, Renaming, Var, VarNaming}
 
 /**
   * Created by jkatelaa on 10/3/16.

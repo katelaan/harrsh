@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.seplog.parsers
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.{mkUnNaming, VarUnNaming}
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive._
 

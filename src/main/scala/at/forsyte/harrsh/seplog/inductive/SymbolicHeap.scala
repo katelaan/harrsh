@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.main._
-import at.forsyte.harrsh.seplog.{MapBasedRenaming, PtrExpr, Renaming, Var}
+import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.Var._
 
 import scala.collection.SortedSet
@@ -9,7 +9,7 @@ import scala.collection.SortedSet
 /**
   * Created by jkatelaa on 10/3/16.
   */
-case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls : Seq[PredCall], numFV : Int, boundVars : SortedSet[Var]) extends HarrshLogging {
+case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls : Seq[PredCall], numFV : Int, boundVars : SortedSet[Var]) extends ToStringWithVarnames with HarrshLogging {
 
   // Sanity check
   if (Config.HeapAutomataSafeModeEnabled) {
@@ -17,14 +17,12 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
     if (free.nonEmpty && free.max > numFV) throw new IllegalStateException("NumFV = " + numFV + " but contained FVs are " + free.distinct)
   }
 
-  override final def toString = toStringWithVarNames(DefaultNaming)
-
   /**
     * Generates a string representation by mapping the (integer) variables to the given string representations
     * @param naming Map from variables to string representations
     * @return String representation of this symbolic heap
     */
-  def toStringWithVarNames(naming: VarNaming): String = {
+  override def toStringWithVarNames(naming: VarNaming): String = {
     val prefix = (boundVars map naming map ("\u2203"+_)).mkString(" ")
     val spatialString = if (pointers.isEmpty && predCalls.isEmpty) {
       "emp"

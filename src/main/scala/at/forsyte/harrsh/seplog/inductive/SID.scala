@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.main._
-import at.forsyte.harrsh.seplog.{PtrExpr, PtrVar, Var}
+import at.forsyte.harrsh.seplog.{DefaultNaming, PtrExpr, PtrVar, Var}
 
 /**
   * System of inductive definitions

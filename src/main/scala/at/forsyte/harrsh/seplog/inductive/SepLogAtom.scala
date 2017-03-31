@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.seplog._
+import at.forsyte.harrsh.seplog.{SepLogFormula,Var}
 
 /**
   * Created by jkatelaa on 10/20/16.

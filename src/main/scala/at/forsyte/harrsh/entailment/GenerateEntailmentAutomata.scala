@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.pure.EqualityBasedSimplifications
 import at.forsyte.harrsh.seplog.inductive.{SID, SIDUnfolding, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
@@ -54,7 +55,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
     def FindOnlyNonEmpty = true // Only generate non-empty left-hand sides. Still have to figure out if this is the right approach
 
     def run(): Seq[ECD] = {
-      val (ecds,log) = ecdIteration(1, Seq.empty, Seq(sid.callToStartPred), emptyLog)
+      val (ecds,log) = ecdIteration(1, Seq.empty, Seq(sid.callToStartPred), emptyLog.setEntailmentRightHandSide(sid.callToStartPred))
       if (reportProgress) {
         println(log)
         println(log.statistics)
@@ -103,13 +104,19 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
     @tailrec private def processUnfoldings(reducedUnfs : Seq[SymbolicHeap], ecdAcc : Seq[ECD], printProgress : String => Unit, log : ECDComputationLog) : (Seq[ECD],ECDComputationLog) = {
       if (reducedUnfs.isEmpty) (ecdAcc,log) else {
+        printProgress(log.toString)
+        printProgress(log.statistics)
+
         val nextUnf = reducedUnfs.head
-        val newLog = log.logCurrentUnfolding(nextUnf)
-        printProgress(newLog.statistics)
         printProgress("Processing Unfolding: " + nextUnf)
+        // TODO: Here it would pay off to do more expensive simplifications using closures, dropping inequalities that are entailed by allocation, etc, since every dropped literal will essentially cut the runtime in half
+        val simplifiedUnf = EqualityBasedSimplifications.removeExplicitlyRedundantBoundVars(nextUnf)
+        printProgress("After removing redundancies: " + simplifiedUnf)
+
+        val newLog = log.logCurrentUnfolding(simplifiedUnf)
         newLog.incUnfCounter
 
-        val candidates = partitions(nextUnf)
+        val candidates = partitions(simplifiedUnf, printProgress)
         printProgress("Partitions with " + (if (FindOnlyNonEmpty) "(non-empty)" else "(possibly empty)") + " left part to consider: " + candidates.size)
         val (ecdAccwithEcdsForUnfolding, newLog2) = processPartitions(candidates, ecdAcc, printProgress, newLog)
         processUnfoldings(reducedUnfs.tail, ecdAccwithEcdsForUnfolding, printProgress, newLog2)
@@ -171,19 +178,28 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       }
     }
 
-    private def partitions(rsh: SymbolicHeap): Set[ECD] = {
+    private def partitions(rsh: SymbolicHeap, printProgress : String => Unit): Set[ECD] = {
+
+      val spatialPowerSet = Combinators.powerSet(rsh.pointers.toSet)
+      val purePowerSet = Combinators.powerSet(rsh.pure.toSet)
+      printProgress("Will look at " + spatialPowerSet.size + " spatial and " + purePowerSet.size + " pure combinations")
+
       for {
-        sigma1 <- Combinators.powerSet(rsh.pointers.toSet)
+        sigma1 <- spatialPowerSet
         // TODO Separate handling of emp?
-        if FindOnlyNonEmpty && sigma1.nonEmpty
-        pi1 <- Combinators.powerSet(rsh.pure.toSet)
+        if !FindOnlyNonEmpty || sigma1.nonEmpty
+        pi1 <- purePowerSet
         // TODO Powerset computation that returns subsets together with their complements
         sigma2 = rsh.pointers.toSet -- sigma1
         pi2 = rsh.pure.toSet -- pi1
         representative = SymbolicHeap(pi1.toSeq, sigma1.toSeq, Seq.empty)
         extension = SymbolicHeap(pi2.toSeq, sigma2.toSeq, Seq.empty)
         // FIXME Must consider all ways to name the new FVs in the representative...
-        ecd = ECD(representative, extension)
+        ecd = {
+          val ecd = ECD(representative, extension)
+          print(".")
+          ecd
+        }
         if ecd.repFV <= maxNumFv
       } yield ecd
     }

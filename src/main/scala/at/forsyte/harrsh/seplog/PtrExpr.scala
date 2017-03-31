@@ -5,11 +5,9 @@ import at.forsyte.harrsh.seplog.inductive._
 /**
   * Created by jkatelaa on 9/30/16.
   */
-sealed trait PtrExpr extends Expr {
+sealed trait PtrExpr extends Expr with ToStringWithVarnames {
 
-  override def toString = toStringWithVarNames(DefaultNaming)
-
-  def toStringWithVarNames(names: VarNaming) = this match {
+  override def toStringWithVarNames(names: VarNaming) = this match {
     case NullPtr() => "null"
     case PtrVar(id) => names(id)
   }

@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.seplog.parsers
 
-import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.seplog.MapBasedRenaming
+import at.forsyte.harrsh.seplog.mkUnNaming
 import at.forsyte.harrsh.seplog.inductive._
 
 /**
