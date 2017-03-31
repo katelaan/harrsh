@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.pure.EqualityBasedSimplifications
 import at.forsyte.harrsh.seplog.{MapBasedRenaming, Renaming, Var}
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
@@ -24,6 +25,11 @@ case class ECD(rep : SymbolicHeap, ext : SymbolicHeap, repParamInstantiation : R
   // TODO After changes to the semantics of rename vars, we should not need the variant any more, right?
   // Do not rename any quantified variables, they are all shared between the two parts of the partition!
   lazy val recombined = SymbolicHeap.mergeHeaps(rep.renameVars(repParamInstantiation), ext, sharedVars = ext.boundVars.toSet)
+
+  def simplify : ECD = copy(
+    // Note: Can only simplify rep, because the equalities of the ext can be necessary in recombining into an unfolding
+    // The ones in rep cannot be, because all shared bound vars have been replaced by free vars
+    rep = EqualityBasedSimplifications.removeExplicitlyRedundantBoundVars(rep))
 
   def shortString : String = "" + rep + repParamInstantiation + " * " + ext + " @ " + repFV
 

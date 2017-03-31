@@ -11,7 +11,14 @@ import scala.annotation.tailrec
   */
 object GenerateEntailmentAutomata extends HarrshLogging {
 
+  /**
+    * Maximum number of iterations of the ECD computation
+    */
   val DebugLimit = 3 //Integer.MAX_VALUE
+  /**
+    * Remove redundant bound variables in ECDs?
+    */
+  val CleanUpSymbolicHeaps = true
 
   val EnableDetailedLog = true
   val ReportMCProgress = false
@@ -117,8 +124,9 @@ object GenerateEntailmentAutomata extends HarrshLogging {
         val (newAcc,newLog) = if (!ecdAcc.contains(ecd)) {
           val (res, newLog) = isNew(ecdAcc, ecd, printProgress, log)
           if (res) {
-            printProgress("*** New ECD #" + (ecdAcc.size + 1) + ": " + ecd + " ***")
-            (ecdAcc :+ ecd, newLog.logNewECD(ecdAcc.size + 1, ecd))
+            val cleanedECD = if (CleanUpSymbolicHeaps) ecd.simplify else ecd
+            printProgress("*** New ECD #" + (ecdAcc.size + 1) + ": " + cleanedECD + " ***")
+            (ecdAcc :+ cleanedECD, newLog.logNewECD(ecdAcc.size + 1, cleanedECD))
           } else {
             logger.debug("=> " + ecd + " assumed equal to previous ECD.")
             (ecdAcc, log)

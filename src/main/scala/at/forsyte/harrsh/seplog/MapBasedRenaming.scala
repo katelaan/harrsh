@@ -12,4 +12,6 @@ case class MapBasedRenaming(map : Map[Var, Var]) extends Renaming {
   override def extendWith(k: Var, v: Var): Renaming = MapBasedRenaming(map + (k -> v))
 
   override def toString = "[" + map.map(p => Var.toDefaultString(p._1)+"->"+Var.toDefaultString(p._2)).mkString(",") + "]"
+
+  override def isDefinedAt(s: Var): Boolean = map.isDefinedAt(s)
 }

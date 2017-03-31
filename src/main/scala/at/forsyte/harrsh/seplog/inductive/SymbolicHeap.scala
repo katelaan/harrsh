@@ -55,18 +55,22 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
 
   /**
     * Returns new symbolic heap whose variables have been renamed based on the given renaming.
-    * @param f
+    * In unfolding, you will always want to avoid double capture, whereas certain transformations/rewritings might identify bound variables on purpose, e.g. to remove redundant variables (cf. [[at.forsyte.harrsh.pure.EqualityBasedSimplifications]])
+    * @param f The renaming function applied to the symbolic heap
+    * @param avoidDoubleCapture If the codomain and f contains bound variables of this symbolic heap, they will renamed to avoid double capture iff this parameter is true.
     * @return
     */
-  def renameVars(f : Renaming) : SymbolicHeap = {
+  def renameVars(f : Renaming, avoidDoubleCapture : Boolean = true) : SymbolicHeap = {
     logger.info("Renaming vars in " + this)
     logger.debug("Map used for renaming " + f.toString)
 
     // Rename bound variables if applicable
-    val extendedF : Renaming = boundVars.foldLeft(f)({
-      case (intermediateF, v) =>
-        intermediateF.addBoundVarWithOptionalAlphaConversion(v)
-    })
+    val extendedF : Renaming = if (avoidDoubleCapture) {
+      boundVars.foldLeft(f)({
+        case (intermediateF, v) =>
+          intermediateF.addBoundVarWithOptionalAlphaConversion(v)
+      })
+    } else f
     logger.debug("Extended map used for renaming" + extendedF.toString)
 
     val pureRenamed = pure map (_.renameVars(extendedF))

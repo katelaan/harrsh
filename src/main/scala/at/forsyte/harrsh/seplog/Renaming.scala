@@ -1,9 +1,5 @@
 package at.forsyte.harrsh.seplog
 
-import at.forsyte.harrsh.heapautomata
-
-import scala.annotation.tailrec
-
 /**
   * Created by jkatelaa on 10/17/16.
   */
@@ -14,6 +10,8 @@ trait Renaming {
   def extendWith(k : Var, v: Var) : Renaming
 
   def codomain : Set[Var]
+
+  def isDefinedAt(s : Var) : Boolean
 
   final def freshName(varid: Var): Var =
     if (!codomain.contains(varid)) {
