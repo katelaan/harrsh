@@ -14,6 +14,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
   val DebugLimit = 3 //Integer.MAX_VALUE
 
   val EnableDetailedLog = true
+  val ReportMCProgress = false
 
   val emptyLog = if (EnableDetailedLog) ECDComputationLog.completeLog else ECDComputationLog.dummyLog
 
@@ -49,6 +50,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       val (ecds,log) = ecdIteration(1, Seq.empty, Seq(sid.callToStartPred), emptyLog)
       if (reportProgress) {
         println(log)
+        println(log.statistics)
       }
       ecds
     }
@@ -59,15 +61,17 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
       val log = oldLog.incIteration
 
-      printProgress("Starting new iteration; ECDs so far: " + ecdPrev.map(" - " + _).mkString("\n"))
+      printProgress("Starting new iteration")
+      logger.debug("ECDs so far: " + ecdPrev.map(" - " + _).mkString("\n"))
+      printProgress(log.statistics)
       printProgress("Will unfold the following formulas:\n" + partialUnfoldings.map(" - " + _).mkString("\n"))
 
       val nextUnfs = SIDUnfolding.unfoldOnce(sid, partialUnfoldings)
       val (reducedUnfs, newPartialUnfs) = nextUnfs.partition(_.predCalls.isEmpty)
-      printProgress("Reduced unfs for current iteration:\n" + reducedUnfs.map(" - " + _).mkString("\n"))
-      printProgress("Non-reduced unfs for next iteration:\n" + newPartialUnfs.map(" - " + _).mkString("\n"))
+      logger.debug("Reduced unfs for current iteration:\n" + reducedUnfs.map(" - " + _).mkString("\n"))
+      logger.debug("Non-reduced unfs for next iteration:\n" + newPartialUnfs.map(" - " + _).mkString("\n"))
 
-      printProgress("Stats: ecds(" + (i-1) + ")="+ ecdPrev.size + "; part-unf(" + (i-1) + ")=" + partialUnfoldings.size + "; red-unf(" + i + ")=" + reducedUnfs.size + "; part-unf(" + i + ")=" + newPartialUnfs.size)
+      printProgress("Stats: ecds(" + (i-1) + ") = "+ ecdPrev.size + "; #part-unf(" + (i-1) + ") = " + partialUnfoldings.size + "; #red-unf(" + i + ") = " + reducedUnfs.size + "; #part-unf(" + i + ") = " + newPartialUnfs.size)
 
       val res@(ecdNew,newLog) = processUnfoldings(reducedUnfs, ecdPrev, printProgress, log)
 
@@ -80,11 +84,9 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       } else {
         if (i < DebugLimit) {
           // Found at least one new ECD => recurse
-          printProgress("Found " + (ecdNew.size-ecdPrev.size) + " new ECDs")
           logger.debug("Iteration " + i + ": Found " + (ecdNew.size-ecdPrev.size) + " new ECDs")
           ecdIteration(i + 1, ecdNew, newPartialUnfs, newLog)
         } else {
-          printProgress("Debug limit => Aborting ECD computation")
           logger.debug("Debug limit => Aborting ECD computation")
           res
         }
@@ -96,7 +98,9 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       if (reducedUnfs.isEmpty) (ecdAcc,log) else {
         val nextUnf = reducedUnfs.head
         val newLog = log.logCurrentUnfolding(nextUnf)
+        printProgress(newLog.statistics)
         printProgress("Processing Unfolding: " + nextUnf)
+        newLog.incUnfCounter
 
         val candidates = partitions(nextUnf)
         printProgress("Partitions with " + (if (FindOnlyNonEmpty) "(non-empty)" else "(possibly empty)") + " left part to consider: " + candidates.size)
@@ -108,18 +112,19 @@ object GenerateEntailmentAutomata extends HarrshLogging {
     @tailrec private def processPartitions(candidates : Set[ECD], ecdAcc : Seq[ECD], printProgress : String => Unit, log : ECDComputationLog) : (Seq[ECD], ECDComputationLog) = {
       if (candidates.isEmpty) (ecdAcc,log) else {
         val ecd = candidates.head
-        printProgress("Processing Partition: " + ecd)
+        logger.debug("Processing Partition: " + ecd)
+        log.incPartCounter
         val (newAcc,newLog) = if (!ecdAcc.contains(ecd)) {
           val (res, newLog) = isNew(ecdAcc, ecd, printProgress, log)
           if (res) {
             printProgress("*** New ECD #" + (ecdAcc.size + 1) + ": " + ecd + " ***")
             (ecdAcc :+ ecd, newLog.logNewECD(ecdAcc.size + 1, ecd))
           } else {
-            printProgress("=> " + ecd + " assumed equal to previous ECD.")
+            logger.debug("=> " + ecd + " assumed equal to previous ECD.")
             (ecdAcc, log)
           }
         } else {
-          printProgress("=> " + ecd + " assumed equal to previous ECD.")
+          logger.debug("=> " + ecd + " assumed equal to previous ECD.")
           (ecdAcc,log)
         }
 
@@ -131,26 +136,28 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       (true,log)
     } else {
       val (hd, tl) = (oldECDs.head, oldECDs.tail)
-      printProgress("Comparing against " + hd)
+      logger.debug("Comparing against " + hd)
       val (notNew,newLog) = areBiExtensible(hd, candidate, printProgress, log)
       if (notNew) (false,newLog) else isNew(tl, candidate, printProgress, newLog)
     }
 
     private def areBiExtensible(fst: ECD, snd: ECD, printProgress : String => Unit, log : ECDComputationLog): (Boolean,ECDComputationLog) = {
       if (fst.repFV != snd.repFV) {
-        printProgress("Different number of FV => Not combinable")
+        logger.debug("Different number of FV => Not combinable")
         (false,log)
       }
       else {
         val (fstExt, sndExt) = fst.combine(snd)
-        printProgress("Checking 1st extension (" + fst.rep + ") * (" + snd.ext + "):\n    " + fstExt + " |?= " + sid.callToStartPred)
+        logger.debug("Checking 1st extension (" + fst.rep + ") * (" + snd.ext + "):\n    " + fstExt + " |?= " + sid.callToStartPred)
         val fstRes = reducedEntailment(fstExt, sid.callToStartPred)
+        log.incRedEntCounter
         if (fstRes) {
-          printProgress("Checking 2nd extension (" + snd.rep + ") * (" + fst.ext + "):\n    " + sndExt + " |?= " + sid.callToStartPred)
+          logger.debug("Checking 2nd extension (" + snd.rep + ") * (" + fst.ext + "):\n    " + sndExt + " |?= " + sid.callToStartPred)
           val res = reducedEntailment(sndExt, sid.callToStartPred)
+          log.incRedEntCounter
           (res,log.logEntailmentCheck(snd,fstExt,fstRes=true,Some(sndExt),Some(res)))
         } else {
-          printProgress("1st entailment false => return false")
+          logger.debug("1st entailment false => return false")
           (false,log.logEntailmentCheck(snd,fstExt,fstRes=false,None,None))
         }
       }
@@ -173,7 +180,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       } yield ecd
     }
 
-    private def reducedEntailment(lhs: SymbolicHeap, rhs: SymbolicHeap) : Boolean = GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(lhs, rhs, sid, reportProgress)
+    private def reducedEntailment(lhs: SymbolicHeap, rhs: SymbolicHeap) : Boolean = GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(lhs, rhs, sid, reportProgress && ReportMCProgress)
 
   }
 
