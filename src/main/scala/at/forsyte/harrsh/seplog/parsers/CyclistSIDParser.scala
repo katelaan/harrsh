@@ -11,7 +11,7 @@ object CyclistSIDParser extends SIDParser {
 
   type PredSpec = (String, Int, Seq[Rule])
 
-  def run(input : String) : Option[(SID,Int)] = {
+  def run(input : String) : Option[SID] = {
     val inputWithoutComments = ParseUtils.stripCommentLines(input, "#")
     parseAll(parseSID, inputWithoutComments) match {
       case Success(result, next) => Some(result)
@@ -20,13 +20,13 @@ object CyclistSIDParser extends SIDParser {
     }
   }
 
-  def parseSID : Parser[(SID,Int)] = rep1sep(parsePredSpec, ";") ^^ {
+  def parseSID : Parser[SID] = rep1sep(parsePredSpec, ";") ^^ {
     preds =>
       val startPred : String = preds.head._1
       val maxNumFV : Int = preds.map(_._2).max
       val desc : String = startPred + "-SID"
       val allRules : Seq[Rule] = preds.flatMap(_._3)
-      (new SID(startPred, allRules.toSet, desc), maxNumFV)
+      SID(startPred, allRules, desc, maxNumFV)
   }
 
   def parsePredSpec : Parser[PredSpec] = ident ~ ("{" ~> parseRuleSeq <~ "}") ^^ {

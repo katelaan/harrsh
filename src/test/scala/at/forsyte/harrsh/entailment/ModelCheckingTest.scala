@@ -31,7 +31,7 @@ class ModelCheckingTest extends HarrshTableTest {
     forAll(testCases) {
       (modelFile : String, sidFile : String, expectedRes : Boolean) =>
         val model = MainIO.getModelFromFile(modelFile)
-        val (sid,_) = MainIO.getSidFromFile(sidFile)
+        val sid = MainIO.getSidFromFile(sidFile)
 
         val modelFormula = ModelToFormula(model)
         Given("Model formula: " + modelFormula + "\n SID: " + sid)

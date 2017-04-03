@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.seplog.parsers
 
+import at.forsyte.harrsh.seplog.Var.{isFV, stringToFV, toDefaultString}
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.inductive._
 
@@ -7,6 +8,21 @@ import at.forsyte.harrsh.seplog.inductive._
   * Exact copy of the symbolic heap class hierarchy, but with strings rather than integers as variable identifiers
   */
 case class StringSymbolicHeap(pure : Seq[StringPureAtom], spatial : Seq[StringSpatialAtom]) {
+
+  /**
+    * Replaces the string variable identifiers by the internal [[at.forsyte.harrsh.seplog.Var]] representation
+    * @return Instantiated symbolic heaps + the sequences of free variable and bound variable identifiers that were replaced
+    */
+  def toSymbolicHeap : (SymbolicHeap, Seq[String], Seq[String]) = {
+    val (freeVarsUnsorted,boundVarsUnsorted) = getVars.toSeq.partition(isFV)
+    val (freeVars,boundVars) = (freeVarsUnsorted.sorted, boundVarsUnsorted.sorted)
+    val filledFreeVars : Seq[String] = (1 to freeVars.map(stringToFV).max) map toDefaultString
+
+    val naming : VarUnNaming = mkUnNaming(filledFreeVars,boundVars) //mkUnNamingFromIncompleteDefaultNames(freeVars, boundVars)
+    val renamedHeap = replaceStringsByIds(naming)
+    (renamedHeap, filledFreeVars, boundVars)
+  }
+
 
   def replaceStringsByIds(naming: VarUnNaming): SymbolicHeap = {
     val allUnnamedSpatial : Seq[SepLogAtom] = spatial map (_.replaceStringsByIds(naming)) filter (_.isDefined) map (_.get)

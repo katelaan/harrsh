@@ -152,30 +152,30 @@ object Harrsh {
           MainIO.printAnalysisResults(results, stats)
 
       case Show() =>
-          val (sid, _) = MainIO.getSidFromFile(config.file)
+          val sid = MainIO.getSidFromFile(config.file)
           println(sid)
           IOUtils.writeFile(PreviousSidFileName, sid.toHarrshFormat)
 
       case Unfold() =>
-          val (sid, _) = MainIO.getSidFromFile(config.file)
+          val sid = MainIO.getSidFromFile(config.file)
           println(SIDUnfolding.unfold(sid, config.unfoldingDepth, config.unfoldingsReduced).mkString("\n"))
 
       case Analyze() =>
-          val (sid, numfv) = MainIO.getSidFromFile(config.file)
-          println(RefinementAlgorithms.performFullAnalysis(sid, numfv, config.timeout))
+          val sid = MainIO.getSidFromFile(config.file)
+          println(RefinementAlgorithms.performFullAnalysis(sid, sid.numFV, config.timeout))
 
       case ModelChecking() =>
-          val (sid, numfv) = MainIO.getSidFromFile(config.file)
+          val sid = MainIO.getSidFromFile(config.file)
           val model = MainIO.getModelFromFile(config.modelFile)
           val modelChecker = GreedyUnfoldingModelChecker
           val result = modelChecker.isModel(model, sid)
           println("Finished model checking. Result: " + result)
 
       case GenerateEntailmentAutomaton() =>
-          val (sid, numfv) = MainIO.getSidFromFile(config.file)
+          val sid = MainIO.getSidFromFile(config.file)
           val autNumfv = config.oNumFV.getOrElse{
-            IOUtils.printWarningToConsole("Number of free variables for entailment automaton not specified. Will default to number of free variables in start predicate (" + numfv + ")")
-            numfv
+            IOUtils.printWarningToConsole("Number of free variables for entailment automaton not specified. Will default to number of free variables in start predicate (" + sid.numFV + ")")
+            sid.numFV
           }
           val aut = GenerateEntailmentAutomata(autNumfv, sid, config.reportProgress)
           // TODO Write automaton to file

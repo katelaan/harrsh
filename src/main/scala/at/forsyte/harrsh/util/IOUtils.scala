@@ -2,12 +2,15 @@ package at.forsyte.harrsh.util
 
 import java.io.{BufferedWriter, File, FileWriter}
 
+import scala.annotation.tailrec
 import scala.io.Source
 
 /**
   * Created by jkatelaa on 10/20/16.
   */
 object IOUtils {
+
+  def getCurrentDirectory = new java.io.File(".").getCanonicalPath
 
   def printWarningToConsole(warning : String): Unit = {
     println(Console.BLUE + "Warning: " + warning + Console.RESET)
@@ -20,6 +23,20 @@ object IOUtils {
     } else {
       List[File]()
     }
+  }
+
+  /**
+    * Searches the given list of directories for a file of the given name, returning first hit (as path + filename)
+    * @param filename File to find
+    * @param listOfDirs Directories to search
+    * @return Some full path or none
+    */
+  @tailrec def findFileIn(filename : String, listOfDirs : Seq[String]) : Option[String] = {
+    if (listOfDirs.isEmpty) None else {
+      val path = listOfDirs.head + "/" + filename
+      if (new File(path).exists()) Some(path) else findFileIn(filename, listOfDirs.tail)
+    }
+
   }
 
   def readFile(filename : String) : String = {
@@ -50,7 +67,17 @@ object IOUtils {
     for (_ <- 1 to numLines) println(s * 80)
   }
 
-  def inColumns(cols : Seq[(String,Int)]) : String = if (cols.isEmpty) "|" else "|" + " "*Math.max(0,cols.head._2 - cols.head._1.length) + cols.head._1 + inColumns(cols.tail)
-  def delimLine(cols : Seq[Int]) = "+" + "-"*(cols.sum+cols.size-1) + "+"
+  def toTable(headings: Seq[String], cols: Seq[Int], entries: Seq[Seq[String]]) : String = {
+    val delimLine = IOUtils.delimLine(cols)
+
+    val lines = for {
+      entry <- entries
+    } yield IOUtils.inColumns(entry zip cols)
+
+    delimLine + "\n" + IOUtils.inColumns(headings zip cols) + "\n" + delimLine + "\n" + lines.mkString("\n")+"\n" + delimLine
+  }
+
+  private def inColumns(cols : Seq[(String,Int)]) : String = if (cols.isEmpty) "|" else "|" + " "*Math.max(0,cols.head._2 - cols.head._1.length) + cols.head._1 + inColumns(cols.tail)
+  private def delimLine(cols : Seq[Int]) = "+" + "-"*(cols.sum+cols.size-1) + "+"
 
 }

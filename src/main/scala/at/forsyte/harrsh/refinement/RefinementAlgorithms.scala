@@ -68,23 +68,17 @@ object RefinementAlgorithms {
     println("Finished analysis.")
     println()
 
-    val shCol : Int = Math.max(40, results.map(_._3.toString.length).max - 5)
-    val cols = Seq(20,20,shCol)
-    val delimLine = IOUtils.delimLine(cols)
-    val headings = Seq("Property", "Result", "Witness")
-
     // TODO Abstract printing result tables into its own function? (Compare Benchmarking.printBenchmarkResults)
     println("Analysis results for: " + sid)
     println()
 
-    println(delimLine)
-    println(IOUtils.inColumns(headings zip cols))
-    println(delimLine)
-    for ((task, res, witness) <- results) {
-      val entries : Seq[String] = Seq( task.toString, res.map(task.resultToString).getOrElse("TO"), witness.map(_.toString).getOrElse("-") )
-      println(IOUtils.inColumns(entries zip cols))
-    }
-    println(delimLine)
+    val shCol : Int = Math.max(40, results.map(_._3.toString.length).max - 5)
+    val cols = Seq(20,20,shCol)
+    val headings = Seq("Property", "Result", "Witness")
+    val entries : Seq[Seq[String]] = for {
+      (task,res,witness) <- results
+    } yield Seq(task.toString, res.map(task.resultToString).getOrElse("TO"), witness.map(_.toString).getOrElse("-"))
+    println(IOUtils.toTable(headings, cols, entries))
 
   }
 
@@ -137,13 +131,13 @@ object RefinementAlgorithms {
       val stateToIndex : Map[ha.State, Int] = Map() ++ states.toSeq.zipWithIndex
 
       val innerRules = for {
-        (states,body,head,headState) <- reach
+        (states,body,head,headState) <- reach.toSeq
       } yield Rule(
         head = head+stateToIndex(headState),
         freeVars = body.freeVars map Var.toDefaultString,
         qvars = body.boundVars.toSeq map Var.toDefaultString,
         body = SymbolicHeap.addTagsToPredCalls(body, states map (s => ""+stateToIndex(s))))
-      val finalRules = reachedFinalStates.map{
+      val finalRules = reachedFinalStates.toSeq.map{
         state =>
           Rule(
             head = sid.startPred,
@@ -159,7 +153,8 @@ object RefinementAlgorithms {
       (SID(
         startPred = sid.startPred,
         rules = innerRules ++ finalRules,
-        description = "Refinement of " + sid.description + " with " + ha.description
+        description = "Refinement of " + sid.description + " with " + ha.description,
+        numFV = sid.numFV
       ), reachedFinalStates.isEmpty)
     }
 
@@ -187,7 +182,7 @@ object RefinementAlgorithms {
         }
       }
 
-      def performSingleIteration: Set[((String, ha.State), (Seq[ha.State],SymbolicHeap,String))] = {
+      def performSingleIteration: Seq[((String, ha.State), (Seq[ha.State],SymbolicHeap,String))] = {
         if (ha.implementsTargetComputation) {
           for {
             Rule(head, _, _, body) <- sid.rules
@@ -243,7 +238,7 @@ object RefinementAlgorithms {
         logger.debug("Beginning iteration #" + iteration)
         val iterationResult = performSingleIteration
         val (newPairs, newCombs) = iterationResult.unzip
-        val union = r union newPairs
+        val union = r ++ newPairs
 
         if (computeFullRefinement) {
           // In the computation of the full refinement, we must remember the targets of each of the combinations we tried
@@ -270,10 +265,10 @@ object RefinementAlgorithms {
           }
           // Only compute the new combinations + mapping to targets if desired (i.e., if full refinement was asked for)
           // (to save some computation time in the cases where we're only interested in a yes/no-answer)
-          (true, if (computeFullRefinement) (previousCombinations union newCombs).flatMap(t => combinationsToTargets(t) map (trg => (t._1,t._2,t._3,trg))) else Set.empty)
+          (true, if (computeFullRefinement) (previousCombinations ++ newCombs).flatMap(t => combinationsToTargets(t) map (trg => (t._1,t._2,t._3,trg))) else Set.empty)
         } else {
           // Fixed point not yet reached, recurse
-          val unionOfPrevs = previousCombinations union newCombs
+          val unionOfPrevs = previousCombinations ++ newCombs
           computeRefinementFixedPoint(pred, computeFullRefinement, reportProgress)(union, unionOfPrevs, iteration + 1)
         }
       }

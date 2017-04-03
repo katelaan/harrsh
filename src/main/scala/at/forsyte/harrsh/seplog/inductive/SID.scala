@@ -7,7 +7,7 @@ import at.forsyte.harrsh.seplog.{PtrExpr, PtrVar, Var}
   * System of inductive definitions
   * Created by jens on 10/15/16.
   */
-case class SID(startPred : String, rules : Set[Rule], description : String = "Unnamed SID") {
+case class SID(startPred : String, rules : Seq[Rule], description : String = "Unnamed SID", numFV : Int) {
 
   override def toString = {
     description + " (start predicate '" + startPred + "'): " + rules.toSeq.sortBy(_.head).mkString("\n    ", "\n    ", "")
@@ -25,8 +25,8 @@ case class SID(startPred : String, rules : Set[Rule], description : String = "Un
   }
 
   lazy val rulesAsHeadToBodyMap: Map[String, Set[SymbolicHeap]] = {
-    def extractBodies(group: (String, Set[Rule])) = {
-      (group._1, group._2 map (_.body))
+    def extractBodies(group: (String, Seq[Rule])) = {
+      (group._1, group._2 map (_.body) toSet)
     }
     Map() ++ rules.groupBy(_.head).map(extractBodies)
   }
@@ -45,6 +45,6 @@ case class SID(startPred : String, rules : Set[Rule], description : String = "Un
 
 object SID extends HarrshLogging {
 
-  def apply(startPred : String, description : String, rules : (String, Seq[String], SymbolicHeap)*) = new SID(startPred, Set()++(rules map Rule.fromTuple), description)
+  def apply(startPred : String, description : String, rules : (String, Seq[String], SymbolicHeap)*) = new SID(startPred, rules map Rule.fromTuple, description, rules.map(_._3.numFV).max)
 
 }
