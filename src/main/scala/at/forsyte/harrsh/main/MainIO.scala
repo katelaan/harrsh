@@ -26,7 +26,7 @@ object MainIO extends HarrshLogging {
   /*
    * Returns SID + number of free variables
    */
-  def getSidFromFile(fileName : String) : (SID, Int) = {
+  def getSidFromFile(fileName : String) : SID = {
     val parser = if (fileName.endsWith(CyclistSuffix)) {
       logger.debug("File ends in .defs, will assume cyclist format")
       CyclistSIDParser.run _
@@ -38,8 +38,8 @@ object MainIO extends HarrshLogging {
     val content = readFile(fileName)
 
     parser(content) match {
-      case Some((sid,numFV)) =>
-        (sid, numFV)
+      case Some(sid) =>
+        sid
       case None =>
         IOUtils.printWarningToConsole("Parsing the SID failed, exiting")
         throw new Exception("Parsing of file '" + fileName + "'failed")
@@ -47,8 +47,8 @@ object MainIO extends HarrshLogging {
   }
 
   def getSidAndAutomaton(sidFile : String, prop: AutomatonTask) : (SID, HeapAutomaton) = {
-    val (sid,numFV) = MainIO.getSidFromFile(sidFile)
-    (sid, prop.getAutomaton(numFV))
+    val sid = MainIO.getSidFromFile(sidFile)
+    (sid, prop.getAutomaton(sid.numFV))
   }
 
   def getModelFromFile(fileName : String) : Model = {
@@ -118,18 +118,9 @@ object MainIO extends HarrshLogging {
   }
 
   private def printResultTable(results: Seq[(TaskConfig, AnalysisResult)]): Unit = {
-
     val cols = Seq(30,20,20,10)
-    val delimLine = IOUtils.delimLine(cols)
-
-    println(delimLine)
-    println(IOUtils.inColumns(Headings zip cols))
-    println(delimLine)
-    for ( (task,res) <- results ) {
-      val entries : Seq[String] = Seq(task.fileName.split("/").last, task.decisionProblem.toString, task.decisionProblem.resultToString(res.isEmpty), ""+res.analysisTime)
-      println(IOUtils.inColumns(entries zip cols))
-    }
-    println(delimLine)
+    val entries = for ((task,res) <- results) yield Seq(task.fileName.split("/").last, task.decisionProblem.toString, task.decisionProblem.resultToString(res.isEmpty), "" + res.analysisTime)
+    println(toTable(Headings, cols, entries))
 
   }
 
