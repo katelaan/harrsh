@@ -10,7 +10,7 @@ import at.forsyte.harrsh.seplog.{DefaultNaming, PtrExpr, PtrVar, Var}
 case class SID(startPred : String, rules : Seq[Rule], description : String = "Unnamed SID", numFV : Int) {
 
   override def toString = {
-    description + " (start predicate '" + startPred + "'): " + rules.toSeq.sortBy(_.head).mkString("\n    ", "\n    ", "")
+    description + " (start predicate '" + startPred + "'): " + rules.sortBy(_.head).mkString("\n    ", "\n    ", "")
   }
 
   // Note that we take the maximum here, because we allow that some of the rules do not mention all FVs (and in particular not the maxFV; see also DefaultSID parser
@@ -33,7 +33,7 @@ case class SID(startPred : String, rules : Seq[Rule], description : String = "Un
 
   def toHarrshFormat : Seq[String] = {
     val (start, rest) = rules.partition(_.head == startPred)
-    val rulesWithStartFirst : Seq[Rule] = start.toSeq ++ rest
+    val rulesWithStartFirst : Seq[Rule] = start ++ rest
     val undelimitedLines = for {
       rule <- rulesWithStartFirst
       sh = rule.body
@@ -46,5 +46,13 @@ case class SID(startPred : String, rules : Seq[Rule], description : String = "Un
 object SID extends HarrshLogging {
 
   def apply(startPred : String, description : String, rules : (String, Seq[String], SymbolicHeap)*) = new SID(startPred, rules map Rule.fromTuple, description, rules.map(_._3.numFV).max)
+
+  def empty(startPred : String) : SID = SID(startPred, "")
+
+  def fromTopLevelSH(sh: SymbolicHeap, sid: SID) : SID = {
+    val startPred = "sh"
+    val newRule = Rule(startPred, Var.mkAllFVs(sh.numFV) map Var.toDefaultString, sh.boundVars.toSeq map Var.toDefaultString, sh)
+    sid.copy(startPred = startPred, rules = newRule +: sid.rules, description = "symbolic heap")
+  }
 
 }
