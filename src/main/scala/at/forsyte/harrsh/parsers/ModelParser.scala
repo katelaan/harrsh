@@ -1,4 +1,4 @@
-package at.forsyte.harrsh.seplog.parsers
+package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.entailment.{Loc, Model}
 import at.forsyte.harrsh.seplog.Var

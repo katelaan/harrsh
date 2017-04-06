@@ -3,7 +3,7 @@ package at.forsyte.harrsh.main
 import java.io.FileNotFoundException
 
 import at.forsyte.harrsh.seplog.inductive.SID
-import at.forsyte.harrsh.seplog.parsers.{CyclistSIDParser, DefaultSIDParser, ModelParser}
+import at.forsyte.harrsh.parsers.{ModelParser, SIDParsers}
 import at.forsyte.harrsh.util.IOUtils
 import at.forsyte.harrsh.util.IOUtils._
 import at.forsyte.harrsh.refinement.DecisionProcedures.{AnalysisResult, AnalysisStatistics}
@@ -29,15 +29,15 @@ object MainIO extends HarrshLogging {
   def getSidFromFile(fileName : String) : SID = {
     val parser = if (fileName.endsWith(CyclistSuffix)) {
       logger.debug("File ends in .defs, will assume cyclist format")
-      CyclistSIDParser.run _
+      SIDParsers.CyclistSIDParser
     } else {
       logger.debug("Assuming standard SID format")
-      DefaultSIDParser.run _
+      SIDParsers.DefaultSIDParser
     }
 
     val content = readFile(fileName)
 
-    parser(content) match {
+    parser.runOnSID(content) match {
       case Some(sid) =>
         sid
       case None =>

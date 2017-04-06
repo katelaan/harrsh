@@ -1,36 +1,35 @@
-package at.forsyte.harrsh.seplog.parsers
+package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.test.HarrshTableTest
+import at.forsyte.harrsh.parsers.SIDParsers.DefaultSIDParser
 
 /**
   * Created by jkatelaa on 10/20/16.
   */
 class DefaultSIDParserTest extends HarrshTableTest {
 
-  import DefaultSIDParser._
-
   val Success = true
   val Failure = false
 
   val inputs = Table(
-    ("parser", "input", "result"),
-    (parseRule, "sll <= emp : {x1 = x2}", Success),
-    (parseRule, "sll <= x1 -> y * sll(y,x2)", Success),
-    (parseRule, "dll <= emp : { x1 = x3, x2 = x4 }", Success),
-    (parseRule, "dll <= x1 -> (u,x2) * dll(u,x1,x3,x4)", Success),
-    (parseSID, fullExample, Success),
-    (parseSID, fullExample2, Success)
+    ("input", "result"),
+    ("sll <= emp : {x1 = x2}", Success),
+    ("sll <= x1 -> y * sll(y,x2)", Success),
+    ("dll <= emp : { x1 = x3, x2 = x4 }", Success),
+    ("dll <= x1 -> (u,x2) * dll(u,x1,x3,x4)", Success),
+    (fullExample, Success),
+    (fullExample2, Success)
   )
 
   property("The Cyclist SID parser should work") {
     forAll(inputs) {
-      (parser, input, expectedResult) =>
-        val parseResult = parseAll(parser, input)
+      (input, expectedResult) =>
+        val parseResult = DefaultSIDParser.runOnSID(input)
 
         info("" + parseResult)
 
         if (expectedResult) {
-          parseResult.successful should be(expectedResult)
+          parseResult.isDefined should be(expectedResult)
         }
     }
   }

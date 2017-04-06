@@ -1,4 +1,4 @@
-package at.forsyte.harrsh.seplog.parsers
+package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.seplog.Var.{isFV, stringToFV, toDefaultString}
 import at.forsyte.harrsh.seplog._

@@ -6,7 +6,7 @@ import at.forsyte.harrsh.pure.EqualityBasedSimplifications
 import at.forsyte.harrsh.refinement.DecisionProcedures.AnalysisResult
 import at.forsyte.harrsh.refinement._
 import at.forsyte.harrsh.seplog.inductive.{Rule, SID, SIDUnfolding, SymbolicHeap}
-import at.forsyte.harrsh.seplog.parsers.DefaultSIDParser
+import at.forsyte.harrsh.parsers.SIDParsers
 import at.forsyte.harrsh.util.IOUtils
 
 import scala.concurrent.duration
@@ -18,8 +18,7 @@ import scala.language.postfixOps
   * Created by jens on 4/3/17.
   */
 object Interactive {
-
-  // TODO Parser for pretty-printed SHs
+  
   // TODO Better explain-why summaries
 
   private var paths = Seq("examples/datastructures", "examples/symbolicheaps")
@@ -94,7 +93,7 @@ object Interactive {
     }
 
     def parse() : SymbolicHeap = {
-      DefaultSIDParser.runOnSymbolicHeap(s) match {
+      SIDParsers.CombinedSIDParser.runOnSymbolicHeap(s) match {
         case Some(sh) =>
           record(s, sh)
         case None =>

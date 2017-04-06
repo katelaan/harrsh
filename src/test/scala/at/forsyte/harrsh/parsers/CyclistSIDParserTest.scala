@@ -1,41 +1,36 @@
-package at.forsyte.harrsh.seplog.parsers
+package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.test.HarrshTableTest
+import at.forsyte.harrsh.parsers.SIDParsers.CyclistSIDParser
 
 /**
   * Created by jkatelaa on 10/20/16.
   */
 class CyclistSIDParserTest extends HarrshTableTest {
 
-  import CyclistSIDParser._
-
   val Success = true
   val Failure = false
 
   val inputs = Table(
-    ("parser", "input", "result"),
-    (parseAtomSeq, "a=f * I1355_1(a,b,c,d,e,f)", Success),
-    (parseAtomSeq, "a!=f * I1355_1(a,b,c,d,e,f)", Success),
-    (parseAtomSeq, "nil!=e * e->a' * I1317_1(a,b,c,d,e,a')", Success),
-    (parseRule, "nil!=d * d->a' * I166_1(a,b,c,d,a') => I046(a,b,c,d)", Success),
+    ("input", "result"),
     // A couple of representative examples
-    (parseSID, fullExample, Success),
-    (parseSID, fullExample2, Success),
-    (parseSID, fullExample3, Success),
-    (parseSID, fullExample4, Success),
-    (parseSID, fullExample5, Success),
-    (parseSID, fullExample6, Success)
+    (fullExample, Success),
+    (fullExample2, Success),
+    (fullExample3, Success),
+    (fullExample4, Success),
+    (fullExample5, Success),
+    (fullExample6, Success)
   )
 
   property ("The Cyclist SID parser should work") {
     forAll(inputs) {
-      (parser, input, expectedResult) =>
-        val parseResult = parseAll(parser, input)
+      (input, expectedResult) =>
+        val parseResult = CyclistSIDParser.runOnSID(input)
 
         info(""+parseResult)
 
         if (expectedResult) {
-          parseResult.successful should be (expectedResult)
+          parseResult.isDefined should be (expectedResult)
         }
     }
   }

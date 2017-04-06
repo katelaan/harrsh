@@ -1,4 +1,4 @@
-package at.forsyte.harrsh.seplog.parsers
+package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.refinement.DecisionProcedures._
 import at.forsyte.harrsh.util.IOUtils._
@@ -15,12 +15,12 @@ object ParseSIDExampleFolder {
     printLinesOf('%', 2)
     println("Parse examples in SID-Format")
     printLinesOf('%', 2)
-    parseAllFiles(PathToDatastructureExamples, SidSuffix, DefaultSIDParser.run)
+    parseAllFiles(PathToDatastructureExamples, SidSuffix, SIDParsers.DefaultSIDParser.runOnSID)
 
     printLinesOf('%', 2)
     println("Parse examples in Cyclist-Format")
     printLinesOf('%', 2)
-    parseAllFiles(PathToCyclistExamples, CyclistSuffix, CyclistSIDParser.run)
+    parseAllFiles(PathToCyclistExamples, CyclistSuffix, SIDParsers.CyclistSIDParser.runOnSID)
 
   }
 

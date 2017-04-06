@@ -1,4 +1,4 @@
-package at.forsyte.harrsh.seplog.parsers
+package at.forsyte.harrsh.parsers
 
 /**
   * Created by jens on 2/25/17.
