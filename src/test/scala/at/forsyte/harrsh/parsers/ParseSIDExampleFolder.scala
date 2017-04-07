@@ -25,13 +25,13 @@ object ParseSIDExampleFolder {
   }
 
 
-  def parseAllFiles[A](dir : String, ext : String, parseMethod : String => A): Unit = {
+  def parseAllFiles[A](dir : String, ext : String, parseMethod : (String,Boolean) => A): Unit = {
     for {
       f <- getListOfFiles(dir)
       if f.getName.endsWith(ext)
     } {
       val content = readFile(f.getAbsolutePath)
-      val sid = parseMethod(content)
+      val sid = parseMethod(content,true)
       printLinesOf('#', 1)
       println("#### " + f.getName + " ####" + "#" * (70 - f.getName.length))
       printLinesOf('#', 1)

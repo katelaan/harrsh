@@ -16,7 +16,7 @@ case class StringSymbolicHeap(pure : Seq[StringPureAtom], spatial : Seq[StringSp
   def toSymbolicHeap : (SymbolicHeap, Seq[String], Seq[String]) = {
     val (freeVarsUnsorted,boundVarsUnsorted) = getVars.toSeq.partition(isFV)
     val (freeVars,boundVars) = (freeVarsUnsorted.sorted, boundVarsUnsorted.sorted)
-    val filledFreeVars : Seq[String] = (1 to freeVars.map(stringToFV).max) map toDefaultString
+    val filledFreeVars : Seq[String] = if (freeVars.isEmpty) Seq.empty else ((1 to freeVars.map(stringToFV).max) map toDefaultString)
 
     val naming : VarUnNaming = mkUnNaming(filledFreeVars,boundVars) //mkUnNamingFromIncompleteDefaultNames(freeVars, boundVars)
     val renamedHeap = replaceStringsByIds(naming)

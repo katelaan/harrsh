@@ -1,33 +1,25 @@
 package at.forsyte.harrsh.main
 
-import at.forsyte.harrsh.entailment.GreedyUnfoldingModelChecker
+import at.forsyte.harrsh.Defaults
+import at.forsyte.harrsh.Implicits.{ParsableString, RichSID, RichSymbolicHeap}
 import at.forsyte.harrsh.main.interactive.AnnotatedResultBuffer
-import at.forsyte.harrsh.pure.EqualityBasedSimplifications
-import at.forsyte.harrsh.refinement.DecisionProcedures.AnalysisResult
 import at.forsyte.harrsh.refinement._
-import at.forsyte.harrsh.seplog.inductive.{Rule, SID, SIDUnfolding, SymbolicHeap}
-import at.forsyte.harrsh.parsers.SIDParsers
-import at.forsyte.harrsh.util.IOUtils
+import at.forsyte.harrsh.seplog.inductive.{Rule, SID, SymbolicHeap}
 
 import scala.concurrent.duration
 import scala.concurrent.duration.Duration
 import scala.language.implicitConversions
-import scala.language.postfixOps
 
 /**
   * Created by jens on 4/3/17.
   */
 object Interactive {
-  
-  // TODO Better explain-why summaries
 
-  private var paths = Seq("examples/datastructures", "examples/symbolicheaps")
+  // TODO Better explain-why summaries
 
   private val sidbuffer : AnnotatedResultBuffer[SID] = AnnotatedResultBuffer(10)
   private val shbuffer : AnnotatedResultBuffer[SymbolicHeap] = AnnotatedResultBuffer(20)
   private var loadedSids : Map[String,SID] = Map.empty
-
-  private var reportProgress = false
 
   private val InteractiveTimeout = Duration(30, duration.SECONDS)
 
@@ -45,9 +37,9 @@ object Interactive {
   }
 
   def explainWhy(f : => Unit) : Unit = {
-    reportProgress = true
+    Defaults.reportProgress = true
     f
-    reportProgress = false
+    Defaults.reportProgress = false
   }
 
   def record(desc : String, sh : => SymbolicHeap) : SymbolicHeap = {
@@ -56,11 +48,11 @@ object Interactive {
     sh
   }
 
-  def record(desc : String, shs : => Iterable[SymbolicHeap]) : Iterable[SymbolicHeap] = {
-    shbuffer.addAll(desc, shs)
-    println("Storing result in buffer 'heaps'")
-    shs
-  }
+//  def record(desc : String, shs : => Iterable[SymbolicHeap]) : Iterable[SymbolicHeap] = {
+//    shbuffer.addAll(desc, shs)
+//    println("Storing result in buffer 'heaps'")
+//    shs
+//  }
 
   object automata {
     val hasPtr = RunHasPointer()
@@ -75,117 +67,57 @@ object Interactive {
     val hasGarbage = RunMayHaveGarbage()
   }
 
-  case class ParsableString(s : String) {
+  case class BufferingParsableString(override val s : String) extends ParsableString(s) {
 
-    def load() : SID = {
-      IOUtils.findFileIn(s, paths) match {
-        case Some(file) =>
-          println("Loading '" + file + "'")
-          val sid = MainIO.getSidFromFile(file)
-          sidbuffer.add(s, sid)
-          loadedSids = loadedSids + (sid.startPred -> sid)
-          println("Result stored in variable 'sid'")
-          sid
-        case None =>
-          println("Could not find file '" + s + "' in current path " + paths.mkString(":"))
-          SID.empty("fail")
-      }
+    override def load() : SID = {
+      println("Loading '" + s + "'")
+      val sid = super.load()
+      sidbuffer.add(s, sid)
+      loadedSids = loadedSids + (sid.startPred -> sid)
+      println("Result stored in variable 'sid'")
+      sid
     }
 
-    def parse() : SymbolicHeap = {
-      SIDParsers.CombinedSIDParser.runOnSymbolicHeap(s) match {
-        case Some(sh) =>
-          record(s, sh)
-        case None =>
-          println("Could not parse '" + s + "' as symbolic heap")
-          SymbolicHeap.empty
-      }
+    override def parse() : SymbolicHeap = {
+      record(s, super.parse())
     }
 
     def get() : SID = loadedSids(s)
   }
 
-  case class RichSID(sid : SID) {
+  case class BufferingRichSID(override val sid : SID) extends RichSID(sid) {
 
-    def refineBy(task : AutomatonTask) : SID = {
-      RefinementAlgorithms.refineSID(sid, task.getAutomaton(sid.numFV), InteractiveTimeout, reportProgress = reportProgress) match {
-        case Some(refinedSID) =>
-          sidbuffer.add("Refinement by " + task, refinedSID._1)
-          println("Result stored in variable 'sid'")
-          println("The resulting SID is " + (if (refinedSID._2) "empty" else "nonempty"))
-          refinedSID._1
-        case None =>
-          println("Refinement failed")
-          SID.empty(sid.startPred)
-      }
+    override def refineBy(task : AutomatonTask) : (SID,Boolean) = {
+      val res@(refinedSID,isEmpty) = super.refineBy(task)
+      sidbuffer.add("Refinement by " + task, refinedSID)
+      println("Result stored in variable 'sid'")
+      println("The resulting SID is " + (if (isEmpty) "empty" else "nonempty"))
+      res
     }
 
-    def decide(task : AutomatonTask) : Boolean = {
-      val AnalysisResult(isEmpty, analysisTime, timedOut) = DecisionProcedures.decideInstance(sid, task.getAutomaton(sid.numFV), InteractiveTimeout, verbose = reportProgress, reportProgress = reportProgress)
-      if (timedOut) {
-        println("Reached timeout of " + InteractiveTimeout)
-      } else {
-        println("Finished analysis in " + analysisTime + "ms")
-      }
-      !isEmpty
-    }
-
-    def witness : SymbolicHeap = SIDUnfolding.firstReducedUnfolding(sid)
-
-    def baseRule : Rule = {
-      val base = sid.rules.filter(!_.body.hasPredCalls)
-      if (base.size > 1) {
-        println("Warning: More than one base rule. Will pick arbitrary one")
-      }
-      base.head
-    }
-
-    def recursiveRule : Rule = {
-      val rec = sid.rules.filter(_.body.hasPredCalls)
-      if (rec.size > 1) {
-        println("Warning: More than one recursive rule. Will pick arbitrary one")
-      }
-      rec.head
-    }
+    override def witness : SymbolicHeap = record("witness", super.witness)
   }
 
-  case class RichSymbolicHeap(sh : SymbolicHeap) {
+  case class BufferingRichSymbolicHeap(override val sh : SymbolicHeap) extends RichSymbolicHeap(sh) {
 
-    def unfoldFirstCall(by : SymbolicHeap) : SymbolicHeap = record("unfold 1st", sh.replaceCall(sh.predCalls.head, by))
-    def unfoldSecondCall(by : SymbolicHeap) : SymbolicHeap = record("unfold 2nd", sh.replaceCall(sh.predCalls(1), by))
-    def unfoldIthCall(i : Int, by : SymbolicHeap) : SymbolicHeap = record("unfold " + i + "th", sh.replaceCall(sh.predCalls(i-1), by))
-    def unfoldOnce(sid : SID) : Iterable[SymbolicHeap] = record("unfolding", SIDUnfolding.unfoldOnce(sid, Seq(sh)))
-    def unfoldings(sid : SID, depth : Int) : Iterable[SymbolicHeap] = SIDUnfolding.unfold(sid, depth, false)
-    def reducedUnfoldings(sid : SID, depth : Int) : Iterable[SymbolicHeap] = SIDUnfolding.unfold(sid, depth, true)
+    override def unfoldFirstCall(by : SymbolicHeap) : SymbolicHeap = record("unfold 1st", super.unfoldFirstCall(by))
+    override def unfoldSecondCall(by : SymbolicHeap) : SymbolicHeap = record("unfold 2nd", super.unfoldSecondCall(by))
+    override def unfoldIthCall(i : Int, by : SymbolicHeap) : SymbolicHeap = record("unfold " + i + "th", super.unfoldIthCall(i, by))
+    override def simplify : SymbolicHeap = record("simplified", super.simplify)
 
-    def simplify : SymbolicHeap = EqualityBasedSimplifications.removeExplicitlyRedundantBoundVars(sh)
-
-    def isA(sid : SID) : Boolean = {
-      println("Checking " + sh + " |= " + sid.callToStartPred)
-      //println("Result: " + )
-      GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(sh, sid.callToStartPred, sid, reportProgress)
-    }
-
-    def refineBy(sid: SID, task : AutomatonTask) : SID = {
-      SID.fromTopLevelSH(sh, sid).refineBy(task)
-    }
-
-    def decide(sid: SID, task : AutomatonTask) : Boolean = {
-      SID.fromTopLevelSH(sh, sid).decide(task)
-    }
   }
 
   implicit def ruleToHeap(rule : Rule) : SymbolicHeap = rule.body
 
-  implicit def sidToRichSID(sid : SID) : RichSID = RichSID(sid)
+  implicit def sidToRichSID(sid : SID) : BufferingRichSID = BufferingRichSID(sid)
 
-  implicit def sidToRichSH(sh : SymbolicHeap) : RichSymbolicHeap = RichSymbolicHeap(sh)
+  implicit def sidToRichSH(sh : SymbolicHeap) : BufferingRichSymbolicHeap = BufferingRichSymbolicHeap(sh)
 
-  implicit def stringToInteractiveString(s : String) : ParsableString = ParsableString(s)
+  implicit def stringToInteractiveString(s : String) : BufferingParsableString = BufferingParsableString(s)
 
-  implicit def stringToSH(s : String) : RichSymbolicHeap = s.parse
+  implicit def stringToSH(s : String) : BufferingRichSymbolicHeap = s.parse
 
-  implicit def stringToSID(s : String) : RichSID = loadedSids(s)
+  implicit def stringToSID(s : String) : BufferingRichSID = loadedSids(s)
 
   object examples {
 

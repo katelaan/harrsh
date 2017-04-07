@@ -7,8 +7,8 @@ import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
   */
 trait SIDParser {
 
-  def runOnSID(input : String) : Option[SID]
+  def runOnSID(input : String, printFailure : Boolean = true) : Option[SID]
 
-  def runOnSymbolicHeap(input : String) : Option[SymbolicHeap]
+  def runOnSymbolicHeap(input : String, printFailure : Boolean = true) : Option[SymbolicHeap]
 
 }

@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
+import at.forsyte.harrsh.util.IOUtils
 
 import scala.util.parsing.combinator.JavaTokenParsers
 
@@ -9,19 +10,31 @@ import scala.util.parsing.combinator.JavaTokenParsers
   */
 private[parsers] trait SIDCombinatorParser extends JavaTokenParsers with SIDParser {
 
-  val printFailure : Boolean = true
-
   def parseSID : Parser[SID]
 
   def parseBody : Parser[StringSymbolicHeap]
 
-  override final def runOnSID(input : String) : Option[SID] = runParser(parseSID)(input)
+  override final def runOnSID(input : String, printFailure : Boolean = true) : Option[SID] = catchNumberFormatException{
+    runParser(parseSID)(input, printFailure)
+  }
 
-  override final def runOnSymbolicHeap(input : String) : Option[SymbolicHeap] = runParser(parseBody)(input) map (_.toSymbolicHeap._1)
+  override final def runOnSymbolicHeap(input : String, printFailure : Boolean = true) : Option[SymbolicHeap] = catchNumberFormatException{
+    runParser(parseBody)(input, printFailure) map (_.toSymbolicHeap._1)
+  }
+
+  private def catchNumberFormatException[A](f : => Option[A]) : Option[A] = {
+    try {
+      f
+    } catch {
+      case e : NumberFormatException =>
+        IOUtils.printWarningToConsole("Conversion of variables failed -- make sure to use x1,x2,... as free variable identifiers")
+        None
+    }
+  }
 
   override def ident: Parser[String] = """[a-zA-Z_][a-zA-Z0-9_']*""".r
 
-  protected def runParser[A](parser : Parser[A])(input : String) : Option[A] = {
+  protected def runParser[A](parser : Parser[A])(input : String, printFailure : Boolean) : Option[A] = {
     val inputWithoutComments = ParseUtils.stripCommentLines(input, "#")
     parseAll(parser, inputWithoutComments) match {
       case Success(result, next) => Some(result)

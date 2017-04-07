@@ -20,12 +20,12 @@ object SIDParsers {
 
     private val parsers = Seq(DefaultSIDParser, PrettyPrintedSIDParser, CyclistSIDParser)
 
-    override def runOnSID(input: String): Option[SID] = tryAll(parsers, input){
-      (parser, input) => parser.runOnSID(input)
+    override def runOnSID(input: String, printFailure : Boolean = false): Option[SID] = tryAll(parsers, input){
+      (parser, input) => parser.runOnSID(input, printFailure)
     }
 
-    override def runOnSymbolicHeap(input: String): Option[SymbolicHeap] = tryAll(parsers, input){
-      (parser, input) => parser.runOnSymbolicHeap(input)
+    override def runOnSymbolicHeap(input: String, printFailure : Boolean = false): Option[SymbolicHeap] = tryAll(parsers, input){
+      (parser, input) => parser.runOnSymbolicHeap(input, printFailure)
     }
 
     /**
