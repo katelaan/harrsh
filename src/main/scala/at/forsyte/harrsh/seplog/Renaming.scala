@@ -5,13 +5,31 @@ package at.forsyte.harrsh.seplog
   */
 trait Renaming {
 
+  /**
+    * Applies the renaming to the given variable, returning the variable itself if it is not defined at the given var
+    * @param s
+    * @return
+    */
   def apply(s : Var) : Var
 
+  /**
+    * Adds a renaming from k to v to the given renaming
+    * @param k Key
+    * @param v Renamed value
+    * @return Extended renaming
+    */
   def extendWith(k : Var, v: Var) : Renaming
 
   def codomain : Set[Var]
 
   def isDefinedAt(s : Var) : Boolean
+
+  /**
+    * Keeps only those renaming pairs that satisfy p
+    * @param p
+    * @return Renaming with !p pairs removed
+    */
+  def filter(p : ((Var,Var)) => Boolean) : Renaming
 
   final def freshName(varid: Var): Var =
     if (!codomain.contains(varid)) {

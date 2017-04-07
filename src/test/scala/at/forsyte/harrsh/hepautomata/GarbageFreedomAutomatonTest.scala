@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.hepautomata
 
+import at.forsyte.harrsh.TestValues
 import at.forsyte.harrsh.heapautomata.instances.TrackingAutomata
 import at.forsyte.harrsh.heapautomata.utils.{ReachabilityInfo, ReachabilityMatrix, TrackingInfo}
 import at.forsyte.harrsh.pure.EqualityUtils.mkPure
@@ -12,7 +13,7 @@ import at.forsyte.harrsh.test.HarrshTableTest
   * Created by jens on 10/19/16.
   * TODO Reduce code duplication wrt Acyclicity test
   */
-class GarbageFreedomAutomatonTest extends HarrshTableTest {
+class GarbageFreedomAutomatonTest extends HarrshTableTest with TestValues {
 
   def mx3(pairs: (Int, Int)*): ReachabilityMatrix = ReachabilityMatrix.fromPairs(3, pairs)
 
@@ -29,30 +30,30 @@ class GarbageFreedomAutomatonTest extends HarrshTableTest {
     ("src", "sh", "result"),
     // - Simple RSHs without bound vars, hence garbage free by definition
     (Seq(), SymbolicHeap(Seq()), GarbageFree),
-    (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)))), GarbageFree),
-    (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), nil))), GarbageFree),
-    (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(2), mkVar(1)))), GarbageFree),
-    (Seq(), SymbolicHeap(Seq(ptreq(mkVar(1), mkVar(2))), Seq(ptr(mkVar(1), mkVar(2))), Seq()), GarbageFree),
+    (Seq(), SymbolicHeap(Seq(ptr(x1, x2))), GarbageFree),
+    (Seq(), SymbolicHeap(Seq(ptr(x1, nil))), GarbageFree),
+    (Seq(), SymbolicHeap(Seq(ptr(x1, x2), ptr(x2, x1))), GarbageFree),
+    (Seq(), SymbolicHeap(Seq(ptreq(x1, x2)), Seq(ptr(x1, x2)), Seq()), GarbageFree),
 
     // - RHSs with free variables
     (Seq(), SymbolicHeap.fromFullDescription(Seq(), Seq(), Seq(), 0, Seq(-1)), HasGarbage),
-    (Seq(), SymbolicHeap(Seq(ptr(qv(1),qv(2)), ptr(qv(2), qv(3)), ptr(qv(3), mkVar(1)), ptr(mkVar(1), mkVar(1)))), HasGarbage),
-    (Seq(), SymbolicHeap( Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), mkVar(3)))), GarbageFree),
-    (Seq(), SymbolicHeap(Seq(ptreq(mkVar(2), qv(2))), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), qv(2)), ptr(mkVar(2), mkVar(1))), Seq()), GarbageFree),
+    (Seq(), SymbolicHeap(Seq(ptr(y1,y2), ptr(y2, y3), ptr(y3, x1), ptr(x1, x1))), HasGarbage),
+    (Seq(), SymbolicHeap( Seq(ptr(x1, y1), ptr(y1, x3))), GarbageFree),
+    (Seq(), SymbolicHeap(Seq(ptreq(x2, y2)), Seq(ptr(x1, y1), ptr(y1, y2), ptr(x2, x1)), Seq()), GarbageFree),
 
     // - Inconsistent RSHs
-    (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(1), mkVar(2)))), GarbageFree),
-    (Seq(), SymbolicHeap(Seq(ptrneq(mkVar(1), mkVar(1))), Seq(ptr(qv(1), mkVar(1), nil)), Seq()), GarbageFree),
+    (Seq(), SymbolicHeap(Seq(ptr(x1, x2), ptr(x1, x2))), GarbageFree),
+    (Seq(), SymbolicHeap(Seq(ptrneq(x1, x1)), Seq(ptr(y1, x1, nil)), Seq()), GarbageFree),
 
     // - Non-R SHs
-    (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 1), isAcyclic = false)), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2))), Seq(call("dummy", mkVar(2), mkVar(1)))), HasGarbage), // To test propagation of tag bit
-    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(mkVar(1), qv(1))), Seq(call("sll", qv(1), mkVar(2)))), GarbageFree),
-    (Seq(mk(mkAllVar(2), mx3(2 -> 1))), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2))), Seq(call("dummy", mkVar(1), qv(1)))), HasGarbage),
+    (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 1), isAcyclic = false)), SymbolicHeap(Seq(ptr(x1, x2)), Seq(call("dummy", x2, x1))), HasGarbage), // To test propagation of tag bit
+    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), GarbageFree),
+    (Seq(mk(mkAllVar(2), mx3(2 -> 1))), SymbolicHeap(Seq(ptr(x1, x2)), Seq(call("dummy", x1, y1))), HasGarbage),
     (Seq(mk(mkAllVar(1,2), mkPure((1,2,true)), mx3(1 -> 2, 1 -> 3)), mk(mkAllVar(2,3), mkPure(), mx3(3 -> 2, 2 -> 1))),
-      SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2))), Seq(call("dummy", mkVar(2), qv(1), qv(2)), call("dummy", mkVar(1), mkVar(3), qv(2)))),
+      SymbolicHeap(Seq(ptr(x1, x2)), Seq(call("dummy", x2, y1, y2), call("dummy", x1, x3, y2))),
       GarbageFree),
     (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 2, 1 -> 3)), mk(mkAllVar(1,2), mkPure((1,2,true)), mx3(1 -> 3, 2 -> 3))),
-      SymbolicHeap(Seq(ptr(qv(2), qv(3))), Seq(call("dummy", qv(1), qv(2), qv(3)), call("dummy", mkVar(1), mkVar(3), qv(2)))),
+      SymbolicHeap(Seq(ptr(y2, y3)), Seq(call("dummy", y1, y2, y3), call("dummy", x1, x3, y2))),
       HasGarbage)
   )
 
@@ -78,7 +79,7 @@ class GarbageFreedomAutomatonTest extends HarrshTableTest {
   }
 
 //  val (src, sh, result) = (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 2, 1 -> 3)), mk(mkAllVar(1,2), mkPure((1,2,true)), mx3(1 -> 3, 2 -> 3))),
-//    SymbolicHeap(Seq(ptr(qv(2), qv(3))), Seq(call("dummy", qv(1), qv(2), qv(3)), call("dummy", mkVar(1), mkVar(3), qv(2)))),
+//    SymbolicHeap(Seq(ptr(y2, y3)), Seq(call("dummy", y1, y2, y3), call("dummy", x1, x3, y2))),
 //    HasGarbage)
 //
 //  println(src.mkString(", ") + ", " + sh)

@@ -13,8 +13,9 @@
     <root level="WARN">
         <appender-ref ref="STDOUT" />
     </root>
-    <logger name="at.forsyte.harrsh.seplog.inductive.SymbolicHeap" level="DEBUG" />
+
     <!---<logger name="at.forsyte.harrsh.seplog" level="INFO" />
+    <logger name="at.forsyte.harrsh.seplog.inductive.SymbolicHeap" level="DEBUG" />
     <logger name="at.forsyte.harrsh.entailment" level="DEBUG" />
     <logger name="at.forsyte.harrsh.heapautomata" level="DEBUG" />
     <logger name="at.forsyte.harrsh.seplog.inductive.SymbolicHeap" level="DEBUG" />

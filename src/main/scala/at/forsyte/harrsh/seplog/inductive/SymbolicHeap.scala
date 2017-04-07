@@ -64,9 +64,16 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
 
     // Rename bound variables if applicable
     val extendedF : Renaming = if (avoidDoubleCapture) {
-      boundVars.foldLeft(f)({
+      // Drop keys that never apply so as to avoid spurious renaming of bound Vars
+      // Note: In case a free variable does not occur in the heap but DOES occur in the set of free variables (i.e., if there are gaps in the used FVs), this fails
+      val tightF = f/*.filter{
+        case (k,v) => this.allVars.contains(k)
+      }*/
+
+      boundVars.foldLeft(tightF)({
         case (intermediateF, v) =>
-          intermediateF.addBoundVarWithOptionalAlphaConversion(v)
+          if (!f.isDefinedAt(v)) intermediateF.addBoundVarWithOptionalAlphaConversion(v) else intermediateF
+          //intermediateF.addBoundVarWithOptionalAlphaConversion(v)
       })
     } else f
     logger.debug("Extended map used for renaming" + extendedF.toString)

@@ -12,9 +12,7 @@ package object inductive {
 
   def ptr(from : Var, to : Var*) : PointsTo = PointsTo(PtrVar(from), to map PtrExpr.fromFV)
 
-  def nil : Var = mkVar(0)
-
-  def qv(i : Int) : Var = -i
+  def nil : Var = 0
 
   def ptreq(left : Var, right : Var) : PureAtom = PtrEq(PtrExpr.fromFV(left), PtrExpr.fromFV(right))
 

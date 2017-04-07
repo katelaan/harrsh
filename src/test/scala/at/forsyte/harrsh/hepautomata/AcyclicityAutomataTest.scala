@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.hepautomata
 
+import at.forsyte.harrsh.TestValues
 import at.forsyte.harrsh.heapautomata.instances.TrackingAutomata
 import at.forsyte.harrsh.heapautomata.utils.{ReachabilityInfo, ReachabilityMatrix, TrackingInfo}
 import at.forsyte.harrsh.pure.EqualityUtils.mkPure
@@ -11,7 +12,7 @@ import at.forsyte.harrsh.test.HarrshTableTest
 /**
   * Created by jens on 10/19/16.
   */
-class AcyclicityAutomataTest extends HarrshTableTest {
+class AcyclicityAutomataTest extends HarrshTableTest with TestValues {
 
     def mx3(pairs : (Int,Int)*) : ReachabilityMatrix = ReachabilityMatrix.fromPairs(3, pairs)
 
@@ -25,29 +26,29 @@ class AcyclicityAutomataTest extends HarrshTableTest {
     val transitions = Table(
       ("src", "sh", "result"),
       // - Simple RSHs
-      (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)))), WeaklyAcyclic),
-      (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), nil))), WeaklyAcyclic),
-      (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(2), mkVar(3)))), WeaklyAcyclic),
-      (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(2), mkVar(1)))), Cyclic),
-      (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(2), mkVar(2)))), Cyclic),
-      (Seq(), SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(2))), Seq(ptr(mkVar(1), mkVar(2))), Seq.empty), Cyclic),
+      (Seq(), SymbolicHeap(Seq(ptr(x1, x2))), WeaklyAcyclic),
+      (Seq(), SymbolicHeap(Seq(ptr(x1, nil))), WeaklyAcyclic),
+      (Seq(), SymbolicHeap(Seq(ptr(x1, x2), ptr(x2, x3))), WeaklyAcyclic),
+      (Seq(), SymbolicHeap(Seq(ptr(x1, x2), ptr(x2, x1))), Cyclic),
+      (Seq(), SymbolicHeap(Seq(ptr(x1, x2), ptr(x2, x2))), Cyclic),
+      (Seq(), SymbolicHeap(Seq(ptreq(x1,x2)), Seq(ptr(x1, x2)), Seq.empty), Cyclic),
 
       // - RHSs with free variables
-      (Seq(), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), mkVar(3))), Seq.empty), WeaklyAcyclic),
-      (Seq(), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), mkVar(3)), ptr(mkVar(3), mkVar(1))), Seq.empty), Cyclic),
-      (Seq(), SymbolicHeap(Seq(ptreq(mkVar(2), qv(2))), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), qv(2)), ptr(mkVar(2), mkVar(1))), Seq.empty), Cyclic),
+      (Seq(), SymbolicHeap(Seq(), Seq(ptr(x1, y1), ptr(y1, x3)), Seq.empty), WeaklyAcyclic),
+      (Seq(), SymbolicHeap(Seq(), Seq(ptr(x1, y1), ptr(y1, x3), ptr(x3, x1)), Seq.empty), Cyclic),
+      (Seq(), SymbolicHeap(Seq(ptreq(x2, y2)), Seq(ptr(x1, y1), ptr(y1, y2), ptr(x2, x1)), Seq.empty), Cyclic),
 
       // - Inconsistent RSHs
-      (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(1), mkVar(2)))), WeaklyAcyclic),
-      (Seq(), SymbolicHeap(Seq(ptrneq(mkVar(1), mkVar(1))), Seq(ptr(mkVar(1), nil)), Seq.empty), WeaklyAcyclic),
+      (Seq(), SymbolicHeap(Seq(ptr(x1, x2), ptr(x1, x2))), WeaklyAcyclic),
+      (Seq(), SymbolicHeap(Seq(ptrneq(x1, x1)), Seq(ptr(x1, nil)), Seq.empty), WeaklyAcyclic),
 
       // - Non-R SHs
-      (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 1), isAcyclic = false)), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), mkVar(2))), Seq(call("dummy", mkVar(2), mkVar(1)))), Cyclic), // To test propagation of tag bit
-      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1))), Seq(call("sll", qv(1), mkVar(2)))), WeaklyAcyclic),
-      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(mkVar(1), qv(1))), Seq(call("sll", qv(1), mkVar(2)))), WeaklyAcyclic), // To test renaming of fresh var
-      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(mkVar(2), qv(1))), Seq(call("sll", qv(1), mkVar(2)))), Cyclic),
+      (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 1), isAcyclic = false)), SymbolicHeap(Seq(), Seq(ptr(x1, x2)), Seq(call("dummy", x2, x1))), Cyclic), // To test propagation of tag bit
+      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), WeaklyAcyclic),
+      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), WeaklyAcyclic), // To test renaming of fresh var
+      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(x2, y1)), Seq(call("sll", y1, x2))), Cyclic),
       (Seq(mk(mkAllVar(1,2), mkPure((1,2,true)), mx3(1 -> 2, 1 -> 3)), mk(mkAllVar(2,3), mkPure(), mx3(3 -> 2, 2 -> 1))),
-        SymbolicHeap(Seq(), Seq(ptr(mkVar(1), mkVar(2))), Seq(call("dummy", mkVar(2), qv(1), qv(2)), call("dummy", mkVar(1), mkVar(3), qv(2)))),
+        SymbolicHeap(Seq(), Seq(ptr(x1, x2)), Seq(call("dummy", x2, y1, y2), call("dummy", x1, x3, y2))),
         Cyclic)
     )
 

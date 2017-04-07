@@ -1,19 +1,17 @@
 package at.forsyte.harrsh.hepautomata
 
-import at.forsyte.harrsh.ExampleSIDs
+import at.forsyte.harrsh.{ExampleSIDs, TestValues}
 import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.pure.EqualityUtils.mkPure
 import at.forsyte.harrsh.seplog.Var._
-import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.heapautomata.instances.{ToyExampleAutomata, TrackingAutomata}
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
-import at.forsyte.harrsh.seplog.inductive.nil
 import at.forsyte.harrsh.test.HarrshTableTest
 
 /**
   * Created by jens on 10/15/16.
   */
-class HeapAutomataTest extends HarrshTableTest {
+class HeapAutomataTest extends HarrshTableTest with TestValues {
 
   val inconsistent2 = TrackingInfo.inconsistentTrackingInfo(2)
 
@@ -38,13 +36,13 @@ class HeapAutomataTest extends HarrshTableTest {
      * Tracking automata
       */
     // - Normal tests
-    (TrackingAutomata.singleTargetStateTracking(3, Set(mkVar(1)), mkPure()), ExampleSIDs.Sll, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(2, Set(mkVar(1)), mkPure((1, 2, NonEmpty))), ExampleSIDs.Sll, Empty),
-    (TrackingAutomata.singleTargetStateTracking(2, Set(mkVar(1)), mkPure()), ExampleSIDs.EmptyLinearPermuter, Empty),
+    (TrackingAutomata.singleTargetStateTracking(3, Set(x1), mkPure()), ExampleSIDs.Sll, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(2, Set(x1), mkPure((1, 2, NonEmpty))), ExampleSIDs.Sll, Empty),
+    (TrackingAutomata.singleTargetStateTracking(2, Set(x1), mkPure()), ExampleSIDs.EmptyLinearPermuter, Empty),
     (TrackingAutomata.singleTargetStateTracking(2, Set(), mkPure((1, 2, Empty))), ExampleSIDs.EmptyLinearPermuter, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(4, Set(mkVar(1),mkVar(4)), mkPure()), ExampleSIDs.Dll, Empty),
-    (TrackingAutomata.singleTargetStateTracking(1, Set(mkVar(1)), mkPure()), ExampleSIDs.Tree, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(3, Set(mkVar(1),mkVar(2)), mkPure((1,2,NonEmpty))), ExampleSIDs.Tll, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(4, Set(x1,mkVar(4)), mkPure()), ExampleSIDs.Dll, Empty),
+    (TrackingAutomata.singleTargetStateTracking(1, Set(x1), mkPure()), ExampleSIDs.Tree, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(3, Set(x1,x2), mkPure((1,2,NonEmpty))), ExampleSIDs.Tll, NonEmpty),
     // - Inconsistency checks for tracking
     (TrackingAutomata.singleTargetStateTracking(2, inconsistent2.alloc, inconsistent2.pure), ExampleSIDs.NonEmptyBinaryPermuter, NonEmpty),
     (TrackingAutomata.singleTargetStateTracking(2, inconsistent2.alloc, inconsistent2.pure), ExampleSIDs.NonEmptyBinaryPermuter2, NonEmpty),
@@ -118,10 +116,10 @@ class HeapAutomataTest extends HarrshTableTest {
     /*
      * Reachability automata
      */
-    (TrackingAutomata.reachabilityAutomaton(2, mkVar(1), mkVar(2)), ExampleSIDs.Sll, NonEmpty),
-    (TrackingAutomata.reachabilityAutomaton(4, mkVar(1), mkVar(4)), ExampleSIDs.Dll, NonEmpty),
-    (TrackingAutomata.reachabilityAutomaton(1, mkVar(1), nil), ExampleSIDs.Tree, NonEmpty),
-    (TrackingAutomata.reachabilityAutomaton(3, mkVar(1), mkVar(2)), ExampleSIDs.Tll, NonEmpty),
+    (TrackingAutomata.reachabilityAutomaton(2, x1, x2), ExampleSIDs.Sll, NonEmpty),
+    (TrackingAutomata.reachabilityAutomaton(4, x1, x4), ExampleSIDs.Dll, NonEmpty),
+    (TrackingAutomata.reachabilityAutomaton(1, x1, nil), ExampleSIDs.Tree, NonEmpty),
+    (TrackingAutomata.reachabilityAutomaton(3, x1, x2), ExampleSIDs.Tll, NonEmpty),
 
     /*
      * Garbage-freedom automata
@@ -160,7 +158,7 @@ class HeapAutomataTest extends HarrshTableTest {
   }
 
   // Note: To try a single test case, comment out the following
-//  val (extraAUT, extraSID, extraRes) = (TrackingAutomata.reachabilityAutomaton(2, mkVar(1), mkVar(2)), ExampleSIDs.Sll, NonEmpty)
+//  val (extraAUT, extraSID, extraRes) = (TrackingAutomata.reachabilityAutomaton(2, x1, x2), ExampleSIDs.Sll, NonEmpty)
 //
 //  println("Testing emptiness for refinement of " + extraSID + "\n with the automaton '" + extraAUT.description + "'; expected result: " + extraRes)
 //  RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(extraSID, extraAUT, reportProgress = true) should be(extraRes)

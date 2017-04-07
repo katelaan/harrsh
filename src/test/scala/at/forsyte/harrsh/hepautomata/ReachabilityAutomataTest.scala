@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.hepautomata
 
+import at.forsyte.harrsh.TestValues
 import at.forsyte.harrsh.pure.EqualityUtils.mkPure
 import at.forsyte.harrsh.heapautomata.instances.TrackingAutomata
 import at.forsyte.harrsh.heapautomata.utils.{ReachabilityInfo, ReachabilityMatrix, TrackingInfo}
@@ -11,7 +12,7 @@ import at.forsyte.harrsh.test.HarrshTableTest
 /**
   * Created by jkatelaa on 10/19/16.
   */
-class ReachabilityAutomataTest extends HarrshTableTest {
+class ReachabilityAutomataTest extends HarrshTableTest with TestValues {
 
   def mx3(pairs : (Int,Int)*) : ReachabilityMatrix = ReachabilityMatrix.fromPairs(3, pairs)
 
@@ -21,26 +22,26 @@ class ReachabilityAutomataTest extends HarrshTableTest {
   val transitions = Table(
     ("src", "sh", "from", "to", "result"),
     // - Simple RSHs
-    (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)))), mkVar(1), mkVar(2), true),
-    (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), nil))), mkVar(1), nil, true),
-    (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)))), mkVar(2), mkVar(1), false),
-    (Seq(), SymbolicHeap(Seq(ptreq(mkVar(1),mkVar(2))), Seq(ptr(mkVar(1), mkVar(2))), Seq()), mkVar(2), mkVar(1), true),
-    (Seq(), SymbolicHeap(Seq(ptrneq(mkVar(1),mkVar(2))), Seq(ptr(mkVar(1), mkVar(2))), Seq()), mkVar(2), mkVar(1), false),
-    (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2)), ptr(mkVar(2), mkVar(3))), Seq()), mkVar(1), mkVar(3), true),
+    (Seq(), SymbolicHeap(Seq(ptr(x1, x2))), x1, x2, true),
+    (Seq(), SymbolicHeap(Seq(ptr(x1, nil))), x1, nil, true),
+    (Seq(), SymbolicHeap(Seq(ptr(x1, x2))), x2, x1, false),
+    (Seq(), SymbolicHeap(Seq(ptreq(x1,x2)), Seq(ptr(x1, x2)), Seq()), x2, x1, true),
+    (Seq(), SymbolicHeap(Seq(ptrneq(x1,x2)), Seq(ptr(x1, x2)), Seq()), x2, x1, false),
+    (Seq(), SymbolicHeap(Seq(ptr(x1, x2), ptr(x2, x3)), Seq()), x1, x3, true),
 
     // - RHSs with free variables
-    (Seq(), SymbolicHeap(Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), mkVar(3)))), mkVar(1), mkVar(3), true),
-    (Seq(), SymbolicHeap(Seq(ptreq(mkVar(2), qv(2))), Seq(ptr(mkVar(1), qv(1)), ptr(qv(1), qv(2)), ptr(mkVar(2), mkVar(3))), Seq()), mkVar(1), mkVar(3), true),
+    (Seq(), SymbolicHeap(Seq(ptr(x1, y1), ptr(y1, x3))), x1, x3, true),
+    (Seq(), SymbolicHeap(Seq(ptreq(x2, y2)), Seq(ptr(x1, y1), ptr(y1, y2), ptr(x2, x3)), Seq()), x1, x3, true),
 
     // - Inconsistent RSH
-    (Seq(), SymbolicHeap(Seq(ptrneq(mkVar(1), mkVar(1))), Seq(ptr(mkVar(1), nil)), Seq()), mkVar(1), mkVar(2), true),
+    (Seq(), SymbolicHeap(Seq(ptrneq(x1, x1)), Seq(ptr(x1, nil)), Seq()), x1, x2, true),
 
     // - Non-R SHs
-    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(mkVar(1), qv(1))), Seq(call("sll", qv(1), mkVar(2)))), mkVar(1), mkVar(2), true),
-    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(mkVar(1), qv(1))), Seq(call("sll", qv(1), mkVar(2)))), mkVar(1), mkVar(2), true), // To test renaming of fresh var
+    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), x1, x2, true),
+    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), x1, x2, true), // To test renaming of fresh var
     (Seq(mk(mkAllVar(), mkPure((1,2,true)), mx3()), mk(mkAllVar(2,3), mkPure(), mx3(3 -> 2, 2 -> 1))), // 1st call : y=x1, 2nd call : x3 -> w -> y
-      SymbolicHeap(Seq(ptr(mkVar(1), mkVar(2))), Seq(call("dummy", qv(1), mkVar(1), mkVar(3)), call("dummy", qv(1), qv(2), mkVar(3)))),
-      mkVar(3), mkVar(2), true)
+      SymbolicHeap(Seq(ptr(x1, x2)), Seq(call("dummy", y1, x1, x3), call("dummy", y1, y2, x3))),
+      x3, x2, true)
   )
 
   property("Transitions of the reachability automaton") {
