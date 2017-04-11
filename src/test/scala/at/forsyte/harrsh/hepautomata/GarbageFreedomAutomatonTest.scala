@@ -67,9 +67,7 @@ class GarbageFreedomAutomatonTest extends HarrshTableTest with TestValues {
         Given(src.mkString(", ") + ", " + sh)
         Then("The transition " + src.mkString(", ") + " --[" + sh + "]--> " + " <trg> should lead to a " + (if (result) "FINAL STATE" else "NON-FINAL STATE"))
 
-        println("#" * 80)
         val succs = garb3.getTargetsFor(src, sh)
-        println()
 
         succs.size should be(1)
         info("Reached state: " + succs.head)

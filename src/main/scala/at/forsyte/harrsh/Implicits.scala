@@ -87,11 +87,14 @@ object Implicits {
     def unfoldFirstCall(by : SymbolicHeap) : SymbolicHeap = sh.replaceCall(sh.predCalls.head, by)
     def unfoldSecondCall(by : SymbolicHeap) : SymbolicHeap = sh.replaceCall(sh.predCalls(1), by)
     def unfoldIthCall(i : Int, by : SymbolicHeap) : SymbolicHeap = sh.replaceCall(sh.predCalls(i-1), by)
+    def unfoldCalls(by : SymbolicHeap*) : SymbolicHeap = sh.replaceCalls(by)
+    def unfoldAllCallsBy(by : SymbolicHeap) : SymbolicHeap = sh.replaceCalls(Seq.fill(sh.predCalls.size)(by))
+
     def unfoldOnce(sid : SID) : Iterable[SymbolicHeap] = SIDUnfolding.unfoldOnce(sid, Seq(sh))
     def unfoldings(sid : SID, depth : Int) : Iterable[SymbolicHeap] = SIDUnfolding.unfold(sid, depth)
     def reducedUnfoldings(sid : SID, depth : Int) : Iterable[SymbolicHeap] = SIDUnfolding.unfold(sid, depth, reducedOnly = true)
 
-    def simplify : SymbolicHeap = EqualityBasedSimplifications.removeExplicitlyRedundantBoundVars(sh)
+    def simplify : SymbolicHeap = EqualityBasedSimplifications.fullEqualitySimplification(sh)
 
     def isA(sid : SID) : Boolean = {
       println("Checking " + sh + " |= " + sid.callToStartPred)

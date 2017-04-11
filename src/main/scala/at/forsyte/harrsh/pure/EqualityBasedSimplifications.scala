@@ -4,19 +4,30 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{Renaming, Var}
 import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, PureAtom, SymbolicHeap}
 
+import scala.annotation.tailrec
+
 /**
   * Created by jkatelaa on 3/31/17.
   */
 object EqualityBasedSimplifications extends HarrshLogging {
 
+  @tailrec def fullEqualitySimplification(sh : SymbolicHeap) : SymbolicHeap = {
+    val simplificationStep = removeExplicitlyRedundantBoundVars(sh)
+    if (sh != simplificationStep)
+      fullEqualitySimplification(simplificationStep)
+    else
+      simplificationStep.closeGapsInBoundVars()
+  }
+
   /**
     * Removes all bound variables y from sh for which sh contains an explicit equation x = y or y = x, but does not compute the congruence closure to discover equalities that are consequences of sh's pure constraints.
+    * Note that this is not optimal, because of cases such as y2 = y3, y1 = y2. In that case, we could get rid of two variables, but would only remove one here (depending on the order of the equalities). [[fullEqualitySimplification()]] also removes such transitive equalities at the expense of higher runtime.
+ *
     * @param sh The symbolic heap to simplify
     * @return The simplified symbolic heaps
     */
   def removeExplicitlyRedundantBoundVars(sh : SymbolicHeap) : SymbolicHeap = {
     val mixedEqs : Seq[(Var,Var)] = sh.pure.flatMap(asEqualityWithBoundPart)
-    // TODO Note that this is not optimal, because of cases such as y2 = y3, y1 = y2. In that case, we could get rid of two variables, but would only remove one here (depending on the order of the equalities)
     val renaming = Renaming.fromPairs(mixedEqs)
     logger.debug("Renaming " + sh + " using " + renaming)
     val renamed = sh.renameVars(renaming, avoidDoubleCapture = false)

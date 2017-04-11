@@ -96,28 +96,13 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
     res
   }
 
-
   /**
-    * Replaces the given bound var with the given free var, potentially introducing gaps in the sequence of bound vars
-    * @param qvar Bound var to instantiate
-    * @param instance Free var to use
-    * @return Resulting symbolic heap
-    */
-//  def instantiateBoundVarWithFV(qvar : Var, instance : Var) : SymbolicHeap = {
-//    assert(Var.isBound(qvar))
-//    if (!Var.isFV(instance)) throw new IllegalArgumentException("Cannot instantiate bound variable by different bound variable")
-//
-//    val newNumFV = Math.max(numFV, instance)
-//    val renaming = MapBasedRenaming(Map(qvar -> instance))
-//    SymbolicHeap(pure map (_.renameVars(renaming)), pointers map (_.renameVars(renaming)), predCalls map (_.renameVars(renaming)), newNumFV, boundVars - qvar)
-//  }
-
-  /**
-    * Receives a sequence of bound variable--free variable pairs, replaces the bound variables with the free variables and then removes any gaps in the bound var sequence of the resulting heap.
-    * @param instantiations ound variable--free variable pairs
+    * Receives a sequence of bound variable--free variable pairs, replaces the bound variables with the free variables and if the second parameter is true removes any gaps in the bound var sequence of the resulting heap.
+    * @param instantiations Bound variable--free variable pairs
+    * @param closeGaps Close gaps introduced in sequence of free variables?
     * @return Instantiated SH
     */
-  def instantiateBoundVars(instantiations : Seq[(Var,Var)]): SymbolicHeap = {
+  def instantiateBoundVars(instantiations : Seq[(Var,Var)], closeGaps : Boolean): SymbolicHeap = {
     for { (qvar,instance) <- instantiations } {
       assert(Var.isBound(qvar))
       if (!Var.isFV(instance)) throw new IllegalArgumentException("Cannot instantiate bound variable " + Var.toDefaultString(qvar) + " by different bound variable" + Var.toDefaultString(instance))
@@ -127,20 +112,30 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
     // Not necessary to avoid double capture, all instantiations are free vars
     val instantiation = renameVars(renaming, avoidDoubleCapture = false)
 
+    logger.debug("After instantiation: " + instantiation)
+
     // Detect gap in bound vars + remove it
-    val res = if (instantiation.boundVars.nonEmpty && instantiation.boundVars.size != -instantiation.boundVars.min) {
-      logger.debug("Gap in bound vars: Max bound var " + (-instantiation.boundVars.min) + ", #bound vars " + instantiation.boundVars.size + " (bound vars: " + instantiation.boundVars.mkString(", ") + " in " + instantiation + ")")
-      val renamingPairs : Seq[(Var,Var)] = instantiation.boundVars.toSeq.zipWithIndex.map{
-        pair => (pair._1,-pair._2-1)
+    if (closeGaps) instantiation.closeGapsInBoundVars else instantiation
+  }
+
+  /**
+    * Closes the gaps in the sequence of bound variables (if any) by renaming bound vars
+    * @return
+    */
+  def closeGapsInBoundVars(): SymbolicHeap = {
+    if (boundVars.nonEmpty && boundVars.size != -boundVars.min) {
+      logger.debug("Gap in bound vars: Max bound var " + (-boundVars.min) + ", #bound vars " + boundVars.size + " (bound vars: " + boundVars.mkString(", ") + " in " + this + ")")
+      val renamingPairs: Seq[(Var, Var)] = boundVars.toSeq.zipWithIndex.map {
+        pair => (pair._1, -pair._2 - 1)
       }
       logger.debug("Will close gaps by renaming " + renamingPairs.mkString(", "))
       val renaming = Renaming.fromPairs(renamingPairs)
-      val res = instantiation.renameVars(renaming, avoidDoubleCapture = false)
+      val res = renameVars(renaming, avoidDoubleCapture = false)
       logger.debug("Without gaps: " + res)
       res
-    } else instantiation
-
-    res
+    } else {
+      this
+    }
   }
 
   /**

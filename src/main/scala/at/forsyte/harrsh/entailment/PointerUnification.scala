@@ -26,16 +26,16 @@ object PointerUnification extends HarrshLogging {
     } catch {
       case _: NoSuchElementException => throw new Throwable("The selected model-checking algorithm supports only garbage-free SIDs, but your SID appears to have garbage (Pointers unreachable from free variables)")
     }
-    logger.debug("Will match pointer " + rhsPtr)
+    logger.info("Will match pointer " + rhsPtr)
 
     if (PureFormulaReasoning.varsEqualModuloPureSameSide(rhsFormula.pure, rhsPtr.from.getVarOrZero, NullPtr().getVarOrZero)) {
-      logger.debug("Null pointer on the left side of pointer => Unsatisfiable unfolding => abort branch")
+      logger.info("Null pointer on the left side of pointer => Unsatisfiable unfolding => abort branch")
       None
     } else {
       val oMatchingLhsPtr = findPointerWithMatchingLeftSide(lhsFormula, rhsFormula, rhsPtr)
       oMatchingLhsPtr match {
         case None =>
-          logger.debug("No matching pointer => no model => abort branch")
+          logger.info("No matching pointer => no model => abort branch")
           None
         case Some(matchingLhsPtr) =>
           // Found a pointer that matches lhs and length of rhs => perform the acutal matching
@@ -53,14 +53,14 @@ object PointerUnification extends HarrshLogging {
     val oMatchingLhsPtr = lhsFormula.pointers.find(lhsPtr => PureFormulaReasoning.varsEqualModuloPureDifferentSides(lhsFormula.pure, lhsPtr.from.getVarOrZero, rhsFormula.pure, rhsPtr.fromAsVar))
     oMatchingLhsPtr match {
       case None =>
-        logger.debug("No matching pointer => no model => abort branch")
+        logger.info("No matching pointer => no model => abort branch")
         None
       case Some(matchingLhsPtr) =>
         logger.debug("Found pointer with matching left side: " + matchingLhsPtr)
 
         if (rhsPtr.to.size != matchingLhsPtr.to.size) {
           // Pointers have different arity => Not model of the formula
-          logger.debug("Matching pointers have different number of args => no model => abort branch")
+          logger.info("Matching pointers have different number of args => no model => abort branch")
           None
         }
         else {
@@ -85,16 +85,16 @@ object PointerUnification extends HarrshLogging {
     val newAllocatedVar = rhsPtr.fromAsVar
 
     // Instantiate existentially quantified variables on both sides as necessary
-    logger.debug("Will match parameter lists " + rhsPtr.toAsVarOrZero.mkString(",") + " and " + lhsPtr.toAsVarOrZero.mkString(","))
+    logger.debug("Will match parameter lists " + rhsPtr.toAsVarOrZero.map(Var.toDefaultString).mkString(",") + " and " + lhsPtr.toAsVarOrZero.map(Var.toDefaultString).mkString(","))
     matchParametersViaVariableIntroduction(lhs, lhsPtr.toAsVarOrZero, rhs, rhsPtr.toAsVarOrZero, disallowedFVs, Set(newAllocatedVar)) match {
       case Some((renamedLhs, renamedRhs, newFVs)) =>
 
-        logger.debug("New lhs: " + renamedLhs)
-        logger.debug("New rhs: " + renamedRhs)
+        logger.info("New lhs: " + renamedLhs)
+        logger.info("New rhs: " + renamedRhs)
 
         // Check if we now have null pointers on the lhs in the model; if so, abort
         if (renamedLhs.pointers.exists(_.from.getVarOrZero == 0)) {
-          logger.debug("Introduced null pointer allocation into model " + renamedLhs + " => no model => abort branch")
+          logger.info("Introduced null pointer allocation into model " + renamedLhs + " => no model => abort branch")
           None
         } else {
           // Recurse for continued model checking
@@ -102,7 +102,7 @@ object PointerUnification extends HarrshLogging {
         }
       case None =>
         // Matching parameters failed, formula is not a model of the unfolding
-        logger.debug("Matching pointers have unmatchable args => no model => abort branch")
+        logger.info("Matching pointers have unmatchable args => no model => abort branch")
         None
     }
   }
@@ -133,9 +133,9 @@ object PointerUnification extends HarrshLogging {
       // Note that if the arguments SHs have different numbers of FVs, this will introduce a "gap" in the FVs in the SH with the smaller number
       val usedFVIdents = Seq(allDisallowedFVs.max, lhs.numFV, rhs.numFV)
       val newFV = Var.mkVar(usedFVIdents.max + 1)
-      logger.debug("Introducing new free variable " + PtrVar(newFV) + " replacing " + lvar + " (model formula) and " + rvar + " (unfolding)")
-      val newLhs = lhs.instantiateBoundVars(Seq((lvar, newFV)))
-      val newRhs = rhs.instantiateBoundVars(Seq((rvar, newFV)))
+      logger.debug("Introducing new free variable " + PtrVar(newFV) + " replacing " + Var.toDefaultString(lvar) + " (model formula) and " + Var.toDefaultString(rvar) + " (unfolding)")
+      val newLhs = lhs.instantiateBoundVars(Seq((lvar, newFV)), closeGaps = false)
+      val newRhs = rhs.instantiateBoundVars(Seq((rvar, newFV)), closeGaps = false)
       (newLhs, newRhs, Some(newFV))
     }
 
@@ -161,12 +161,12 @@ object PointerUnification extends HarrshLogging {
         case (true, false) =>
           // Left is free, right is quantified => Instantiate right-hand side
           logger.debug("Renaming " + rvar + " to " + lvar + " in unfolding")
-          val newRhs = rhs.instantiateBoundVars(Seq((rvar, lvar)))
+          val newRhs = rhs.instantiateBoundVars(Seq((rvar, lvar)), closeGaps = false)
           Some(lhs, newRhs, None)
         case (false, true) =>
           // Left is quantified, right is free => Instantiate left-hand side
           logger.debug("Renaming " + lvar + " to " + rvar + " in model formula")
-          val newLhs = lhs.instantiateBoundVars(Seq((lvar, rvar)))
+          val newLhs = lhs.instantiateBoundVars(Seq((lvar, rvar)), closeGaps = false)
           Some(newLhs, rhs, None)
         case (false, false) =>
           // Both are bound; need to introduce new free var to continue matching

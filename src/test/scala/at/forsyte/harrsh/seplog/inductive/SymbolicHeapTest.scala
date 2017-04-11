@@ -11,14 +11,6 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
 
   import at.forsyte.harrsh.Implicits._
 
-  val sll = "sll.sid".load()
-  val tree = "tree.sid".load()
-  val tll = "tll.sid".load()
-  val tllAcyc = "tll-acyc.sid".load()
-
-  val tllAcycBaseRule = tllAcyc.baseRule
-  val tllAcycRecRule = tllAcyc.recursiveRule
-
   behavior of "A symbolic heap"
 
   it should "not have pred calls in reduced heaps" in {
@@ -58,6 +50,9 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
   }
 
   it should "track free vars correctly" in {
+
+    val sll = "sll.sid".load()
+    val tll = "tll.sid".load()
 
     assert("emp * x6 -> null * Q(x3, x3)".parse().freeVars == Seq(x1,x2,x3,x4,x5,x6)) // Free variables are filled up
 
@@ -153,7 +148,7 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
       (input,(qvar,fvar),output) <- testInputs
     } {
       info("Testing equality of instantiation " + input + "[" + qvar + " -> " + fvar + "] == " + output)
-      assert(input.parse().instantiateBoundVars(Seq((qvar, fvar))) == output.parse())
+      assert(input.parse().instantiateBoundVars(Seq((qvar, fvar)), closeGaps = true) == output.parse())
     }
 
   }

@@ -73,7 +73,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
       val history = prevHistory.nextIteration
       if (history.iteration < IterationBound) {
         logger.debug("#" * 80)
-        logger.debug("Iteration " + history.iteration + ": Greedy model checking of \n     " + formulaToMatch + "\n |?= " + partialUnfolding + "\n}")
+        logger.debug("Iteration " + history.iteration + ": Greedy model checking of \n     " + formulaToMatch + "\n |?= " + partialUnfolding )
         logger.debug("Steps so far:\n" + history.stepLogger)
         if (reportProgress) println("    MC #" + history.iteration + ": " + formulaToMatch + " |?= " + partialUnfolding)
 

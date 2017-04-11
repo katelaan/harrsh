@@ -41,10 +41,10 @@ class ModelCheckingTest extends HarrshTableTest {
     }
   }
 
-//  val (modelFile, sidFile, expectedRes) = ("examples/models/tll-cyc.amd", "examples/datastructures/tll.sid", true)
+//  val (modelFile, sidFile, expectedRes) = ("examples/models/null-terminated-tree.amd", "examples/datastructures/tree.sid", true)
 //
 //  val model = MainIO.getModelFromFile(modelFile)
-//  val (sid,_) = MainIO.getSidFromFile(sidFile)
+//  val sid = MainIO.getSidFromFile(sidFile)
 //
 //  val modelFormula = ModelToFormula(model)
 //  println("Model formula: " + modelFormula + "\n SID: " + sid)

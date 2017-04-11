@@ -54,7 +54,7 @@ object ECD {
     def unbindAll(vars : Seq[Var], sh : SymbolicHeap, map : Map[Var,Var]) : (SymbolicHeap,Map[Var,Var]) = if (vars.isEmpty) {
       (sh,map)
     } else {
-      val nextSH = sh.instantiateBoundVars(Seq((vars.head, sh.numFV+1)))
+      val nextSH = sh.instantiateBoundVars(Seq((vars.head, sh.numFV+1)), closeGaps = false)
       unbindAll(vars.tail, nextSH, map + (sh.numFV+1 -> vars.head))
     }
 

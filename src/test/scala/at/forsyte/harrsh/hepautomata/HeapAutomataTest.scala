@@ -149,10 +149,8 @@ class HeapAutomataTest extends HarrshTableTest with TestValues {
         Given(sid + "\n and the automaton '" + automaton.description)
         Then("The emptiness check should return " + result)
 
-        println("#"*80)
-        println("Testing emptiness for refinement of " + sid + "\n with the automaton '" + automaton.description + "'; expected result: " + result)
+        info("Testing emptiness for refinement of " + sid + "\n with the automaton '" + automaton.description + "'; expected result: " + result)
         RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, automaton, reportProgress = true) should be(result)
-        println()
     }
 
   }
