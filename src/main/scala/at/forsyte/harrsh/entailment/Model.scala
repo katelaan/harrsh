@@ -12,3 +12,7 @@ case class Model(stack : Map[Var, Loc], heap : Map[Loc,Seq[Loc]]) {
   assert(stack.values.toSet subsetOf (heap.keySet ++ heap.values.flatten ++ Set(0)))
 
 }
+
+object Model {
+  val empty: Model = Model(Map(), Map())
+}

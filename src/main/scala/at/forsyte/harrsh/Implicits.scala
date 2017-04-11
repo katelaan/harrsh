@@ -1,6 +1,6 @@
 package at.forsyte.harrsh
 
-import at.forsyte.harrsh.entailment.GreedyUnfoldingModelChecker
+import at.forsyte.harrsh.entailment.{GreedyUnfoldingModelChecker, Model}
 import at.forsyte.harrsh.main.MainIO
 import at.forsyte.harrsh.parsers.SIDParsers
 import at.forsyte.harrsh.pure.EqualityBasedSimplifications
@@ -31,7 +31,16 @@ object Implicits {
       }
     }
 
-    def parse() : SymbolicHeap = {
+    def parseModel() : Model =  {
+      IOUtils.findFileIn(s, Defaults.PathsToExamples) match {
+        case Some(file) => MainIO.getModelFromFile(file)
+        case None =>
+          IOUtils.printWarningToConsole("Could not find file '" + s + "' in current path " + Defaults.PathsToExamples.mkString(":"))
+          Model.empty
+      }
+    }
+
+    def parse : SymbolicHeap = {
       SIDParsers.CombinedSIDParser.runOnSymbolicHeap(s) match {
         case Some(sh) => sh
         case None =>
@@ -118,6 +127,6 @@ object Implicits {
 
   implicit def stringToInteractiveString(s : String) : ParsableString = new ParsableString(s)
 
-  implicit def stringToSH(s : String) : RichSymbolicHeap = s.parse()
+  implicit def stringToSH(s : String) : RichSymbolicHeap = s.parse
 
 }

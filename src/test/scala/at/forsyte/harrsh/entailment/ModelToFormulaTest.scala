@@ -1,8 +1,9 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.seplog.{NullPtr, PtrVar, Var}
-import at.forsyte.harrsh.seplog.inductive.{PointsTo, PtrEq, SymbolicHeap}
-import at.forsyte.harrsh.test.{HarrshTableTest, HarrshTest}
+import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
+import at.forsyte.harrsh.test.{HarrshTableTest}
+import at.forsyte.harrsh.Implicits._
 
 /**
   * Created by jens on 2/24/17.
@@ -16,28 +17,29 @@ class ModelToFormulaTest extends HarrshTableTest {
     // Simple model with pairwise different variables, all of which are non-null
     (Map() + (1 -> 5, 2 -> 42, 3 -> 55),
       Map() + (5 -> Seq(42, 55), 42 -> Seq(55), 55 -> Seq(3), 3 -> Seq(0)),
-      SymbolicHeap.fromFullDescription(List(),List(PointsTo(PtrVar(1),List(PtrVar(2), PtrVar(3))), PointsTo(PtrVar(2),List(PtrVar(3))), PointsTo(PtrVar(3),List(PtrVar(-1))), PointsTo(PtrVar(-1),List(NullPtr()))),List(),3,List(-1))),
+      "∃y1 . x1 ↦ (x2, x3) * x2 ↦ x3 * x3 ↦ y1 * y1 ↦ null".parse),
 
     // Stack with some null vars
       (Map() + (1 -> 5, 2 -> 42, 3 -> 0, 4 -> 0),
        Map() + (5 -> Seq(42, 55), 42 -> Seq(55), 55 -> Seq(3), 3 -> Seq(0)),
-        SymbolicHeap.fromFullDescription(List(PtrEq(PtrVar(3),PtrVar(4)), PtrEq(PtrVar(3),NullPtr()), PtrEq(PtrVar(4),NullPtr())),List(PointsTo(PtrVar(1),List(PtrVar(2), PtrVar(-1))), PointsTo(PtrVar(2),List(PtrVar(-1))), PointsTo(PtrVar(-1),List(PtrVar(-2))), PointsTo(PtrVar(-2),List(NullPtr()))),List(),4,List(-1, -2))),
+        "∃y1 ∃y2 . x1 ↦ (x2, y1) * x2 ↦ y1 * y1 ↦ y2 * y2 ↦ null : {x3 ≈ x4, x3 ≈ null, x4 ≈ null}".parse),
 
     // Additionally multiple equal vars
     (Map() + (1 -> 5, 2 -> 42, 3 -> 0, 4 -> 0, 5 -> 42, 6 -> 42),
       Map() + (5 -> Seq(42, 55), 42 -> Seq(55), 55 -> Seq(3), 3 -> Seq(0)),
-      SymbolicHeap.fromFullDescription(List(PtrEq(PtrVar(5),PtrVar(6)), PtrEq(PtrVar(6),PtrVar(2)), PtrEq(PtrVar(3),PtrVar(4)), PtrEq(PtrVar(3),NullPtr()), PtrEq(PtrVar(4),NullPtr())),List(PointsTo(PtrVar(1),List(PtrVar(2), PtrVar(-1))), PointsTo(PtrVar(2),List(PtrVar(-1))), PointsTo(PtrVar(-1),List(PtrVar(-2))), PointsTo(PtrVar(-2),List(NullPtr()))),List(),6,List(-1, -2))),
+      "∃y1 ∃y2 . x1 ↦ (x2, y1) * x2 ↦ y1 * y1 ↦ y2 * y2 ↦ null : {x5 ≈ x6, x6 ≈ x2, x3 ≈ x4, x3 ≈ null, x4 ≈ null}".parse),
 
     //Stack with multiple bound vars
     (Map() + (1 -> 5, 2 -> 42, 3 -> 0),
       Map() + (5 -> Seq(42, 55), 42 -> Seq(55), 55 -> Seq(3,8), 3 -> Seq(0), 8 -> Seq(19, 22), 19 -> Seq(0), 22 -> Seq(0)),
-      SymbolicHeap.fromFullDescription(List(PtrEq(PtrVar(3),NullPtr())),List(PointsTo(PtrVar(1),List(PtrVar(2), PtrVar(-1))), PointsTo(PtrVar(2),List(PtrVar(-1))), PointsTo(PtrVar(-2),List(NullPtr())), PointsTo(PtrVar(-3),List(NullPtr())), PointsTo(PtrVar(-1),List(PtrVar(-3), PtrVar(-4))), PointsTo(PtrVar(-4),List(PtrVar(-5), PtrVar(-2))), PointsTo(PtrVar(-5),List(NullPtr()))),List(),3,List(-1, -2, -3, -4, -5)))
+      "∃y1 ∃y2 ∃y3 ∃y4 ∃y5 . x1 ↦ (x2, y1) * x2 ↦ y1 * y2 ↦ null * y3 ↦ null * y1 ↦ (y3, y4) * y4 ↦ (y5, y2) * y5 ↦ null : {x3 ≈ null}".parse)
   )
 
   property("The conversion of models to symbolic heaps") {
     forAll(testCases) {
       (stack : Map[Var,Loc], heap : Map[Loc,Seq[Loc]], expectedRes : SymbolicHeap) =>
         val res = ModelToFormula(Model(stack, heap))
+        info("Model-to-formula conversion result " + res + " should equal " + expectedRes)
         res shouldEqual expectedRes
     }
   }

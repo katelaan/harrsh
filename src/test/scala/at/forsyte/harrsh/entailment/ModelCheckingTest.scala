@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.main.MainIO
+import at.forsyte.harrsh.Implicits._
 import at.forsyte.harrsh.test.HarrshTableTest
 
 /**
@@ -11,27 +11,27 @@ class ModelCheckingTest extends HarrshTableTest {
   // TODO Add test cases with SIDs that add more pure formulas
   val testCases = Table(
     ("model file", "sid file", "expected result"),
-    ("examples/models/three-elem-list.amd", "examples/symbolicheaps/list-to-null.sid", true),
-    ("examples/models/ten-elem-list.amd", "examples/symbolicheaps/list-to-null.sid", true),
-    ("examples/models/three-elem-list.amd", "examples/symbolicheaps/list-cyc.sid", false),
-    ("examples/models/three-elem-list.amd", "examples/symbolicheaps/list-unsat.sid", false),
-    ("examples/models/null-terminated-tree.amd", "examples/datastructures/tree.sid", true),
-    ("examples/models/null-terminated-tree2.amd", "examples/datastructures/tree.sid", true),
-    ("examples/models/tree.amd", "examples/datastructures/tree.sid", false),
-    ("examples/models/tree.amd", "examples/datastructures/tree-with-null-children.sid", true),
-    ("examples/models/tree-with-larger-stack.amd", "examples/datastructures/tll.sid", false),
-    ("examples/models/tll.amd", "examples/datastructures/tll.sid", true),
-    ("examples/models/tll2.amd", "examples/datastructures/tll.sid", true),
-    ("examples/models/tll-wrong.amd", "examples/datastructures/tll.sid", false),
-    ("examples/models/tll-cyc.amd", "examples/datastructures/tll.sid", true),
-    ("examples/models/tll-cyc.amd", "examples/datastructures/tll-acyc.sid", false)
+    ("three-elem-list.amd", "list-to-null.sid", true),
+    ("ten-elem-list.amd", "list-to-null.sid", true),
+    ("three-elem-list.amd", "list-cyc.sid", false),
+    ("three-elem-list.amd", "list-unsat.sid", false),
+    ("null-terminated-tree.amd", "tree.sid", true),
+    ("null-terminated-tree2.amd", "tree.sid", true),
+    ("tree.amd", "tree.sid", false),
+    ("tree.amd", "tree-with-null-children.sid", true),
+    ("tree-with-larger-stack.amd", "tll.sid", false),
+    ("tll.amd", "tll.sid", true),
+    ("tll2.amd", "tll.sid", true),
+    ("tll-wrong.amd", "tll.sid", false),
+    ("tll-cyc.amd", "tll.sid", true),
+    ("tll-cyc.amd", "tll-acyc.sid", false)
   )
 
   property("Correctness of the model checker") {
     forAll(testCases) {
       (modelFile : String, sidFile : String, expectedRes : Boolean) =>
-        val model = MainIO.getModelFromFile(modelFile)
-        val sid = MainIO.getSidFromFile(sidFile)
+        val model = modelFile.parseModel()
+        val sid = sidFile.load()
 
         val modelFormula = ModelToFormula(model)
         Given("Model formula: " + modelFormula + "\n SID: " + sid)
@@ -41,7 +41,7 @@ class ModelCheckingTest extends HarrshTableTest {
     }
   }
 
-//  val (modelFile, sidFile, expectedRes) = ("examples/models/null-terminated-tree.amd", "examples/datastructures/tree.sid", true)
+//  val (modelFile, sidFile, expectedRes) = ("null-terminated-tree.amd", "tree.sid", true)
 //
 //  val model = MainIO.getModelFromFile(modelFile)
 //  val sid = MainIO.getSidFromFile(sidFile)
