@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.pure.EqualityBasedSimplifications
-import at.forsyte.harrsh.seplog.{MapBasedRenaming, Renaming, Var}
+import at.forsyte.harrsh.seplog.{Renaming, Var}
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
@@ -41,7 +41,7 @@ object ECD {
 
   def apply(rep : SymbolicHeap, ext : SymbolicHeap) : ECD = {
     val repWithExtPoints = unbindShared(rep, ext)
-    ECD(repWithExtPoints._1, ext, MapBasedRenaming(repWithExtPoints._2))
+    ECD(repWithExtPoints._1, ext, Renaming.fromMap(repWithExtPoints._2))
   }
 
   /**
@@ -54,7 +54,7 @@ object ECD {
     def unbindAll(vars : Seq[Var], sh : SymbolicHeap, map : Map[Var,Var]) : (SymbolicHeap,Map[Var,Var]) = if (vars.isEmpty) {
       (sh,map)
     } else {
-      val nextSH = sh.instantiateBoundVarWithFV(vars.head, sh.numFV+1)
+      val nextSH = sh.instantiateBoundVars(Seq((vars.head, sh.numFV+1)))
       unbindAll(vars.tail, nextSH, map + (sh.numFV+1 -> vars.head))
     }
 

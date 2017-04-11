@@ -61,7 +61,7 @@ object SIDUnfolding extends HarrshLogging {
         if sh.predCalls.nonEmpty
         callReplacements = sh.predCalls.map(_.name) map predsToBodies
         replacementChoices: Seq[Seq[SymbolicHeap]] = Combinators.choices(callReplacements)
-        newInstances: Seq[SymbolicHeap] = replacementChoices.map(sh.replaceCalls(_, performAlphaConversion = true))
+        newInstances: Seq[SymbolicHeap] = replacementChoices.map(sh.replaceCalls(_))
       } yield newInstances
 
       unfoldStep(predsToBodies, acc ++ curr, allNewInstances.flatten, depth - 1, doAccumulateSteps)

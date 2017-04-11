@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.pure
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{MapBasedRenaming, Var}
+import at.forsyte.harrsh.seplog.{Renaming, Var}
 import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, PureAtom, SymbolicHeap}
 
 /**
@@ -17,7 +17,7 @@ object EqualityBasedSimplifications extends HarrshLogging {
   def removeExplicitlyRedundantBoundVars(sh : SymbolicHeap) : SymbolicHeap = {
     val mixedEqs : Seq[(Var,Var)] = sh.pure.flatMap(asEqualityWithBoundPart)
     // TODO Note that this is not optimal, because of cases such as y2 = y3, y1 = y2. In that case, we could get rid of two variables, but would only remove one here (depending on the order of the equalities)
-    val renaming = MapBasedRenaming(mixedEqs.toMap)
+    val renaming = Renaming.fromPairs(mixedEqs)
     logger.debug("Renaming " + sh + " using " + renaming)
     val renamed = sh.renameVars(renaming, avoidDoubleCapture = false)
     logger.debug("Renamed: " + renamed)

@@ -58,11 +58,30 @@ object Renaming {
     * @param varClashes Set of potentially clashing variables
     * @return Renaming with codomain varClashes
     */
-  def clashAvoidanceRenaming(varClashes : Iterable[Var]) = {
+  def clashAvoidanceRenaming(varClashes : Iterable[Var]) : Renaming = {
     val entries = varClashes.zipWithIndex map {
       case (v,i) => (Integer.MIN_VALUE + i, v)
     }
-    MapBasedRenaming(Map() ++ entries)
+    fromPairs(entries)
+  }
+
+  def fromPairs(pairs : Iterable[(Var,Var)]) : Renaming = fromMap(Map() ++ pairs)
+
+  def fromMap(mapOfPairs : Map[Var,Var]) : Renaming = MapBasedRenaming(mapOfPairs)
+
+  private case class MapBasedRenaming(map : Map[Var, Var]) extends Renaming {
+
+    override lazy val codomain: Set[Var] = map.values.toSet
+
+    override def apply(x: Var): Var = map.getOrElse(x, x)
+
+    override def extendWith(k: Var, v: Var): Renaming = MapBasedRenaming(map + (k -> v))
+
+    override def toString = "[" + map.map(p => Var.toDefaultString(p._1)+"->"+Var.toDefaultString(p._2)).mkString(",") + "]"
+
+    override def isDefinedAt(s: Var): Boolean = map.isDefinedAt(s)
+
+    override def filter(p: ((Var, Var)) => Boolean): Renaming = MapBasedRenaming(map.filter(p))
   }
 
 }

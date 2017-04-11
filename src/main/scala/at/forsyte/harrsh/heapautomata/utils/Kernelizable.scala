@@ -15,8 +15,7 @@ object Kernelizable {
 
   def compressByKernelization(sh : SymbolicHeap, qs : Seq[Kernelizable]) : SymbolicHeap = {
     val newHeaps = qs map (_.kernel)
-    // Since we deal only with quantifier-free kernels, no alpha-conversion is necessary
-    sh.replaceCalls(newHeaps, performAlphaConversion = false)
+    sh.replaceCalls(newHeaps)
   }
 
 }

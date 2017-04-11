@@ -130,12 +130,12 @@ object PointerUnification extends HarrshLogging {
 
     def unbindBoundVariable(lvar: Var, rvar: Var): (SymbolicHeap, SymbolicHeap, Option[Var]) = {
       // The new FV will be one larger than any of the FVs in either argument SH and the history
-      // Note that if the arguments SHs have different numbers of FVs, this will introduce a "gap" in the SH with the smaller number
+      // Note that if the arguments SHs have different numbers of FVs, this will introduce a "gap" in the FVs in the SH with the smaller number
       val usedFVIdents = Seq(allDisallowedFVs.max, lhs.numFV, rhs.numFV)
       val newFV = Var.mkVar(usedFVIdents.max + 1)
       logger.debug("Introducing new free variable " + PtrVar(newFV) + " replacing " + lvar + " (model formula) and " + rvar + " (unfolding)")
-      val newLhs = lhs.instantiateBoundVarWithFV(lvar, newFV)
-      val newRhs = rhs.instantiateBoundVarWithFV(rvar, newFV)
+      val newLhs = lhs.instantiateBoundVars(Seq((lvar, newFV)))
+      val newRhs = rhs.instantiateBoundVars(Seq((rvar, newFV)))
       (newLhs, newRhs, Some(newFV))
     }
 
@@ -161,12 +161,12 @@ object PointerUnification extends HarrshLogging {
         case (true, false) =>
           // Left is free, right is quantified => Instantiate right-hand side
           logger.debug("Renaming " + rvar + " to " + lvar + " in unfolding")
-          val newRhs = rhs.instantiateBoundVarWithFV(rvar, lvar)
+          val newRhs = rhs.instantiateBoundVars(Seq((rvar, lvar)))
           Some(lhs, newRhs, None)
         case (false, true) =>
           // Left is quantified, right is free => Instantiate left-hand side
           logger.debug("Renaming " + lvar + " to " + rvar + " in model formula")
-          val newLhs = lhs.instantiateBoundVarWithFV(lvar, rvar)
+          val newLhs = lhs.instantiateBoundVars(Seq((lvar, rvar)))
           Some(newLhs, rhs, None)
         case (false, false) =>
           // Both are bound; need to introduce new free var to continue matching

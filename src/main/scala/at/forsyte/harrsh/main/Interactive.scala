@@ -43,9 +43,10 @@ object Interactive {
   }
 
   def record(desc : String, sh : => SymbolicHeap) : SymbolicHeap = {
-    shbuffer.add(desc, sh)
+    val eval : SymbolicHeap = sh
+    shbuffer.add(desc, eval)
     println("Storing result in variable 'heap'")
-    sh
+    eval
   }
 
 //  def record(desc : String, shs : => Iterable[SymbolicHeap]) : Iterable[SymbolicHeap] = {
