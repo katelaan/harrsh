@@ -14,27 +14,27 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
   behavior of "A symbolic heap"
 
   it should "not have pred calls in reduced heaps" in {
-    assert(!"emp".parse().hasPredCalls)
-    assert(!"x1 -> y1 * y1 -> y2 : { x1 = y}".parse().hasPredCalls)
+    assert(!"emp".parse.hasPredCalls)
+    assert(!"x1 -> y1 * y1 -> y2 : { x1 = y}".parse.hasPredCalls)
 
   }
 
   it should "return the correct preds in correct order " in {
 
-    def getCallIds(s : String) : Seq[String] = s.parse().identsOfCalledPreds
+    def getCallIds(s : String) : Seq[String] = s.parse.identsOfCalledPreds
 
     assert(getCallIds("emp * x1 = y1 * x1 -> y1 * x2 -> y2") == Seq())
     assert(getCallIds("emp * P(x1,y1) * x1 -> y1 * Q(x1, y1)") == Seq("P","Q"))
     assert(getCallIds("emp * P(x1,y1) * x1 -> y1 * P(x1, y1)") == Seq("P","P"))
     assert(getCallIds("emp * P(x1,y1) * y2 = y3 * x1 -> y1 * P(x1, y1) * R(y1)") == Seq("P","P", "R"))
 
-    assert("emp * P(x1,y1) * y2 = y3 * x1 -> y1 * P(x1, y1) * R(y1)".parse().withoutCalls.identsOfCalledPreds == Seq())
+    assert("emp * P(x1,y1) * y2 = y3 * x1 -> y1 * P(x1, y1) * R(y1)".parse.withoutCalls.identsOfCalledPreds == Seq())
 
   }
 
   it should "return all equalities" in {
-
-    def getEqSet(s : String) : Set[PtrEq] = s.parse().equalities.toSet
+    
+    def getEqSet(s : String) : Set[PtrEq] = s.parse.equalities.toSet
 
     assert(getEqSet("emp * P(x1,y1) * x1 -> y1 * Q(x1, y1)") == Set.empty)
     assert(getEqSet("emp * P(x1,y1) * x1 -> y1 * Q(x1, y1) : {x1 != y1}") == Set.empty)
@@ -54,7 +54,7 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
     val sll = "sll.sid".load()
     val tll = "tll.sid".load()
 
-    assert("emp * x6 -> null * Q(x3, x3)".parse().freeVars == Seq(x1,x2,x3,x4,x5,x6)) // Free variables are filled up
+    assert("emp * x6 -> null * Q(x3, x3)".parse.freeVars == Seq(x1,x2,x3,x4,x5,x6)) // Free variables are filled up
 
     assert(sll.baseRule.body.freeVars == Seq(x1,x2))
     assert(sll.recursiveRule.body.freeVars == Seq(x1,x2))
@@ -67,7 +67,7 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
 
   it should "have the right vars" in {
 
-    def getVars(s : String) : Set[Var] = s.parse().allVars
+    def getVars(s : String) : Set[Var] = s.parse.allVars
 
     assert(getVars("emp * x1 -> null * Q(y1, y1)") == Set(x1,y1))
     assert(getVars("emp * y6 -> null * Q(y6, y6)") == Set(y1)) // Bound variable names are automatically normalized
@@ -100,7 +100,7 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
       (input,ren,output) <- testInputs
     } {
       info("Testing equality of renaming with alpha conversion " + input + ren + " == " + output)
-      assert(input.parse().renameVars(ren) == output.parse())
+      assert(input.parse.renameVars(ren) == output.parse)
     }
 
   }
@@ -128,7 +128,7 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
       (input,ren,output) <- testInputs
     } {
       info("Testing equality of renaming " + input + ren + " == " + output)
-      assert(input.parse().renameVars(ren,avoidDoubleCapture = false) == output.parse())
+      assert(input.parse.renameVars(ren,avoidDoubleCapture = false) == output.parse)
     }
 
   }
@@ -148,7 +148,7 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
       (input,(qvar,fvar),output) <- testInputs
     } {
       info("Testing equality of instantiation " + input + "[" + qvar + " -> " + fvar + "] == " + output)
-      assert(input.parse().instantiateBoundVars(Seq((qvar, fvar)), closeGaps = true) == output.parse())
+      assert(input.parse.instantiateBoundVars(Seq((qvar, fvar)), closeGaps = true) == output.parse)
     }
 
   }
@@ -185,9 +185,9 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
     for {
       (input,replacements,output) <- testInputs
     } {
-      val unfoldBy : Seq[SymbolicHeap] = replacements map (_.parse())
+      val unfoldBy : Seq[SymbolicHeap] = replacements map (_.parse)
       info("Testing equality " + input + unfoldBy.mkString("[",", ","]") + " == " + output)
-      assert(input.parse().replaceCalls(unfoldBy) == output.parse())
+      assert(input.parse.replaceCalls(unfoldBy) == output.parse)
     }
 
   }

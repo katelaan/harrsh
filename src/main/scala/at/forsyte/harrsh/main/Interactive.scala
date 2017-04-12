@@ -79,8 +79,8 @@ object Interactive {
       sid
     }
 
-    override def parse() : SymbolicHeap = {
-      record(s, super.parse())
+    override def parse : SymbolicHeap = {
+      record(s, super.parse)
     }
 
     def get() : SID = loadedSids(s)
@@ -132,8 +132,8 @@ object Interactive {
     def sll(): (SymbolicHeap, SymbolicHeap) = {
       clear()
       "sll.sid".load()
-      "x1 -> y1 * y1 -> y2 * y2 -> x2".parse()
-      "sll(x1, y1) * sll(y1, x2)".parse()
+      "x1 -> y1 * y1 -> y2 * y2 -> x2".parse
+      "sll(x1, y1) * sll(y1, x2)".parse
       returnRuleBodyPair()
     }
 

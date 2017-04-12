@@ -54,6 +54,7 @@ object PureFormulaReasoning extends HarrshLogging {
     // Every equality and disequality in the rhs should be respected by the lhs, apart from explicit equalities of the kind x == x
     def notTautology(atom: PureAtom) = atom.isInstanceOf[PtrNEq] || atom.getVarsWithNull.size == 2
 
+    // TODO The following is not exactly clean, since I rely on the implementation-specific detail that the closure returns each atoms ordered (smaller var on the left)
     val lhsClosureSet = lhsClosure.asSetOfAtoms filter notTautology
     val rhsClosureSet = rhsClosure.asSetOfAtoms filter notTautology
 

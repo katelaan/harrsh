@@ -49,7 +49,7 @@ class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
     }
   }
 
-  override lazy val asSetOfAtoms: Set[PureAtom] = EqualityUtils.propagateConstraints(pure)
+  override lazy val asSetOfAtoms: Set[PureAtom] = EqualityUtils.propagateConstraints(pure).map(_.ordered)
 
 }
 

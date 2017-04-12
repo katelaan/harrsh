@@ -33,6 +33,11 @@ sealed trait PureAtom extends SepLogAtom with HarrshLogging {
 
   def isPointerComparison = true
 
+  def ordered : PureAtom = this match {
+    case eq@PtrEq(l, r) => if (l < r) eq else PtrEq(r,l)
+    case neq@PtrNEq(l, r) => if (l < r) neq else PtrNEq(r,l)
+  }
+
 }
 
 //sealed trait EqualityPureAtom extends PureAtom
