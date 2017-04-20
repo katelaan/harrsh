@@ -57,14 +57,22 @@ object RefinementAlgorithms {
   /**
     * (Task to perform, is refined SID empty (or None if timeout), witness if nonempty)
    */
-  type AnalysisResult = (AutomatonTask, Option[Boolean], Option[SymbolicHeap])
+  case class AnalysisResult(task : AutomatonTask, result : Option[Boolean], witness : Option[SymbolicHeap])
 
-  def performFullAnalysis(sid: SID, numFV : Int, timeout: Duration): Unit = {
+  def performFullAnalysis(sid: SID, numFV : Int, timeout: Duration, verbose : Boolean): Unit = {
 
     val tasks : Seq[AutomatonTask] = Seq(RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunMayHaveGarbage(), RunGarbageFreedom(), RunWeakAcyclicity(), RunStrongCyclicity())
 
     println("Beginning analysis...")
-    val results : Seq[AnalysisResult] = for (task <- tasks) yield analyze(task, sid, numFV, timeout)
+    val results : Seq[AnalysisResult] = for (task <- tasks) yield {
+      try {
+        analyze(task, sid, numFV, timeout, verbose)
+      } catch {
+        case e : Exception =>
+          println("An error occurred during analysis of " + task + ":\n" + e.toString)
+          AnalysisResult(task, None, None)
+      }
+    }
     println("Finished analysis.")
     println()
 
@@ -72,34 +80,37 @@ object RefinementAlgorithms {
     println("Analysis results for: " + sid)
     println()
 
-    val shCol : Int = Math.max(40, results.map(_._3.toString.length).max - 5)
+    val shCol : Int = Math.max(40, results.map(_.witness.toString.length).max - 5)
     val cols = Seq(20,20,shCol)
     val headings = Seq("Property", "Result", "Witness")
     val entries : Seq[Seq[String]] = for {
-      (task,res,witness) <- results
-    } yield Seq(task.toString, res.map(task.resultToString).getOrElse("TO"), witness.map(_.toString).getOrElse("-"))
+      AnalysisResult(task,res,witness) <- results
+    } yield Seq(task.toString, res.map(task.resultToString).getOrElse("TO / ERR"), witness.map(_.toString).getOrElse("-"))
     println(IOUtils.toTable(headings, cols, entries))
 
   }
 
-  private def analyze(task : AutomatonTask, sid : SID, numFV : Int, timeout : Duration) : AnalysisResult = {
+  private def analyze(task : AutomatonTask, sid : SID, numFV : Int, timeout : Duration, verbose : Boolean) : AnalysisResult = {
     val refined = refineSID(sid, task.getAutomaton(numFV), timeout, reportProgress = false)
     refined match {
       case None =>
         println(task + " did not finish within timeout (" + timeout.toSeconds + "s)")
-        (task, None, None)
+        AnalysisResult(task, None, None)
       case Some((refinedSid,empty)) =>
         println("Finished " + task + ": " + task.resultToString(empty))
+        if (verbose) {
+          println("Refined SID:\n" + refinedSid)
+        }
 
         val witness : Option[SymbolicHeap] = if (!empty) {
           val w = SIDUnfolding.firstReducedUnfolding(refinedSid)
-          //println("Witness: " + w)
+          println("Witness: " + w)
           Some(w)
         } else {
           None
         }
 
-        (task, Some(empty), witness)
+        AnalysisResult(task, Some(empty), witness)
     }
   }
 

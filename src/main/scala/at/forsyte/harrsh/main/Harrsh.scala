@@ -88,8 +88,10 @@ object Harrsh {
       timeout = tryParseAsInt(timeoutString) map (Duration(_, SECONDS)) getOrElse {
         if (mode.defaultTimeout.toSeconds != 0) {
           println("No timeout specified; will use default " + mode.defaultTimeout)
+          mode.defaultTimeout
+        } else {
+          Duration(Integer.MAX_VALUE, SECONDS)
         }
-        mode.defaultTimeout
       }
       _ <- modify[Config](cnf => cnf.copy(oTimeout = Some(timeout)))
 
@@ -162,7 +164,7 @@ object Harrsh {
 
       case Analyze() =>
           val sid = MainIO.getSidFromFile(config.file)
-          println(RefinementAlgorithms.performFullAnalysis(sid, sid.numFV, config.timeout))
+          RefinementAlgorithms.performFullAnalysis(sid, sid.numFV, config.timeout, config.verbose)
 
       case ModelChecking() =>
           val sid = MainIO.getSidFromFile(config.file)

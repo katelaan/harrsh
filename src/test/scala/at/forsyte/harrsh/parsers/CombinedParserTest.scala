@@ -51,7 +51,7 @@ class CombinedParserTest extends HarrshTableTest {
   property ("Correctness of combined parser") {
     forAll(inputs) {
       (input, expectedResult) =>
-        val parseResult = input.parse()
+        val parseResult = input.parse
 
         info(""+parseResult)
 

@@ -3,6 +3,7 @@ package at.forsyte.harrsh.parsers
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.parsers.buildingblocks.{Atoms, QuantifierPrefix}
+import at.forsyte.harrsh.seplog.Var
 
 /**
   * Created by jkatelaa on 10/20/16.
@@ -27,7 +28,11 @@ private[parsers] trait HarrshSIDParser extends SIDCombinatorParser with HarrshLo
       Rule(head, filledFreeVars, boundVars, renamedBody)
   }
 
-  private def parseHead : Parser[String] = ident
+  private def parseHead : Parser[String] = ident <~ opt(paramList)
+
+  private def paramList : Parser[Unit] = ("(" ~> repsep(ident, ",") <~ ")") ^? {
+    case ids if ids.forall(Var.isFV) && ids.map(Var.stringToFV) == (1 to ids.length).toList => ()
+  }
 
   override def parseBody : Parser[StringSymbolicHeap] = parseQuantifiers ~> parseSpatial ~ opt(":" ~> parsePure) ^^ {
     // Note that we're ignoring the parse result of the quantifier prefix & instead introduce bound variables automatically

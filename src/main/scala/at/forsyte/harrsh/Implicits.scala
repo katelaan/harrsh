@@ -48,6 +48,15 @@ object Implicits {
           SymbolicHeap.empty
       }
     }
+
+    def parseSID : SID = {
+      SIDParsers.CombinedSIDParser.runOnSID(s) match {
+        case Some(sh) => sh
+        case None =>
+          IOUtils.printWarningToConsole("Could not parse '" + s + "' as SID")
+          SID.empty("DUMMY")
+      }
+    }
   }
 
   class RichSID(val sid : SID) {

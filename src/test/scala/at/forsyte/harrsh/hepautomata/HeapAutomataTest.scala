@@ -7,6 +7,7 @@ import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.heapautomata.instances.{ToyExampleAutomata, TrackingAutomata}
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.test.HarrshTableTest
+import at.forsyte.harrsh.Implicits._
 
 /**
   * Created by jens on 10/15/16.
@@ -137,8 +138,16 @@ class HeapAutomataTest extends HarrshTableTest with TestValues {
     (TrackingAutomata.weakAcyclicityAutomaton(4), ExampleSIDs.Dll, NonEmpty),
     (TrackingAutomata.weakAcyclicityAutomaton(1), ExampleSIDs.Tree, NonEmpty),
     (TrackingAutomata.weakAcyclicityAutomaton(3), ExampleSIDs.Tll, NonEmpty),
-    (TrackingAutomata.weakAcyclicityAutomaton(2), ExampleSIDs.CyclicSll, Empty)
-    
+    (TrackingAutomata.weakAcyclicityAutomaton(2), ExampleSIDs.CyclicSll, Empty),
+
+    /*
+     * Small circuit examples
+     */
+    (TrackingAutomata.satAutomaton(3), "succ-circuit02.defs".load(), NonEmpty),
+    (TrackingAutomata.satAutomaton(3), "succ-rec02.defs".load(), NonEmpty),
+    (TrackingAutomata.unsatAutomaton(3), "succ-circuit02.defs".load(), NonEmpty),
+    (TrackingAutomata.unsatAutomaton(3), "succ-rec02.defs".load(), NonEmpty)
+
   )
 
   property("On-the-fly emptiness checking") {

@@ -172,6 +172,8 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
       ("sll(x1,y1)", Seq("x1 -> y1 * sll(y1, x2)"), "x1 -> y2 * sll(y2, y1)"),
       ("sll(y1,y2)", Seq("x1 -> y1 * sll(y1, x2)"), "y1 -> y3 * sll(y3, y2)"),
       ("x1 -> (y1, y2) * tree(y1) * tree(y2)", Seq("x1 -> (null,null)", "x1 -> (null,null)"), "x1 -> (y1, y2) * y1 -> (null,null) * y2 -> (null,null)"),
+      // Multiple instances of same call
+      ("sll(x1,x2) * sll(x1,x2)", Seq("emp : {x1 = x2}", "emp : {x1 = x2}"), "emp : {x1 = x2, x1 = x2}"),
       // TLL Cases
       (tllCall, Seq(tllBase), tllBase),
       (tllCall, Seq(tllRec), tllRec),

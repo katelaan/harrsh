@@ -59,9 +59,15 @@ object SIDUnfolding extends HarrshLogging {
       val allNewInstances = for {
         sh <- curr
         if sh.predCalls.nonEmpty
-        callReplacements = sh.predCalls.map(_.name) map predsToBodies
+        callReplacements = {
+          logger.debug("Replacing calls in " + sh)
+          sh.predCalls.map(_.name) map predsToBodies
+        }
         replacementChoices: Seq[Seq[SymbolicHeap]] = Combinators.choices(callReplacements)
-        newInstances: Seq[SymbolicHeap] = replacementChoices.map(sh.replaceCalls(_))
+        newInstances: Seq[SymbolicHeap] = {
+          logger.debug("Will use all replacement choices\n" + replacementChoices.mkString("\n"))
+          replacementChoices.map(sh.replaceCalls)
+        }
       } yield newInstances
 
       unfoldStep(predsToBodies, acc ++ curr, allNewInstances.flatten, depth - 1, doAccumulateSteps)
@@ -71,6 +77,7 @@ object SIDUnfolding extends HarrshLogging {
   def firstReducedUnfolding(sid : SID) : SymbolicHeap = {
 
     // TODO This is an extremely inefficient way to implement this functionality; we should at least short circuit the unfold process upon finding an RSH, or better, implement the obvious linear time algorithm for generating the minimal unfolding
+    // FIXME This will loop forever if there are no unfoldings at all (e.g. because the predicate is not defined)
     def unfoldAndGetFirst(depth : Int) : SymbolicHeap = unfold(sid, depth, reducedOnly = true).headOption match {
       case None => unfoldAndGetFirst(depth+1)
       case Some(sh) => sh
@@ -78,21 +85,6 @@ object SIDUnfolding extends HarrshLogging {
 
     unfoldAndGetFirst(1)
   }
-
-  /**
-    * Replaces all remaining calls in sh with rule bodies with empty spatial parts. If no such bodies exist, an empty set is returned.
-    * @param predsToBodies Preds-to-bodies map of the SID
-    * @param sh Arbitrary symbolic heap to unfold
-    * @return Set of all possible instantiations of calls with empty spatial part
-    */
-  // FIXME Do we want to be able to unfold multiple calls here?
-//  def unfoldCallsByEmpty(predsToBodies: Map[String, Set[SymbolicHeap]], sh: SymbolicHeap): Set[SymbolicHeap] = {
-//    if (sh.hasPredCalls) {
-//      unfoldFirstCallWithSatisfyingBodies(predsToBodies, sh, body => !body.hasPointer && !body.hasPredCalls)
-//    } else {
-//      Set(sh)
-//    }
-//  }
 
   /**
     * Unfolds the first call in the given symbolic heap using only and all the rules that satisfy the predicate pBody
