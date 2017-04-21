@@ -3,3 +3,5 @@ examples/cyclist/*.defs
 project
 target
 benchmark-results*
+previous-batch.bms
+LAST

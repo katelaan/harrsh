@@ -6,6 +6,7 @@ import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.util.IOUtils._
 import at.forsyte.harrsh.seplog.Var._
+import at.forsyte.harrsh.util.IOUtils
 
 import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration.Duration
@@ -109,9 +110,17 @@ object DecisionProcedures extends HarrshLogging {
     (sid, task.decisionProblem.getAutomaton(numFV))
   }
 
-  def generateAndPrintInstances() = {
+  def deviationsFromExpectations(results: Seq[(TaskConfig, AnalysisResult)]): Seq[(TaskConfig, AnalysisResult)] = {
+    results.filter{
+      case (config, result) =>
+        // The expected result describes the existence of an unfolding with the property, so it should be the negation of isEmpty
+        config.expectedResult.isDefined && config.expectedResult.get == result.isEmpty
+    }
+  }
+
+  def generateAndPrintInstances() : Unit = {
     // Auto-generate benchmark suite
-    println(generateInstances() map (_.toString) mkString ("\n"))
+    println(generateInstances() map (_.toString) mkString "\n")
   }
 
   private def generateInstances() =

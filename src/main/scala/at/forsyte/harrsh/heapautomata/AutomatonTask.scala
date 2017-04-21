@@ -29,7 +29,11 @@ sealed trait AutomatonTask {
   // TODO Code duplication with fromString
   override def toString = this match {
     case RunHasPointer() => "HASPTR"
-    case RunModulo(remainder : Int, divisor : Int) => "MOD[" + remainder + "," + divisor + "]"
+    case RunModulo(remainder : Int, divisor : Int) => (remainder, divisor) match {
+      case (1, 2) => "ODD"
+      case (0, 2) => "EVEN"
+      case _ => "MOD[" + remainder + "," + divisor + "]"
+    }
     case RunSat() => "SAT"
     case RunUnsat() => "UNSAT"
     case RunEstablishment() => "EST"
@@ -38,8 +42,8 @@ sealed trait AutomatonTask {
     case RunWeakAcyclicity() => "ACYC"
     case RunMayHaveGarbage() => "GARB"
     case RunStrongCyclicity() => "CYC"
-    case RunReachability(from, to) => "REACH[" + from + "," + to + "]"
-    case RunTracking(alloc, pure) => "TRACK[" + alloc.mkString(",") + "]"
+    case RunReachability(from, to) => "REACH[" + Var.toDefaultString(from) + "," + Var.toDefaultString(to) + "]"
+    case RunTracking(alloc, pure) => "TRACK[" + alloc.map(Var.toDefaultString).mkString(",") + "]"
   }
 
   def resultToString(isEmpty : Boolean) : String = this match {
