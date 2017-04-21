@@ -67,6 +67,8 @@ object IOUtils {
     for (_ <- 1 to numLines) println(s * 80)
   }
 
+  def computeColumnLength(entries : Seq[Any], minLength : Int) : Int = Math.max(minLength,entries.map(_.toString.size).max + 1)
+
   def toTable(headings: Seq[String], cols: Seq[Int], entries: Seq[Seq[String]]) : String = {
     val delimLine = IOUtils.delimLine(cols)
 

@@ -4,8 +4,8 @@ import java.io.File
 
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.main.{HarrshLogging, MainIO, TaskConfig}
-import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.SID
+import at.forsyte.harrsh.seplog.{PtrVar, Var}
+import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, SID}
 import at.forsyte.harrsh.util.IOUtils
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -17,16 +17,14 @@ import scala.concurrent.{Await, Future, TimeoutException}
   */
 object DecisionProcedures extends HarrshLogging {
 
-  //type Result = (Boolean,Long)
   case class AnalysisResult(isEmpty: Boolean, analysisTime: Long, timedOut: Boolean)
   case class AnalysisStatistics(globalStartTime: Long, globalEndTime: Long, analysisTime: Long, timeout: Duration, numTimeouts: Int)
 
-  val PathToDatastructureExamples = "examples" + File.separator + "datastructures"
-  val PathToCyclistExamples = "examples" + File.separator + "cyclist"
+  val PathToDatastructureExamples: String = "examples" + File.separator + "datastructures"
+  val PathToCyclistExamples: String = "examples" + File.separator + "cyclist"
 
   // Uncomment & run this class to generate benchmark suites
-  //def main(args : Array[String]) = generateAndPrintInstances()
-
+  //def main(args : Array[String]): Unit = generateAndPrintInstances()
 
   def decideInstance(task : TaskConfig, timeout : Duration, verbose : Boolean, reportProgress : Boolean): AnalysisResult = {
     val (sid, ha) = MainIO.getSidAndAutomaton(task.fileName, task.decisionProblem)
@@ -131,7 +129,7 @@ object DecisionProcedures extends HarrshLogging {
 
   private def generateInstances() =
     for {
-      automaton <- Seq(RunHasPointer(), RunTracking(Set(Var.mkVar(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(Var.mkVar(1), Var.mkVar(0)), RunGarbageFreedom(), RunMayHaveGarbage(), RunWeakAcyclicity(), RunStrongCyclicity(), RunModulo(0,2), RunModulo(5,11), RunModulo(126,128), RunModulo(127,128))
+      automaton <- Seq(RunHasPointer(), RunAllocationTracking(Set(Var.mkVar(1))), RunPureTracking(Set(PtrEq(PtrVar(1), PtrVar(0)))), RunPureTracking(Set(PtrNEq(PtrVar(1), PtrVar(0)))), RunRelaxedTracking(Set(Var.mkVar(1)), Set(PtrNEq(PtrVar(1), PtrVar(0)))), RunExactTracking(Set(Var.mkVar(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(Var.mkVar(1), Var.mkVar(0)), RunGarbageFreedom(), RunMayHaveGarbage(), RunWeakAcyclicity(), RunStrongCyclicity(), RunModulo(0,2), RunModulo(5,11), RunModulo(126,128), RunModulo(127,128))
       file <- IOUtils.getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) //++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
     } yield TaskConfig(file.getAbsolutePath, automaton, None)
 

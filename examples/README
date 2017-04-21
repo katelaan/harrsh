@@ -1,3 +1,6 @@
-This folder contains several benchmarks suites (*.bms) relying on our own benchmarks (in examples/datastructures)
-as well as benchmarks that are distributed with the Cyclist tool.
-The latter are not distributed with our tool. For instructions on how to obtain them, see examples/cyclist/README.
+This folder contains several benchmarks suites (*.bms) relying on our own benchmarks (in examples/datastructures,
+examples/symbolicheaps) as well as benchmarks that were taken from the Cyclist tool (in examples/cyclist).
+
+Run
+  $ ./harrsh.sh --batch examples/esop-benchmarks.bms --timeout 300
+to reproduce the evaluation results of our ESOP'17 paper

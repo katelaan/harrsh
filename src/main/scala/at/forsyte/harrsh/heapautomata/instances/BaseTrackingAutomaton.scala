@@ -4,8 +4,9 @@ import at.forsyte.harrsh.heapautomata.utils.{Kernelizable, TrackingInfo}
 import at.forsyte.harrsh.heapautomata.{FVBound, HeapAutomaton, InconsistentState, TaggedTargetComputation}
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.EqualityUtils
+import at.forsyte.harrsh.refinement.AutomatonTask
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
+import at.forsyte.harrsh.seplog.inductive.{PureAtom, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
 /**
@@ -58,6 +59,52 @@ object BaseTrackingAutomaton extends HarrshLogging {
 
   def defaultTrackingAutomaton(numFV : Int) : BaseTrackingAutomaton = new BaseTrackingAutomaton(numFV) {
     override def isFinal(s: TrackingInfo): Boolean = throw new IllegalStateException("Call to default implementation -- should have been overridden")
+  }
+
+  // TODO In all the following classes, we should probably check against the closure of pure instead
+
+  /**
+    * Tracking automaton for the given number of free variables, whose final state is specified by alloc and pure.
+    */
+  class TrackingAutomatonWithSingleFinalState(numFV: Int, alloc : Set[Var], pure : Set[PureAtom]) extends BaseTrackingAutomaton(numFV) {
+
+    override val description = AutomatonTask.keywords.reltrack + "_" + numFV + "(" + alloc.map(Var.toDefaultString).mkString(",") + "; " + pure.mkString(",") + ")"
+
+    override def isFinal(s: TrackingInfo) = s.pure == pure && s.alloc == alloc
+
+  }
+
+  /**
+    * Tracking automaton which checks for subset inclusion rather than equality with parameters
+    */
+  class SubsetTrackingAutomaton(numFV: Int, alloc : Set[Var], pure : Set[PureAtom]) extends BaseTrackingAutomaton(numFV) {
+
+    override val description = AutomatonTask.keywords.track + "_" + numFV + "(" + alloc.map(Var.toDefaultString).mkString(",") + "; " + pure.mkString(",") + ")"
+
+    override def isFinal(s: TrackingInfo) = pure.subsetOf(s.pure) && alloc.subsetOf(s.alloc)
+
+  }
+
+  /**
+    * Tracking automaton whose target states are defined only by (minimum) allocation (not by pure formulas)
+    */
+  class AllocationTrackingAutomaton(numFV: Int, alloc : Set[Var]) extends BaseTrackingAutomaton(numFV) {
+
+    override val description = AutomatonTask.keywords.alloc + "_" + numFV + "(" + alloc.map(Var.toDefaultString).mkString(",") + ")"
+
+    override def isFinal(s: TrackingInfo) = alloc subsetOf s.alloc
+
+  }
+
+  /**
+    * Tracking automaton whose target states are defined only by (minimum) pure formulas (not by allocation)
+    */
+  class PureTrackingAutomaton(numFV: Int, pure : Set[PureAtom]) extends BaseTrackingAutomaton(numFV) {
+
+    override val description = AutomatonTask.keywords.pure + "_" + numFV + "(" + pure.mkString(",") + ")"
+
+    override def isFinal(s: TrackingInfo) = pure subsetOf s.pure
+
   }
 
 }

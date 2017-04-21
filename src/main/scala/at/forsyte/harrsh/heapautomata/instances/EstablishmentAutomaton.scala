@@ -2,6 +2,7 @@ package at.forsyte.harrsh.heapautomata.instances
 
 import at.forsyte.harrsh.heapautomata.TaggedAutomaton
 import at.forsyte.harrsh.heapautomata.utils.{StateTag, TrackingInfo}
+import at.forsyte.harrsh.refinement.AutomatonTask
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive.{PtrEq, SymbolicHeap}
@@ -16,7 +17,7 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends T
 
   override val tags = StateTag.instances.booleanTag
 
-  override val description = (if (acceptEstablished) "EST_" else "NONEST_") + numFV
+  override val description = (if (acceptEstablished) AutomatonTask.keywords.est else AutomatonTask.keywords.nonest) + "_" + numFV
 
   override def isFinal(s: State) = tags.isFinalTag(s._2) == acceptEstablished
 

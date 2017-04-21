@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.heapautomata.instances
 
 import at.forsyte.harrsh.heapautomata.utils.ReachabilityInfo
+import at.forsyte.harrsh.refinement.AutomatonTask
 import at.forsyte.harrsh.seplog.Var
 
 /**
@@ -10,6 +11,6 @@ class ReachabilityAutomaton(override val numFV : Int, from : Var, to : Var) exte
   assert(from <= numFV && to <= numFV)
 
   override def isFinal(s : ReachabilityInfo) = s.rm.isReachable(from, to)
-  override val description = "REACH_" + numFV
+  override val description = AutomatonTask.keywords.reach + "_" + numFV
 
 }

@@ -1,33 +1,30 @@
-1. Install scala and sbt
+1. Install sbt
 --------------
-
-Install Scala version 2.11.1
 
 Install sbt; see http://www.scala-sbt.org/download.html for instructions.
 
-2. Compile
+2. Get the source
 ----------
 
 Run
 
 git clone https://bitbucket.org/jkatelaan/harrsh.git
 cd harrsh
-sbt compile
 
-from the command line. This may take a while as dependencies have to be fetched.
-
-3. Run
+3. Compile & run
 ------
 
-You can now run Harrsh via sbt (note the "" around the arguments)
+You can now run HARRSH via the provided shell script
 
-sbt "run --batch examples/basic-benchmarks.bms"
+./harrsh.sh --help
+
+The first time, this will fetch dependencies and compile the source code, which might take several minutes.
 
 4. Update
 ---------
 
-To update to a newer revision, run
+To update to a newer revision, simply run
 
 git pull
-sbt clean
-sbt compile
+
+The next time you invoke harrsh.sh, the code will be recompiled automatically.

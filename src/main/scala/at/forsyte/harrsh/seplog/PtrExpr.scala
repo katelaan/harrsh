@@ -49,10 +49,4 @@ object PtrExpr {
 
   def fromFV(x : Var) : PtrExpr = if (x == 0) NullPtr() else PtrVar(x)
 
-//  def fromString(s : String) : PtrExpr = s match {
-//    case "null" => NullPtr()
-//    case "nil" => NullPtr()
-//    case _ => PtrVar(s)
-//  }
-
 }

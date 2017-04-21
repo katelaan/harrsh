@@ -1,5 +1,7 @@
 package at.forsyte.harrsh.util
 
+import at.forsyte.harrsh.refinement.RunModulo
+
 import scala.annotation.tailrec
 
 /**
@@ -18,6 +20,16 @@ object Combinators {
           println("Terminating with " + e.getClass.toString + " (Message: " + e.getMessage + ")")
           throw e
         }
+    }
+  }
+
+  def exceptionToNone[A](msg:String)(f : => Option[A]) : Option[A] = {
+    try {
+      f
+    } catch {
+      case e : Exception =>
+        println(msg + ": " + e.getMessage)
+        None
     }
   }
 

@@ -9,7 +9,11 @@ import at.forsyte.harrsh.seplog.inductive.PureAtom
   */
 object TrackingAutomata extends HarrshLogging {
 
-  def singleTargetStateTracking(numFV : Int, alloc : Set[Var], pure : Set[PureAtom]) = new TrackingAutomatonWithSingleFinalState(numFV, alloc, pure)
+  def singleTargetStateTracking(numFV : Int, alloc : Set[Var], pure : Set[PureAtom]) = new BaseTrackingAutomaton.TrackingAutomatonWithSingleFinalState(numFV, alloc, pure)
+  def subsetTracking(numFV : Int, alloc : Set[Var], pure : Set[PureAtom]) = new BaseTrackingAutomaton.SubsetTrackingAutomaton(numFV, alloc, pure)
+
+  def allocTracking(numFV : Int, alloc : Set[Var]) = new BaseTrackingAutomaton.AllocationTrackingAutomaton(numFV, alloc)
+  def pureTracking(numFV : Int, pure : Set[PureAtom]) = new BaseTrackingAutomaton.PureTrackingAutomaton(numFV, pure)
 
   def satAutomaton(numFV : Int) = new SatAutomaton(numFV, negate = false)
   def unsatAutomaton(numFV : Int) = new SatAutomaton(numFV, negate = true)

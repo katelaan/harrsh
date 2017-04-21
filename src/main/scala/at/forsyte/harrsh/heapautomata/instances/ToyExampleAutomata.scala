@@ -2,6 +2,7 @@ package at.forsyte.harrsh.heapautomata.instances
 
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.refinement.AutomatonTask
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
@@ -14,7 +15,7 @@ object ToyExampleAutomata {
     */
   lazy val HasPointerAutomaton = new HeapAutomaton with HarrshLogging {
 
-    override val description: String = "Contains-a-pointer example automaton"
+    override val description: String = AutomatonTask.keywords.hasptr
 
     override type State = Boolean
 
@@ -44,7 +45,7 @@ object ToyExampleAutomata {
 
   def moduloAutomaton(remainder : Int, divisor : Int) = new HeapAutomaton with HarrshLogging {
 
-    override val description: String = "Has " + remainder + " mod " + divisor + " pointers"
+    override val description: String = AutomatonTask.keywords.mod + "(" + remainder + ", " + divisor + ")"
 
     override type State = Int
 

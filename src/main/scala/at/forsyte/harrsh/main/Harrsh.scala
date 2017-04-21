@@ -29,7 +29,7 @@ object Harrsh {
       println("No file specified => Terminating")
     }
     else if (config.mode.requiresProp && config.oProp.isEmpty) {
-      println("No property specified => Terminating")
+      println("No (valid) property specified => Terminating")
     } else {
       Combinators.swallowExceptions(run, config.debug)(config)
     }
@@ -206,44 +206,58 @@ object Harrsh {
   }
 
   private def printUsage() = {
-    println("This is HARRSH. Usage:")
-    println()
-    println("Refinement mode:")
-    println("  --refine <relative-path-to-sid-file> --prop <property>      refine sid by prop")
-    println()
-    println("Decision procedure mode:")
-    println("  --decide <relative-path-to-sid-file> --prop <property>   check if sid has prop")
-    println()
-    println("Model checking mode:")
-    println("  --modelcheck <path-to-model> --spec <path-to-sid>       check if model |= spec")
-    println()
-    println("Batch / benchmarking mode:")
-    println("  --batch <relative-path-to-file-with-list-of-tasks>          batch benchmarking")
-    println()
-    println("Analysis mode:")
-    println(" --analyze <relative-path-to-sid-file>           analyze robustness of given sid")
-    println()
-    println("Exploration mode:")
-    println("  --show <relative-path-to-sid-file>                        print sid to std out")
-    println("  --unfold <relative-path-to-sid-file>     generate all unfoldings of the sid...")
-    println("     [--depth <depth>]                    ...up to depth <depth> (default: 3)...")
-    println("     [--reduced]                          ...showing only reduced symbolic heaps")
-    println()
-    println("Optional arguments:")
-    println("  --timeout <timeout in s                                       optional timeout")
-    println("  --showprogress                                    print progress of refinement")
-    println("  --verbose                                                  produce more output")
-    println()
-    println("Properties:")
-    println("ACYC               Weakly acyclic unfoldings")
-    println("EST                Established unfoldings")
-    println("GF                 Garbage-free unfoldings")
-    println("HASPTR             Unfoldings that allocate memory")
-    println("NON-EST            Non-established unfoldings")
-    println("REACH(a,b)         Unfoldings where b is reachable from a, for a,b in {x1,x2,..,}")
-    println("SAT                Satisfiable unfoldings")
-    println("TRACK(a,b,...)     Unfoldings in which free variables a,b,... are def. allocated")
-    println("UNSAT              Unsatisfiable unfoldings")
+    val helpMsg = """This is HARRSH. Usage:
+      |
+      |Refinement mode:
+      |  --refine <relative-path-to-sid-file> --prop <property>      refine sid by prop
+      |
+      |Decision procedure mode:
+      |  --decide <relative-path-to-sid-file> --prop <property>   check if sid has prop
+      |
+      |Batch / benchmarking mode:
+      |  --batch <relative-path-to-file-with-list-of-tasks>          batch benchmarking
+      |
+      |Analysis mode:
+      | --analyze <relative-path-to-sid-file>           analyze robustness of given sid
+      |
+      |Exploration mode:
+      |  --show <relative-path-to-sid-file>                        print sid to std out
+      |  --unfold <relative-path-to-sid-file>     generate all unfoldings of the sid...
+      |     [--depth <depth>]                    ...up to depth <depth> (default: 3)...
+      |     [--reduced]                          ...showing only reduced symbolic heaps
+      |
+      |Optional arguments:
+      |  --timeout <timeout in s                                       optional timeout
+      |  --showprogress                                    print progress of refinement
+      |  --verbose                                                  produce more output
+      |
+      |Properties:
+      |SAT                    Satisfiable unfoldings
+      |UNSAT                  Unsatisfiable unfoldings
+      |EST                    Established unfoldings
+      |NON-EST                Non-established unfoldings
+      |GF                     Garbage-free unfoldings
+      |GARB                   Unfoldings that may contain garbage
+      |ACYC                   Weakly acyclic unfoldings
+      |CYC                    Strongly cyclic unfoldings
+      |REACH[<var1>,<var2>]   Unfs. in which there def. is a path from var1 to var2
+      |ALLOC[<vars>]          Unfs. in which at least the given <vars> are allocated
+      |PURE[<eqs>]            Unfs. in which at least the given pure constraints hold
+      |REL-TR[<vars>:<eqs>] Unfs. that satify both ALLOC[<vars>] and PURE[<eqs>]
+      |TRACK[<vars>:<eqs>]  Unfs. in which EXACTLY the given constraints hold
+      |HASPTR                 Unfoldings that allocate memory
+      |MOD[n,d]               Unfoldings that allocate == " + "n mod d pointers
+      |
+      |where (without ANY whitespace!)
+      |  <var>   ==  null | x1 | x2 | x3 | ...
+      |  <vars>  ==  comma-separated list of <var>
+      |  <eq>    ==  <var>=<var> | <var> != <var>
+      |  <eqs>   ==  comma-separated list of <eq>""".stripMargin
+
+    println(helpMsg)
+
+    //    Model checking mode:
+    //      --modelcheck <path-to-model> --spec <path-to-sid>       check if model |= spec
   }
 
 }
