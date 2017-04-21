@@ -18,11 +18,19 @@ class GarbageAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton[Bo
   override val description = (if (negate) "GARB_" else "GF_") + numFV
 
   override def tagComputation(srcTags: Seq[Boolean], lab : SymbolicHeap, baseTrg: baseAutomaton.State, ei : BaseReachabilityAutomaton.UncleanedTrackingInfo): Boolean = {
-    if (negate) {
-      srcTags.exists(b => b) || !isGarbageFree(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + mkVar(0), numFV)
+    val res = if (negate) {
+      val childGarbage = srcTags.exists(b => b)
+      val matrixGarbage = !isGarbageFree(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + mkVar(0), numFV)
+      logger.debug("Checking for garbage. In children: " + childGarbage + "; in matrix: " + matrixGarbage)
+      childGarbage || matrixGarbage
     } else {
-      !srcTags.exists(!_) && isGarbageFree(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + mkVar(0), numFV)
+      val childGFree = !srcTags.exists(!_)
+      val matrixGFree = isGarbageFree(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + mkVar(0), numFV)
+      logger.debug("Checking for garbage freedom. In children: " + childGFree + "; in matrix: " + matrixGFree)
+      childGFree && matrixGFree
     }
+
+    res
   }
 
   private def isGarbageFree(ti : TrackingInfo, reachPairs : Set[(Var,Var)], vars : Set[Var], numFV : Int): Boolean = {

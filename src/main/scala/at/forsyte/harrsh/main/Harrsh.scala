@@ -151,7 +151,18 @@ object Harrsh {
           println("Will run all benchmarks in " + config.file)
           val tasks = MainIO.readTasksFromFile(config.file)
           val (results, stats) = DecisionProcedures.decideInstances(tasks, config.timeout, config.verbose, config.reportProgress)
+
+          MainIO.writeBenchmarkFile(results, "previous-batch.bms")
           MainIO.printAnalysisResults(results, stats)
+
+          val diffs = DecisionProcedures.deviationsFromExpectations(results)
+          if (diffs.nonEmpty) {
+            println()
+            IOUtils.printWarningToConsole("Some analysis results differed from the expected results as specified in " + config.file)
+            for {
+              (taskConfig, result) <- diffs
+            } IOUtils.printWarningToConsole(taskConfig.fileName + " " + taskConfig.decisionProblem + ": Expected " + taskConfig.expectedResult.get + ", actual " + !result.isEmpty)
+          }
 
       case Show() =>
           val sid = MainIO.getSidFromFile(config.file)

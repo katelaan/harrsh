@@ -141,4 +141,12 @@ object MainIO extends HarrshLogging {
     writeFile(ResultFile, preamble + header + resultLines + ending)
   }
 
+  def writeBenchmarkFile(results: Seq[(TaskConfig,AnalysisResult)], fileName : String): Unit = {
+    val content = results.map{
+      case (taskConfig, result) => taskConfig.fileName + "; " + taskConfig.decisionProblem + "; " + (if (result.timedOut) "???" else !result.isEmpty)
+    }.mkString("\n")
+
+    writeFile(fileName, content)
+  }
+
 }

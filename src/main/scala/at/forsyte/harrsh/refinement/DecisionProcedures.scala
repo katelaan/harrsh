@@ -2,11 +2,11 @@ package at.forsyte.harrsh.refinement
 
 import java.io.File
 
-import at.forsyte.harrsh.heapautomata._
-import at.forsyte.harrsh.main.{MainIO, TaskConfig, _}
-import at.forsyte.harrsh.seplog.Var._
+import at.forsyte.harrsh.heapautomata.HeapAutomaton
+import at.forsyte.harrsh.main.{HarrshLogging, MainIO, TaskConfig}
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.SID
-import at.forsyte.harrsh.util.IOUtils._
+import at.forsyte.harrsh.util.IOUtils
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
@@ -32,9 +32,9 @@ object DecisionProcedures extends HarrshLogging {
     val (sid, ha) = MainIO.getSidAndAutomaton(task.fileName, task.decisionProblem)
 
     if (verbose) {
-      printLinesOf('%', 1)
+      IOUtils.printLinesOf('%', 1)
       println("File: " + task.fileName)
-      printLinesOf('%', 1)
+      IOUtils.printLinesOf('%', 1)
       println("Will run automaton " + ha + " on " + sid)
     } else {
       print("Running " + task.decisionProblem + " on " + task.fileName + "...")
@@ -75,9 +75,9 @@ object DecisionProcedures extends HarrshLogging {
     for (task <- tasks) {
       val (sid, ha) = MainIO.getSidAndAutomaton(task.fileName, task.decisionProblem)
       if (verbose) {
-        printLinesOf('%', 1)
+        IOUtils.printLinesOf('%', 1)
         println("File: " + task.fileName)
-        printLinesOf('%', 1)
+        IOUtils.printLinesOf('%', 1)
         println("Will run automaton " + ha + " on " + sid)
       } else {
         print("Running " + task.decisionProblem + " on " + task.fileName + "...")
@@ -111,15 +111,28 @@ object DecisionProcedures extends HarrshLogging {
     (results.reverse, AnalysisStatistics(globalStartTime, globalEndTime, analysisTime, timeout, numTimeouts))
   }
 
-  def generateAndPrintInstances() = {
+  def prepareInstanceForAnalysis(task : TaskConfig) : (SID, HeapAutomaton) = {
+    val sid = MainIO.getSidFromFile(task.fileName)
+    (sid, task.decisionProblem.getAutomaton(sid.numFV))
+  }
+
+  def deviationsFromExpectations(results: Seq[(TaskConfig, AnalysisResult)]): Seq[(TaskConfig, AnalysisResult)] = {
+    results.filter{
+      case (config, result) =>
+        // The expected result describes the existence of an unfolding with the property, so it should be the negation of isEmpty
+        config.expectedResult.isDefined && config.expectedResult.get == result.isEmpty
+    }
+  }
+
+  def generateAndPrintInstances() : Unit = {
     // Auto-generate benchmark suite
     println(generateInstances() map (_.toString) mkString "\n")
   }
 
   private def generateInstances() =
     for {
-      automaton <- Seq(RunHasPointer(), RunTracking(Set(mkVar(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(mkVar(1), mkVar(0)), RunGarbageFreedom(), RunMayHaveGarbage(), RunWeakAcyclicity(), RunStrongCyclicity(), RunModulo(0,2), RunModulo(5,11), RunModulo(126,128), RunModulo(127,128))
-      file <- getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) //++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
+      automaton <- Seq(RunHasPointer(), RunTracking(Set(Var.mkVar(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(Var.mkVar(1), Var.mkVar(0)), RunGarbageFreedom(), RunMayHaveGarbage(), RunWeakAcyclicity(), RunStrongCyclicity(), RunModulo(0,2), RunModulo(5,11), RunModulo(126,128), RunModulo(127,128))
+      file <- IOUtils.getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) //++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
     } yield TaskConfig(file.getAbsolutePath, automaton, None)
 
 }

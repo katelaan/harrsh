@@ -20,7 +20,7 @@ object TrackingAutomata extends HarrshLogging {
   def reachabilityAutomaton(numFV : Int, from : Var, to : Var) = new ReachabilityAutomaton(numFV, from, to)
 
   def garbageFreedomAutomaton(numFV : Int) = new GarbageAutomaton(numFV, negate = false)
-  def mayHaveGarbageAutomaton(numFV : Int) = new GarbageAutomaton(numFV, negate = false)
+  def mayHaveGarbageAutomaton(numFV : Int) = new GarbageAutomaton(numFV, negate = true)
 
   def weakAcyclicityAutomaton(numFV : Int) = new AcyclicityAutomaton(numFV, negate = false)
   def strongCyclicityAutomaton(numFV : Int) = new AcyclicityAutomaton(numFV, negate = true)

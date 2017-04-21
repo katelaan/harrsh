@@ -9,8 +9,7 @@ case class TaskConfig(fileName : String, decisionProblem : AutomatonTask, expect
 
   override def toString = {
     val resString = expectedResult match {
-      case Some(true) => "false"
-      case Some(false) => "true"
+      case Some(x) => x
       case None => "???"
     }
 
@@ -31,8 +30,8 @@ object TaskConfig {
       val fileName = parts(0)
       val optDecProb = AutomatonTask.fromString(parts(1))
       val expRes = parts(2) match {
-        case "false" => Some(true)
-        case "true" => Some(false)
+        case "false" => Some(false)
+        case "true" => Some(true)
         case _ => None
       }
 
