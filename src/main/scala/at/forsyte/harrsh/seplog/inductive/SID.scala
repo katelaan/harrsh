@@ -29,7 +29,7 @@ case class SID(startPred : String, rules : Seq[Rule], description : String = "Un
 
   lazy val rulesAsHeadToBodyMap: Map[String, Set[SymbolicHeap]] = {
     def extractBodies(group: (String, Seq[Rule])) = {
-      (group._1, group._2 map (_.body) toSet)
+      (group._1, group._2.map(_.body).toSet)
     }
     Map() ++ rules.groupBy(_.head).map(extractBodies)
   }
