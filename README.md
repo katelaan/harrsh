@@ -19,7 +19,7 @@ For more details, see the preprint of our paper ["Unified Reasoning about Robust
 
 ### Installation ###
 
-Just clone the repository and run "sbt compile" followed by "sbt run" in your working copy.
+Just install [sbt](http://www.scala-sbt.org/), clone the repository and run `sbt compile` in your working copy.
 More detailed instructions are available in a separate INSTALL file.
 
 ### Tutorial 
@@ -75,9 +75,9 @@ HARRSH currently supports checking (see decision procedures) and establishing (s
 * NON-EST, CYC, GARB: Complement of the above automata
 * HASPTR :            Does there exist an unfolding that allocates memory?
 * MOD[n,d] :           Does there exist an unfolding with n % d pointers?
-* ALLOC(a,b,...) :        Does there exist an unfoldings where a,b,... are definitely allocated, for a,b in {x1,x2,..,}?
-* REACH(a,b) :        Does there exist an unfoldings where b is reachable from a, for a,b in {x1,x2,..,}?
-* TRACK(a,b,... : c~d,e~f) :    Does there exist an unfolding in which free variables a,b,... are def. allocated and the (in)equalities c~d,e~f,... def. hold, for ~ in {=,!=}
+* ALLOC[a,b,...] :        Does there exist an unfoldings where a,b,... are definitely allocated, for a,b in {x1,x2,..,}?
+* REACH[a,b] :        Does there exist an unfoldings where b is reachable from a, for a,b in {x1,x2,..,}?
+* TRACK[a,b,... : c~d,e~f] :    Does there exist an unfolding in which free variables a,b,... are def. allocated and the (in)equalities c~d,e~f,... def. hold, for ~ in {=,!=}
 
 #### Executing Refinement ####
 
@@ -92,7 +92,7 @@ SID refinement has multiple applications:
 To execute SID refinement, run `./harrsh.sh --refine <path/to/sid> --prop <property>`, where property is in the format described above.
 Once refinement is complete, the refined SID is printed to `stdout`.
 
-**Try it out!** Run `./harrsh.sh --refine examples/datastructures/tll.sid --prop REACH(x3,x2)`. The file `tll.sid` defines trees with linked leaves with root `x1`, leftmost leaf `x2` and successor of rightmost leaf `x3`:
+**Try it out!** Run `./harrsh.sh --refine examples/datastructures/tll.sid --prop REACH[x3,x2]`. The file `tll.sid` defines trees with linked leaves with root `x1`, leftmost leaf `x2` and successor of rightmost leaf `x3`:
 
     tll <= x1 -> (nil, nil, x3) : { x1 = x2 } ;
     tll <= x1 -> (l, r, nil) * tll(l, x2, z) * tll(r, z, x3)
@@ -100,7 +100,7 @@ Once refinement is complete, the refined SID is printed to `stdout`.
 There is no unfolding of this SID in which `x2` is guaranteed to be reachable from `x3`.
 HARRSH will therefore return a refined SID together with a warning that the refined SID does not have a rule for the `tll` predicate. This means that the refined SID is empty and thus that the original SID does *not* have an unfolding in which `x2` is reachable from `x3`.
 
-    Will refine SID definition in file examples/datastructures/tll.sid by REACH(x3,x2)
+    Will refine SID definition in file examples/datastructures/tll.sid by REACH[x3,x2]
     WARNING: Language of refined SID is empty (no rules for start predicate 'tll').
     Refinement of tll-SID with REACH_3 (start predicate 'tll'): 
         tll0 <= ∃l ∃r ∃z . x1 ↦ (l, r, null) * tll0(l,x2,z) * tll1(r,z,x3)
@@ -116,7 +116,7 @@ The refinement algorithm can also be used to decide whether there exist unfoldin
 To run a single decision problem instance, run `./harrsh.sh --decide <path/to/sid> --prop <property>`.
 HARRSH can also run multiple decision problem instances in batch mode. To do so, create a benchmark file with tasks to perform (see the example folder) and feed it to HARRSH: `./harrsh.sh --batch <path/to/tasks> --timeout <timeout in seconds>`. The timeout is optional (120 seconds by default).
 
-**Try it out!** Run `./harrsh.sh --batch examples/basic-benchmarks.bms`. HARRSH will check various robustness properties for various simple data structure specifications and summarize the results in a table.
+**Try it out!** Run `./harrsh.sh --batch examples/datastructure-benchmarks.bms`. HARRSH will check various robustness properties for various simple data structure specifications and summarize the results in a table.
 
 ### Who do I talk to? ###
 
