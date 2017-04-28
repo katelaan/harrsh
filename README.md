@@ -72,10 +72,12 @@ HARRSH currently supports checking (see decision procedures) and establishing (s
 * EST :  Does there exist an established unfolding, i.e., an unfolding in which all variables are either allocated or equal to a free variable? This is often a precondition for applying other separation logic decision procedures, for example for entailment checking.
 * ACYC :      Does there exist a Weakly acyclic unfolding?
 * GF :    Does there exist a garbage-free unfolding? 
-* HASPTR :            Does there exist an Unfolding that allocates memory?
-* NON-EST :           Does there exist a non-established unfolding?
+* NON-EST, CYC, GARB: Complement of the above automata
+* HASPTR :            Does there exist an unfolding that allocates memory?
+* MOD[n,d] :           Does there exist an unfolding with n % d pointers?
+* ALLOC(a,b,...) :        Does there exist an unfoldings where a,b,... are definitely allocated, for a,b in {x1,x2,..,}?
 * REACH(a,b) :        Does there exist an unfoldings where b is reachable from a, for a,b in {x1,x2,..,}?
-* TRACK(a,b,...) :    Does there exist an unfoldingu in which free variables a,b,... are def. allocated
+* TRACK(a,b,... : c~d,e~f) :    Does there exist an unfolding in which free variables a,b,... are def. allocated and the (in)equalities c~d,e~f,... def. hold, for ~ in {=,!=}
 
 #### Executing Refinement ####
 
@@ -87,10 +89,10 @@ SID refinement has multiple applications:
 * Preprocessing. E.g. guaranteeing that all unfoldings of an SID are established prior to feeding it to an entailment checker. 
 * Optimization. E.g. removing irrelevant unfoldings from the SID, thus narrowing down the search space for verification tools.
 
-To execute SID refinement, run `sbt "run --refine <path/to/sid> --prop <property>"`, where property is in the format described above.
+To execute SID refinement, run `./harrsh.sh --refine <path/to/sid> --prop <property>`, where property is in the format described above.
 Once refinement is complete, the refined SID is printed to `stdout`.
 
-**Try it out!** Run `sbt "run --refine examples/datastructures/tll.sid --prop REACH(x3,x2)"`. The file `tll.sid` defines trees with linked leaves with root `x1`, leftmost leaf `x2` and successor of rightmost leaf `x3`:
+**Try it out!** Run `./harrsh.sh --refine examples/datastructures/tll.sid --prop REACH(x3,x2)`. The file `tll.sid` defines trees with linked leaves with root `x1`, leftmost leaf `x2` and successor of rightmost leaf `x3`:
 
     tll <= x1 -> (nil, nil, x3) : { x1 = x2 } ;
     tll <= x1 -> (l, r, nil) * tll(l, x2, z) * tll(r, z, x3)
@@ -111,9 +113,10 @@ HARRSH will therefore return a refined SID together with a warning that the refi
 
 The refinement algorithm can also be used to decide whether there exist unfoldings of a given SID that have a property of interest (such as satisfiability, acyclicity, etc.). The decision procedures generally outperform the explicit refinement, as they perform on-the-fly refinement (Algorithm 1 in the paper).
 
-Currently, HARRSH only processes decision problem instances in batch mode. To do so, create a benchmark file with tasks to perform (see the example folder) and feed it to HARRSH: `sbt "run --batch <path/to/tasks> --timeout <timeout in seconds>"`. The timeout is optional (120 seconds by default).
+To run a single decision problem instance, run `./harrsh.sh --decide <path/to/sid> --prop <property>`.
+HARRSH can also run multiple decision problem instances in batch mode. To do so, create a benchmark file with tasks to perform (see the example folder) and feed it to HARRSH: `./harrsh.sh --batch <path/to/tasks> --timeout <timeout in seconds>`. The timeout is optional (120 seconds by default).
 
-**Try it out!** Run `sbt "run --batch examples/basic-benchmarks.bms"`. HARRSH will check various robustness properties for various simple data structure specifications and summarize the results in a table.
+**Try it out!** Run `./harrsh.sh --batch examples/basic-benchmarks.bms`. HARRSH will check various robustness properties for various simple data structure specifications and summarize the results in a table.
 
 ### Who do I talk to? ###
 
