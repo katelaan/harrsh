@@ -9,13 +9,15 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
   * Idea: An equivalence class is characterized by the ways its members can be extended to P-unfoldings.
   * Each ECD object represents one such extension, corresponding to the entailment (ext * I)[I/rep] |= P x.
   * Contract: rep.renameVars(repParamInstantiation) * ext |= P x
+  *
+  * TODO Use dummy call instead of renaming to record the way that the parts should be recombined?
   */
-case class ECD(rep : SymbolicHeap, ext : SymbolicHeap, repParamInstantiation : Renaming) {
+case class SymbolicHeapPartition(rep : SymbolicHeap, ext : SymbolicHeap, repParamInstantiation : Renaming) {
   def repFV = rep.numFV
 
-  def isCombinableWith(that : ECD) = repFV == that.repFV
+  def isCombinableWith(that : SymbolicHeapPartition) = repFV == that.repFV
 
-  def combine(that: ECD) : (SymbolicHeap, SymbolicHeap) = {
+  def combine(that: SymbolicHeapPartition) : (SymbolicHeap, SymbolicHeap) = {
     assert(repFV == that.repFV)
     (SymbolicHeap.mergeHeaps(rep.renameVars(that.repParamInstantiation), that.ext, that.repParamInstantiation.codomain),
       SymbolicHeap.mergeHeaps(that.rep.renameVars(repParamInstantiation), ext, repParamInstantiation.codomain))
@@ -26,22 +28,22 @@ case class ECD(rep : SymbolicHeap, ext : SymbolicHeap, repParamInstantiation : R
   // Do not rename any quantified variables, they are all shared between the two parts of the partition!
   lazy val recombined = SymbolicHeap.mergeHeaps(rep.renameVars(repParamInstantiation), ext, sharedVars = ext.boundVars.toSet)
 
-  def simplify : ECD = copy(
+  def simplify : SymbolicHeapPartition = copy(
     // Note: Can only simplify rep, because the equalities of the ext can be necessary in recombining into an unfolding
     // The ones in rep cannot be, because all shared bound vars have been replaced by free vars
     rep = EqualityBasedSimplifications.removeExplicitlyRedundantBoundVars(rep))
 
   def shortString : String = "<<" + rep + repParamInstantiation + ">> * <<" + ext + ">> @ " + repFV
 
-  override def toString = "ECD_" + repFV + "(rep = " + rep + repParamInstantiation + ", ext = " + ext + ", unf = " + recombined + ")"
+  override def toString = "PARTITION_" + repFV + "(rep = " + rep + repParamInstantiation + ", ext = " + ext + ", unf = " + recombined + ")"
 
 }
 
-object ECD {
+object SymbolicHeapPartition {
 
-  def apply(rep : SymbolicHeap, ext : SymbolicHeap) : ECD = {
+  def apply(rep : SymbolicHeap, ext : SymbolicHeap) : SymbolicHeapPartition = {
     val repWithExtPoints = unbindShared(rep, ext)
-    ECD(repWithExtPoints._1, ext, Renaming.fromMap(repWithExtPoints._2))
+    SymbolicHeapPartition(repWithExtPoints._1, ext, Renaming.fromMap(repWithExtPoints._2))
   }
 
   /**

@@ -52,9 +52,9 @@ object GenerateEntailmentAutomata extends HarrshLogging {
 
     // TODO Pure formula treatment: Should probably look just at spatial part of partitions and keep track of pure part separately (tracking)? But then have to modify the reduced entailment check?
 
-    def FindOnlyNonEmpty = true // Only generate non-empty left-hand sides. Still have to figure out if this is the right approach
+    val FindOnlyNonEmpty = true // Only generate non-empty left-hand sides. Still have to figure out if this is the right approach
 
-    def run(): Seq[ECD] = {
+    def run(): Seq[SymbolicHeapPartition] = {
       val (ecds,log) = ecdIteration(1, Seq.empty, Seq(sid.callToStartPred), emptyLog.setEntailmentRightHandSide(sid.callToStartPred))
       if (reportProgress) {
         println(log)
@@ -63,7 +63,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       ecds
     }
 
-    private def ecdIteration(i: Int, ecdPrev: Seq[ECD], partialUnfoldings: Seq[SymbolicHeap], oldLog : ECDComputationLog): (Seq[ECD],ECDComputationLog) = {
+    private def ecdIteration(i: Int, ecdPrev: Seq[SymbolicHeapPartition], partialUnfoldings: Seq[SymbolicHeap], oldLog : ECDComputationLog): (Seq[SymbolicHeapPartition],ECDComputationLog) = {
 
       def printProgress(msg: String): Unit = if (reportProgress) println("Iteration " + i + ": " + msg)
 
@@ -102,15 +102,14 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       }
     }
 
-    @tailrec private def processUnfoldings(reducedUnfs : Seq[SymbolicHeap], ecdAcc : Seq[ECD], printProgress : String => Unit, log : ECDComputationLog) : (Seq[ECD],ECDComputationLog) = {
+    @tailrec private def processUnfoldings(reducedUnfs : Seq[SymbolicHeap], ecdAcc : Seq[SymbolicHeapPartition], printProgress : String => Unit, log : ECDComputationLog) : (Seq[SymbolicHeapPartition],ECDComputationLog) = {
       if (reducedUnfs.isEmpty) (ecdAcc,log) else {
         printProgress(log.toString)
         printProgress(log.statistics)
 
         val nextUnf = reducedUnfs.head
         printProgress("Processing Unfolding: " + nextUnf)
-        // TODO: Here it would pay off to do more expensive simplifications using closures, dropping inequalities that are entailed by allocation, etc, since every dropped literal will essentially cut the runtime in half
-        val simplifiedUnf = EqualityBasedSimplifications.removeExplicitlyRedundantBoundVars(nextUnf)
+        val simplifiedUnf = EqualityBasedSimplifications.fullEqualitySimplification(nextUnf)
         printProgress("After removing redundancies: " + simplifiedUnf)
 
         val newLog = log.logCurrentUnfolding(simplifiedUnf)
@@ -123,7 +122,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       }
     }
 
-    @tailrec private def processPartitions(candidates : Set[ECD], ecdAcc : Seq[ECD], printProgress : String => Unit, log : ECDComputationLog) : (Seq[ECD], ECDComputationLog) = {
+    @tailrec private def processPartitions(candidates : Set[SymbolicHeapPartition], ecdAcc : Seq[SymbolicHeapPartition], printProgress : String => Unit, log : ECDComputationLog) : (Seq[SymbolicHeapPartition], ECDComputationLog) = {
       if (candidates.isEmpty) (ecdAcc,log) else {
         val ecd = candidates.head
         logger.debug("Processing Partition: " + ecd)
@@ -147,7 +146,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       }
     }
 
-    @tailrec private def isNew(oldECDs: Seq[ECD], candidate: ECD, printProgress : String => Unit, log : ECDComputationLog): (Boolean,ECDComputationLog) = if (oldECDs.isEmpty) {
+    @tailrec private def isNew(oldECDs: Seq[SymbolicHeapPartition], candidate: SymbolicHeapPartition, printProgress : String => Unit, log : ECDComputationLog): (Boolean,ECDComputationLog) = if (oldECDs.isEmpty) {
       (true,log)
     } else {
       val (hd, tl) = (oldECDs.head, oldECDs.tail)
@@ -156,7 +155,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       if (notNew) (false,newLog) else isNew(tl, candidate, printProgress, newLog)
     }
 
-    private def areBiExtensible(fst: ECD, snd: ECD, printProgress : String => Unit, log : ECDComputationLog): (Boolean,ECDComputationLog) = {
+    private def areBiExtensible(fst: SymbolicHeapPartition, snd: SymbolicHeapPartition, printProgress : String => Unit, log : ECDComputationLog): (Boolean,ECDComputationLog) = {
       if (fst.repFV != snd.repFV) {
         logger.debug("Different number of FV => Not combinable")
         (false,log)
@@ -178,7 +177,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       }
     }
 
-    private def partitions(rsh: SymbolicHeap, printProgress : String => Unit): Set[ECD] = {
+    private def partitions(rsh: SymbolicHeap, printProgress : String => Unit): Set[SymbolicHeapPartition] = {
 
       val spatialPowerSet = Combinators.powerSet(rsh.pointers.toSet)
       val purePowerSet = Combinators.powerSet(rsh.pure.toSet)
@@ -196,7 +195,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
         extension = SymbolicHeap(pi2.toSeq, sigma2.toSeq, Seq.empty)
         // FIXME Must consider all ways to name the new FVs in the representative...
         ecd = {
-          val ecd = ECD(representative, extension)
+          val ecd = SymbolicHeapPartition(representative, extension)
           print(".")
           ecd
         }

@@ -263,12 +263,11 @@ object SymbolicHeap extends HarrshLogging {
     SymbolicHeap(pure, spatial, calls, numFV, SortedSet.empty(boundVarOrdering) ++ boundVars)
   }
 
-  /**
-    * Adds the given tags to the given heaps predicate calls (as is necessary in refinement)
-    * @param sh Symbolic heap to tag
-    * @param tags Tags to add to the calls
-    * @return Tagged heap
-    */
+//  def addTagToPredCall(sh : SymbolicHeap, call : PredCall, tag : String) : SymbolicHeap = {
+//    if (!sh.predCalls.contains(call)) throw new IllegalArgumentException("Non-existent call passed")
+//    sh.copy(predCalls = sh.predCalls.updated(sh.predCalls.indexOf(call), call.copy(name = call.name + tag)))
+//  }
+
   def addTagsToPredCalls(sh : SymbolicHeap, tags : Seq[String]) : SymbolicHeap = {
     if (tags.size != sh.predCalls.size) throw new IllegalArgumentException("Wrong number of tags passed")
     val newCalls = sh.predCalls zip tags map {

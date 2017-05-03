@@ -7,13 +7,14 @@ import at.forsyte.harrsh.seplog.{DefaultNaming, PtrExpr, PtrVar, Var}
   * System of inductive definitions
   * Created by jens on 10/15/16.
   */
-case class SID(startPred : String, rules : Seq[Rule], description : String = "Unnamed SID", numFV : Int) {
+case class SID(startPred : String, rules : Seq[Rule], description : String, numFV : Int) {
 
-  override def toString = {
+  override def toString: String = {
     description + " (start predicate '" + startPred + "'): " + rules.sortBy(_.head).mkString("\n    ", " ; \n    ", "")
   }
 
   // Note that we take the maximum here, because we allow that some of the rules do not mention all FVs (and in particular not the maxFV; see also DefaultSID parser
+  // TODO: Seems obsolete now that we have numFV as explicit parameter?
   lazy val arityOfStartPred : Int = {
     val startRules = rules.filter(_.head == startPred)
     if (startRules.isEmpty) 0 else startRules.map(rule => rule.freeVars.size).max

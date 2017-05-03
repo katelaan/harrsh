@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.main
 
-import at.forsyte.harrsh.entailment.{GreedyUnfoldingModelChecker}
+import at.forsyte.harrsh.entailment.{GenerateEntailmentAutomata, GreedyUnfoldingModelChecker}
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
@@ -190,10 +190,9 @@ object Harrsh {
             IOUtils.printWarningToConsole("Number of free variables for entailment automaton not specified. Will default to number of free variables in start predicate (" + sid.numFV + ")")
             sid.numFV
           }
-          // val aut = GenerateEntailmentAutomata(autNumfv, sid, config.reportProgress)
+          val aut = GenerateEntailmentAutomata(autNumfv, sid, config.reportProgress)
           // TODO Write automaton to file
-          // println("Finished computation of entailment automaton")
-          println("Generation of entailment automata is not available in this branch.")
+          println("Finished computation of entailment automaton")
   }
 
 

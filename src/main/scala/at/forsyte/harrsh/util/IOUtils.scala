@@ -82,4 +82,6 @@ object IOUtils {
   private def inColumns(cols : Seq[(String,Int)]) : String = if (cols.isEmpty) "|" else "|" + " "*Math.max(0,cols.head._2 - cols.head._1.length) + cols.head._1 + inColumns(cols.tail)
   private def delimLine(cols : Seq[Int]) = "+" + "-"*(cols.sum+cols.size-1) + "+"
 
+  def printIf(condition : => Boolean)(a : Any) : Unit = if (condition) println(a)
+
 }

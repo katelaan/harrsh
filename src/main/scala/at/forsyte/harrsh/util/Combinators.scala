@@ -1,7 +1,5 @@
 package at.forsyte.harrsh.util
 
-import at.forsyte.harrsh.refinement.RunModulo
-
 import scala.annotation.tailrec
 
 /**
@@ -31,6 +29,21 @@ object Combinators {
         println(msg + ": " + e.getMessage)
         None
     }
+  }
+
+  def fixedPointComputation[A](initial : A, convergenceTest : (A,A) => Boolean, maxIts : Int = Int.MaxValue)(f : (Int,A) => A) : A = {
+
+    @tailrec def fixedPointAux(prev : A, i : Int) : A = {
+      val next = f(i,prev)
+      if (convergenceTest(prev, next) || i == maxIts) {
+        // Reached fixed point or abort criterion
+        next
+      } else {
+        fixedPointAux(next, i+1)
+      }
+    }
+
+    fixedPointAux(initial, 1)
   }
 
   def dropFirstMatch[A](ls: Seq[A], p: A => Boolean): Seq[A] = {
@@ -77,9 +90,8 @@ object Combinators {
     * Returns the powerset of the given set
     */
   def powerSet[A](set : Set[A]) : Set[Set[A]] = {
-    val seq = set.toSeq
+    // TODO Use the built-in subsets function instead?
 
-    // TODO: Rewrite to tailrec
     def powerSet(elems : Seq[A]) : Set[Set[A]] = {
       if (elems.isEmpty)
         Set(Set())
@@ -90,7 +102,29 @@ object Combinators {
       }
     }
 
-    powerSet(seq)
+    powerSet(set.toSeq)
+  }
+
+  /**
+    * Returns partitions of the given set
+    */
+  def partitions[A](set : Set[A]) : Set[(Set[A],Set[A])] = {
+
+    // TODO Base this on the built-in subsets function instead?
+
+    def partitions(elems : Seq[A]) : Set[(Set[A],Set[A])] = {
+      if (elems.isEmpty)
+        Set((Set(),Set()))
+      else {
+        val newelem = elems.head
+        val smaller = partitions(elems.tail)
+        smaller flatMap {
+          case (left,right) => Set((left + newelem, right), (left, right + newelem))
+        }
+      }
+    }
+
+    partitions(set.toSeq)
   }
 
   def choices[A](from: Seq[Set[A]]) : Seq[Seq[A]] = {

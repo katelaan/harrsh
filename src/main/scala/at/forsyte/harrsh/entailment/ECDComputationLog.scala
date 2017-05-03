@@ -17,9 +17,9 @@ trait ECDComputationLog {
 
   def logCurrentUnfolding(unf : SymbolicHeap) : ECDComputationLog
 
-  def logEntailmentCheck(other : ECD, fstExt: SymbolicHeap, fstRes : Boolean, sndExt: Option[SymbolicHeap], sndRes : Option[Boolean]) : ECDComputationLog
+  def logEntailmentCheck(other : SymbolicHeapPartition, fstExt: SymbolicHeap, fstRes : Boolean, sndExt: Option[SymbolicHeap], sndRes : Option[Boolean]) : ECDComputationLog
 
-  def logNewECD(ecdNr : Int, ecd : ECD) : ECDComputationLog
+  def logNewECD(ecdNr : Int, ecd : SymbolicHeapPartition) : ECDComputationLog
 
   def incUnfCounter : Unit = unfCounter = unfCounter + 1
   def incPartCounter : Unit = partCounter = partCounter + 1
@@ -37,7 +37,7 @@ object ECDComputationLog {
   val completeLog : ECDComputationLog = CompleteECDComputationLog(SymbolicHeap.empty, Seq.empty, 0, None, Seq.empty)
   val dummyLog : ECDComputationLog = DummyECDComputationLog()
 
-  private case class RedEntLogEntry(other : ECD, fstExt: SymbolicHeap, fstRes : Boolean, sndExt: Option[SymbolicHeap], sndRes : Option[Boolean]) {
+  private case class RedEntLogEntry(other : SymbolicHeapPartition, fstExt: SymbolicHeap, fstRes : Boolean, sndExt: Option[SymbolicHeap], sndRes : Option[Boolean]) {
     def indentedString(indent : String, rhs : SymbolicHeap) : String = (
       indent + "checked against " + other.shortString + "\n"
         + indent + "  " + fstExt + " |= " + rhs + " --> " + fstRes +
@@ -47,7 +47,7 @@ object ECDComputationLog {
       } yield  "\n" + indent + "  " + sndExtV + " --> " + sndResV).getOrElse(""))
   }
 
-  private case class CompleteECDLogEntry(ecdNr : Int, ecd : ECD, iteration : Int, underlyingUnfolding : SymbolicHeap, checks : Seq[RedEntLogEntry]){
+  private case class CompleteECDLogEntry(ecdNr : Int, ecd : SymbolicHeapPartition, iteration : Int, underlyingUnfolding : SymbolicHeap, checks : Seq[RedEntLogEntry]){
     def indentedString(indent : String, rhs : SymbolicHeap) = {
       ("#" + ecdNr + ": " + ecd.shortString + "\n"
         + indent + "from " + iteration + "-unfolding " + underlyingUnfolding + " after " + checks.size + " checks" + (if (checks.nonEmpty) "\n" else "")
@@ -63,9 +63,9 @@ object ECDComputationLog {
 
     override def logCurrentUnfolding(unf : SymbolicHeap) = copy(currentUnfolding = Some(unf))
 
-    override def logEntailmentCheck(other : ECD, fstExt: SymbolicHeap, fstRes : Boolean, sndExt: Option[SymbolicHeap], sndRes : Option[Boolean]) = copy(newChecks = RedEntLogEntry(other,fstExt,fstRes,sndExt,sndRes) +: newChecks)
+    override def logEntailmentCheck(other : SymbolicHeapPartition, fstExt: SymbolicHeap, fstRes : Boolean, sndExt: Option[SymbolicHeap], sndRes : Option[Boolean]) = copy(newChecks = RedEntLogEntry(other,fstExt,fstRes,sndExt,sndRes) +: newChecks)
 
-    override def logNewECD(ecdNr : Int, ecd : ECD) = copy(
+    override def logNewECD(ecdNr : Int, ecd : SymbolicHeapPartition) = copy(
       entries = CompleteECDLogEntry(ecdNr, ecd, currentIteration, currentUnfolding.get, newChecks.reverse) +: entries,
       newChecks = Seq.empty
     )
@@ -77,8 +77,8 @@ object ECDComputationLog {
     override def incIteration: ECDComputationLog = this
     override def setEntailmentRightHandSide(entailmentRhs: SymbolicHeap): ECDComputationLog = this
     override def logCurrentUnfolding(unf: SymbolicHeap): ECDComputationLog = this
-    override def logEntailmentCheck(other : ECD, fstExt: SymbolicHeap, fstRes : Boolean, sndExt: Option[SymbolicHeap], sndRes : Option[Boolean]): ECDComputationLog = this
-    override def logNewECD(ecdNr: Loc, ecd: ECD): ECDComputationLog = this
+    override def logEntailmentCheck(other : SymbolicHeapPartition, fstExt: SymbolicHeap, fstRes : Boolean, sndExt: Option[SymbolicHeap], sndRes : Option[Boolean]): ECDComputationLog = this
+    override def logNewECD(ecdNr: Loc, ecd: SymbolicHeapPartition): ECDComputationLog = this
 
     override def toString = "[Detailed log deactivated, activate by setting EnableDetailedLog = true]"
   }
