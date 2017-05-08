@@ -64,13 +64,13 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
 
   }
 
-  it should "not crash on trees" in {
-
-    val sid = "tree.sid".load
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
-    printCase(sid, obs, log)
-
-  }
+//  it should "not crash on trees" in {
+//
+//    val sid = "tree.sid".load
+//    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
+//    printCase(sid, obs, log)
+//
+//  }
 
 //  it should "not crash on tlls" in {
 //

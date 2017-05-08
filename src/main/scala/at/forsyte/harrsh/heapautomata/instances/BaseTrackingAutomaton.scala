@@ -66,44 +66,44 @@ object BaseTrackingAutomaton extends HarrshLogging {
   /**
     * Tracking automaton for the given number of free variables, whose final state is specified by alloc and pure.
     */
-  class TrackingAutomatonWithSingleFinalState(numFV: Int, alloc : Set[Var], pure : Set[PureAtom]) extends BaseTrackingAutomaton(numFV) {
+  class TrackingAutomatonWithSingleFinalState(numFV: Int, alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) extends BaseTrackingAutomaton(numFV) {
 
     override val description = AutomatonTask.keywords.reltrack + "_" + numFV + "(" + alloc.map(Var.toDefaultString).mkString(",") + "; " + pure.mkString(",") + ")"
 
-    override def isFinal(s: TrackingInfo) = s.pure == pure && s.alloc == alloc
+    override def isFinal(s: TrackingInfo) = (s.pure == pure && s.alloc == alloc) != negate
 
   }
 
   /**
     * Tracking automaton which checks for subset inclusion rather than equality with parameters
     */
-  class SubsetTrackingAutomaton(numFV: Int, alloc : Set[Var], pure : Set[PureAtom]) extends BaseTrackingAutomaton(numFV) {
+  class SubsetTrackingAutomaton(numFV: Int, alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) extends BaseTrackingAutomaton(numFV) {
 
     override val description = AutomatonTask.keywords.track + "_" + numFV + "(" + alloc.map(Var.toDefaultString).mkString(",") + "; " + pure.mkString(",") + ")"
 
-    override def isFinal(s: TrackingInfo) = pure.subsetOf(s.pure) && alloc.subsetOf(s.alloc)
+    override def isFinal(s: TrackingInfo) = (pure.subsetOf(s.pure) && alloc.subsetOf(s.alloc)) != negate
 
   }
 
   /**
     * Tracking automaton whose target states are defined only by (minimum) allocation (not by pure formulas)
     */
-  class AllocationTrackingAutomaton(numFV: Int, alloc : Set[Var]) extends BaseTrackingAutomaton(numFV) {
+  class AllocationTrackingAutomaton(numFV: Int, alloc : Set[Var], negate : Boolean = false) extends BaseTrackingAutomaton(numFV) {
 
     override val description = AutomatonTask.keywords.alloc + "_" + numFV + "(" + alloc.map(Var.toDefaultString).mkString(",") + ")"
 
-    override def isFinal(s: TrackingInfo) = alloc subsetOf s.alloc
+    override def isFinal(s: TrackingInfo) = (alloc subsetOf s.alloc) != negate
 
   }
 
   /**
     * Tracking automaton whose target states are defined only by (minimum) pure formulas (not by allocation)
     */
-  class PureTrackingAutomaton(numFV: Int, pure : Set[PureAtom]) extends BaseTrackingAutomaton(numFV) {
+  class PureTrackingAutomaton(numFV: Int, pure : Set[PureAtom], negate : Boolean = false) extends BaseTrackingAutomaton(numFV) {
 
     override val description = AutomatonTask.keywords.pure + "_" + numFV + "(" + pure.mkString(",") + ")"
 
-    override def isFinal(s: TrackingInfo) = pure subsetOf s.pure
+    override def isFinal(s: TrackingInfo) = (pure subsetOf s.pure) != negate
 
   }
 

@@ -25,13 +25,13 @@ class HeapAutomataTest extends HarrshTableTest with TestValues {
     /*
      * Has pointer automaton
      */
-    (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.Sll, NonEmpty),
-    (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.Dll, NonEmpty),
-    (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.Tree, NonEmpty),
-    (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.Tll, NonEmpty),
-    (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.EmptyLinearPermuter, Empty),
-    (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.NonEmptyLinearPermuter, NonEmpty),
-    (ToyExampleAutomata.HasPointerAutomaton, ExampleSIDs.NonEmptyBinaryPermuter, NonEmpty),
+    (ToyExampleAutomata.hasPointerAutomaton(), ExampleSIDs.Sll, NonEmpty),
+    (ToyExampleAutomata.hasPointerAutomaton(), ExampleSIDs.Dll, NonEmpty),
+    (ToyExampleAutomata.hasPointerAutomaton(), ExampleSIDs.Tree, NonEmpty),
+    (ToyExampleAutomata.hasPointerAutomaton(), ExampleSIDs.Tll, NonEmpty),
+    (ToyExampleAutomata.hasPointerAutomaton(), ExampleSIDs.EmptyLinearPermuter, Empty),
+    (ToyExampleAutomata.hasPointerAutomaton(), ExampleSIDs.NonEmptyLinearPermuter, NonEmpty),
+    (ToyExampleAutomata.hasPointerAutomaton(), ExampleSIDs.NonEmptyBinaryPermuter, NonEmpty),
 
     /*
      * Tracking automata

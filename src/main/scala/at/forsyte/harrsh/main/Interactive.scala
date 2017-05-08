@@ -1,7 +1,8 @@
 package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.Defaults
-import at.forsyte.harrsh.Implicits.{ParsableString, RichSID, RichSymbolicHeap}
+import at.forsyte.harrsh.Implicits.{ParsableString, RichModel, RichSID, RichSymbolicHeap}
+import at.forsyte.harrsh.entailment.Model
 import at.forsyte.harrsh.main.interactive.AnnotatedResultBuffer
 import at.forsyte.harrsh.refinement._
 import at.forsyte.harrsh.seplog.inductive.{Rule, SID, SymbolicHeap}
@@ -14,8 +15,6 @@ import scala.language.implicitConversions
   * Created by jens on 4/3/17.
   */
 object Interactive {
-
-  // TODO Better explain-why summaries
 
   private val sidbuffer : AnnotatedResultBuffer[SID] = AnnotatedResultBuffer(10)
   private val shbuffer : AnnotatedResultBuffer[SymbolicHeap] = AnnotatedResultBuffer(20)
@@ -36,16 +35,17 @@ object Interactive {
     shbuffer.clear
   }
 
-  def explainWhy(f : => Unit) : Unit = {
+  // TODO Useful explain-why summaries
+  /*def explainWhy(f : => Unit) : Unit = {
     Defaults.reportProgress = true
     f
     Defaults.reportProgress = false
-  }
+  }*/
 
   def record(desc : String, sh : => SymbolicHeap) : SymbolicHeap = {
     val eval : SymbolicHeap = sh
     shbuffer.add(desc, eval)
-    println("Storing result in variable 'heap'")
+    //println("Storing result in variable 'heap'")
     eval
   }
 
@@ -57,6 +57,8 @@ object Interactive {
 
   object automata {
     val hasPtr = RunHasPointer()
+    def odd = RunModulo(1,2)
+    def even = RunModulo(0,2)
     def mod(n : Int, d : Int) = RunModulo(n, d)
     val sat = RunSat()
     val unsat = RunUnsat()
@@ -75,7 +77,7 @@ object Interactive {
       val sid = super.load()
       sidbuffer.add(s, sid)
       loadedSids = loadedSids + (sid.startPred -> sid)
-      println("Result stored in variable 'sid'")
+      //println("Result stored in variable 'sid'")
       sid
     }
 
@@ -88,15 +90,19 @@ object Interactive {
 
   case class BufferingRichSID(override val sid : SID) extends RichSID(sid) {
 
-    override def refineBy(task : AutomatonTask) : (SID,Boolean) = {
-      val res@(refinedSID,isEmpty) = super.refineBy(task)
+    override def refineAndCheckEmptiness(task : AutomatonTask) : (SID,Boolean) = {
+      val res@(refinedSID,isEmpty) = super.refineAndCheckEmptiness(task)
       sidbuffer.add("Refinement by " + task, refinedSID)
-      println("Result stored in variable 'sid'")
-      println("The resulting SID is " + (if (isEmpty) "empty" else "nonempty"))
+      //println("Result stored in variable 'sid'")
+      //println("The resulting SID is " + (if (isEmpty) "empty" else "nonempty"))
       res
     }
 
-    override def witness : SymbolicHeap = record("witness", super.witness)
+    override def witness : Option[SymbolicHeap] = super.witness map (record("witness", _))
+
+    def analyze : Unit = {
+      RefinementAlgorithms.performFullAnalysis(sid, sid.numFV, InteractiveTimeout, verbose = false)
+    }
   }
 
   case class BufferingRichSymbolicHeap(override val sh : SymbolicHeap) extends RichSymbolicHeap(sh) {
@@ -119,6 +125,8 @@ object Interactive {
   implicit def stringToSH(s : String) : BufferingRichSymbolicHeap = s.parse
 
   implicit def stringToSID(s : String) : BufferingRichSID = loadedSids(s)
+
+  implicit def modelToRichModel(model : Model) : RichModel = new RichModel(model)
 
   object examples {
 
@@ -154,5 +162,11 @@ object Interactive {
     def returnRuleBodyPair(): (SymbolicHeap, SymbolicHeap) = (sid.baseRule.body, sid.recursiveRule.body)
 
   }
+
+  case class RichIterable[A](it : Iterable[A]) {
+    def onePerLine : String = it.mkString("\n")
+  }
+
+  implicit def iterableToRichIterable[A](it : Iterable[A]) : RichIterable[A] = RichIterable(it)
 
 }
