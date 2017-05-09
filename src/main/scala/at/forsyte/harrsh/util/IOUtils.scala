@@ -36,7 +36,12 @@ object IOUtils {
       val path = listOfDirs.head + "/" + filename
       if (new File(path).exists()) Some(path) else findFileIn(filename, listOfDirs.tail)
     }
+  }
 
+  def listOfFilesIn(listOfDirs : Seq[String]) : List[File] = {
+    listOfDirs.foldLeft(List.empty[File]){
+      (acc, dir) => acc ++ getListOfFiles(dir)
+    }
   }
 
   def readFile(filename : String) : String = {

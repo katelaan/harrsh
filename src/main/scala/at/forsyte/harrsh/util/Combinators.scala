@@ -25,7 +25,7 @@ object Combinators {
     try {
       f
     } catch {
-      case e : Exception =>
+      case e : Throwable =>
         println(msg + ": " + e.getMessage)
         None
     }

@@ -6,6 +6,7 @@ import at.forsyte.harrsh.entailment.Model
 import at.forsyte.harrsh.main.interactive.AnnotatedResultBuffer
 import at.forsyte.harrsh.refinement._
 import at.forsyte.harrsh.seplog.inductive.{Rule, SID, SymbolicHeap}
+import at.forsyte.harrsh.util.IOUtils
 
 import scala.concurrent.duration
 import scala.concurrent.duration.Duration
@@ -168,5 +169,10 @@ object Interactive {
   }
 
   implicit def iterableToRichIterable[A](it : Iterable[A]) : RichIterable[A] = RichIterable(it)
+
+  def listFilesInPath(substring : String) : Unit = {
+    val matchingFiles = IOUtils.listOfFilesIn(Defaults.PathsToExamples).filter(_.getAbsolutePath.contains(substring))
+    println(matchingFiles.mkString("\n"))
+  }
 
 }

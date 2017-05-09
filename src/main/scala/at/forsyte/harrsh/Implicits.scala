@@ -7,7 +7,7 @@ import at.forsyte.harrsh.pure.EqualityBasedSimplifications
 import at.forsyte.harrsh.refinement.DecisionProcedures.AnalysisResult
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms, RunSat}
 import at.forsyte.harrsh.seplog.inductive.{Rule, SID, SIDUnfolding, SymbolicHeap}
-import at.forsyte.harrsh.util.IOUtils
+import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
 import scala.concurrent.duration
 import scala.concurrent.duration.Duration
@@ -105,7 +105,9 @@ object Implicits {
     def reducedUnfoldings(depth : Int) : Iterable[SymbolicHeap] = sid.callToStartPred.reducedUnfoldings(sid, depth)
     def getSomeReducedUnfolding(depth : Int) : SymbolicHeap = sid.callToStartPred.reducedUnfoldings(sid, depth).last
 
-    def getModel: Option[Model] = witness flatMap (_.getModel)
+    def getModel: Option[Model] = {
+      Combinators.exceptionToNone("No model")(witness flatMap (_.getModel))
+    }
     def getModelAtDepth(depth : Int): Option[Model] = getSomeReducedUnfolding(depth).getModel(sid)
 
     def baseRule : Rule = {
@@ -180,8 +182,12 @@ object Implicits {
     }
 
     def getModel : Option[Model] = {
-      if (sh.predCalls.nonEmpty) throw new Throwable("Can't produce model of non-reduced heap without reference to an SID")
-      Model.fromRSH(sh)
+      if (sh.predCalls.nonEmpty) {
+        println("Can't produce model of non-reduced heap without reference to an SID")
+        None
+      } else {
+        Model.fromRSH(sh)
+      }
     }
   }
 
