@@ -138,30 +138,6 @@ object Interactive {
       "tll.sid".load()
     }
 
-    def sll(): (SymbolicHeap, SymbolicHeap) = {
-      clear()
-      "sll.sid".load()
-      "x1 -> y1 * y1 -> y2 * y2 -> x2".parse
-      "sll(x1, y1) * sll(y1, x2)".parse
-      returnRuleBodyPair()
-    }
-
-    def tll(): (SymbolicHeap, SymbolicHeap) = {
-      clear()
-      "tll.sid".load()
-      record("TLL call", sid.callToStartPred)
-      returnRuleBodyPair()
-    }
-
-    def tllAcyc(): (SymbolicHeap, SymbolicHeap) = {
-      clear()
-      "tll-acyc.sid".load()
-      record("TLL call", sid.callToStartPred)
-      returnRuleBodyPair()
-    }
-
-    def returnRuleBodyPair(): (SymbolicHeap, SymbolicHeap) = (sid.baseRule.body, sid.recursiveRule.body)
-
   }
 
   case class RichIterable[A](it : Iterable[A]) {

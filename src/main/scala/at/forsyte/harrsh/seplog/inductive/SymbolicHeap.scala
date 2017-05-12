@@ -5,6 +5,7 @@ import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.util.Combinators
 
+import scala.annotation.tailrec
 import scala.collection.SortedSet
 
 /**
@@ -305,9 +306,37 @@ object SymbolicHeap extends HarrshLogging {
     */
   def toHarrshFormat(sh : SymbolicHeap, naming : VarNaming) : String = {
     // TODO This is somewhat redundant wrt ordinary string conversion
-    val spatialString = sh.pointers.map(_.toStringWithVarNames(naming)).mkString(" * ")
+    val spatial : Seq[ToStringWithVarnames] = sh.pointers ++ sh.predCalls
+    val spatialString = if (spatial.isEmpty) "emp" else spatial.map(_.toStringWithVarNames(naming)).mkString(" * ")
     val pureString = if (sh.pure.isEmpty) "" else sh.pure.map(_.toStringWithVarNames(naming)).mkString(" : {", ", ", "}")
     spatialString.replaceAll("\u21a6", "->") ++ pureString.replaceAll("\u2248", "=").replaceAll("\u2249", "!=")
+  }
+
+  def toLatex(sh: SymbolicHeap, naming : VarNaming = DefaultNaming) = {
+    val defaultSting = sh.toStringWithVarNames(naming)
+    val withMacros = literalReplacements(Seq(
+      "\u2203" -> "\\exists ",
+      "." -> "~.~",
+      "\u21a6" -> "->",
+      "\u2248"-> "=",
+      "\u2249" -> "\\neq ",
+      NullPtr().toString -> "\\nil"
+    ), defaultSting)
+    indexifyNumbers(withMacros)
+  }
+
+  @tailrec private def literalReplacements(reps : Seq[(String,String)], s : String) : String = {
+    if (reps.isEmpty) s else literalReplacements(reps.tail, s.replaceAllLiterally(reps.head._1, reps.head._2))
+  }
+
+  private def indexifyNumbers(s : String) : String = {
+    s.foldLeft[(String,Char)](("",'?')){
+      case ((s,prev), curr) => (prev.isDigit, curr.isDigit) match {
+        case (false, true) => (s + "_{" + curr, curr)
+        case (true, false) => (s + "}" + curr, curr)
+        case _ => (s + curr, curr)
+      }
+    }._1
   }
 
 }

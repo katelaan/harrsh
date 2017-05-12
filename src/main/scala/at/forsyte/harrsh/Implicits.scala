@@ -141,6 +141,8 @@ object Implicits {
 
     def simplify : SymbolicHeap = EqualityBasedSimplifications.fullEqualitySimplification(sh)
 
+    def toLatex = SymbolicHeap.toLatex(sh)
+
     def isA(sid : SID) : Boolean = {
       println("Checking " + sh + " |= " + sid.callToStartPred)
       GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(sh, sid.callToStartPred, sid, Defaults.reportProgress)
