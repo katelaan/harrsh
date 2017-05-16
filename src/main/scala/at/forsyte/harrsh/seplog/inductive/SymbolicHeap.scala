@@ -298,6 +298,12 @@ object SymbolicHeap extends HarrshLogging {
     SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2)
   }
 
+  def dropQuantifiers(sh: SymbolicHeap): SymbolicHeap = {
+    val newFreeVars = sh.numFV + 1 until sh.numFV + 1 + sh.boundVars.size
+    val instantiations = sh.boundVars.toSeq zip newFreeVars
+    sh.instantiateBoundVars(instantiations, closeGaps = false)
+  }
+
   /**
     * Serializes the given heap to the Harrsh string format
     * @param sh Heap to serialize

@@ -9,7 +9,20 @@ import at.forsyte.harrsh.Implicits._
   */
 class ReducedEntailmentTest extends HarrshTableTest {
 
-  val testVals = Table(
+  /**
+    * Some inputs for checking the corner cases if both sides are reduced
+    */
+  val testValsForPairsOfRSHs = Table(
+    ("fst", "snd", "expected result"),
+    // Adding redundant info shouldn't matter
+    ("x1 -> y1 * y1 -> x2 : {x1 = x2}", "x1 -> y1 * y1 -> x2 : {x1 = x2, x2 = x1}", true),
+    ("x1 -> y1 * y1 -> x2 : {x1 = x2}", "x1 -> y1 * y1 -> x2 : {x1 = x2, x2 = x1, y1 != x1, x1 != y1}", true)
+  )
+
+  /**
+    * Test inputs for checking RSH against SID on the right-hand side
+    */
+  val testValsWithSIDs = Table(
     ("rsh", "sid", "expected result"),
     ("emp", "sll.sid", false),
     ("emp : {x1 = x2}", "sll.sid", true),
@@ -30,19 +43,30 @@ class ReducedEntailmentTest extends HarrshTableTest {
     ("x1 -> y1 * y3 -> y5 : {y1 = y3, y5 = x2, x1 != y1, y4 != x1, y4 != y3}", "sll-acyc.sid", false),
     ("x1 -> y1 * y3 -> y5 : {y1 = y3, y4 = y5, x1 != y1, y4 != x1, y4 != y3}", "sll-acyc.sid", false),
     ("x1 -> y1 * y3 -> y5 : {y5 = x2, y4 = y5, x1 != y1, y4 != x1, y4 != y3}", "sll-acyc.sid", false)
-
   )
 
-  property("Correctness of reduced entailment checks") {
+  property("Correctness of reduced entailment checks without SID") {
 
-    forAll(testVals) {
-      (rshString, sidString, res) =>
-        val rsh = rshString.parse
-        val sid = sidString.load()
-        val call = sid.callToStartPred
-        info("Checking " + rsh + " |= " + call + " (should be " + res + ")")
-        GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(rsh, call, sid) shouldBe res
+    forAll(testValsForPairsOfRSHs) {
+      (fstString, sndString, res) =>
+        val fst = fstString.parse
+        val snd = sndString.parse
+        info("Checking " + fst + " |= " + snd + " (should be " + res + ")")
+        ReducedEntailment.checkSatisfiableRSHAgainstRSH(fst, snd, reportProgress = true) shouldBe res
     }
+
+  }
+
+//  property("Correctness of reduced entailment checks with SID") {
+//
+//    forAll(testValsWithSIDs) {
+//      (rshString, sidString, res) =>
+//        val rsh = rshString.parse
+//        val sid = sidString.load()
+//        val call = sid.callToStartPred
+//        info("Checking " + rsh + " |= " + call + " (should be " + res + ")")
+//        ReducedEntailment.checkAgainstSID(rsh, call, sid) shouldBe res
+//    }
 
 //    val (rshString, sidString, res) = ("x1 -> y1 * y1 -> x2 : {x1 != x2, y1 != x2}", "sll-acyc.sid", true)
 //    val rsh = rshString.parse
@@ -51,6 +75,6 @@ class ReducedEntailmentTest extends HarrshTableTest {
 //    info("Checking " + rsh + " |= " + call + " (should be " + res + ")")
 //    GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(rsh, call, sid) shouldBe res
 
-  }
+//  }
 
 }

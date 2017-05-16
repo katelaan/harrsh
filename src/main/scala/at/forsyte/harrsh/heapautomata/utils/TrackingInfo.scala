@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.{EqualityUtils, UnsafeAtomsAsClosure}
+import at.forsyte.harrsh.pure.{Closure, ConstraintPropagation, EqualityUtils}
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.inductive._
@@ -32,7 +32,7 @@ case class TrackingInfo private (alloc: Set[Var], pure: Set[PureAtom]) extends K
 
   override def kernel : SymbolicHeap = {
     // Here we assume that the state already contains a closure. If this is not the case, the following does not work.
-    val closure = UnsafeAtomsAsClosure(pure)
+    val closure = Closure.unsafeTrivialClosure(pure)
 
     val nonredundantAlloc = alloc filter closure.isMinimumInItsClass
 
@@ -61,7 +61,7 @@ object TrackingInfo {
     val pureWithAlloc : Set[PureAtom] = pureExplicit ++ inequalitiesFromAlloc
 
     // Compute fixed point of inequalities and fill up alloc info accordingly
-    val (alloc, pure) = EqualityUtils.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
+    val (alloc, pure) = ConstraintPropagation.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
     TrackingInfo(alloc, pure)
   }
 

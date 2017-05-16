@@ -15,6 +15,8 @@ class ModelCheckingTest extends HarrshTableTest {
     ("ten-elem-list.amd", "list-to-null.sid", true),
     ("three-elem-list.amd", "list-cyc.sid", false),
     ("three-elem-list.amd", "list-unsat.sid", false),
+    ("loop.amd", "sll.sid", true),
+    ("loop.amd", "sll-acyc.sid", false),
     ("null-terminated-tree.amd", "tree.sid", true),
     ("null-terminated-tree2.amd", "tree.sid", true),
     ("tree.amd", "tree.sid", false),
@@ -23,8 +25,12 @@ class ModelCheckingTest extends HarrshTableTest {
     ("tll.amd", "tll.sid", true),
     ("tll2.amd", "tll.sid", true),
     ("tll-wrong.amd", "tll.sid", false),
-    ("tll-cyc.amd", "tll.sid", true),
-    ("tll-cyc.amd", "tll-acyc.sid", false)
+    //("tll-cyc.amd", "tll.sid", true),
+    // A model that introduces a cycle locally (i.e. into its own derivation tree) should not be a locally acyclic TLL
+    ("tll-cyc.amd", "tll-acyc.sid", false),
+    ("tll-cyc2.amd", "tll-acyc.sid", false),
+    // ...but a dangling pointer pointing into an unrelated subtree is fine
+    ("tll-cyc3.amd", "tll-acyc.sid", true)
   )
 
   property("Correctness of the model checker") {
@@ -41,15 +47,15 @@ class ModelCheckingTest extends HarrshTableTest {
     }
   }
 
-//  val (modelFile, sidFile, expectedRes) = ("null-terminated-tree.amd", "tree.sid", true)
+//  val (modelFile, sidFile, expectedRes) = ("tll-cyc.amd", "tll.sid", true)
 //
-//  val model = MainIO.getModelFromFile(modelFile)
-//  val sid = MainIO.getSidFromFile(sidFile)
+//  val model = modelFile.parseModel()
+//  val sid = sidFile.load()
 //
 //  val modelFormula = ModelToFormula(model)
 //  println("Model formula: " + modelFormula + "\n SID: " + sid)
 //
-//  val res = GreedyUnfoldingModelChecker.isModel(model, sid)
+//  val res = GreedyUnfoldingModelChecker.isModel(model, sid, reportProgress = true)
 //  println("Expected res " + expectedRes + ", actual res " + res)
-  
+//
 }

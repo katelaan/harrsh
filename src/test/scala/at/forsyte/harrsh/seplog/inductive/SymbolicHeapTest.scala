@@ -100,7 +100,7 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
       (input,ren,output) <- testInputs
     } {
       info("Testing equality of renaming with alpha conversion " + input + ren + " == " + output)
-      assert(input.parse.renameVars(ren) == output.parse)
+      input.parse.renameVars(ren) shouldEqual output.parse
     }
 
   }
@@ -128,7 +128,7 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
       (input,ren,output) <- testInputs
     } {
       info("Testing equality of renaming " + input + ren + " == " + output)
-      assert(input.parse.renameVars(ren,avoidDoubleCapture = false) == output.parse)
+      input.parse.renameVars(ren,avoidDoubleCapture = false) shouldEqual output.parse
     }
 
   }
@@ -148,7 +148,7 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
       (input,(qvar,fvar),output) <- testInputs
     } {
       info("Testing equality of instantiation " + input + "[" + qvar + " -> " + fvar + "] == " + output)
-      assert(input.parse.instantiateBoundVars(Seq((qvar, fvar)), closeGaps = true) == output.parse)
+      input.parse.instantiateBoundVars(Seq((qvar, fvar)), closeGaps = true) shouldEqual output.parse
     }
 
   }
@@ -189,7 +189,27 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
     } {
       val unfoldBy : Seq[SymbolicHeap] = replacements map (_.parse)
       info("Testing equality " + input + unfoldBy.mkString("[",", ","]") + " == " + output)
-      assert(input.parse.replaceCalls(unfoldBy) == output.parse)
+      input.parse.replaceCalls(unfoldBy) shouldEqual output.parse
+    }
+
+  }
+
+  it should "turn all bound vars into free vars" in {
+
+    val testInputs : Seq[(String, String)] = Seq(
+      ("x1 -> x2", "x1 -> x2"),
+      ("x1 -> y1", "x1 -> x2"),
+      ("y1 -> y2", "x1 -> x2"),
+      ("y2 -> y1", "x2 -> x1"),
+      ("x1 -> y1 * y1 -> y2 * y2 -> y3 * y3 -> x2 * y4 -> y5", "x1 -> x3 * x3 -> x4 * x4 -> x5 * x5 -> x2 * x6 -> x7")
+    )
+
+    for {
+      (input, freed) <- testInputs
+    } {
+      val inputHeap = input.parse
+      val expectedRes = freed.parse
+      SymbolicHeap.dropQuantifiers(inputHeap) shouldEqual expectedRes
     }
 
   }

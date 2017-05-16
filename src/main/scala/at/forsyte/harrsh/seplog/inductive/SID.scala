@@ -53,6 +53,8 @@ object SID extends HarrshLogging {
 
   def empty(startPred : String) : SID = SID(startPred, "")
 
+  def empty : SID = SID("X", "")
+
   def fromTopLevelSH(sh: SymbolicHeap, sid: SID) : SID = {
     val startPred = "sh"
     val newRule = Rule(startPred, Var.mkAllFVs(sh.numFV) map Var.toDefaultString, sh.boundVars.toSeq map Var.toDefaultString, sh)

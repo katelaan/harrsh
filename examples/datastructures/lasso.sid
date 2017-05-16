@@ -1,0 +1,7 @@
+# Lasso-shaped list structure
+lasso x1 <= x1 -> y * lasso(y)
+lasso x1 <= x1 -> y * sll(y,x1)
+
+# Underlying singly-linked list that forms the loop
+sll <= emp : {x1 = x2} ;
+sll <= x1 -> y * sll(y,x2)

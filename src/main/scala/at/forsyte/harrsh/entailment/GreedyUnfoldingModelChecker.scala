@@ -1,7 +1,9 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.pure.PureEntailment
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.util.IOUtils
 
 import scala.annotation.tailrec
 
@@ -31,6 +33,8 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     new GreedyUnfolding(map, reportProgress).run(modelFormula, formula, MCHistory.emptyHistory)
   }
 
+  def isModel(model : Model, sid : SID, reportProgress: Boolean) : Boolean = isModel(model, sid.callToStartPred, sid, reportProgress = reportProgress)
+
   /**
     * Solve the reduced entailment problem via greedy pointer matching. Sound for well-determined heaps?
     * TODO Also sound for some other heaps?
@@ -40,8 +44,9 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     * @return true iff lhs |= rhs
     */
   def reducedEntailmentAsModelChecking(lhs : SymbolicHeap, rhs : SymbolicHeap, sid : SID, reportProgress: Boolean = false): Boolean = {
+    assert(lhs.predCalls.isEmpty)
     val res = new GreedyUnfolding(sid.rulesAsHeadToBodyMap, reportProgress).run(lhs, rhs, MCHistory.emptyHistory)
-    if (reportProgress) println("    REDENT result: " + res)
+    IOUtils.printIf(reportProgress)("    REDENT result: " + res)
     res
   }
 
@@ -75,7 +80,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
         logger.debug("#" * 80)
         logger.debug("Iteration " + history.iteration + ": Greedy model checking of \n     " + formulaToMatch + "\n |?= " + partialUnfolding )
         logger.debug("Steps so far:\n" + history.stepLogger)
-        if (reportProgress) println("    MC #" + history.iteration + ": " + formulaToMatch + " |?= " + partialUnfolding)
+        IOUtils.printIf(reportProgress)("    MC #" + history.iteration + ": " + formulaToMatch + " |?= " + partialUnfolding)
 
         // The entailment/modelchecking result is trivially false if we have too few FVs on the left. View this as error on the caller's part
 //        if (formulaToMatch.numFV < partialUnfolding.numFV) {
@@ -130,7 +135,9 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
         unfoldFirstCallAndRecurse(formulaToMatch, partialUnfolding, history, considerRulesSatisfying = sh => !sh.hasPointer && !sh.hasPredCalls)
       } else {
         // Return true iff pure constraints of partial unfolding are met
-        val res = PureFormulaReasoning.pureFormulaEntailment(formulaToMatch.pure ++ history.toFormula, partialUnfolding.pure)
+        val lhsWithImpliedInequalities = formulaToMatch.pure ++ history.toPureConstraints
+        IOUtils.printIf(reportProgress)("    " + lhsWithImpliedInequalities.mkString("{",", ", "}") + " |?=_PURE " + partialUnfolding.pure.mkString("{",", ", "}"))
+        val res = PureEntailment.check(lhsWithImpliedInequalities, partialUnfolding.pure)
         logger.debug("Pure entailment check: " + res + " => " + (if (res) " is model" else " no model, abort branch"))
         res
       }

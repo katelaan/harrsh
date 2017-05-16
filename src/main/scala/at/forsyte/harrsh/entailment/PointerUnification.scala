@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.pure.EqualityUtils
 import at.forsyte.harrsh.seplog.{NullPtr, PtrVar, Var, _}
 import at.forsyte.harrsh.seplog.inductive.{PointsTo, SymbolicHeap}
 
@@ -10,6 +11,8 @@ import scala.annotation.tailrec
   * Created by jkatelaa on 3/24/17.
   */
 object PointerUnification extends HarrshLogging {
+
+  // TODO: Extend from garbage-free heaps to "undirected garbage freedom", i.e. every bound variable can be reached or can reach a free var. This would be a useful generalization in particular for equivalence checking, but also model checking
 
   case class PointerMatch(lhsPtr : PointsTo, rhsPtr : PointsTo, newFVs : Set[Var], newLhs : SymbolicHeap, newRhs : SymbolicHeap)
 
@@ -24,11 +27,11 @@ object PointerUnification extends HarrshLogging {
     val rhsPtr = try {
       rhsFormula.pointers.find(p => Var.isFV(p.from.getVarOrZero)).get
     } catch {
-      case _: NoSuchElementException => throw new Throwable("The selected model-checking algorithm supports only garbage-free SIDs, but your SID appears to have garbage (Pointers unreachable from free variables)")
+      case _: NoSuchElementException => throw new Throwable("The selected algorithm supports only garbage-free heaps, but has encountered garbage (Pointers unreachable from free variables)")
     }
     logger.info("Will match pointer " + rhsPtr)
 
-    if (PureFormulaReasoning.varsEqualModuloPureSameSide(rhsFormula.pure, rhsPtr.from.getVarOrZero, NullPtr().getVarOrZero)) {
+    if (EqualityUtils.varsEqualModuloPureSameSide(rhsFormula.pure, rhsPtr.from.getVarOrZero, NullPtr().getVarOrZero)) {
       logger.info("Null pointer on the left side of pointer => Unsatisfiable unfolding => abort branch")
       None
     } else {
@@ -50,7 +53,7 @@ object PointerUnification extends HarrshLogging {
   private def findPointerWithMatchingLeftSide(lhsFormula : SymbolicHeap, rhsFormula : SymbolicHeap, rhsPtr : PointsTo ): Option[PointsTo] = {
     // Take equalities into account while looking for a matching pointer
     //val oMatchingLhsPtr = lhs.pointers.find(ptr => areEqualModuloPure(lhs.pure, lhsPtr.from.getVarOrZero, ptr.fromAsVar))
-    val oMatchingLhsPtr = lhsFormula.pointers.find(lhsPtr => PureFormulaReasoning.varsEqualModuloPureDifferentSides(lhsFormula.pure, lhsPtr.from.getVarOrZero, rhsFormula.pure, rhsPtr.fromAsVar))
+    val oMatchingLhsPtr = lhsFormula.pointers.find(lhsPtr => EqualityUtils.varsEqualModuloPureDifferentSides(lhsFormula.pure, lhsPtr.from.getVarOrZero, rhsFormula.pure, rhsPtr.fromAsVar))
     oMatchingLhsPtr match {
       case None =>
         logger.info("No matching pointer => no model => abort branch")
@@ -151,7 +154,7 @@ object PointerUnification extends HarrshLogging {
       (Var.isFV(lvar), Var.isFV(rvar)) match {
         case (true, true) =>
           // The vars are different FVs => Need to be equal under pure in the model...
-          if (PureFormulaReasoning.varsEqualModuloPureDifferentSides(lhs.pure, lvar, rhs.pure, rvar)) {
+          if (EqualityUtils.varsEqualModuloPureDifferentSides(lhs.pure, lvar, rhs.pure, rvar)) {
             // ...in which case we don't need to do any renaming...
             Some(lhs, rhs, None)
           } else {

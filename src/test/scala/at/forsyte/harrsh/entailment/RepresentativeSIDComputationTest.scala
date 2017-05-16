@@ -17,7 +17,7 @@ class RepresentativeSIDComputationTest extends HarrshTest {
     val sh = "x1 -> x3 * x4 -> x2".parse
     val res = RepresentativeSIDComputation.adaptSIDToRepresentative(ExampleSIDs.Sll, sh)
     println(res)
-    assert(GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(sh, res.callToStartPred, res))
+    assert(ReducedEntailment.checkSatisfiableRSHAgainstSID(sh, res.callToStartPred, res))
 
   }
 

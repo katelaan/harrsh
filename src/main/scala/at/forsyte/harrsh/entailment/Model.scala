@@ -1,9 +1,8 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.pure.{Closure, ClosureOfAtomSet}
+import at.forsyte.harrsh.pure.{Closure}
 import at.forsyte.harrsh.seplog.{NullPtr, PtrExpr, PtrVar, Var}
 import at.forsyte.harrsh.seplog.inductive.{PtrNEq, SymbolicHeap}
-import at.forsyte.harrsh.Implicits._
 
 /**
   * Created by jens on 2/24/17.
@@ -40,18 +39,18 @@ object Model {
           j <- i + 1 until sh.pointers.size
         } yield PtrNEq(sh.pointers(i).from, sh.pointers(j).from)
       }
-      val cl: Closure = new ClosureOfAtomSet(sh.pure.toSet ++ allocAtoms ++ diffAtoms)
+      val cl: Closure = Closure.ofSetOfAtoms(sh.pure.toSet ++ allocAtoms ++ diffAtoms)
 
       if (cl.asSetOfAtoms.exists(atom => atom.isInstanceOf[PtrNEq] && atom.getVarsWithNull.size == 1)) {
         println("Can't get model for unsatisfiable heap")
         None
       } else {
 
-        val memLayout: Map[Set[Var], Loc] = Map() ++ sh.allVars.groupBy(cl.getEqualityClass).keys.zipWithIndex.map {
+        val memLayout: Map[Set[Var], Loc] = Map() ++ sh.allVars.groupBy(cl.getEquivalenceClass).keys.zipWithIndex.map {
           case (set, i) => (set, i + 1)
         }
 
-        def varToLoc(v: Var): Loc = memLayout(cl.getEqualityClass(v))
+        def varToLoc(v: Var): Loc = memLayout(cl.getEquivalenceClass(v))
 
         def exprToLoc(v: PtrExpr): Loc = v match {
           case NullPtr() => 0

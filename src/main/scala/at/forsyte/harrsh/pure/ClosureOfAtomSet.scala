@@ -1,12 +1,12 @@
 package at.forsyte.harrsh.pure
 
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.PureAtom
+import at.forsyte.harrsh.seplog.inductive.{PtrNEq, PureAtom}
 
 /**
   * Created by jkatelaa on 10/17/16.
   */
-class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
+private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
 
   // TODO: This closure class is quite inefficient, having one copy of each equivalence class per member
   var mapToClasses : Map[Var,Set[Var]] = Map()
@@ -19,7 +19,7 @@ class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
     extendEntry(left, right)
   }
 
-  override def getEqualityClass(fv : Var) : Set[Var] = mapToClasses.getOrElse(fv, Set(fv))
+  override def getEquivalenceClass(fv : Var) : Set[Var] = mapToClasses.getOrElse(fv, Set(fv))
 
   override def isMinimumInItsClass(fv : Var) : Boolean = {
     // If the EQ class is defined, check if i is the representation = the minimum of that class
@@ -29,6 +29,11 @@ class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
     } else {
       true
     }
+  }
+
+  override def isConsistent : Boolean = {
+    // TODO Code duplication with ClosureOfAtomSet
+    !asSetOfAtoms.exists(atom => atom.isInstanceOf[PtrNEq] && atom.getVarsWithNull.size == 1)
   }
 
   private def extendEntry(key : Var, newVal : Var) = {
@@ -49,7 +54,7 @@ class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
     }
   }
 
-  override lazy val asSetOfAtoms: Set[PureAtom] = EqualityUtils.propagateConstraints(pure).map(_.ordered)
+  override lazy val asSetOfAtoms: Set[PureAtom] = ConstraintPropagation.propagateConstraints(pure).map(_.ordered)
 
 }
 

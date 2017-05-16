@@ -36,7 +36,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
     // TODO Should of course do this on the fly while computing the ECDs...
     val stateDescriptors = for {
       ecd <- ecds
-      entailsP = GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(ecd.rep, sid.callToStartPred, sid)
+      entailsP = ReducedEntailment.checkSatisfiableRSHAgainstSID(ecd.rep, sid.callToStartPred, sid)
     } yield (ecd.rep, ecd.ext, entailsP)
 
     for {
@@ -203,7 +203,7 @@ object GenerateEntailmentAutomata extends HarrshLogging {
       } yield ecd
     }
 
-    private def reducedEntailment(lhs: SymbolicHeap, rhs: SymbolicHeap) : Boolean = GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(lhs, rhs, sid, reportProgress && ReportMCProgress)
+    private def reducedEntailment(lhs: SymbolicHeap, rhs: SymbolicHeap) : Boolean = ReducedEntailment.checkSatisfiableRSHAgainstSID(lhs, rhs, sid, reportProgress && ReportMCProgress)
 
   }
 

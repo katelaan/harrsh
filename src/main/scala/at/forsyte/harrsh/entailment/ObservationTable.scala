@@ -147,7 +147,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
 //  }
 
   private def reducedEntailment(lhs: SymbolicHeap, rhs: SymbolicHeap, sid : SID) : Boolean = {
-    GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(lhs, rhs, sid, entailmentLearningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress)
+    ReducedEntailment.checkSatisfiableRSHAgainstSID(lhs, rhs, sid, entailmentLearningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress)
   }
 
   private def tableEntryFromPartition(part : SymbolicHeapPartition, iteration : Int) : TableEntry = {

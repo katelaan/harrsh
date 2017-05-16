@@ -1,6 +1,6 @@
 package at.forsyte.harrsh
 
-import at.forsyte.harrsh.entailment.{GreedyUnfoldingModelChecker, Model}
+import at.forsyte.harrsh.entailment.{GreedyUnfoldingModelChecker, Model, ReducedEntailment}
 import at.forsyte.harrsh.main.MainIO
 import at.forsyte.harrsh.parsers.SIDParsers
 import at.forsyte.harrsh.pure.EqualityBasedSimplifications
@@ -54,7 +54,7 @@ object Implicits {
         case Some(sh) => sh
         case None =>
           IOUtils.printWarningToConsole("Could not parse '" + s + "' as SID")
-          SID.empty("DUMMY")
+          SID.empty
       }
     }
   }
@@ -145,7 +145,7 @@ object Implicits {
 
     def isA(sid : SID) : Boolean = {
       println("Checking " + sh + " |= " + sid.callToStartPred)
-      GreedyUnfoldingModelChecker.reducedEntailmentAsModelChecking(sh, sid.callToStartPred, sid, Defaults.reportProgress)
+      ReducedEntailment.checkSatisfiableRSHAgainstSID(sh, sid.callToStartPred, sid, Defaults.reportProgress)
     }
 
     def refineBy(sid: SID, task : AutomatonTask) : (SID,Boolean) = {
@@ -158,7 +158,7 @@ object Implicits {
 
     def exists(task : AutomatonTask) : Boolean = {
       if (sh.predCalls.nonEmpty) throw new Throwable("Can't decide properties of non-reduced heaps without reference to an SID")
-      SID.fromTopLevelSH(sh, SID.empty("X")).exists(task)
+      SID.fromTopLevelSH(sh, SID.empty).exists(task)
     }
 
     def forall(sid: SID, task : AutomatonTask) : Boolean = {
@@ -167,7 +167,7 @@ object Implicits {
 
     def forall(task : AutomatonTask) : Boolean = {
       if (sh.predCalls.nonEmpty) throw new Throwable("Can't decide properties of non-reduced heaps without reference to an SID")
-      SID.fromTopLevelSH(sh, SID.empty("X")).forall(task)
+      SID.fromTopLevelSH(sh, SID.empty).forall(task)
     }
 
     def isSat(sid : SID) : Boolean = exists(sid, RunSat())
@@ -196,7 +196,7 @@ object Implicits {
   class RichModel(model : Model) {
     def isModelOf(sh : SymbolicHeap) : Boolean = {
       if (sh.predCalls.nonEmpty) throw new Throwable("Can't model-check non-reduced heaps without reference to an SID")
-      isModelOf(SID.fromTopLevelSH(sh, SID.empty("X")))
+      isModelOf(SID.fromTopLevelSH(sh, SID.empty))
     }
 
     def isModelOf(sid : SID) : Boolean = GreedyUnfoldingModelChecker.isModel(model, sid)

@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.pure.ConsistencyCheck
 import at.forsyte.harrsh.seplog.{NullPtr, PtrVar, _}
 import at.forsyte.harrsh.seplog.inductive._
 
@@ -10,18 +11,15 @@ case class MCHistory(iteration: Int, alloc : Set[Var], pure : Set[PtrEq], stepLo
   def addPure(p : PtrEq) = copy(pure = pure + p)
   def nextIteration = copy(iteration = iteration+1)
 
-  def toFormula = {
-    logger.debug("Generating formula from allocation set " + alloc + " and additional pure constraints " + pure)
+  def toPureConstraints : Iterable[PureAtom] = {
+    logger.info("Generating formula from allocation set " + alloc + " and additional pure constraints " + pure)
     val contradiction = pure.find(eq => alloc.contains(eq.l.getVarOrZero) && alloc.contains(eq.r.getVarOrZero))
-    val contradictoryConstraint = contradiction match {
+    contradiction match {
       case Some(eq@PtrEq(l,r)) =>
         logger.debug("CONTRADICTORY CONSTRAINT: " + eq + ", but both allocated")
         Seq(PtrNEq(l,r))
-      case None => Seq.empty
+      case None => ConsistencyCheck.allocationInfoToConsistencyConstraints(alloc)
     }
-
-    val allocPure = alloc map (v => PtrNEq(PtrVar(v), NullPtr()))
-    allocPure ++ contradictoryConstraint
   }
 
   def logStep(step : MCHistory.ModelCheckingStep) = copy(stepLogger = stepLogger.logStep(step))
@@ -29,7 +27,7 @@ case class MCHistory(iteration: Int, alloc : Set[Var], pure : Set[PtrEq], stepLo
 
 object MCHistory {
 
-   val emptyHistory = MCHistory(0, Set.empty, Set.empty, DefaultStepLogger())
+  val emptyHistory = MCHistory(0, Set.empty, Set.empty, DefaultStepLogger())
 
   sealed trait ModelCheckingStep
   case class PointerMatch(lhs : SymbolicHeap, rhs : SymbolicHeap, lhsPtr : PointsTo, rhsPtr : PointsTo) extends ModelCheckingStep {

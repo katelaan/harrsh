@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.UnsafeAtomsAsClosure
+import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.seplog.{PtrExpr, PtrVar, Var}
 import at.forsyte.harrsh.seplog.inductive.{PointsTo, SymbolicHeap}
 
@@ -19,7 +19,7 @@ case class ReachabilityInfo(ti : TrackingInfo, rm : ReachabilityMatrix) extends 
 
     // Note: Here we now assume that the state already contains a closure. If this is not the case, the following does not work.
     // TODO Just hide this in tracking info, where we know that we have a closure anyway?
-    val closure = UnsafeAtomsAsClosure(pure)
+    val closure = Closure.unsafeTrivialClosure(pure)
 
     val nonredundantAlloc = alloc filter closure.isMinimumInItsClass
 

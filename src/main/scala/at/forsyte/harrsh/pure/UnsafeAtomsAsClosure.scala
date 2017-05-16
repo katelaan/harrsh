@@ -3,20 +3,20 @@ package at.forsyte.harrsh.pure
 import at.forsyte.harrsh.main.Config
 import at.forsyte.harrsh.pure.EqualityUtils._
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.PureAtom
+import at.forsyte.harrsh.seplog.inductive.{PtrEq, PureAtom}
 
 /**
   * Created by jkatelaa on 10/17/16.
   */
-case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends Closure {
+private[pure] case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends Closure {
 
   if (Config.HeapAutomataSafeModeEnabled) {
-    val computedClosure = new ClosureOfAtomSet(closure).asSetOfAtoms
+    val computedClosure = Closure.ofSetOfAtoms(closure).asSetOfAtoms
     if (closure != computedClosure)
       throw new IllegalStateException("Assumed " + closure + " is closure, but actual closure is" + computedClosure)
   }
 
-  override def getEqualityClass(fv: Var): Set[Var] = {
+  override def getEquivalenceClass(fv: Var): Set[Var] = {
     val otherMembers = closure.filter({
       atom =>
         val (l, r, isEq) = unwrapAtom(atom)
@@ -39,4 +39,14 @@ case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends Closure {
   })
 
   override def asSetOfAtoms: Set[PureAtom] = closure
+
+  /**
+    * Returns true iff the underlying set of constraints is consistent, i.e., no inequality of the form x != x is implied
+    *
+    * @return True iff constraints are consistent
+    */
+  override def isConsistent: Boolean = {
+    // TODO Code duplication with ClosureOfAtomSet
+    !(asSetOfAtoms.exists(atom => atom.isInstanceOf[PtrEq] && atom.getVarsWithNull.size == 1))
+  }
 }
