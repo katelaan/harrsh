@@ -144,7 +144,6 @@ object Implicits {
     def toLatex = SymbolicHeap.toLatex(sh)
 
     def isA(sid : SID) : Boolean = {
-      println("Checking " + sh + " |= " + sid.callToStartPred)
       ReducedEntailment.checkSatisfiableRSHAgainstSID(sh, sid.callToStartPred, sid, Defaults.reportProgress)
     }
 

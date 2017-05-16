@@ -18,9 +18,10 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
     printCase(sid, obs, log)
 
-    obs.entries.size shouldEqual 1
-    assert(obs.entries.head.isFinal)
+    obs.numClasses shouldEqual 1
+    obs.finalClasses.size shouldEqual 1
     assert("x1 -> x2".parse.isA(obs.entries.head.repSid))
+    //assert("emp".parse.isA(obs.entries.head.repSid))
   }
 
   it should "compute three classes for acyclic SLLs" in {
@@ -46,6 +47,8 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
     printCase(sid, obs, log)
 
+//    obs.numClasses shouldEqual 1
+//    obs.finalClasses.size shouldEqual 1
   }
 
   it should "merge some classes" in {

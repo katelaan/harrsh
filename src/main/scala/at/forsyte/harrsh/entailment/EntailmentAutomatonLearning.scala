@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.entailment.GenerateEntailmentAutomata.logger
+import at.forsyte.harrsh.entailment.ObservationTable.TableEntry
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.EqualityBasedSimplifications
 import at.forsyte.harrsh.seplog.inductive.{SID, SIDUnfolding, SymbolicHeap}
@@ -55,43 +56,50 @@ object EntailmentAutomatonLearning extends HarrshLogging {
     logger.debug("Processing Partition: " + partition)
     entailmentLog.logEvent(EntailmentLearningLog.ProcessPartition(partition))
 
-    // TODO Move table ops logging into the table implementation
-    obs.findEntryWithEquivalentRepresentative(partition.rep) match {
+    obs.findEntryFromIterationWithEquivalentRepresentative(partition.rep, it) match {
       case Some(entry) =>
-        // Check if it was discovered in this or in one of the previous iterations
-        if (entry.discoveredInIteration < it) {
-          // Entry is old => entry is sealed => no update
-          logger.debug("Have seen " + partition.rep + " in previous iteration, discarding " + partition)
-          entailmentLog.logEvent(EntailmentLearningLog.TableOperation(EntailmentLearningLog.TableOperation.FoundEquivalent(entry)))
-          obs
-        } else {
-          // New extension for the same representative, extend entry
-          logger.debug("Will add new extension " + partition.ext + " to table entry for " + partition.rep)
-          entailmentLog.logEvent(EntailmentLearningLog.TableOperation(EntailmentLearningLog.TableOperation.ExtendedEntry(entry, partition.ext)))
-          // FIXME Is this actually true? Or do we have to do some renaming instead?
-          if (partition.repParamInstantiation != entry.repParamInstantiation) {
-            IOUtils.printWarningToConsole("Difference in renaming:\nEntry: " + entry + "\nPartition: " + partition)
-          }
-          assert(partition.repParamInstantiation == entry.repParamInstantiation)
-          obs.updateEntry(entry, partition.ext)
-        }
+        // Found an entry from the current iteration that contains the representative,
+        // so we add the new extension
+        extendEntryWithPartition(entry, partition, obs, it)
       case None =>
-        // This exact representative is *not* in the table, check if it is the extension of one in the table
-        obs.findReducibleEntry(partition.rep) match {
-          case Some(reducedEntry) =>
-            // Have already dealt with the same partition in the previous iteration, discard
-            logger.debug("Can reduce " + partition.rep + " to " + reducedEntry.reps + ", discarding " + partition)
-            entailmentLog.logEvent(EntailmentLearningLog.TableOperation(EntailmentLearningLog.TableOperation.FoundReduction(reducedEntry)))
-            obs
-          case None =>
-            // The representative is genuinely new. We will keep it for the time being.
-            // It might have to be merged with some other entry at the end of the iteration, though
-            val cleanedPartition = if (EntailmentAutomatonLearning.CleanUpSymbolicHeaps) partition.simplify else partition
-            entailmentLog.logEvent(EntailmentLearningLog.TableOperation(EntailmentLearningLog.TableOperation.NewEntry(cleanedPartition)))
-            obs.addNewEntryForPartition(cleanedPartition, it)
+        // This exact representative is *not* in the table,
+        // add it unless there is already an entry in the table that covers the representative
+        if (isIrreducible(partition.rep, obs)) {
+          addNewEntryForPartition(partition, obs, it)
+        } else {
+          obs
         }
     }
-
   }
 
+  private def isIrreducible(sh : SymbolicHeap, obs : ObservationTable): Boolean = {
+    obs.findEntryForEquivalenceClassOf(sh).isEmpty
+  }
+
+  private def addNewEntryForPartition(partition: SymbolicHeapPartition, obs: ObservationTable, it: Loc): ObservationTable = {
+    obs.findEntryForEquivalenceClassOf(partition.rep) match {
+      case Some(reducedEntry) =>
+        // Have already dealt with the same partition in the previous iteration, discard
+        logger.debug("Can reduce " + partition.rep + " to " + reducedEntry.reps + ", discarding " + partition)
+        obs
+      case None =>
+        // The representative is genuinely new. We will keep it for the time being.
+        // It might have to be merged with some other entry at the end of the iteration, though
+        val cleanedPartition = if (EntailmentAutomatonLearning.CleanUpSymbolicHeaps) partition.simplify else partition
+        obs.addNewEntryForPartition(cleanedPartition, it)
+    }
+  }
+
+  private def extendEntryWithPartition(entry: TableEntry, partition: SymbolicHeapPartition, obs: ObservationTable, it: Int): ObservationTable = {
+
+    // New extension for the same representative, extend entry
+    logger.debug("Entry for " + partition.rep + " is from current iteration => Add new extension " + partition.ext + " to entry")
+    // FIXME Is the assertion below actually true? Or do we have to do some renaming instead?
+    if (partition.repParamInstantiation != entry.repParamInstantiation) {
+      IOUtils.printWarningToConsole("Difference in renaming:\nEntry: " + entry + "\nPartition: " + partition)
+    }
+    assert(partition.repParamInstantiation == entry.repParamInstantiation)
+    obs.addExtensionToEntry(entry, partition.ext)
+
+  }
 }

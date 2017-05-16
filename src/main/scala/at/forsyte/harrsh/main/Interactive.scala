@@ -113,6 +113,11 @@ object Interactive {
     override def unfoldIthCall(i : Int, by : SymbolicHeap) : SymbolicHeap = record("unfold " + i + "th", super.unfoldIthCall(i, by))
     override def simplify : SymbolicHeap = record("simplified", super.simplify)
 
+    override def isA(sid: SID): Boolean = {
+      println("Checking " + sh + " |= " + sid.callToStartPred)
+      super.isA(sid)
+    }
+
   }
 
   implicit def ruleToHeap(rule : Rule) : SymbolicHeap = rule.body

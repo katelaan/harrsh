@@ -11,14 +11,26 @@ import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
   */
 case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entailmentLearningLog: EntailmentLearningLog) extends HarrshLogging {
 
+  private val reportProgress: Boolean = entailmentLearningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress
+
   override def toString: String = entries.map("  " + _).mkString("ObservationTable(\n", "\n", "\n)")
 
-  override def equals(o: scala.Any): Boolean = o match {
-    case other : ObservationTable => other.entries == entries
-    case _ => false
+  override def equals(o: scala.Any): Boolean = {
+    // Overriding equals to ignore the log
+    o match {
+      case other : ObservationTable => other.entries == entries
+      case _ => false
+    }
   }
 
-  override def hashCode(): Int = entries.hashCode()
+  override def hashCode(): Int = {
+    // Overriding equals to ignore the log
+    entries.hashCode()
+  }
+
+  def numClasses : Int = entries.size
+
+  def finalClasses = entries.filter(_.isFinal)
 
   def mergeDuplicateEntries : ObservationTable = {
     // Merge entries with identical sets of extensions
@@ -52,54 +64,39 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
     copy(entries = mergedEntries)
   }
 
-//  def updateTableWithPartition(part : SymbolicHeapPartition, iteration : Int) : ObservationTable = {
-//
-//    logger.debug("Processing Partition: " + part)
-//    entailmentLearningLog.logEvent(EntailmentLearningLog.ProcessPartition(part))
-//
-//    findEntry(part.rep) match {
-//      case Some(entry) =>
-//        // Check if it was discovered in this or in one of the previous iterations
-//        if (entry.discoveredInIteration < iteration) {
-//          // Entry is old => entry is sealed => no update
-//          logger.debug("Have seen " + part.rep + " in previous iteration, discarding " + part)
-//          this
-//        } else {
-//          // New extension for the same representative, extend entry
-//          logger.debug("Will add new extension " + part.ext + " to table entry for " + part.rep)
-//          // FIXME Is this actually true? Or do we have to do some renaming instead?
-//          assert(part.repParamInstantiation == entry.repParamInstantiation)
-//          updateEntry(entry, part.ext)
-//        }
-//      case None =>
-//        // This exact representative is *not* in the table, check if it is the extension of one in the table
-//        core(part.rep) match {
-//          case Some(reducedEntry) =>
-//            // Have already dealt with the same partition in the previous iteration, discard
-//            logger.debug("Can reduce " + part.rep + " to " + reducedEntry.rep + ", discarding " + part)
-//            this
-//          case None =>
-//            // The representative is genuinely new. We will keep it for the time being.
-//            // It might have to be merged with some other entry at the end of the iteration, though
-//            val cleanedECD = if (EntailmentAutomatonLearning.CleanUpSymbolicHeaps) part.simplify else part
-//            entailmentLearningLog.printProgress("*** New ECD #" + (entries.size + 1) + ": " + cleanedECD + " ***")
-//            copy(entries = entries :+ tableEntryFromPartition(cleanedECD))
-//        }
-//    }
-//
-//  }
-
-  def findEntryWithEquivalentRepresentative(sh : SymbolicHeap) : Option[TableEntry] = entries.find{
-    entry => entry.reps.exists(ReducedHeapEquivalence(_,sh))
+  /**
+    * Searches the set of entries from the given iteration for representatives equivalent to the given heap
+    * @param sh Heap to check equivalence against
+    * @param it Only entries discovered in this iteration are searched
+    * @return Some iteration with equivalent representative or None
+    */
+  def findEntryFromIterationWithEquivalentRepresentative(sh : SymbolicHeap, it : Int) : Option[TableEntry] = {
+    val res = entries.find(entry => entry.discoveredInIteration == it && entry.containsEquivalentRepresentative(sh))
+    res.foreach(entry => entailmentLearningLog.logEvent(EntailmentLearningLog.TableOperation(EntailmentLearningLog.TableOperation.FoundEquivalent(sh, entry))))
+    res
   }
 
-  def findReducibleEntry(sh : SymbolicHeap) : Option[TableEntry] = entries.find{
-    entry =>
-      entailmentLearningLog.logEvent(EntailmentLearningLog.RedEntCheck(sh, entry.repSid.callToStartPred, EntailmentLearningLog.RedEntCheck.ReducibilityCheck(entry.reps)))
-      reducedEntailment(sh, entry.repSid.callToStartPred, entry.repSid)
+  /**
+    * Searches for an entry whose associated equivalence class contains sh
+    * @param sh Heap against which the entries/equivalence classes are checked
+    * @return Some table entry representing the equivalence class of sh or None
+    */
+  def findEntryForEquivalenceClassOf(sh : SymbolicHeap) : Option[TableEntry] = {
+    val res = entries.find {
+      entry =>
+        entailmentLearningLog.logEvent(EntailmentLearningLog.RedEntCheck(sh, entry.repSid.callToStartPred, EntailmentLearningLog.RedEntCheck.ReducibilityCheck(entry.reps)))
+        entry.equivalenceClassContains(sh, reportProgress)
+    }
+    res.foreach(entry => {
+      logger.debug("Can reduce " + sh + " to " + entry.reps)
+      entailmentLearningLog.logEvent(EntailmentLearningLog.TableOperation(EntailmentLearningLog.TableOperation.FoundReduction(sh, entry)))
+    })
+    res
   }
 
-  def updateEntry(entry : TableEntry, ext : SymbolicHeap) : ObservationTable = {
+  def addExtensionToEntry(entry : TableEntry, ext : SymbolicHeap) : ObservationTable = {
+    entailmentLearningLog.logEvent(EntailmentLearningLog.TableOperation(EntailmentLearningLog.TableOperation.ExtendedEntry(entry, ext)))
+
     // TODO Maybe come up with a more efficient implementation of table entry update...
     val ix = entries.indexOf(entry)
     val newEntries = entries.updated(ix, entry.addExtension(ext))
@@ -107,47 +104,9 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
   }
 
   def addNewEntryForPartition(part : SymbolicHeapPartition, iteration : Int): ObservationTable = {
+    entailmentLearningLog.logEvent(EntailmentLearningLog.TableOperation(EntailmentLearningLog.TableOperation.NewEntry(part)))
     entailmentLearningLog.printProgress("*** New ECD #" + (entries.size + 1) + ": " + part + " ***")
     copy(entries = entries :+ tableEntryFromPartition(part, iteration))
-  }
-
-  // TODO Is it correct that we can now drop the bi-extensibility check to determine whether classes are new?
-//  @tailrec private def isNew(candidate: SymbolicHeapPartition): Boolean = if (entries.isEmpty) {
-//    true
-//  } else {
-//    val (hd, tl) = (entries.head, entries.tail)
-//    logger.debug("Comparing against " + hd)
-//    // FIXME Take into account all, not just the head of the partition sequence
-//    val (notNew,newLog) = areBiExtensible(hd.asPartitionSequence.head, candidate)
-//    if (notNew) false else isNew(tl, candidate)
-//  }
-//
-//  private def areBiExtensible(fst: SymbolicHeapPartition, snd: SymbolicHeapPartition): Boolean = {
-//    if (fst.repFV != snd.repFV) {
-//      logger.debug("Different number of FV => Not combinable")
-//      false
-//    }
-//    else {
-//      val (fstExt, sndExt) = fst.combine(snd)
-//      logger.debug("Checking 1st extension (" + fst.rep + ") * (" + snd.ext + "):\n    " + fstExt + " |?= " + sid.callToStartPred)
-//      val fstRes = reducedEntailment(fstExt, sid.callToStartPred)
-////      log.incRedEntCounter
-//      if (fstRes) {
-//        logger.debug("Checking 2nd extension (" + snd.rep + ") * (" + fst.ext + "):\n    " + sndExt + " |?= " + sid.callToStartPred)
-//        val res = reducedEntailment(sndExt, sid.callToStartPred)
-////        log.incRedEntCounter
-////        (res,log.logEntailmentCheck(snd,fstExt,fstRes=true,Some(sndExt),Some(res)))
-//        res
-//      } else {
-//        logger.debug("1st entailment false => return false")
-////        (false,log.logEntailmentCheck(snd,fstExt,fstRes=false,None,None))
-//        false
-//      }
-//    }
-//  }
-
-  private def reducedEntailment(lhs: SymbolicHeap, rhs: SymbolicHeap, sid : SID) : Boolean = {
-    ReducedEntailment.checkSatisfiableRSHAgainstSID(lhs, rhs, sid, entailmentLearningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress)
   }
 
   private def tableEntryFromPartition(part : SymbolicHeapPartition, iteration : Int) : TableEntry = {
@@ -158,7 +117,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
       Set(part.ext),
       part.repParamInstantiation,
       RepresentativeSIDComputation.adaptSIDToRepresentative(sid, part.rep),
-      reducedEntailment(part.rep, sid.callToStartPred, sid),
+      ReducedEntailment.checkSatisfiableRSHAgainstSID(part.rep, sid.callToStartPred, sid, entailmentLearningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress),
       iteration)
   }
 
@@ -187,6 +146,15 @@ object ObservationTable {
     def addExtension(ext : SymbolicHeap) : TableEntry = copy(exts = exts + ext)
 
     def addRepresentative(rep : SymbolicHeap) : TableEntry = copy(reps = reps + rep, repSid = RepresentativeSIDComputation.addBaseRule(repSid, rep))
+
+    /**
+      * Does this entry's set of representatives contain a heap that is equivalent to sh?
+      * @param sh Heap to check for equivalence
+      * @return true iff there is an equivalent heap in the set of representatives
+      */
+    def containsEquivalentRepresentative(sh: SymbolicHeap) : Boolean = reps.exists(ReducedHeapEquivalence(_,sh))
+
+    def equivalenceClassContains(sh : SymbolicHeap, reportProgress : Boolean = false) : Boolean = ReducedEntailment.checkSatisfiableRSHAgainstSID(sh, repSid.callToStartPred, repSid, reportProgress = reportProgress)
   }
 
 }

@@ -59,11 +59,11 @@ object EntailmentLearningLog {
   object TableOperation {
 
     sealed trait Type
-    case class FoundEquivalent(equiv : TableEntry) extends Type {
-      override def toString: String = "Found equivalent table entry " + equiv
+    case class FoundEquivalent(sh : SymbolicHeap, equiv : TableEntry) extends Type {
+      override def toString: String = "Found table entry " + equiv + " equivalent to " + sh
     }
-    case class FoundReduction(entry : TableEntry) extends Type {
-      override def toString: String = "Found reduction to table entry " + entry
+    case class FoundReduction(sh : SymbolicHeap, entry : TableEntry) extends Type {
+      override def toString: String = "Found reduction of " + sh + " to table entry " + entry
     }
     case class ExtendedEntry(entry : TableEntry, ext : SymbolicHeap) extends Type {
       override def toString: String = "*** Extended " + entry + " with " + ext
