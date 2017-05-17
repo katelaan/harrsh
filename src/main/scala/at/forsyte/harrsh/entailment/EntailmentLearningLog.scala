@@ -9,7 +9,7 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
   */
 class EntailmentLearningLog(val reportProgress : Boolean) {
 
-  var learningEventLog : Seq[LearningEvent] = Seq()
+  private var learningEventLog : Seq[LearningEvent] = Seq()
 
   def printProgress(a : Any): Unit = if (reportProgress) println(a)
 
@@ -53,6 +53,9 @@ object EntailmentLearningLog {
     case class ReducibilityCheck(reps : Set[SymbolicHeap]) extends CheckPurpose {
       override def toString: String = "reducibility to " + reps.mkString("{", ", ", "}")
     }
+    case class ExtensionCompatibilityCheck(rep : SymbolicHeap, ext : SymbolicHeap) extends CheckPurpose {
+      override def toString: String = "compatibility of " + rep + " with " + ext
+    }
 
   }
 
@@ -65,11 +68,14 @@ object EntailmentLearningLog {
     case class FoundReduction(sh : SymbolicHeap, entry : TableEntry) extends Type {
       override def toString: String = "Found reduction of " + sh + " to table entry " + entry
     }
-    case class ExtendedEntry(entry : TableEntry, ext : SymbolicHeap) extends Type {
-      override def toString: String = "*** Extended " + entry + " with " + ext
+    case class EnlargedEntry(entry : TableEntry, addition : SymbolicHeap, isNewRepresentative : Boolean) extends Type {
+      override def toString: String = "*** Extended " + entry + " with new " + (if (isNewRepresentative) "representative " else "extension ") + addition
     }
     case class NewEntry(cleanedPartition: SymbolicHeapPartition) extends Type {
       override def toString: String = "*** New entry " + cleanedPartition
+    }
+    case class SplitTableEntry(compatibleReps : Set[SymbolicHeap], incompatibleReps : Set[SymbolicHeap], triggeringExtension : SymbolicHeap) extends Type {
+      override def toString: String = "*** Splitting entry triggered by " + triggeringExtension + " yielding " + compatibleReps.mkString("{",", ","}") + " and " + incompatibleReps.mkString("{",", ","}")
     }
 
   }

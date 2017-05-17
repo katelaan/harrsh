@@ -1,7 +1,10 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.entailment.EntailmentLearningLog.RedEntCheck
+import at.forsyte.harrsh.entailment.EntailmentLearningLog.RedEntCheck.ExtensionCompatibilityCheck
 import at.forsyte.harrsh.entailment.ObservationTable.TableEntry
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.pure.ConsistencyCheck
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
@@ -23,9 +26,9 @@ object EntailmentAutomatonLearning extends HarrshLogging {
       entailmentLog.printProgress("Beginning iteration " + it)
       logger.debug("Computation so far:\n" + entailmentLog)
 
-      val (newUnfs, nextContinuation) = unfoldingContinuation.continue
+      val (newPartitions, nextContinuation) = unfoldingContinuation.continue
       // Extend the observation table with the new observations (unfoldings)
-      val extendedTable = processUnfoldings(newUnfs, prevObs, it, entailmentLog)
+      val extendedTable = processPartitions(newPartitions, prevObs, it, entailmentLog)
       // It can happen that we generate two representatives of the same class
       // We merge the corresponding table entries before continuing with the next iteration
       val cleanedTable = extendedTable.mergeDuplicateEntries
@@ -42,15 +45,15 @@ object EntailmentAutomatonLearning extends HarrshLogging {
     (fixedPoint._1, fixedPoint._3)
   }
 
-  private def processUnfoldings(partitions : Seq[SymbolicHeapPartition], obs : ObservationTable, it : Int, entailmentLog : EntailmentLearningLog) : ObservationTable = {
+  private def processPartitions(partitions : Seq[SymbolicHeapPartition], obs : ObservationTable, it : Int, entailmentLog : EntailmentLearningLog) : ObservationTable = {
     entailmentLog.printProgress("Commencing processing of " + partitions.size + " partitions for current iteration " + it)
     entailmentLog.printProgress(partitions.mkString("\n"))
     partitions.foldLeft(obs) {
-      case (interObs, unf) => processUnfolding(unf, interObs, it, entailmentLog)
+      case (interObs, unf) => processSinglePartition(unf, interObs, it, entailmentLog)
     }
   }
 
-  private def processUnfolding(partition : SymbolicHeapPartition, obs : ObservationTable, it : Int, entailmentLog : EntailmentLearningLog) : ObservationTable = {
+  private def processSinglePartition(partition : SymbolicHeapPartition, obs : ObservationTable, it : Int, entailmentLog : EntailmentLearningLog) : ObservationTable = {
 
     logger.debug("Processing Partition: " + partition)
     entailmentLog.logEvent(EntailmentLearningLog.ProcessPartition(partition))
@@ -59,16 +62,25 @@ object EntailmentAutomatonLearning extends HarrshLogging {
       case Some(entry) =>
         // Found an entry from the current iteration that contains the representative,
         // so we add the new extension
-        extendEntryWithPartition(obs, entry, partition, it)
+        enlargeEntryWithExtension(obs, entry, partition, it, entailmentLog)
       case None =>
-        // This exact representative is *not* in the table,
-        // add it unless there is already an entry in the table that covers the representative
-        if (!obs.hasEntryForEquivalenceClassOf(partition.rep)) {
-          // The representative is genuinely new. We will keep it for the time being.
-          // It might have to be merged with some other entry at the end of the iteration, though
-          withNewTableEntryFromPartition(obs, partition, it)
-        } else {
-          obs
+        // This exact representative is *not* in the table
+        // There are three cases:
+
+        obs.getEntryForEquivalenceClassFromCurrentIteration(partition.rep, it) match {
+          case Some(entry) =>
+            // 1.) There is an entry with matching extensions in the current iteration => add representative to that entry
+            obs.addRepresentativeToEntry(entry, partition.rep)
+          case None =>
+            if (obs.hasEntryForEquivalenceClassFromPreviousIterations(partition.rep, it)) {
+              // 2.) There is an entry with matching extensions in previous iteration => discard partition
+              obs
+            } else {
+              // 3.) There is no entry with matching extensions =>
+              // The representative is genuinely new. We will keep it for the time being.
+              // It might have to be merged with some other entry at the end of the iteration, though
+              withNewTableEntryFromPartition(obs, partition, it)
+            }
         }
     }
   }
@@ -78,16 +90,55 @@ object EntailmentAutomatonLearning extends HarrshLogging {
     obs.addNewEntryForPartition(cleanedPartition, it)
   }
 
-  private def extendEntryWithPartition(obs: ObservationTable, entry: TableEntry, partition: SymbolicHeapPartition, it: Int): ObservationTable = {
+  private def enlargeEntryWithRepresentative(obs: ObservationTable, entry: TableEntry, partition: SymbolicHeapPartition, it: Int): ObservationTable = {
+    obs.addRepresentativeToEntry(entry, partition.rep)
+  }
 
-    // New extension for the same representative, extend entry
+  private def enlargeEntryWithExtension(obs: ObservationTable, entry: TableEntry, partition: SymbolicHeapPartition, it: Int, entailmentLog : EntailmentLearningLog): ObservationTable = {
+
     logger.debug("Entry for " + partition.rep + " is from current iteration => Add new extension " + partition.ext + " to entry")
     // FIXME Is the assertion below actually true? Or do we have to do some renaming instead?
     if (partition.repParamInstantiation != entry.repParamInstantiation) {
       IOUtils.printWarningToConsole("Difference in renaming:\nEntry: " + entry + "\nPartition: " + partition)
+      assert(partition.repParamInstantiation == entry.repParamInstantiation)
     }
-    assert(partition.repParamInstantiation == entry.repParamInstantiation)
-    obs.addExtensionToEntry(entry, partition.ext)
+
+    if (entry.reps.size == 1) {
+      // Just one representative => new extension for the same representative => simply extend entry
+      obs.addExtensionToEntry(entry, partition.ext)
+    } else {
+      logger.debug("Entry has " + entry.reps.size + " representatives => consider splitting in two")
+
+      // There is more than one representative
+      // The new extension only corresponds to one of those representatives
+      // => We might have to split the entry depending on entailment versus the new extension
+      val (compatibleWithNewExtension, incompatibleWithNewExtension) = entry.reps.partition {
+        rep =>
+          // TODO The following will also have to change if the instantiations are non-identical?
+          val combination = SymbolicHeap.mergeHeaps(rep.renameVars(entry.repParamInstantiation), partition.ext, partition.repParamInstantiation.codomain)
+          // TODO Abstract away reduced entailment check with integrated logging?
+          entailmentLog.logEvent(RedEntCheck(combination, obs.sid.callToStartPred, ExtensionCompatibilityCheck(rep, partition.ext)))
+
+          // If the combination is inconsistent, we conclude incompatibility,
+          // since inconsistent heaps are never SID unfoldings
+          // (recall that our algorithm assumes that all unfoldings of the SID are satisfiable!)
+          if (!ConsistencyCheck.isConsistent(combination)) {
+            logger.debug("Checking compatibility of " + rep + " with " + partition.ext + " => Incompatible, since combination " + combination + " is inconsistent")
+            false
+          } else {
+            logger.debug("Checking compatibility of " + rep + " with " + partition.ext + " (combination: " + combination + ")")
+            ReducedEntailment.checkSatisfiableRSHAgainstSID(combination, obs.sid.callToStartPred, obs.sid, entailmentLog.reportProgress && ReportMCProgress)
+          }
+      }
+
+      if (incompatibleWithNewExtension.isEmpty) {
+        logger.debug("No splitting necessary")
+        obs.addExtensionToEntry(entry, partition.ext)
+      } else {
+        logger.debug("Splitting into compatible reps " + compatibleWithNewExtension.mkString(", ") + " and incomptaible reps " + incompatibleWithNewExtension.mkString(", "))
+        obs.splitEntry(entry, compatibleWithNewExtension, incompatibleWithNewExtension, partition.ext)
+      }
+    }
 
   }
 }

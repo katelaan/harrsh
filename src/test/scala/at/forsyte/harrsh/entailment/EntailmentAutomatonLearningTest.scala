@@ -12,7 +12,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
 
   behavior of "entailment automaton learning"
 
-  ignore should "learn SLL entailment checking" in {
+  it should "learn SLL entailment checking" in {
 
     val sid = "sll.sid".load()
     val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
@@ -28,7 +28,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     IOUtils.printLinesOf('#', 1)
   }
 
-  ignore should "learn ACYC SLL entailment checking" in {
+  it should "learn ACYC SLL entailment checking" in {
 
     val sid = "sll-acyc.sid".load()
     val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
@@ -45,7 +45,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     IOUtils.printLinesOf('#', 1)
   }
 
-  ignore should "learn SIDs with multiple minimal representatives per class" in {
+  it should "merge classes with identical extensions" in {
 
     // For the following SID, we should learn a single equivalence class:
     // x1 -> (y1, null) and x1 -> (null, y1) are (minimal) representatives of the same class;
@@ -68,10 +68,36 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     IOUtils.printLinesOf('#', 1)
   }
 
+  it should "learn SIDs with multiple minimal representatives per class" in {
+
+    // For the following SID, we should learn a single equivalence class:
+    // x1 -> (y1, null) and x1 -> (null, y1) are (minimal) representatives of the same class;
+    // the table entries for these representative should thus be merged at the end of the iteration
+
+    val sid =
+      """
+        |multi <= x1 -> (x2, null) ;
+        |multi <= x1 -> (null, x2) ;
+        |multi <= x1 -> (y1, null) * multi(y1, x2) ;
+        |multi <= x1 -> (null, y1) * multi(y1, x2)
+      """.stripMargin.parseSID
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
+    printCase(sid, obs, log)
+
+    obs.numClasses shouldEqual 1
+    obs.finalClasses.size shouldEqual 1
+    obs.finalClasses.head.reps.size shouldEqual 2
+    assert(automatonAccepts("x1 -> (y1,null) * y1 -> (null,y2) * y2 -> (y3,null) : {y3 = x2}", obs))
+    assert(automatonAccepts("x1 -> (y1,null) * y1 -> (null,y2) * y2 -> (x2,null)", obs))
+    IOUtils.printLinesOf('#', 1)
+  }
+
   it should "learn SIDs with two overlapping classes" in {
 
-    // In the following SID, the extensions of classes for x1 -> (null, x2, null) and x1 -> (null, null, x2) overlap,
-    // as do the extensions for x1 -> (null, x2) and x1 -> (x2, null)
+    // In the following SID
+    // - the extensions of classes for x1 -> (null, x2, null) and x1 -> (null, null, x2) overlap
+    // - the extensions of classes for for x1 -> (null, x2) and x1 -> (x2, null) overlap
+    // This should trigger some splitting of entries and in the end result in 6 classes, tested for below
 
     val sid =
       """
@@ -80,19 +106,43 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
         |overlap <= x1 -> (null, null, y1) * y1 -> (x2, null) ;
         |overlap <= x1 -> (y1, null, null) * overlap(y1, x2)
       """.stripMargin.parseSID
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, maxIterations = 1)
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
     printCase(sid, obs, log)
+
+    obs.numClasses shouldEqual 6
+    obs.finalClasses.size shouldEqual 1
+
+    // Check that all the expected classes are there
+    val representatives = Seq(
+      // Class for the recursive rule (can take any base rule body as suffix)
+      "x1 -> (x2, null, null)",
+      // Classes for the left pointers of the base rules
+      "x1 -> (null, x2, null)",
+      "x1 -> (null, null, x2)",
+      // Classes for the right pointers of the base rules
+      "x1 -> (null, x2)",
+      "x1 -> (x2, null)",
+      // Accepting class, represented by all base rule bodies
+      "∃y1 . y1 ↦ (null, x2) * x1 ↦ (null, y1, null)",
+      "∃y1 . y1 ↦ (x2, null) * x1 ↦ (null, y1, null)",
+      "∃y1 . y1 ↦ (x2, null) * x1 ↦ (null, null, y1)"
+    )
+
+    for (rep <- representatives) {
+      assert(hasClassRepresentedBy(obs, rep))
+    }
+
+    assert(automatonAccepts("∃y1 . y1 ↦ (x2, null) * x1 ↦ (null, y1, null)", obs))
+    assert(automatonAccepts("∃y1 ∃y2 ∃y3 . x1 ↦ (y1, null, null) * y1 ↦ (y2, null, null) * y2 ↦ (null, y3, null) * y3 ↦ (x2, null)", obs))
+    assert(automatonRejects("x1 -> (x2, null, null)", obs))
+    assert(automatonRejects("x1 -> (null, x2, null)", obs))
+    assert(automatonRejects("x1 -> (x2, null)", obs))
+    assert(automatonRejects("x1 -> (y1, null, null) * y1 -> (null, x2, null)", obs))
+      
     IOUtils.printLinesOf('#', 1)
   }
 
   ignore should "learn SIDs with three overlapping classes" in {
-
-    // For the following SID, we should learn 4 equivalence classes:
-    // 1.) One accepting class, represented by one of the bodies of the base rules
-    // 2.) x1 -> (null, null, y1) can be extended only by a y1 -> (null, null, x2) pointer
-    // 3.) x1 -> (null, y1, null) can be extended both by a y1 -> (null, null, x2) and by a y1 -> (null, x2, x2) pointer
-    // 4.) x1 -> (null, y1, y1) can be extended only by a y1 -> (null, null, x2) pointer
-    // 4.) REP: x1 -> (y1, null, null) -- non-final class, extensible by any of the base rules to get an accepted unf
 
     val sid =
       """
@@ -150,6 +200,10 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
   private def automatonRejects(sh : String, obs : ObservationTable) : Boolean = {
     println("Automaton should reject " + sh)
     obs.rejects(sh.parse, verbose = true)
+  }
+
+  private def hasClassRepresentedBy(obs : ObservationTable, sh : String) = {
+    obs.entries.flatMap(_.reps).contains(sh.parse)
   }
 
   private def printCase(sid : SID, obs : ObservationTable, log : EntailmentLearningLog) : Unit = {
