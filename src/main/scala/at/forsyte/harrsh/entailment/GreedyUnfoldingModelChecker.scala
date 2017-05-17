@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.PureEntailment
+import at.forsyte.harrsh.pure.{ConsistencyCheck, PureEntailment}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.IOUtils
 
@@ -20,6 +20,21 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
   // TODO The linear structure of the set of model pointers is super inefficient, should use a map representation (keys = from vars) instead
   // TODO Heuristics for unfolding process, e.g. based on size, but also via checking which params are nullable in given rule sets
 
+//  sealed trait MatchingResult {
+//    def isModelCheckingSuccess : Boolean = this match {
+//      case MatchingSuccess() => true
+//      case _ => false
+//    }
+//
+//    def isReducedEntailmentSuccess : Boolean = this match {
+//      case MatchingFailure() => false
+//      case _ => false
+//    }
+//  }
+//  case class MatchingInconsistent() extends MatchingResult
+//  case class MatchingSuccess() extends MatchingResult
+//  case class MatchingFailure() extends MatchingResult
+
   val IsModel = true
   val NoModel = false
 
@@ -36,8 +51,8 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
   def isModel(model : Model, sid : SID, reportProgress: Boolean) : Boolean = isModel(model, sid.callToStartPred, sid, reportProgress = reportProgress)
 
   /**
-    * Solve the reduced entailment problem via greedy pointer matching. Sound for well-determined heaps?
-    * TODO Also sound for some other heaps?
+    * Solve the reduced entailment problem via greedy pointer matching;
+    * sound for satisfiable left-hand sides and SIDs without unsatisfiable unfoldings
     * @param lhs Reduced symbolic heap on the lhs of the entailment
     * @param rhs Arbitrary symbolic heap on the rhs of the entailment
     * @param sid Underlying SID
@@ -100,8 +115,9 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
             val unificationResult = PointerUnification.removeUnifiablePointerPair(formulaToMatch, partialUnfolding, disallowedFVs = history.alloc.toSet)
             unificationResult match {
               case None => NoModel
-              case Some(PointerUnification.PointerMatch(lhsPtr, rhsPtr, newFVs, newFormulaToMatch, newPartialUnfolding)) =>
-                val newHistory = history.addAlloc(newFVs).logStep(MCHistory.PointerMatch(formulaToMatch, partialUnfolding, lhsPtr, rhsPtr))
+              case Some(PointerUnification.PointerMatch(lhsPtr, rhsPtr, newFV, newFormulaToMatch, newPartialUnfolding)) =>
+                //val newHistory = history.addAlloc(newFVs).logStep(MCHistory.PointerMatch(formulaToMatch, partialUnfolding, lhsPtr, rhsPtr))
+                val newHistory = history.addAlloc(newFV).logStep(MCHistory.PointerMatch(formulaToMatch, partialUnfolding, lhsPtr, rhsPtr))
                 run(newFormulaToMatch, newPartialUnfolding, newHistory)
             }
 
@@ -136,11 +152,21 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
         unfoldFirstCallAndRecurse(formulaToMatch, partialUnfolding, history, considerRulesSatisfying = sh => !sh.hasPointer && !sh.hasPredCalls)
       } else {
         // Return true iff pure constraints of partial unfolding are met
-        val lhsWithImpliedInequalities = formulaToMatch.pure ++ history.toPureConstraints
+        val historyConstraints = history.toPureConstraints
+        val lhsWithImpliedInequalities = formulaToMatch.pure ++ historyConstraints
+        IOUtils.printIf(reportProgress)("    Implied LHS constraints " + historyConstraints + " derived from allocation " + history.alloc.mkString(","))
         IOUtils.printIf(reportProgress)("    " + lhsWithImpliedInequalities.mkString("{",", ", "}") + " |?=_PURE " + partialUnfolding.pure.mkString("{",", ", "}"))
-        val res = PureEntailment.check(lhsWithImpliedInequalities, partialUnfolding.pure)
-        logger.debug("Pure entailment check: " + res + " => " + (if (res) " is model" else " no model, abort branch"))
-        res
+
+        // FIXME Improve efficiency here? It's redundant to check entailment and consistency separately
+        if (!ConsistencyCheck.isConsistent(SymbolicHeap(lhsWithImpliedInequalities, Seq(), Seq()))) {
+          // Inconsistent history constraints => Not a model
+          IOUtils.printIf(reportProgress)("    Inconsistent constraints, not a model")
+          false
+        } else {
+          val res = PureEntailment.check(lhsWithImpliedInequalities, partialUnfolding.pure)
+          logger.debug("Pure entailment check: " + res + " => " + (if (res) " is model" else " no model, abort branch"))
+          res
+        }
       }
     }
 

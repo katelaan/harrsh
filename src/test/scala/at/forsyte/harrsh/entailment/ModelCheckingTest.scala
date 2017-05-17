@@ -47,7 +47,7 @@ class ModelCheckingTest extends HarrshTableTest {
     }
   }
 
-//  val (modelFile, sidFile, expectedRes) = ("tll-cyc.amd", "tll.sid", true)
+//  val (modelFile, sidFile, expectedRes) = ("three-elem-list.amd", "list-to-null.sid", true)
 //
 //  val model = modelFile.parseModel()
 //  val sid = sidFile.load()
@@ -57,5 +57,5 @@ class ModelCheckingTest extends HarrshTableTest {
 //
 //  val res = GreedyUnfoldingModelChecker.isModel(model, sid, reportProgress = true)
 //  println("Expected res " + expectedRes + ", actual res " + res)
-//
+
 }

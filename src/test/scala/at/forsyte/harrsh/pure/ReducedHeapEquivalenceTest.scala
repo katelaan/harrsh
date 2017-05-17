@@ -49,27 +49,27 @@ class ReducedHeapEquivalenceTest extends HarrshTableTest {
     ("x2 != x2".parse, "x1 != x1".parse, AreEquivalent)
   )
 
-  property("Correctness of reduced heap equivalence") {
-
-    forAll(inputs) {
-      (fst: SymbolicHeap, snd: SymbolicHeap, expectedResult: Boolean) =>
-        Given(fst + " " + snd)
-        Then("Equivalence should " + (if (expectedResult) "HOLD" else "NOT HOLD"))
-        ReducedHeapEquivalence(fst, snd) shouldBe expectedResult
-    }
-
-  }
+//  property("Correctness of reduced heap equivalence") {
+//
+//    forAll(inputs) {
+//      (fst: SymbolicHeap, snd: SymbolicHeap, expectedResult: Boolean) =>
+//        Given(fst + " " + snd)
+//        Then("Equivalence should " + (if (expectedResult) "HOLD" else "NOT HOLD"))
+//        ReducedHeapEquivalence(fst, snd) shouldBe expectedResult
+//    }
+//
+//  }
 
   /*
    * Test single input with verbose output for local debugging
    */
-//  def check(fst: SymbolicHeap, snd: SymbolicHeap, expectedResult: Boolean) = {
-//    println(fst + " " + snd)
-//    println("Equivalence should " + (if (expectedResult) "HOLD" else "NOT HOLD"))
-//    val res = ReducedHeapEquivalence(fst, snd, reportProgress = true)
-//    println(res)
-//    res shouldBe expectedResult
-//  }
-//  check("x2 != x2".parse, "x1 != x1".parse, AreEquivalent)
+  def check(fst: SymbolicHeap, snd: SymbolicHeap, expectedResult: Boolean) = {
+    println(fst + " " + snd)
+    println("Equivalence should " + (if (expectedResult) "HOLD" else "NOT HOLD"))
+    val res = ReducedHeapEquivalence(fst, snd, reportProgress = true)
+    println(res)
+    res shouldBe expectedResult
+  }
+  check("x3 -> y1 * y1 -> x2 : {x2 = x3}".parse, "x1 -> y1 * y1 -> x2 : {x1 = x2}".parse, NotEquivalent)
 
 }

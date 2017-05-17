@@ -12,8 +12,13 @@ import at.forsyte.harrsh.seplog.inductive._
   * @param stepLogger Logger for debugging
   */
 case class MCHistory(iteration: Int, alloc : Seq[Var], stepLogger : MCHistory.StepLogger) extends HarrshLogging {
-  def addAlloc(vs : Set[Var]) = copy(alloc = alloc ++ vs)
-  def nextIteration = copy(iteration = iteration+1)
+
+  def addAlloc(v : Var): MCHistory = {
+    logger.debug("Adding allocation info to history: " + v)
+    copy(alloc = alloc :+ v)
+  }
+
+  def nextIteration: MCHistory = copy(iteration = iteration+1)
 
   def toPureConstraints : Iterable[PureAtom] = {
     logger.debug("Generating formula from allocation set " + alloc.mkString("{",",","}")) // + " and additional pure constraints " + pure)
