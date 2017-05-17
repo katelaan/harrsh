@@ -35,7 +35,9 @@ case class BreadthFirstUnfoldingsIterator(sid : SID, iteration: Int, continuatio
 
     val spatialPartitions = Combinators.partitions(rsh.pointers.toSet)
     val purePartitions = Combinators.partitions(rsh.pure.toSet)
-    entailmentLog.printProgress("Will look at " + spatialPartitions.size + " spatial and " + purePartitions.size + " pure combinations")
+    entailmentLog.printProgress("Unfoldings iterator: Will consider " + spatialPartitions.size + " spatial and " + purePartitions.size + " pure partitions of " + rsh)
+//    entailmentLog.printProgress(spatialPartitions.mkString("Spatial: ", "\n", ""))
+//    entailmentLog.printProgress(purePartitions.mkString("Pure: ", "\n", ""))
 
     for {
       (sigma1, sigma2) <- spatialPartitions
@@ -45,9 +47,9 @@ case class BreadthFirstUnfoldingsIterator(sid : SID, iteration: Int, continuatio
       representative = SymbolicHeap(pi1.toSeq, sigma1.toSeq, Seq.empty)
       extension = SymbolicHeap(pi2.toSeq, sigma2.toSeq, Seq.empty)
       // FIXME Must consider all ways to name the new FVs in the representative...
-      ecd = SymbolicHeapPartition(representative, extension)
-      if ecd.repFV <= maxNumFv
-    } yield ecd
+      partition = SymbolicHeapPartition(representative, extension)
+      if partition.repFV <= maxNumFv
+    } yield partition
   }
 
 }

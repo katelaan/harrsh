@@ -49,7 +49,15 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
 
   def hasVar(v : Var) : Boolean = (1 <= v && v <= numFV) || boundVars(v)
 
-  lazy val freeVars : Seq[Var] =  1 to numFV
+  lazy val freeVars : Seq[Var] = 1 to numFV
+
+  /**
+    * Returns the subset of the free vars that is actually used in an atom
+    */
+  lazy val usedFreeVars : Set[Var] = {
+    val allUsedVars = pure.flatMap(_.getVars) ++ pointers.flatMap(_.getVars) ++ predCalls.flatMap(_.getVars)
+    Set.empty ++ allUsedVars.filter(Var.isFV)
+  }
 
   def withoutCalls : SymbolicHeap = copy(predCalls = Seq.empty)
 

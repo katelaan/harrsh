@@ -42,10 +42,13 @@ object EntailmentAutomatonLearning extends HarrshLogging {
     (fixedPoint._1, fixedPoint._3)
   }
 
-  private def processUnfoldings(partitions : Seq[SymbolicHeapPartition], obs : ObservationTable, it : Int, entailmentLog : EntailmentLearningLog) : ObservationTable =
-    partitions.foldLeft(obs){
+  private def processUnfoldings(partitions : Seq[SymbolicHeapPartition], obs : ObservationTable, it : Int, entailmentLog : EntailmentLearningLog) : ObservationTable = {
+    entailmentLog.printProgress("Commencing processing of " + partitions.size + " partitions for current iteration " + it)
+    entailmentLog.printProgress(partitions.mkString("\n"))
+    partitions.foldLeft(obs) {
       case (interObs, unf) => processUnfolding(unf, interObs, it, entailmentLog)
     }
+  }
 
   private def processUnfolding(partition : SymbolicHeapPartition, obs : ObservationTable, it : Int, entailmentLog : EntailmentLearningLog) : ObservationTable = {
 

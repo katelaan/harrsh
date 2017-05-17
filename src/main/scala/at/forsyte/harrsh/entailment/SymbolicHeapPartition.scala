@@ -56,8 +56,12 @@ object SymbolicHeapPartition {
     def unbindAll(vars : Seq[Var], sh : SymbolicHeap, map : Map[Var,Var]) : (SymbolicHeap,Map[Var,Var]) = if (vars.isEmpty) {
       (sh,map)
     } else {
-      val nextSH = sh.instantiateBoundVars(Seq((vars.head, sh.numFV+1)), closeGaps = false)
-      unbindAll(vars.tail, nextSH, map + (sh.numFV+1 -> vars.head))
+      val unusedVars = sh.freeVars.toSet -- sh.usedFreeVars
+      // FIXME: If there is more than one unused FV, we should actually generate one partition per possible instantiation choice. We don't do that, yet; So as soon as that happens in practice, the following assertion will fail
+      assert(unusedVars.size <= 1)
+      val minimalUnusedFV = if (unusedVars.isEmpty) sh.numFV+1 else unusedVars.min
+      val nextSH = sh.instantiateBoundVars(Seq((vars.head, minimalUnusedFV)), closeGaps = false)
+      unbindAll(vars.tail, nextSH, map + (minimalUnusedFV -> vars.head))
     }
 
     val sharedVars = rshToModify.boundVars.toSet intersect sharedWith.boundVars.toSet
