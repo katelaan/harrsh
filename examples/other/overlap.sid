@@ -1,0 +1,8 @@
+# In the following SID
+# - the extensions of classes for x1 -> (null, x2, null) and x1 -> (null, null, x2) overlap
+# - the extensions of classes for for x1 -> (null, x2) and x1 -> (x2, null) overlap
+# This should trigger some splitting of entries and in the end result in 6 non-sink classes
+overlap <= x1 -> (null, y1, null) * y1 -> (null, x2) ;
+overlap <= x1 -> (null, y1, null) * y1 -> (x2, null) ;
+overlap <= x1 -> (null, null, y1) * y1 -> (x2, null) ;
+overlap <= x1 -> (y1, null, null) * overlap(y1, x2)

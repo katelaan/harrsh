@@ -1,0 +1,7 @@
+# For the following SID, we should learn a single non-sink equivalence class:
+# x1 -> (y1, null) and x1 -> (null, y1) are (minimal) representatives of the same class;
+# the table entries for these representative should thus be merged at the end of the iteration
+
+merge <= emp : { x1 = x2 } ;
+merge <= x1 -> (y1, null) * merge(y1, x2) ;
+merge <= x1 -> (null, y1) * merge(y1, x2)

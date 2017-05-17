@@ -190,9 +190,10 @@ object Harrsh {
             IOUtils.printWarningToConsole("Number of free variables for entailment automaton not specified. Will default to number of free variables in start predicate (" + sid.numFV + ")")
             sid.numFV
           }
-          val aut = EntailmentAutomatonLearning.learnAutomaton(sid, autNumfv, config.reportProgress)
-          // TODO Write automaton to file
+          val (table, log) = EntailmentAutomatonLearning.learnAutomaton(sid, autNumfv, config.reportProgress)
           println("Finished computation of entailment automaton")
+          val resultFile = "automaton_" + (new java.io.File(config.file)).getName + ".aut"
+          MainIO.writeEntailmentAutomatonToFile(sid, autNumfv, table, log, resultFile)
   }
 
 

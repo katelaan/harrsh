@@ -6,14 +6,14 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 /**
   * Created by jens on 3/6/17.
   */
-class EntailmentHeapAutomaton(val numFV : Int, ecds : Seq[(SymbolicHeap, SymbolicHeap,Boolean)]) extends HeapAutomaton with FVBound {
+class EntailmentHeapAutomaton(val numFV : Int, val obs : ObservationTable) extends HeapAutomaton with FVBound {
 
-  val stateMap : Map[Int,(SymbolicHeap,SymbolicHeap,Boolean)] = Map() ++ ecds.zipWithIndex.map(_.swap)
+  val stateMap : Map[Int,ObservationTable.TableEntry] = Map() ++ obs.entries.zipWithIndex.map(_.swap)
 
   override type State = Int
   override lazy val states: Set[State] = stateMap.keySet
 
-  override def isFinal(s: State): Boolean = stateMap(s)._3
+  override def isFinal(s: State): Boolean = stateMap(s).isFinal
 
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     // Shrinking + entailment check(s)
@@ -27,7 +27,18 @@ class EntailmentHeapAutomaton(val numFV : Int, ecds : Seq[(SymbolicHeap, Symboli
 
 object EntailmentHeapAutomaton {
 
-  def serialize(aut: EntailmentHeapAutomaton) : String = ???
+  def serialize(aut: EntailmentHeapAutomaton) : String = {
+    val nonSinkStates = aut.obs.entries map toStateDescription
+    val indexedStates = nonSinkStates.zipWithIndex.map(pair => "    " + pair._2 + " = " + pair._1)
+    "EntailmentAutomaton {\n" + "  fvbound = " + aut.numFV + "\n" + "  non-sink-states = {\n" + indexedStates.mkString("\n") + "\n  }\n}"
+  }
+
+  private def toStateDescription(entry : ObservationTable.TableEntry) : String = {
+    ("{\n"
+      + entry.reps.mkString("      representatives = {", ", ", "}\n")
+      + entry.exts.mkString("      extensions = {", ", ", "}\n")
+      + "    }")
+  }
 
   def fromString(s : String) : EntailmentHeapAutomaton = ???
 

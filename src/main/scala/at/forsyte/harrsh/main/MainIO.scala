@@ -7,7 +7,7 @@ import at.forsyte.harrsh.parsers.{ModelParser, SIDParsers}
 import at.forsyte.harrsh.util.IOUtils
 import at.forsyte.harrsh.util.IOUtils._
 import at.forsyte.harrsh.refinement.DecisionProcedures.{AnalysisResult, AnalysisStatistics}
-import at.forsyte.harrsh.entailment.Model
+import at.forsyte.harrsh.entailment.{EntailmentHeapAutomaton, EntailmentLearningLog, Model, ObservationTable}
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.refinement.AutomatonTask
 
@@ -15,6 +15,13 @@ import at.forsyte.harrsh.refinement.AutomatonTask
   * Created by jens on 2/24/17.
   */
 object MainIO extends HarrshLogging {
+  def writeEntailmentAutomatonToFile(sid: SID, numFV : Int, table: ObservationTable, log: EntailmentLearningLog, filename: String) : Unit = {
+    val automaton = new EntailmentHeapAutomaton(numFV, table)
+
+    val content = "ENTAILMENT AUTOMATON FOR SID\n" + sid + "\n\n" + EntailmentHeapAutomaton.serialize(automaton) + "\n\n" + ("#"*80) + "\n\nCOMPUTATION LOG\n\n" + log
+    writeFile(filename, content)
+  }
+
 
   val ResultFile = "benchmark-results.tex"
 
