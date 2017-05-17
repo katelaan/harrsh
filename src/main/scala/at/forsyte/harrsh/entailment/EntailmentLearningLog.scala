@@ -48,7 +48,7 @@ object EntailmentLearningLog {
 
     sealed trait CheckPurpose
     case class FinalityCheck() extends CheckPurpose {
-      override def toString: String = "final state"
+      override def toString: String = "if underlying class is accepting"
     }
     case class ReducibilityCheck(reps : Set[SymbolicHeap]) extends CheckPurpose {
       override def toString: String = "reducibility to " + reps.mkString("{", ", ", "}")

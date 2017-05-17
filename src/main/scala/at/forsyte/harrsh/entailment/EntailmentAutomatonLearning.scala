@@ -64,6 +64,8 @@ object EntailmentAutomatonLearning extends HarrshLogging {
         // This exact representative is *not* in the table,
         // add it unless there is already an entry in the table that covers the representative
         if (!obs.hasEntryForEquivalenceClassOf(partition.rep)) {
+          // The representative is genuinely new. We will keep it for the time being.
+          // It might have to be merged with some other entry at the end of the iteration, though
           withNewTableEntryFromPartition(obs, partition, it)
         } else {
           obs
@@ -72,14 +74,8 @@ object EntailmentAutomatonLearning extends HarrshLogging {
   }
 
   private def withNewTableEntryFromPartition(obs: ObservationTable, partition: SymbolicHeapPartition, it: Int): ObservationTable = {
-    if (obs.hasEntryForEquivalenceClassOf(partition.rep)) {
-      obs
-    } else {
-        // The representative is genuinely new. We will keep it for the time being.
-        // It might have to be merged with some other entry at the end of the iteration, though
-        val cleanedPartition = if (EntailmentAutomatonLearning.CleanUpSymbolicHeaps) partition.simplify else partition
-        obs.addNewEntryForPartition(cleanedPartition, it)
-    }
+    val cleanedPartition = if (EntailmentAutomatonLearning.CleanUpSymbolicHeaps) partition.simplify else partition
+    obs.addNewEntryForPartition(cleanedPartition, it)
   }
 
   private def extendEntryWithPartition(obs: ObservationTable, entry: TableEntry, partition: SymbolicHeapPartition, it: Int): ObservationTable = {

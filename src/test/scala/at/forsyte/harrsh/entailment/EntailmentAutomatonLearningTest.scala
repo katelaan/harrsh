@@ -70,7 +70,8 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
 
   it should "learn SIDs with two overlapping classes" in {
 
-    // In the following SID, the classes for x1 -> (null, y1, null) and x1 -> (null, null, y1) overlap
+    // In the following SID, the extensions of classes for x1 -> (null, x2, null) and x1 -> (null, null, x2) overlap,
+    // as do the extensions for x1 -> (null, x2) and x1 -> (x2, null)
 
     val sid =
       """
@@ -79,7 +80,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
         |overlap <= x1 -> (null, null, y1) * y1 -> (x2, null) ;
         |overlap <= x1 -> (y1, null, null) * overlap(y1, x2)
       """.stripMargin.parseSID
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, maxIterations = 2)
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, maxIterations = 1)
     printCase(sid, obs, log)
     IOUtils.printLinesOf('#', 1)
   }
