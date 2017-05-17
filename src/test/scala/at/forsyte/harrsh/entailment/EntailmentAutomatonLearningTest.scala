@@ -12,7 +12,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
 
   behavior of "entailment automaton learning"
 
-  it should "compute just one non-bottom class for SLLs" in {
+  it should "learn SLL entailment checking" in {
 
     val sid = "sll.sid".load()
     val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
@@ -20,23 +20,32 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
 
     obs.numClasses shouldEqual 1
     obs.finalClasses.size shouldEqual 1
-    assert("x1 -> x2".parse.isA(obs.entries.head.repSid))
-    //assert("emp".parse.isA(obs.entries.head.repSid))
+    assert(automatonAccepts("x1 -> x2", obs))
+    assert(automatonAccepts("x1 -> y1 * y1 -> x2", obs))
+    assert(automatonAccepts("x1 -> y1 * y1 -> y3 * y3 -> y5 * y5 -> y6 * y6 -> y4 * y4 -> y2 * y2 -> x2", obs))
+    assert(automatonRejects("emp", obs)) // Rejected because emp gets its own equivalence class in asymmetric SIDs
+    assert(automatonRejects("x2 -> x1", obs)) // Rejected because we only learn the classes for a fixed variable ordering
+    IOUtils.printLinesOf('#', 1)
   }
 
-  it should "compute three classes for acyclic SLLs" in {
+  it should "learn ACYC SLL entailment checking" in {
 
     val sid = "sll-acyc.sid".load()
     val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
     printCase(sid, obs, log)
 
-//    obs.entries.size shouldEqual 1
-//    assert(obs.entries.head.isFinal)
-//    assert("x1 -> x2".parse.isA(obs.entries.head.repSid))
-
+    obs.numClasses shouldEqual 3
+    obs.finalClasses.size shouldEqual 1
+    assert(automatonRejects("emp", obs))
+    assert(automatonRejects("emp : {x1 != x2}", obs))
+    assert(automatonRejects("x1 -> x2", obs))
+    assert(automatonAccepts("emp : {x1 = x2}", obs))
+    assert(automatonAccepts("x1 -> x2 : {x1 != x2}", obs))
+    assert(automatonAccepts("x1 -> y1 * y1 -> x2 : {x1 != x2}", obs))
+    IOUtils.printLinesOf('#', 1)
   }
 
-  it should "merge all classes" in {
+  ignore should "merge all classes" in {
 
     val sid =
       """
@@ -44,14 +53,15 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
         |merge <= x1 -> (y1, null) * merge(y1, x2) ;
         |merge <= x1 -> (null, y1) * merge(y1, x2)
       """.stripMargin.parseSID
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
     printCase(sid, obs, log)
 
-//    obs.numClasses shouldEqual 1
-//    obs.finalClasses.size shouldEqual 1
+    obs.numClasses shouldEqual 1
+    obs.finalClasses.size shouldEqual 1
+    IOUtils.printLinesOf('#', 1)
   }
 
-  it should "merge some classes" in {
+  ignore should "merge some classes" in {
 
     val sid =
       """
@@ -64,30 +74,41 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
       """.stripMargin.parseSID
     val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
     printCase(sid, obs, log)
-
+    IOUtils.printLinesOf('#', 1)
   }
 
-//  it should "not crash on trees" in {
-//
-//    val sid = "tree.sid".load
-//    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
-//    printCase(sid, obs, log)
-//
-//  }
+  ignore should "not crash on trees" in {
 
-//  it should "not crash on tlls" in {
-//
-//    val sid = "tll.sid".load
-//    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
-//    printCase(sid, obs, log)
-//
-//  }
+    val sid = "tree.sid".load
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
+    printCase(sid, obs, log)
+    IOUtils.printLinesOf('#', 1)
+  }
+
+  ignore should "not crash on tlls" in {
+
+    val sid = "tll.sid".load
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
+    printCase(sid, obs, log)
+    IOUtils.printLinesOf('#', 1)
+  }
+
+  private def automatonAccepts(sh : String, obs : ObservationTable) : Boolean = {
+    println("Automaton should accept " + sh)
+    obs.accepts(sh.parse, verbose = true)
+  }
+  private def automatonRejects(sh : String, obs : ObservationTable) : Boolean = {
+    println("Automaton should reject " + sh)
+    obs.rejects(sh.parse, verbose = true)
+  }
 
   private def printCase(sid : SID, obs : ObservationTable, log : EntailmentLearningLog) : Unit = {
     println()
     IOUtils.printLinesOf('#', 3)
     println(sid)
+    IOUtils.printLinesOf('-', 1)
     println(log)
+    IOUtils.printLinesOf('-', 1)
     println(obs)
     IOUtils.printLinesOf('/', 1)
     println()

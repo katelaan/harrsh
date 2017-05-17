@@ -1,10 +1,8 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.entailment.GenerateEntailmentAutomata.logger
 import at.forsyte.harrsh.entailment.ObservationTable.TableEntry
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.EqualityBasedSimplifications
-import at.forsyte.harrsh.seplog.inductive.{SID, SIDUnfolding, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
 /**
@@ -13,10 +11,8 @@ import at.forsyte.harrsh.util.{Combinators, IOUtils}
 object EntailmentAutomatonLearning extends HarrshLogging {
 
   val FindOnlyNonEmpty = true // Only generate non-empty left-hand sides. Still have to figure out if this is the right approach
-  val CleanUpSymbolicHeaps = true
+  val CleanUpSymbolicHeaps = true // Remove redundant variables / (in)equalities [good for performance and readability of the final results, but may complicate debugging]
   val ReportMCProgress = false
-
-  def printProgress : String => Unit = x => println(x)
 
   type State = (ObservationTable, BreadthFirstUnfoldingsIterator, EntailmentLearningLog)
 
@@ -56,33 +52,26 @@ object EntailmentAutomatonLearning extends HarrshLogging {
     logger.debug("Processing Partition: " + partition)
     entailmentLog.logEvent(EntailmentLearningLog.ProcessPartition(partition))
 
-    obs.findEntryFromIterationWithEquivalentRepresentative(partition.rep, it) match {
+    obs.findMatchingEntryFromIteration(partition.rep, it) match {
       case Some(entry) =>
         // Found an entry from the current iteration that contains the representative,
         // so we add the new extension
-        extendEntryWithPartition(entry, partition, obs, it)
+        extendEntryWithPartition(obs, entry, partition, it)
       case None =>
         // This exact representative is *not* in the table,
         // add it unless there is already an entry in the table that covers the representative
-        if (isIrreducible(partition.rep, obs)) {
-          addNewEntryForPartition(partition, obs, it)
+        if (!obs.hasEntryForEquivalenceClassOf(partition.rep)) {
+          withNewTableEntryFromPartition(obs, partition, it)
         } else {
           obs
         }
     }
   }
 
-  private def isIrreducible(sh : SymbolicHeap, obs : ObservationTable): Boolean = {
-    obs.findEntryForEquivalenceClassOf(sh).isEmpty
-  }
-
-  private def addNewEntryForPartition(partition: SymbolicHeapPartition, obs: ObservationTable, it: Loc): ObservationTable = {
-    obs.findEntryForEquivalenceClassOf(partition.rep) match {
-      case Some(reducedEntry) =>
-        // Have already dealt with the same partition in the previous iteration, discard
-        logger.debug("Can reduce " + partition.rep + " to " + reducedEntry.reps + ", discarding " + partition)
-        obs
-      case None =>
+  private def withNewTableEntryFromPartition(obs: ObservationTable, partition: SymbolicHeapPartition, it: Int): ObservationTable = {
+    if (obs.hasEntryForEquivalenceClassOf(partition.rep)) {
+      obs
+    } else {
         // The representative is genuinely new. We will keep it for the time being.
         // It might have to be merged with some other entry at the end of the iteration, though
         val cleanedPartition = if (EntailmentAutomatonLearning.CleanUpSymbolicHeaps) partition.simplify else partition
@@ -90,7 +79,7 @@ object EntailmentAutomatonLearning extends HarrshLogging {
     }
   }
 
-  private def extendEntryWithPartition(entry: TableEntry, partition: SymbolicHeapPartition, obs: ObservationTable, it: Int): ObservationTable = {
+  private def extendEntryWithPartition(obs: ObservationTable, entry: TableEntry, partition: SymbolicHeapPartition, it: Int): ObservationTable = {
 
     // New extension for the same representative, extend entry
     logger.debug("Entry for " + partition.rep + " is from current iteration => Add new extension " + partition.ext + " to entry")

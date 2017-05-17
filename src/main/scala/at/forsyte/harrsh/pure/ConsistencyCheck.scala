@@ -25,14 +25,12 @@ object ConsistencyCheck {
     qfree.pure.toSet ++ allocationInfoToConsistencyConstraints(alloc)
   }
 
-  def allocationInfoToConsistencyConstraints(alloc : Iterable[Var]) : Iterable[PureAtom] = {
-    val allocNotNull : Iterable[PureAtom] = alloc map (v => PtrNEq(PtrVar(v), NullPtr()))
-    val allocNotEqual : Iterable[PureAtom] = for {
-    // TODO: Might be silightly faster not to generate the entire cross product of alloc with itself...
-      fst <- alloc
-      snd <- alloc
-      if fst < snd
-    } yield PtrNEq(PtrVar(fst), PtrVar(snd))
+  def allocationInfoToConsistencyConstraints(alloc : Seq[Var]) : Iterable[PureAtom] = {
+    val allocNotNull : Seq[PureAtom] = alloc map (v => PtrNEq(PtrVar(v), NullPtr()))
+    val allocNotEqual : Seq[PureAtom] = for {
+      i <- 0 until alloc.size - 1
+      j <- i+1 until alloc.size
+    } yield PtrNEq(PtrVar(alloc(i)), PtrVar(alloc(j)))
     allocNotNull ++ allocNotEqual
   }
 

@@ -39,9 +39,9 @@ case class BreadthFirstUnfoldingsIterator(sid : SID, iteration: Int, continuatio
 
     for {
       (sigma1, sigma2) <- spatialPartitions
-      // TODO Separate handling of emp?
-      if !EntailmentAutomatonLearning.FindOnlyNonEmpty || sigma1.nonEmpty
       (pi1, pi2) <- purePartitions
+      // TODO Separate handling of emp?
+      if !EntailmentAutomatonLearning.FindOnlyNonEmpty || (sigma1.nonEmpty || pi1.nonEmpty)
       representative = SymbolicHeap(pi1.toSeq, sigma1.toSeq, Seq.empty)
       extension = SymbolicHeap(pi2.toSeq, sigma2.toSeq, Seq.empty)
       // FIXME Must consider all ways to name the new FVs in the representative...

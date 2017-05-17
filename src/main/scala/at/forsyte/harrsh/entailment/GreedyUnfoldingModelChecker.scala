@@ -96,7 +96,8 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
           case ModelAndUnfoldingHavePtr() =>
             // Match pair of pointers that are already there
             logger.debug("Unfolding has pointer, will try to match")
-            val unificationResult = PointerUnification.removeUnifiablePointerPair(formulaToMatch, partialUnfolding, disallowedFVs = history.alloc)
+            // TODO It would be better to avoid the conversion, but it would be incorrect to simply keep alloc as set, because we then wouldn't notice double allocation. Maybe optimize this later
+            val unificationResult = PointerUnification.removeUnifiablePointerPair(formulaToMatch, partialUnfolding, disallowedFVs = history.alloc.toSet)
             unificationResult match {
               case None => NoModel
               case Some(PointerUnification.PointerMatch(lhsPtr, rhsPtr, newFVs, newFormulaToMatch, newPartialUnfolding)) =>
