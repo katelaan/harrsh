@@ -39,9 +39,10 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     assert(automatonRejects("emp", obs))
     assert(automatonRejects("emp : {x1 != x2}", obs))
     assert(automatonRejects("x1 -> x2", obs))
+    assert(automatonRejects("x1 -> y1 * y1 -> x2 : {x1 != x2}", obs)) // Rejected because cycle from x2 to y1 possible
     assert(automatonAccepts("emp : {x1 = x2}", obs))
     assert(automatonAccepts("x1 -> x2 : {x1 != x2}", obs))
-    assert(automatonAccepts("x1 -> y1 * y1 -> x2 : {x1 != x2}", obs))
+    assert(automatonAccepts("x1 -> y1 * y1 -> x2 : {y1 != x2, x1 != x2}", obs))
     IOUtils.printLinesOf('#', 1)
   }
 
@@ -142,56 +143,56 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     IOUtils.printLinesOf('#', 1)
   }
 
-  ignore should "learn SIDs with three overlapping classes" in {
-
-    val sid =
-      """
-        |overlap <= x1 -> (null, y1, null) * y1 -> (null, x2) ;
-        |overlap <= x1 -> (null, y1, null) * y1 -> x2 ;
-        |overlap <= x1 -> (null, null, y1) * y1 -> x2 ;
-        |overlap <= x1 -> (null, y1, y1) * y1 -> x2 ;
-        |overlap <= x1 -> (null, y1, y1) * y1 -> (x2, null) ;
-        |overlap <= x1 -> (y1, null, null) * overlap(y1, x2)
-      """.stripMargin.parseSID
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
-    printCase(sid, obs, log)
-    IOUtils.printLinesOf('#', 1)
-  }
-
-  ignore should "learn SIDs with overlaid classes" in {
-
-    // Here we have a more complicated overlapping pattern, since pointers of the same type occur both on the left
-    // and on the right of the two-pointer base-rules
-
-    val sid =
-      """
-        |overlap <= x1 -> (null, y1, null) * y1 -> (null, x2, null) ;
-        |overlap <= x1 -> (null, y1, null) * y1 -> (null, null, x2) ;
-        |overlap <= x1 -> (null, null, y1) * y1 -> (null, null, x2) ;
-        |overlap <= x1 -> (null, y1, y1) * y1 -> (null, null, x2) ;
-        |overlap <= x1 -> (null, y1, y1) * y1 -> (null, x2, x2) ;
-        |overlap <= x1 -> (y1, null, null) * overlap(y1, x2)
-      """.stripMargin.parseSID
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
-    printCase(sid, obs, log)
-    IOUtils.printLinesOf('#', 1)
-  }
-
-  ignore should "not crash on trees" in {
-
-    val sid = "tree.sid".load
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
-    printCase(sid, obs, log)
-    IOUtils.printLinesOf('#', 1)
-  }
-
-  ignore should "not crash on tlls" in {
-
-    val sid = "tll.sid".load
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
-    printCase(sid, obs, log)
-    IOUtils.printLinesOf('#', 1)
-  }
+//  ignore should "learn SIDs with three overlapping classes" in {
+//
+//    val sid =
+//      """
+//        |overlap <= x1 -> (null, y1, null) * y1 -> (null, x2) ;
+//        |overlap <= x1 -> (null, y1, null) * y1 -> x2 ;
+//        |overlap <= x1 -> (null, null, y1) * y1 -> x2 ;
+//        |overlap <= x1 -> (null, y1, y1) * y1 -> x2 ;
+//        |overlap <= x1 -> (null, y1, y1) * y1 -> (x2, null) ;
+//        |overlap <= x1 -> (y1, null, null) * overlap(y1, x2)
+//      """.stripMargin.parseSID
+//    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
+//    printCase(sid, obs, log)
+//    IOUtils.printLinesOf('#', 1)
+//  }
+//
+//  ignore should "learn SIDs with overlaid classes" in {
+//
+//    // Here we have a more complicated overlapping pattern, since pointers of the same type occur both on the left
+//    // and on the right of the two-pointer base-rules
+//
+//    val sid =
+//      """
+//        |overlap <= x1 -> (null, y1, null) * y1 -> (null, x2, null) ;
+//        |overlap <= x1 -> (null, y1, null) * y1 -> (null, null, x2) ;
+//        |overlap <= x1 -> (null, null, y1) * y1 -> (null, null, x2) ;
+//        |overlap <= x1 -> (null, y1, y1) * y1 -> (null, null, x2) ;
+//        |overlap <= x1 -> (null, y1, y1) * y1 -> (null, x2, x2) ;
+//        |overlap <= x1 -> (y1, null, null) * overlap(y1, x2)
+//      """.stripMargin.parseSID
+//    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
+//    printCase(sid, obs, log)
+//    IOUtils.printLinesOf('#', 1)
+//  }
+//
+//  ignore should "not crash on trees" in {
+//
+//    val sid = "tree.sid".load
+//    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
+//    printCase(sid, obs, log)
+//    IOUtils.printLinesOf('#', 1)
+//  }
+//
+//  ignore should "not crash on tlls" in {
+//
+//    val sid = "tll.sid".load
+//    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)
+//    printCase(sid, obs, log)
+//    IOUtils.printLinesOf('#', 1)
+//  }
 
   private def automatonAccepts(sh : String, obs : ObservationTable) : Boolean = {
     println("Automaton should accept " + sh)
