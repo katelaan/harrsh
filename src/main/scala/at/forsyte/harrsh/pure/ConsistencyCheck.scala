@@ -19,10 +19,16 @@ object ConsistencyCheck {
     * @param sh Symbolic heap whose constraints are computed
     * @return Set of constraints (not congruence-closed)
     */
-  def symbolicHeapToEqualityConstraints(sh : SymbolicHeap) : Set[PureAtom] = {
+  private def symbolicHeapToEqualityConstraints(sh : SymbolicHeap) : Set[PureAtom] = {
+    // TODO Why drop the quantifiers? The closure computation should work just as well for bound variables
     val qfree : SymbolicHeap = SymbolicHeap.dropQuantifiers(sh)
     val alloc = qfree.pointers map (_.fromAsVar)
     qfree.pure.toSet ++ allocationInfoToConsistencyConstraints(alloc)
+  }
+
+  def symbolicHeapToEqualityConstraintsQuantified(sh : SymbolicHeap) : Set[PureAtom] = {
+    val alloc = sh.pointers map (_.fromAsVar)
+    sh.pure.toSet ++ allocationInfoToConsistencyConstraints(alloc)
   }
 
   def allocationInfoToConsistencyConstraints(alloc : Seq[Var]) : Iterable[PureAtom] = {

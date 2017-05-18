@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.{ConsistencyCheck, PureEntailment}
+import at.forsyte.harrsh.pure.{ConsistencyCheck, Determinization, PureEntailment}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.IOUtils
 
@@ -60,6 +60,9 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     */
   def reducedEntailmentAsModelChecking(lhs : SymbolicHeap, rhs : SymbolicHeap, sid : SID, reportProgress: Boolean = false): Boolean = {
     assert(lhs.predCalls.isEmpty)
+    // Using the model checker for reduced entailment is only sound if the lhs is well-determined
+    assert(Determinization.isDetermined(lhs))
+
     val res = new GreedyUnfolding(sid.rulesAsHeadToBodyMap, reportProgress).run(lhs, rhs, MCHistory.emptyHistory)
     IOUtils.printIf(reportProgress)("    REDENT result: " + res)
     res

@@ -12,7 +12,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
 
   behavior of "entailment automaton learning"
 
-  ignore should "learn SLL entailment checking" in {
+  it should "learn SLL entailment checking" in {
 
     val sid = "sll.sid".load()
     val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
@@ -28,7 +28,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     IOUtils.printLinesOf('#', 1)
   }
 
-  ignore should "learn ACYC SLL entailment checking" in {
+  it should "learn ACYC SLL entailment checking" in {
 
     val sid = "sll-acyc.sid".load()
     val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
@@ -46,7 +46,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     IOUtils.printLinesOf('#', 1)
   }
 
-  ignore should "merge classes with identical extensions" in {
+  it should "merge classes with identical extensions" in {
 
     // For the following SID, we should learn a single equivalence class:
     // x1 -> (y1, null) and x1 -> (null, y1) are (minimal) representatives of the same class;
@@ -69,7 +69,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     IOUtils.printLinesOf('#', 1)
   }
 
-  ignore should "learn SIDs with multiple minimal representatives per class" in {
+  it should "learn SIDs with multiple minimal representatives per class" in {
 
     // For the following SID, we should learn a single equivalence class:
     // x1 -> (y1, null) and x1 -> (null, y1) are (minimal) representatives of the same class;
@@ -93,7 +93,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     IOUtils.printLinesOf('#', 1)
   }
 
-  ignore should "learn SIDs with two overlapping classes" in {
+  it should "learn SIDs with two overlapping classes" in {
 
     // In the following SID
     // - the extensions of classes for x1 -> (null, x2, null) and x1 -> (null, null, x2) overlap
@@ -130,6 +130,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     )
 
     for (rep <- representatives) {
+      info("Checking observation table for representative " + rep)
       assert(hasClassRepresentedBy(obs, rep))
     }
 
@@ -178,11 +179,31 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
 //    IOUtils.printLinesOf('#', 1)
 //  }
 
-  it should "not crash on trees" in {
+  it should "learn the null-terminated tree SID" in {
 
     val sid = "tree.sid".load
     val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
     printCase(sid, obs, log)
+
+    obs.numClasses shouldEqual 3
+    obs.finalClasses.size shouldEqual 1
+
+    // Check that all the expected classes are there
+    val representatives = Seq(
+      // Class for the base rule (accepting)
+      "x1 ↦ (null, null)",
+      // Class of two valid subtrees (root missing)
+      "x2 ↦ (null, null) * x1 ↦ (null, null)",
+      // Class of root with one child missing (doesn't matter which)
+      "∃y1 . y1 ↦ (null, null) * x1 ↦ (y1, x2)"//,
+      // TODO The following would crash because gaps in free vars are not closed in the observation table, but in parsing; post processing removing the gaps would make sense anyway, though, right?
+      //"∃y2 . y2 ↦ (null, null) * x1 ↦ (x2, y2)"
+    )
+    for (rep <- representatives) {
+      info("Checking observation table for representative " + rep)
+      assert(hasClassRepresentedBy(obs, rep))
+    }
+
     IOUtils.printLinesOf('#', 1)
   }
 

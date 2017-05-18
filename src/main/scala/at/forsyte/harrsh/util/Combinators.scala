@@ -114,7 +114,7 @@ object Combinators {
 
     def partitions(elems : Seq[A]) : Set[(Set[A],Set[A])] = {
       if (elems.isEmpty)
-        Set((Set(),Set()))
+        Set((Set.empty[A],Set.empty[A]))
       else {
         val newelem = elems.head
         val smaller = partitions(elems.tail)
@@ -127,6 +127,11 @@ object Combinators {
     partitions(set.toSeq)
   }
 
+  /**
+    * Returns a sequence of all sequences that can be built by picking one option per element of from
+    * @param from Sequences of sets of choices; each element of the result will contain one element of each element of from
+    * @return Sequence of all sequences that can be built by picking one option per element of from
+    */
   def choices[A](from: Seq[Set[A]]) : Seq[Seq[A]] = {
 
     def prependAll(prep : Set[A], seq : Seq[A]) : Seq[Seq[A]] = (prep map (x => x +: seq)).toSeq

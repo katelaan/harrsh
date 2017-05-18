@@ -1,7 +1,5 @@
 package at.forsyte.harrsh.seplog
 
-import at.forsyte.harrsh.seplog.inductive._
-
 /**
   * Created by jkatelaa on 9/30/16.
   */
@@ -18,7 +16,7 @@ sealed trait PtrExpr extends Expr with ToStringWithVarnames {
   }
 
   def getVarOrZero : Var = this match {
-    case NullPtr() => 0
+    case NullPtr() => Var.nil
     case PtrVar(id) => id
   }
 
@@ -36,17 +34,19 @@ sealed trait PtrExpr extends Expr with ToStringWithVarnames {
 
   def renameVars(f : Renaming) : PtrExpr = this match {
     case n : NullPtr => n
-    case PtrVar(id) => PtrVar(f(id))
+    case PtrVar(id) => PtrExpr.fromFV(f(id))
   }
 
 }
 
-case class NullPtr() extends PtrExpr
+case class NullPtr private () extends PtrExpr
 
-case class PtrVar(id : Var) extends PtrExpr
+case class PtrVar private (id : Var) extends PtrExpr {
+  assert(id != Var.nil)
+}
 
 object PtrExpr {
 
-  def fromFV(x : Var) : PtrExpr = if (x == 0) NullPtr() else PtrVar(x)
+  def fromFV(x : Var) : PtrExpr = if (x == Var.nil) NullPtr() else PtrVar(x)
 
 }

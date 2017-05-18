@@ -31,6 +31,14 @@ private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure 
     }
   }
 
+  override def classRepresentativesOf(vars : Set[Var]) : Set[Var] = {
+    // Note: The singleton classes are not represented in the map, so the following code would fail
+    // val classes = mapToClasses.values.toSet
+    // classes.map(_.min)
+
+    vars filter isMinimumInItsClass
+  }
+
   override def isConsistent : Boolean = {
     // TODO Code duplication with ClosureOfAtomSet
     !asSetOfAtoms.exists(atom => atom.isInstanceOf[PtrNEq] && atom.getVarsWithNull.size == 1)
@@ -55,6 +63,5 @@ private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure 
   }
 
   override lazy val asSetOfAtoms: Set[PureAtom] = ConstraintPropagation.propagateConstraints(pure).map(_.ordered)
-
 }
 

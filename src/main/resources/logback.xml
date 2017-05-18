@@ -21,15 +21,17 @@
 
     <logger name="at.forsyte.harrsh.entailment" level="DEBUG" />
     <logger name="at.forsyte.harrsh.entailment" level="INFO" />
+    <logger name="at.forsyte.harrsh.entailment.EntailmentAutomatonLearning" level="DEBUG" />
     <logger name="at.forsyte.harrsh.entailment.GreedyUnfoldingModelChecker" level="DEBUG" />
-    <logger name="at.forsyte.harrsh.entailment.PointerUnification" level="DEBUG" />
     <logger name="at.forsyte.harrsh.entailment.ObservationTable" level="DEBUG" />
+    <logger name="at.forsyte.harrsh.entailment.PointerUnification" level="DEBUG" />
 
     <logger name="at.forsyte.harrsh.heapautomata" level="DEBUG" />
     <logger name="at.forsyte.harrsh.heapautomata.RefinementAlgorithms" level="DEBUG" />
     <logger name="at.forsyte.harrsh.heapautomata.BaseReachabilityAutomaton" level="INFO" />
     <logger name="at.forsyte.harrsh.heapautomata.instances.BaseTrackingAutomaton" level="DEBUG" />
 
+    <logger name="at.forsyte.harrsh.pure.Determinization" level="DEBUG" />
     <logger name="at.forsyte.harrsh.pure.PureEntailment" level="TRACE" />
     -->
 </configuration>

@@ -18,6 +18,8 @@ object Var {
 
   @inline def isBound(fv : Var) = fv < 0
 
+  val nil : Var = 0
+
   def isFV(fv : String) = fv match {
     case "null" => true
     case "nil" => true

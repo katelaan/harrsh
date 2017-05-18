@@ -29,6 +29,15 @@ trait Closure {
   def isMinimumInItsClass(fv : Var) : Boolean
 
   /**
+    * Returns one representative per equivalence class (the minimal element).
+    * Note that since the full set of defined variables of a heap is not stored in the closure,
+    * a parameterless variant of this method would not make sense.
+    * @param vars Vars whose representatives will be returned
+    * @return Set of representatives
+    */
+  def classRepresentativesOf(vars : Set[Var]) : Set[Var]
+
+  /**
     * Returns true iff the underlying set of constraints is consistent, i.e., no inequality of the form x != x is implied
     * @return True iff constraints are consistent
     */

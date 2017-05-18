@@ -48,14 +48,18 @@ class ReducedHeapEquivalenceTest extends HarrshTableTest {
     ("x1 != x1".parse, "x1 != x1".parse, AreEquivalent),
     ("x2 != x2".parse, "x1 != x1".parse, AreEquivalent),
 
-    ("∃y1 . y1 ↦ (null, null) * x1 ↦ (y1, x2) : {y1 ≉ x2}".parse, "∃y1 . y1 ↦ (null, null) * x1 ↦ (x2, y1) : {y1 ≉ x2}".parse, NotEquivalent)
+    // If only some determinizations imply each other, the overall equivalence should not hold
+    ("∃y1 . y1 ↦ (null, null) * x1 ↦ (y1, x2) : {y1 ≉ x2}".parse, "∃y1 . y1 ↦ (null, null) * x1 ↦ (x2, y1) : {y1 ≉ x2}".parse, NotEquivalent),
+    ("∃y1 . y1 ↦ (null, null) * x1 ↦ (y1, x2) : {y1 ≈ x2}".parse, "∃y1 . y1 ↦ (null, null) * x1 ↦ (x2, y1) : {y1 ≈ x2}".parse, AreEquivalent),
+    ("∃y1 . y1 ↦ (null, null) * x1 ↦ (y1, x2)".parse, "∃y1 . y1 ↦ (null, null) * x1 ↦ (x2, y1)".parse, NotEquivalent)
+    // TODO For reduced heap equivalence, add a few more test cases where there exist both determinizations that are models and that are not models (like the previous one)
   )
 
   property("Correctness of reduced heap equivalence") {
 
     forAll(inputs) {
       (fst: SymbolicHeap, snd: SymbolicHeap, expectedResult: Boolean) =>
-        Given(fst + " " + snd)
+        Given(fst + ", " + snd)
         Then("Equivalence should " + (if (expectedResult) "HOLD" else "NOT HOLD"))
         ReducedHeapEquivalence(fst, snd) shouldBe expectedResult
     }
@@ -65,13 +69,13 @@ class ReducedHeapEquivalenceTest extends HarrshTableTest {
   /*
    * Test single input with verbose output for local debugging
    */
-  def check(fst: SymbolicHeap, snd: SymbolicHeap, expectedResult: Boolean) = {
-    println(fst + " " + snd)
-    println("Equivalence should " + (if (expectedResult) "HOLD" else "NOT HOLD"))
-    val res = ReducedHeapEquivalence(fst, snd, reportProgress = true)
-    println(res)
-    res shouldBe expectedResult
-  }
-  check("∃y1 . y1 ↦ (null, null) * x1 ↦ (y1, x2)".parse, "∃y1 . y1 ↦ (null, null) * x1 ↦ (x2, y1)".parse, NotEquivalent)
+//  def check(fst: SymbolicHeap, snd: SymbolicHeap, expectedResult: Boolean) = {
+//    println(fst + " " + snd)
+//    println("Equivalence should " + (if (expectedResult) "HOLD" else "NOT HOLD"))
+//    val res = ReducedHeapEquivalence(fst, snd, reportProgress = true)
+//    println(res)
+//    res shouldBe expectedResult
+//  }
+  //check("∃y1 . y1 ↦ (null, null) * x1 ↦ (y1, x2)".parse, "∃y1 . y1 ↦ (null, null) * x1 ↦ (x2, y1)".parse, NotEquivalent)
 
 }
