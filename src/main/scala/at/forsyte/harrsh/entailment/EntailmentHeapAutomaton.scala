@@ -18,14 +18,21 @@ class EntailmentHeapAutomaton(val numFV : Int, val obs : ObservationTable) exten
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     // Shrinking + entailment check(s)
 
-    // Important: Perform entailment checks in reverse order!
-    // TODO Figure out the details. The point is: The ECDs we find later might share some extension behavior with the ones we've found before, so we might mistakenly go to the wrong state if we start by checking the ECDs we discover first
+    // TODO Be clever in the selection of candidate targets (restriction to right number of FVs!)
+
+    // TODO Figure out the details. The problem is that there can be some non-determinism left if extensions only differ in pure formulas
 
     throw new NotImplementedError("No smart target computation for this heap automaton")
   }
 }
 
 object EntailmentHeapAutomaton {
+
+  def fromObservationTable(numFV : Int, observationTable: ObservationTable) : EntailmentHeapAutomaton = {
+    // TODO Closure of entries under permutations + null introduction
+    // TODO (conditional?) introduction of emp class --> might want to see if it coincides with a non-emp class (because in a given SID there might be no symmetry at all)
+    ???
+  }
 
   def serialize(aut: EntailmentHeapAutomaton) : String = {
     val nonSinkStates = aut.obs.entries map toStateDescription

@@ -46,19 +46,21 @@ class ReducedHeapEquivalenceTest extends HarrshTableTest {
 
     // Unsatisfiable heaps should be equivalent,
     ("x1 != x1".parse, "x1 != x1".parse, AreEquivalent),
-    ("x2 != x2".parse, "x1 != x1".parse, AreEquivalent)
+    ("x2 != x2".parse, "x1 != x1".parse, AreEquivalent),
+
+    ("∃y1 . y1 ↦ (null, null) * x1 ↦ (y1, x2) : {y1 ≉ x2}".parse, "∃y1 . y1 ↦ (null, null) * x1 ↦ (x2, y1) : {y1 ≉ x2}".parse, NotEquivalent)
   )
 
-//  property("Correctness of reduced heap equivalence") {
-//
-//    forAll(inputs) {
-//      (fst: SymbolicHeap, snd: SymbolicHeap, expectedResult: Boolean) =>
-//        Given(fst + " " + snd)
-//        Then("Equivalence should " + (if (expectedResult) "HOLD" else "NOT HOLD"))
-//        ReducedHeapEquivalence(fst, snd) shouldBe expectedResult
-//    }
-//
-//  }
+  property("Correctness of reduced heap equivalence") {
+
+    forAll(inputs) {
+      (fst: SymbolicHeap, snd: SymbolicHeap, expectedResult: Boolean) =>
+        Given(fst + " " + snd)
+        Then("Equivalence should " + (if (expectedResult) "HOLD" else "NOT HOLD"))
+        ReducedHeapEquivalence(fst, snd) shouldBe expectedResult
+    }
+
+  }
 
   /*
    * Test single input with verbose output for local debugging
@@ -70,6 +72,6 @@ class ReducedHeapEquivalenceTest extends HarrshTableTest {
     println(res)
     res shouldBe expectedResult
   }
-  check("x3 -> y1 * y1 -> x2 : {x2 = x3}".parse, "x1 -> y1 * y1 -> x2 : {x1 = x2}".parse, NotEquivalent)
+  check("∃y1 . y1 ↦ (null, null) * x1 ↦ (y1, x2)".parse, "∃y1 . y1 ↦ (null, null) * x1 ↦ (x2, y1)".parse, NotEquivalent)
 
 }

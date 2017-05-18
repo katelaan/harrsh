@@ -62,10 +62,12 @@ object EntailmentAutomatonLearning extends HarrshLogging {
       case Some(entry) =>
         // Found an entry from the current iteration that contains the representative,
         // so we add the new extension
+        logger.debug(entry + " containing " + partition.rep + " is from current iteration => Add new extension " + partition.ext + " to entry")
         enlargeEntryWithExtension(obs, entry, partition, it, entailmentLog)
       case None =>
         // This exact representative is *not* in the table
         // There are three cases:
+        logger.debug("No exact match for entry " + partition.rep + " => trying reduction to known entry")
 
         obs.getEntryForEquivalenceClassFromCurrentIteration(partition.rep, it) match {
           case Some(entry) =>
@@ -96,7 +98,6 @@ object EntailmentAutomatonLearning extends HarrshLogging {
 
   private def enlargeEntryWithExtension(obs: ObservationTable, entry: TableEntry, partition: SymbolicHeapPartition, it: Int, entailmentLog : EntailmentLearningLog): ObservationTable = {
 
-    logger.debug("Entry for " + partition.rep + " is from current iteration => Add new extension " + partition.ext + " to entry")
     // FIXME Is the assertion below actually true? Or do we have to do some renaming instead?
     if (partition.repParamInstantiation != entry.repParamInstantiation) {
       IOUtils.printWarningToConsole("Difference in renaming:\nEntry: " + entry + "\nPartition: " + partition)

@@ -149,7 +149,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
 
   def addNewEntryForPartition(part : SymbolicHeapPartition, iteration : Int): ObservationTable = {
     entailmentLearningLog.logEvent(TableOperation(EntailmentLearningLog.TableOperation.NewEntry(part)))
-    entailmentLearningLog.printProgress("*** New ECD #" + (entries.size + 1) + ": " + part + " ***")
+    entailmentLearningLog.printProgress("*** New table entry #" + (entries.size + 1) + ": " + part + " ***")
     copy(entries = entries :+ tableEntryFromPartition(part, iteration))
   }
 
@@ -161,6 +161,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
       Set(part.ext),
       part.repParamInstantiation,
       RepresentativeSIDComputation.adaptSIDToRepresentative(sid, part.rep),
+      // TODO It should be sufficient to just check for emp in the extension set, but then we might have to update "finality" later, because it is possible that we first discover rep with a nonempty extension
       ReducedEntailment.checkSatisfiableRSHAgainstSID(part.rep, sid.callToStartPred, sid, reportProgress),
       iteration)
   }

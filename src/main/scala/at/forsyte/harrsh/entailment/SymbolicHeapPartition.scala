@@ -7,7 +7,7 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 /**
   * Created by jens on 3/19/17.
   * Idea: An equivalence class is characterized by the ways its members can be extended to P-unfoldings.
-  * Each ECD object represents one such extension, corresponding to the entailment (ext * I)[I/rep] |= P x.
+  * Each SymbolicHeapPartition represents one such extension, corresponding to the entailment (ext * I)[I/rep] |= P x.
   * Contract: rep.renameVars(repParamInstantiation) * ext |= P x
   *
   * TODO Use dummy call instead of renaming to record the way that the parts should be recombined?
@@ -17,11 +17,11 @@ case class SymbolicHeapPartition(rep : SymbolicHeap, ext : SymbolicHeap, repPara
 
   def isCombinableWith(that : SymbolicHeapPartition) = repFV == that.repFV
 
-  def combine(that: SymbolicHeapPartition) : (SymbolicHeap, SymbolicHeap) = {
-    assert(repFV == that.repFV)
-    (SymbolicHeap.mergeHeaps(rep.renameVars(that.repParamInstantiation), that.ext, that.repParamInstantiation.codomain),
-      SymbolicHeap.mergeHeaps(that.rep.renameVars(repParamInstantiation), ext, repParamInstantiation.codomain))
-  }
+//  def combine(that: SymbolicHeapPartition) : (SymbolicHeap, SymbolicHeap) = {
+//    assert(repFV == that.repFV)
+//    (SymbolicHeap.mergeHeaps(rep.renameVars(that.repParamInstantiation), that.ext, that.repParamInstantiation.codomain),
+//      SymbolicHeap.mergeHeaps(that.rep.renameVars(repParamInstantiation), ext, repParamInstantiation.codomain))
+//  }
 
   //lazy val recombined = SymbolicHeap.mergeHeaps(rep.renameVarsWithAdditionalQuantification(repParamInstantiation), ext, sharedVars = ext.boundVars)
   // TODO After changes to the semantics of rename vars, we should not need the variant any more, right?
