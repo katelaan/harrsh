@@ -34,19 +34,24 @@ sealed trait PtrExpr extends Expr with ToStringWithVarnames {
 
   def renameVars(f : Renaming) : PtrExpr = this match {
     case n : NullPtr => n
-    case PtrVar(id) => PtrExpr.fromFV(f(id))
+    case PtrVar(id) => PtrExpr(f(id))
+  }
+
+  def isNullPtr : Boolean = this match {
+    case NullPtr() => true
+    case PtrVar(id) => false
   }
 
 }
 
-case class NullPtr private () extends PtrExpr
+case class NullPtr() extends PtrExpr
 
-case class PtrVar private (id : Var) extends PtrExpr {
+case class PtrVar(id : Var) extends PtrExpr {
   assert(id != Var.nil)
 }
 
 object PtrExpr {
 
-  def fromFV(x : Var) : PtrExpr = if (x == Var.nil) NullPtr() else PtrVar(x)
+  def apply(x : Var) : PtrExpr = if (x == Var.nil) NullPtr() else PtrVar(x)
 
 }

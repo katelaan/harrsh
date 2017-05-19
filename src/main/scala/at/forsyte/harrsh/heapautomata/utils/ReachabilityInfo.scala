@@ -35,7 +35,7 @@ case class ReachabilityInfo(ti : TrackingInfo, rm : ReachabilityMatrix) extends 
 
     val targets = info.zipWithIndex filter (_._1) map (p=>Var.mkVar(p._2))
 
-    PointsTo(PtrVar(src), targets map PtrExpr.fromFV)
+    PointsTo(PtrVar(src), targets map (PtrExpr(_)))
   }
 
 }

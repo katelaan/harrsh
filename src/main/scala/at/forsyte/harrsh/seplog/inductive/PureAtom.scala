@@ -42,18 +42,18 @@ sealed trait PureAtom extends SepLogAtom with HarrshLogging {
 
 //sealed trait EqualityPureAtom extends PureAtom
 
-case class PtrEq(l : PtrExpr, r : PtrExpr) extends /*Equality*/PureAtom {
+case class PtrEq (l : PtrExpr, r : PtrExpr) extends /*Equality*/PureAtom {
   override def toStringWithVarNames(names: VarNaming) = l.toStringWithVarNames(names) + " \u2248 " + r.toStringWithVarNames(names)
 }
 
 object PtrEq {
-  def fromVars(l : Var, r : Var) = PtrEq(PtrExpr.fromFV(l), PtrExpr.fromFV(r))
+  def apply(l : Var, r : Var) : PtrEq = PtrEq(PtrExpr(l), PtrExpr(r))
 }
 
-case class PtrNEq(l : PtrExpr, r : PtrExpr) extends /*Equality*/PureAtom {
+case class PtrNEq (l : PtrExpr, r : PtrExpr) extends /*Equality*/PureAtom {
   override def toStringWithVarNames(names: VarNaming) = l.toStringWithVarNames(names) + " \u2249 " + r.toStringWithVarNames(names)
 }
 
 object PtrNEq {
-  def fromVars(l : Var, r : Var) = PtrNEq(PtrExpr.fromFV(l), PtrExpr.fromFV(r))
+  def apply(l : Var, r : Var) : PtrNEq = PtrNEq(PtrExpr(l), PtrExpr(r))
 }

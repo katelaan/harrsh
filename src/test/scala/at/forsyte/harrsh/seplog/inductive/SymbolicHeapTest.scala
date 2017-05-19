@@ -14,8 +14,8 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
   behavior of "A symbolic heap"
 
   it should "not have pred calls in reduced heaps" in {
-    assert(!"emp".parse.hasPredCalls)
-    assert(!"x1 -> y1 * y1 -> y2 : { x1 = y}".parse.hasPredCalls)
+    assert(!"emp".parse.nonReduced)
+    assert(!"x1 -> y1 * y1 -> y2 : { x1 = y}".parse.nonReduced)
 
   }
 

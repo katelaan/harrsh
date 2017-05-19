@@ -59,7 +59,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     * @return true iff lhs |= rhs
     */
   def reducedEntailmentAsModelChecking(lhs : SymbolicHeap, rhs : SymbolicHeap, sid : SID, reportProgress: Boolean = false): Boolean = {
-    assert(lhs.predCalls.isEmpty)
+    assert(lhs.isReduced)
     // Using the model checker for reduced entailment is only sound if the lhs is well-determined
     assert(Determinization.isDetermined(lhs))
 
@@ -85,7 +85,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
       else if (partialUnfolding.hasPointer) {
         ModelAndUnfoldingHavePtr()
       }
-      else if (partialUnfolding.hasPredCalls) {
+      else if (partialUnfolding.nonReduced) {
         UnfoldingHasOnlyCalls()
       } else {
         NonEmptyModelAndEmptyUnfolding()
@@ -149,10 +149,10 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
         // Have matched everything in the model, but there is still a pointer left in the unfolding => not a model
         logger.debug("...but unfolding has pointer => no model, aborting branch")
         NoModel
-      } else if (partialUnfolding.hasPredCalls) {
+      } else if (partialUnfolding.nonReduced) {
         // Try to replace predicate calls with empty heaps if possible; if so, recurse; otherwise return false
         logger.debug("...but unfolding has calls => generating unfoldings with empty spatial part (if any)")
-        unfoldFirstCallAndRecurse(formulaToMatch, partialUnfolding, history, considerRulesSatisfying = sh => !sh.hasPointer && !sh.hasPredCalls)
+        unfoldFirstCallAndRecurse(formulaToMatch, partialUnfolding, history, considerRulesSatisfying = sh => !sh.hasPointer && sh.isReduced)
       } else {
         // Return true iff pure constraints of partial unfolding are met
         val historyConstraints = history.toPureConstraints

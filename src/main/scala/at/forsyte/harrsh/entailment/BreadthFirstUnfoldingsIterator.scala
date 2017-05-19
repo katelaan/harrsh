@@ -15,7 +15,7 @@ case class BreadthFirstUnfoldingsIterator(sid : SID, iteration: Int, continuatio
 
     logger.debug("Will unfold the following formulas:\n" + continuation.map(" - " + _).mkString("\n"))
     val nextUnfs = SIDUnfolding.unfoldOnce(sid, continuation)
-    val (reducedUnfs, newContinuation) = nextUnfs.partition(_.predCalls.isEmpty)
+    val (reducedUnfs, newContinuation) = nextUnfs.partition(_.isReduced)
     logger.debug("Reduced unfs for current iteration:\n" + reducedUnfs.map(" - " + _).mkString("\n"))
     logger.debug("Non-reduced unfs for next iteration:\n" + newContinuation.map(" - " + _).mkString("\n"))
     entailmentLog.logEvent(EntailmentLearningLog.IterationStats(iteration, reducedUnfs.size))

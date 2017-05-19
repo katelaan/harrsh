@@ -33,7 +33,7 @@ object EqualityUtils extends HarrshLogging {
 
   def orderedAtom(left : Var, right : Var, isEqual : Boolean): PureAtom = {
     val (small, large) = if (left < right) (left, right) else (right, left)
-    if (isEqual) PtrEq(PtrExpr.fromFV(small), PtrExpr.fromFV(large)) else PtrNEq(PtrExpr.fromFV(small), PtrExpr.fromFV(large))
+    if (isEqual) PtrEq(small, large) else PtrNEq(small, large)
   }
 
   def orderedAtom(atom : PureAtom): PureAtom = {

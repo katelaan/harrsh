@@ -150,11 +150,13 @@ object RefinementAlgorithms {
         body = SymbolicHeap.addTagsToPredCalls(body, states map (s => ""+stateToIndex(s))))
       val finalRules = reachedFinalStates.toSeq.map{
         state =>
+          val call = PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map mkVar map (PtrExpr(_)))
           Rule(
             head = sid.startPred,
             freeVars = (1 to sid.arityOfStartPred) map Var.toDefaultString,
             qvars = Seq(),
-            body = SymbolicHeap(Seq.empty, Seq(PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map mkVar map PtrExpr.fromFV))))
+            body = SymbolicHeap(Seq.empty, Seq(call))
+          )
       }
 
       if (reachedFinalStates.isEmpty) {

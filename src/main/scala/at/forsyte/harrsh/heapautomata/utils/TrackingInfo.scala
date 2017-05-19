@@ -36,7 +36,7 @@ case class TrackingInfo private (alloc: Set[Var], pure: Set[PureAtom]) extends K
 
     val nonredundantAlloc = alloc filter closure.isMinimumInItsClass
 
-    val allocPtr : Set[PointsTo] = nonredundantAlloc map (p => ptr(p, nil))
+    val allocPtr : Set[PointsTo] = nonredundantAlloc map (p => PointsTo(p, nil))
 
     val res = SymbolicHeap(pure.toSeq, allocPtr.toSeq, Seq.empty)
     logger.debug("Converting " + this + " to " + res)
@@ -67,6 +67,6 @@ object TrackingInfo {
 
   def fromPair = TrackingInfo
 
-  def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = TrackingInfo(Set(), Set() ++ mkAllFVs(numFV) map (fv => PtrNEq(PtrExpr.fromFV(fv),PtrExpr.fromFV(fv))))
+  def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = TrackingInfo(Set(), Set() ++ mkAllFVs(numFV) map (fv => PtrNEq(PtrExpr(fv),PtrExpr(fv))))
 
 }

@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.hepautomata
 
-import at.forsyte.harrsh.TestValues
+import at.forsyte.harrsh.{AtomConstructorFunctions, TestValues}
 import at.forsyte.harrsh.heapautomata.instances.TrackingAutomata
 import at.forsyte.harrsh.heapautomata.utils.{ReachabilityInfo, ReachabilityMatrix, TrackingInfo}
 import at.forsyte.harrsh.pure.EqualityUtils.mkPure
@@ -13,7 +13,7 @@ import at.forsyte.harrsh.test.HarrshTableTest
   * Created by jens on 10/19/16.
   * TODO Reduce code duplication wrt Acyclicity test
   */
-class GarbageFreedomAutomatonTest extends HarrshTableTest with TestValues {
+class GarbageFreedomAutomatonTest extends HarrshTableTest with TestValues with AtomConstructorFunctions {
 
   def mx3(pairs: (Int, Int)*): ReachabilityMatrix = ReachabilityMatrix.fromPairs(3, pairs)
 

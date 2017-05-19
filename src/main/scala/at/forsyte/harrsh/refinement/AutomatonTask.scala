@@ -207,7 +207,8 @@ object AutomatonTask {
       (input.split("\u2248"), true)
     } else (input.split("="), true)
 
-    (if (isEq) PtrEq(_,_) else PtrNEq(_,_))(PtrExpr.fromFV(Var.stringToFV(params(0).trim)), PtrExpr.fromFV(Var.stringToFV(params(1).trim)))
+    val (l,r)= (Var.stringToFV(params(0).trim), Var.stringToFV(params(1).trim))
+    if (isEq) PtrEq(l,r) else PtrNEq(l,r)
   }
 
   private def removeSurroundingKeyword(input : String, kw : String) : Option[String] = {

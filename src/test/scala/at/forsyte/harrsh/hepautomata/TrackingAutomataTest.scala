@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.hepautomata
 
-import at.forsyte.harrsh.TestValues
+import at.forsyte.harrsh.{AtomConstructorFunctions, TestValues}
 import at.forsyte.harrsh.pure.EqualityUtils.mkPure
 import at.forsyte.harrsh.heapautomata.instances.TrackingAutomata
 import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
@@ -12,7 +12,7 @@ import at.forsyte.harrsh.test.HarrshTableTest
   * Created by jens on 10/16/16.
   * Note: This class just tests individual method calls; for complete tests, see HeapAutomataTest
   */
-class TrackingAutomataTest extends HarrshTableTest with TestValues {
+class TrackingAutomataTest extends HarrshTableTest with TestValues with AtomConstructorFunctions {
 
   val track3 = TrackingAutomata.singleTargetStateTracking(3, Set(x1), mkPure((2, 3, true)))
 

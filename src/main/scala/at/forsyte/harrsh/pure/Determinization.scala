@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.pure
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{PtrVar, Var, PtrExpr}
+import at.forsyte.harrsh.seplog.{PtrExpr, PtrVar, Var, inductive}
 import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, PureAtom, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
@@ -24,7 +24,7 @@ object Determinization extends HarrshLogging {
     } else {
       // Not determined, create one new RSH per determinization choice
       val determiningConstraints: Seq[Set[PureAtom]] = undeterminedPairs map {
-        case (fst, snd) => Set[PureAtom](PtrEq.fromVars(fst, snd), PtrNEq.fromVars(fst, snd))
+        case (fst, snd) => Set[PureAtom](PtrEq(fst, snd), PtrNEq(fst, snd))
       }
 
       for {

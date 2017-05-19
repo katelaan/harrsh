@@ -37,7 +37,9 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
 
   def hasPointer: Boolean = pointers.nonEmpty
 
-  def hasPredCalls: Boolean = predCalls.nonEmpty
+  def isReduced: Boolean = predCalls.isEmpty
+
+  def nonReduced: Boolean = predCalls.nonEmpty
 
   lazy val identsOfCalledPreds: Seq[String] = predCalls map (_.name)
 

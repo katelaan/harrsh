@@ -28,7 +28,7 @@ object Model {
   val empty: Model = Model(Map(), Map())
 
   def fromRSH(sh : SymbolicHeap): Option[Model] = {
-    if (sh.predCalls.nonEmpty) {
+    if (sh.nonReduced) {
       println("Can't convert non-reduced symbolic heap to model")
       None
     } else {

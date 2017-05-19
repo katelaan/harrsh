@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.hepautomata
 
-import at.forsyte.harrsh.TestValues
+import at.forsyte.harrsh.{AtomConstructorFunctions, TestValues}
 import at.forsyte.harrsh.heapautomata.instances.EstablishmentAutomaton
 import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.pure.EqualityUtils.mkPure
@@ -12,7 +12,7 @@ import at.forsyte.harrsh.test.HarrshTableTest
 /**
   * Created by jkatelaa on 10/18/16.
   */
-class EstablishmentAutomatonTest extends HarrshTableTest with TestValues {
+class EstablishmentAutomatonTest extends HarrshTableTest with TestValues with AtomConstructorFunctions {
 
   val est3 = new EstablishmentAutomaton(3, true)
 

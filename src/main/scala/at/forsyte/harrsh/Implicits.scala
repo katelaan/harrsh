@@ -111,7 +111,7 @@ object Implicits {
     def getModelAtDepth(depth : Int): Option[Model] = getSomeReducedUnfolding(depth).getModel(sid)
 
     def baseRule : Rule = {
-      val base = sid.rules.filter(!_.body.hasPredCalls)
+      val base = sid.rules.filter(!_.body.nonReduced)
       if (base.size > 1) {
         IOUtils.printWarningToConsole("Warning: More than one base rule. Will pick arbitrary one")
       }
@@ -119,7 +119,7 @@ object Implicits {
     }
 
     def recursiveRule : Rule = {
-      val rec = sid.rules.filter(_.body.hasPredCalls)
+      val rec = sid.rules.filter(_.body.nonReduced)
       if (rec.size > 1) {
         IOUtils.printWarningToConsole("Warning: More than one recursive rule. Will pick arbitrary one")
       }
@@ -156,7 +156,7 @@ object Implicits {
     }
 
     def exists(task : AutomatonTask) : Boolean = {
-      if (sh.predCalls.nonEmpty) throw new Throwable("Can't decide properties of non-reduced heaps without reference to an SID")
+      if (sh.nonReduced) throw new Throwable("Can't decide properties of non-reduced heaps without reference to an SID")
       SID.fromTopLevelSH(sh, SID.empty).exists(task)
     }
 
@@ -165,7 +165,7 @@ object Implicits {
     }
 
     def forall(task : AutomatonTask) : Boolean = {
-      if (sh.predCalls.nonEmpty) throw new Throwable("Can't decide properties of non-reduced heaps without reference to an SID")
+      if (sh.nonReduced) throw new Throwable("Can't decide properties of non-reduced heaps without reference to an SID")
       SID.fromTopLevelSH(sh, SID.empty).forall(task)
     }
 
@@ -183,7 +183,7 @@ object Implicits {
     }
 
     def getModel : Option[Model] = {
-      if (sh.predCalls.nonEmpty) {
+      if (sh.nonReduced) {
         println("Can't produce model of non-reduced heap without reference to an SID")
         None
       } else {
@@ -194,7 +194,7 @@ object Implicits {
 
   class RichModel(model : Model) {
     def isModelOf(sh : SymbolicHeap) : Boolean = {
-      if (sh.predCalls.nonEmpty) throw new Throwable("Can't model-check non-reduced heaps without reference to an SID")
+      if (sh.nonReduced) throw new Throwable("Can't model-check non-reduced heaps without reference to an SID")
       isModelOf(SID.fromTopLevelSH(sh, SID.empty))
     }
 

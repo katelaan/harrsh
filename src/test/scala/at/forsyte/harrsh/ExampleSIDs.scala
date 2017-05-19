@@ -6,7 +6,7 @@ import at.forsyte.harrsh.seplog.inductive._
 /**
   * Created by jens on 10/15/16.
   */
-object ExampleSIDs extends TestValues {
+object ExampleSIDs extends TestValues with AtomConstructorFunctions {
 
   lazy val Sll = SID("sll",
     "Singly-linked list",

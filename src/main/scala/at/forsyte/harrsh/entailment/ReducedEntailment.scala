@@ -16,7 +16,7 @@ object ReducedEntailment extends HarrshLogging {
 
   def checkSatisfiableRSHAgainstRSH(lhsRsh : SymbolicHeap, rhsRsh : SymbolicHeap, reportProgress : Boolean = false) : Boolean = {
     assert(ConsistencyCheck.isConsistent(lhsRsh))
-    assert(rhsRsh.predCalls.isEmpty)
+    assert(rhsRsh.isReduced)
     checkForAllDeterminizations(lhsRsh, rhsRsh, SID.empty("X"), reportProgress = reportProgress)
   }
 
@@ -28,7 +28,7 @@ object ReducedEntailment extends HarrshLogging {
   }
 
   def checkPossiblyInconsistentRSHAgainstRSH(lhsRsh : SymbolicHeap, rhsRsh : SymbolicHeap, reportProgress : Boolean = false) : Boolean = {
-    assert(rhsRsh.predCalls.isEmpty)
+    assert(rhsRsh.isReduced)
     if (!ConsistencyCheck.isConsistent(lhsRsh))
       true
     else

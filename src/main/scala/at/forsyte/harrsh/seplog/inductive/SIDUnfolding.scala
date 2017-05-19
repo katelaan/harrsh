@@ -41,7 +41,7 @@ object SIDUnfolding extends HarrshLogging {
         Seq()
     }
 
-    if (reducedOnly) unfolded.filter(_.predCalls.isEmpty) else unfolded
+    if (reducedOnly) unfolded.filter(_.isReduced) else unfolded
   }
 
   /**
@@ -58,7 +58,7 @@ object SIDUnfolding extends HarrshLogging {
     else {
       val allNewInstances = for {
         sh <- curr
-        if sh.predCalls.nonEmpty
+        if sh.nonReduced
         callReplacements = {
           logger.debug("Replacing calls in " + sh)
           sh.predCalls.map(_.name) map predsToBodies
