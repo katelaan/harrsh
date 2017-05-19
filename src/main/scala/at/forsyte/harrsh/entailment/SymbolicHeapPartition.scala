@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.EqualityBasedSimplifications
 import at.forsyte.harrsh.seplog.{Renaming, Var}
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
@@ -39,11 +40,13 @@ case class SymbolicHeapPartition(rep : SymbolicHeap, ext : SymbolicHeap, repPara
 
 }
 
-object SymbolicHeapPartition {
+object SymbolicHeapPartition extends HarrshLogging {
 
-  def apply(rep : SymbolicHeap, ext : SymbolicHeap) : SymbolicHeapPartition = {
-    val repWithExtPoints = unbindShared(rep, ext)
-    SymbolicHeapPartition(repWithExtPoints._1, ext, Renaming.fromMap(repWithExtPoints._2))
+  def partitionsFromUnbindingSharedVars(rep : SymbolicHeap, ext : SymbolicHeap) : Set[SymbolicHeapPartition] = {
+    val repsWithExtPoints = unbindShared(rep, ext)
+    repsWithExtPoints map {
+      case (renamedRepresentative, renamingMap) => SymbolicHeapPartition(renamedRepresentative, ext, Renaming.fromMap(renamingMap))
+    }
   }
 
   /**
@@ -52,21 +55,30 @@ object SymbolicHeapPartition {
     * @param sharedWith Heap with (potentially) shared variables that rshToModify's vars are compared against
     * @return rshToModify with renamed vars + map witnessing the renaming
     */
-  private def unbindShared(rshToModify : SymbolicHeap, sharedWith : SymbolicHeap) : (SymbolicHeap,Map[Var,Var]) = {
-    def unbindAll(vars : Seq[Var], sh : SymbolicHeap, map : Map[Var,Var]) : (SymbolicHeap,Map[Var,Var]) = if (vars.isEmpty) {
-      (sh,map)
+  private def unbindShared(rshToModify : SymbolicHeap, sharedWith : SymbolicHeap) : Set[(SymbolicHeap,Map[Var,Var])] = {
+    def unbindAll(vars : Seq[Var], sh : SymbolicHeap, map : Map[Var,Var]) : Set[(SymbolicHeap,Map[Var,Var])] = if (vars.isEmpty) {
+      Set((sh,map))
     } else {
       val unusedVars = sh.freeVars.toSet -- sh.usedFreeVars
-      // FIXME: If there is more than one unused FV, we should actually generate one partition per possible instantiation choice. We don't do that, yet; So as soon as that happens in practice, the following assertion will fail
-      assert(unusedVars.size <= 1)
-      val minimalUnusedFV = if (unusedVars.isEmpty) sh.numFV+1 else unusedVars.min
-      val nextSH = sh.instantiateBoundVars(Seq((vars.head, minimalUnusedFV)), closeGaps = false)
-      unbindAll(vars.tail, nextSH, map + (minimalUnusedFV -> vars.head))
+      // FIXME Should we also consider using a fresh FV even if there is an unused one? If the free variable bound is larger than the number of vars we need here, gaps in the set of FVs used should be possible...
+      val instantiations = if (unusedVars.isEmpty) Set(sh.numFV + 1) else unusedVars
+
+      instantiations flatMap {
+        unusedFV =>
+          val nextSH = sh.instantiateBoundVars(Seq((vars.head, unusedFV)), closeGaps = false)
+          unbindAll(vars.tail, nextSH, map + (unusedFV -> vars.head))
+      }
     }
 
     val sharedVars = rshToModify.boundVars.toSet intersect sharedWith.boundVars.toSet
-    // FIXME Actually should consider all ways to order the FVs? See also the comment above
-    unbindAll(sharedVars.toSeq, rshToModify, Map.empty)
+    val res = unbindAll(sharedVars.toSeq, rshToModify, Map.empty)
+
+    if (res.size <= 1) {
+      logger.trace("There is a unique way to make a partition out of " + rshToModify + " and " + sharedWith)
+    } else {
+      logger.warn("There are " + res.size + " ways to make a partition out of " + rshToModify + " and " + sharedWith)
+    }
+    res
   }
 
 }

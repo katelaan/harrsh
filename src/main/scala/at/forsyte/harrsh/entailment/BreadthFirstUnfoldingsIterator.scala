@@ -42,12 +42,11 @@ case class BreadthFirstUnfoldingsIterator(sid : SID, iteration: Int, continuatio
     for {
       (sigma1, sigma2) <- spatialPartitions
       (pi1, pi2) <- purePartitions
-      // FIXME We should probably only keep partitions with empty spatial part if the pure part breaks all symmetries? (Relevant for cases with more than two FVs)
+      // FIXME We should probably only keep partitions with empty spatial part if the pure part breaks all symmetries? (I.e. by setting all parameters equal!)
       if !EntailmentAutomatonLearning.FindOnlyNonEmpty || (sigma1.nonEmpty || pi1.nonEmpty)
       representative = SymbolicHeap(pi1.toSeq, sigma1.toSeq, Seq.empty)
       extension = SymbolicHeap(pi2.toSeq, sigma2.toSeq, Seq.empty)
-      // FIXME Should consider all ways to name the new FVs in the representative -- see also there!
-      partition = SymbolicHeapPartition(representative, extension)
+      partition <- SymbolicHeapPartition.partitionsFromUnbindingSharedVars(representative, extension)
       if partition.repFV <= maxNumFv
     } yield partition
   }
