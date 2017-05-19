@@ -98,15 +98,9 @@ object EntailmentAutomatonLearning extends HarrshLogging {
 
   private def enlargeEntryWithExtension(obs: ObservationTable, entry: TableEntry, partition: SymbolicHeapPartition, it: Int, entailmentLog : EntailmentLearningLog): ObservationTable = {
 
-    // FIXME Is the assertion below actually true? Or do we have to do some renaming instead?
-    if (partition.repParamInstantiation != entry.repParamInstantiation) {
-      IOUtils.printWarningToConsole("Difference in renaming:\nEntry: " + entry + "\nPartition: " + partition)
-      assert(partition.repParamInstantiation == entry.repParamInstantiation)
-    }
-
     if (entry.reps.size == 1) {
       // Just one representative => new extension for the same representative => simply extend entry
-      obs.addExtensionToEntry(entry, partition.ext)
+      obs.addExtensionToEntry(entry, partition.ext, partition.extPredCall)
     } else {
       logger.debug("Entry has " + entry.reps.size + " representatives => consider splitting in two")
 
@@ -115,8 +109,7 @@ object EntailmentAutomatonLearning extends HarrshLogging {
       // => We might have to split the entry depending on entailment versus the new extension
       val (compatibleWithNewExtension, incompatibleWithNewExtension) = entry.reps.partition {
         rep =>
-          // TODO The following will also have to change if the instantiations are non-identical?
-          val combination = SymbolicHeap.mergeHeaps(rep.renameVars(entry.repParamInstantiation), partition.ext, partition.repParamInstantiation.codomain)
+          val combination = SymbolicHeapPartition(rep, partition.ext, partition.extPredCall).recombined
           // TODO Abstract away reduced entailment check with integrated logging?
           entailmentLog.logEvent(RedEntCheck(combination, obs.sid.callToStartPred, ExtensionCompatibilityCheck(rep, partition.ext)))
 
@@ -134,10 +127,10 @@ object EntailmentAutomatonLearning extends HarrshLogging {
 
       if (incompatibleWithNewExtension.isEmpty) {
         logger.debug("No splitting necessary")
-        obs.addExtensionToEntry(entry, partition.ext)
+        obs.addExtensionToEntry(entry, partition.ext, partition.extPredCall)
       } else {
         logger.debug("Splitting into compatible reps " + compatibleWithNewExtension.mkString(", ") + " and incomptaible reps " + incompatibleWithNewExtension.mkString(", "))
-        obs.splitEntry(entry, compatibleWithNewExtension, incompatibleWithNewExtension, partition.ext)
+        obs.splitEntry(entry, compatibleWithNewExtension, incompatibleWithNewExtension, partition.ext, partition.extPredCall)
       }
     }
 

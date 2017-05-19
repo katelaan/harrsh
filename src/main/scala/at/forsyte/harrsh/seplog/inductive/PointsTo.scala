@@ -6,7 +6,7 @@ import at.forsyte.harrsh.seplog._
   * Created by jens on 3/14/17.
   */
 case class PointsTo(from : PtrExpr, to : Seq[PtrExpr]) extends SepLogAtom {
-  
+
   override def isSpatial = true
 
   override def isPure = false

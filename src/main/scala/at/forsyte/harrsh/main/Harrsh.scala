@@ -194,6 +194,7 @@ object Harrsh {
           println("Finished computation of entailment automaton")
           val resultFile = "automaton_" + (new java.io.File(config.file)).getName + ".aut"
           MainIO.writeEntailmentAutomatonToFile(sid, autNumfv, table, log, resultFile)
+          println("Wrote serialization to " + resultFile)
   }
 
 

@@ -133,6 +133,7 @@ object AutomatonTask {
 
   // TODO Clean this up a little bit. Is getting very long + somewhat repetitive
   def fromString(s : String) : Option[AutomatonTask] = s match {
+    case "" => None
     case keywords.sat => Some(RunSat())
     case keywords.unsat => Some(RunUnsat())
     case keywords.hasptr => Some(RunHasPointer())
