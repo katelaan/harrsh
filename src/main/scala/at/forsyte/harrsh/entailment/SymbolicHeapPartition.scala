@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.EqualityBasedSimplifications
-import at.forsyte.harrsh.seplog.{PtrExpr, Renaming, Var}
+import at.forsyte.harrsh.seplog.{PtrExpr, Var}
 import at.forsyte.harrsh.seplog.inductive.{PredCall, SymbolicHeap}
 import at.forsyte.harrsh.util.IOUtils
 

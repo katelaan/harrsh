@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.entailment.EntailmentLearningLog.TableOperation
+import at.forsyte.harrsh.entailment.EntailmentLearningLog.{TableLookupOperation, TableOperations, TableUpdateOperation}
 import at.forsyte.harrsh.entailment.ObservationTable.TableEntry
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.{ConsistencyCheck, ReducedHeapEquivalence}
@@ -52,7 +52,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
             assert(resultSet.size == 1)
             resultSet.head
           } else {
-            entailmentLearningLog.logEvent(EntailmentLearningLog.MergeTableEntries(groupedEntries))
+            entailmentLearningLog.logEvent(TableUpdateOperation(TableOperations.MergeTableEntries(groupedEntries)))
             val mergedReps: Set[SymbolicHeap] = (groupedEntries flatMap (_.reps)).toSet
             groupedEntries.head.copy(reps = mergedReps)
           }
@@ -70,7 +70,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
     */
   def findMatchingEntryFromIteration(representative : SymbolicHeap, iteration : Int) : Option[TableEntry] = {
     val res = entries.find(entry => entry.discoveredInIteration == iteration && entry.containsEquivalentRepresentative(representative))
-    res.foreach(entry => entailmentLearningLog.logEvent(TableOperation(TableOperation.FoundEquivalent(representative, entry))))
+    res.foreach(entry => entailmentLearningLog.logEvent(TableLookupOperation(TableOperations.FoundEquivalent(representative, entry))))
     res
   }
 
@@ -90,7 +90,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
     }
     res.foreach(entry => {
       logger.debug("Can reduce " + sh + " to " + entry.reps)
-      entailmentLearningLog.logEvent(TableOperation(TableOperation.FoundReduction(sh, entry)))
+      entailmentLearningLog.logEvent(TableLookupOperation(TableOperations.FoundReduction(sh, entry)))
     })
     res
   }
@@ -115,7 +115,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
   def rejects(sh : SymbolicHeap, verbose : Boolean = false) : Boolean = !accepts(sh, verbose)
 
   def addRepresentativeToEntry(entry : TableEntry, rep : SymbolicHeap) : ObservationTable = {
-    entailmentLearningLog.logEvent(TableOperation(TableOperation.EnlargedEntry(entry, rep, isNewRepresentative = true)))
+    entailmentLearningLog.logEvent(TableUpdateOperation(TableOperations.EnlargedEntry(entry, rep, isNewRepresentative = true)))
 
     // TODO Maybe come up with a more efficient implementation of table entry update... Also code duplication
     val ix = entries.indexOf(entry)
@@ -124,7 +124,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
   }
 
   def addExtensionToEntry(entry : TableEntry, ext : SymbolicHeap, extPredCall : PredCall) : ObservationTable = {
-    entailmentLearningLog.logEvent(TableOperation(TableOperation.EnlargedEntry(entry, ext, isNewRepresentative = false)))
+    entailmentLearningLog.logEvent(TableUpdateOperation(TableOperations.EnlargedEntry(entry, ext, isNewRepresentative = false)))
 
     // TODO Maybe come up with a more efficient implementation of table entry update... Also code duplication
     val ix = entries.indexOf(entry)
@@ -133,7 +133,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
   }
 
   def splitEntry(entry: TableEntry, compatibleWithNewExtension: Set[SymbolicHeap], incompatibleWithNewExtension: Set[SymbolicHeap], newExtension: SymbolicHeap, newExtensionCall : PredCall): ObservationTable = {
-    entailmentLearningLog.logEvent(TableOperation(TableOperation.SplitTableEntry(compatibleWithNewExtension, incompatibleWithNewExtension, newExtension)))
+    entailmentLearningLog.logEvent(TableUpdateOperation(TableOperations.SplitTableEntry(compatibleWithNewExtension, incompatibleWithNewExtension, newExtension)))
 
     // TODO Same concern about efficient table entry as above...
     val entriesWithoutOldEntry = entries.filterNot(_ == entry)
@@ -144,7 +144,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
   }
 
   def addNewEntryForPartition(part : SymbolicHeapPartition, iteration : Int): ObservationTable = {
-    entailmentLearningLog.logEvent(TableOperation(EntailmentLearningLog.TableOperation.NewEntry(part)))
+    entailmentLearningLog.logEvent(TableUpdateOperation(EntailmentLearningLog.TableOperations.NewEntry(part)))
     entailmentLearningLog.printProgress("*** New table entry #" + (entries.size + 1) + ": " + part + " ***")
     copy(entries = entries :+ tableEntryFromPartition(part, iteration))
   }
