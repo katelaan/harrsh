@@ -144,8 +144,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
   }
 
   def addNewEntryForPartition(part : SymbolicHeapPartition, iteration : Int): ObservationTable = {
-    entailmentLearningLog.logEvent(TableUpdateOperation(EntailmentLearningLog.TableOperations.NewEntry(part)))
-    entailmentLearningLog.printProgress("*** New table entry #" + (entries.size + 1) + ": " + part + " ***")
+    entailmentLearningLog.logEvent(TableUpdateOperation(EntailmentLearningLog.TableOperations.NewEntry(entries.size+1, part)))
     copy(entries = entries :+ tableEntryFromPartition(part, iteration))
   }
 

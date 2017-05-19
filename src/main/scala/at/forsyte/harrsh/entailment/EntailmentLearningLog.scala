@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.entailment.EntailmentLearningLog.TableOperations.NewEntry
 import at.forsyte.harrsh.entailment.EntailmentLearningLog._
 import at.forsyte.harrsh.entailment.ObservationTable.TableEntry
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
@@ -34,38 +35,53 @@ class EntailmentLearningLog(val reportProgress : Boolean) {
       }
     }
   }
+  
+  private def eventBasedProgressReport(le : LearningEvent) : Unit = {
+    if (le.isInstanceOf[ProcessPartition] && counters.partitions % SpacingBetweenProgressMessages == 0) {
+      printProgress("Processed partitions: " + counters.partitions + " / Table updates: " + counters.tableUpdates + " / Successful table lookups: " + counters.tableLookups + " / Red. entailment checks: " + counters.redents)
+    }
+    le match {
+      case operation: TableUpdateOperation =>
+        // Table modification is reported immediately
+        printProgress(le)
+      case _ =>
+        // Other events are not reported
+    }
+  }
 
   def printProgress(a : Any): Unit = if (reportProgress) println(a)
 
   def logEvent(le : LearningEvent): Unit = {
     counters.update(le)
-    if (le.isInstanceOf[ProcessPartition] && counters.partitions % SpacingBetweenProgressMessages == 0) {
-      printProgress("Processed partitions: " + counters.partitions + " / Table updates: " + counters.tableUpdates + " / Successful table lookups: " + counters.tableLookups + " / Red. entailment checks: " + counters.redents)
-    }
+    eventBasedProgressReport(le)
     learningEventLog = le +: learningEventLog
   }
 
   override def toString: String =
-    learningEventLog.reverse.map {
-    case IterationStats(iteration, numUnfs) =>
-      "Iteration " + iteration + ": " + numUnfs + " unfoldings to process"
-    case ProcessPartition(partition) =>
-      "  Processing " + partition
-    case TableLookupOperation(op) =>
-      "    " + op
-    case TableUpdateOperation(op) =>
-      "    *** " + op
-    case RedEntCheck(lhs, rhs, purpose) =>
-      "      Checking " + lhs + " |?= " + rhs + " to decide " + purpose
-    case ReachedFixedPoint() =>
-      "Finished computation"
-  }.mkString("EntailmentLearning(\n", "\n", "\n)")
+    learningEventLog.reverse.mkString("EntailmentLearning(\n", "\n", "\n)")
 
 }
 
 object EntailmentLearningLog {
 
-  sealed trait LearningEvent
+  sealed trait LearningEvent {
+
+    override def toString = this match {
+      case IterationStats(iteration, numUnfs) =>
+        "Iteration " + iteration + ": " + numUnfs + " unfoldings to process"
+      case ProcessPartition(partition) =>
+        "  Processing " + partition
+      case TableLookupOperation(op) =>
+        "    " + op
+      case TableUpdateOperation(op) =>
+        "    *** " + op
+      case RedEntCheck(lhs, rhs, purpose) =>
+        "      Checking " + lhs + " |?= " + rhs + " to decide " + purpose
+      case ReachedFixedPoint() =>
+        "Finished computation"
+    }
+
+  }
 
   case class IterationStats(iteration : Int, numUnfs : Int) extends LearningEvent
   case class ProcessPartition(partition : SymbolicHeapPartition) extends LearningEvent
@@ -101,16 +117,16 @@ object EntailmentLearningLog {
 
     sealed trait UpdateType
     case class EnlargedEntry(entry : TableEntry, addition : SymbolicHeap, isNewRepresentative : Boolean) extends UpdateType {
-      override def toString: String = "*** Extended " + entry + " with new " + (if (isNewRepresentative) "representative " else "extension ") + addition
+      override def toString: String = "Extended " + entry + " with new " + (if (isNewRepresentative) "representative " else "extension ") + addition
     }
-    case class NewEntry(cleanedPartition: SymbolicHeapPartition) extends UpdateType {
-      override def toString: String = "*** New entry " + cleanedPartition
+    case class NewEntry(entryId : Int, cleanedPartition: SymbolicHeapPartition) extends UpdateType {
+      override def toString: String = "New table entry #" + entryId + ": " + cleanedPartition
     }
     case class SplitTableEntry(compatibleReps : Set[SymbolicHeap], incompatibleReps : Set[SymbolicHeap], triggeringExtension : SymbolicHeap) extends UpdateType {
-      override def toString: String = "*** Splitting entry triggered by " + triggeringExtension + " yielding " + compatibleReps.mkString("{",", ","}") + " and " + incompatibleReps.mkString("{",", ","}")
+      override def toString: String = "Splitting entry triggered by " + triggeringExtension + " yielding " + compatibleReps.mkString("{",", ","}") + " and " + incompatibleReps.mkString("{",", ","}")
     }
     case class MergeTableEntries(entries : Iterable[TableEntry]) extends UpdateType {
-      override def toString: String = "*** Merging entries " + entries.mkString(", ")
+      override def toString: String = "Merging entries " + entries.mkString(", ")
     }
 
   }
