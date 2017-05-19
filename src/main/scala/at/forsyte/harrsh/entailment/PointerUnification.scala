@@ -25,7 +25,7 @@ object PointerUnification extends HarrshLogging {
     */
   def removeUnifiablePointerPair(lhsFormula: SymbolicHeap, rhsFormula: SymbolicHeap, disallowedFVs : Set[Var]): Option[PointerMatch] = {
     val rhsPtr = try {
-      rhsFormula.pointers.find(p => Var.isFV(p.from.getVarOrZero)).get
+      rhsFormula.pointers.find(p => p.from.getVarOrZero.isFree).get
     } catch {
       case _: NoSuchElementException =>
         logger.warn("Pointer unification for garbage-free heaps was fed heap with garbage: " + rhsFormula)
@@ -90,7 +90,7 @@ object PointerUnification extends HarrshLogging {
     val rhsVarToAllocate = rhsPtr.fromAsVar
 
     // Instantiate existentially quantified variables on both sides as necessary
-    logger.trace("Will match parameter lists " + rhsPtr.toAsVarOrZero.map(Var.toDefaultString).mkString(",") + " and " + lhsPtr.toAsVarOrZero.map(Var.toDefaultString).mkString(","))
+    logger.trace("Will match parameter lists " + rhsPtr.toAsVarOrZero.mkString(",") + " and " + lhsPtr.toAsVarOrZero.mkString(","))
     matchParametersViaVariableIntroduction(lhs, lhsPtr.toAsVarOrZero, rhs, rhsPtr.toAsVarOrZero, disallowedFVs, Set(rhsVarToAllocate), Seq.empty) match {
       case Some((renamedLhs, renamedRhs)) =>
 
@@ -137,16 +137,16 @@ object PointerUnification extends HarrshLogging {
     def unbindBoundVariable(lvar: Var, rvar: Var): (SymbolicHeap, SymbolicHeap, Var, Option[Var]) = {
       // The new FV will be one larger than any of the FVs in either argument SH and the history
       // Note that if the arguments SHs have different numbers of FVs, this will introduce a "gap" in the FVs in the SH with the smaller number
-      val usedFVIdents = Seq(allDisallowedFVs.max, lhs.numFV, rhs.numFV)
-      val newFV = Var.mkVar(usedFVIdents.max + 1)
-      logger.trace("Introducing new free variable " + PtrVar(newFV) + " replacing " + Var.toDefaultString(lvar) + " (model formula) and " + Var.toDefaultString(rvar) + " (unfolding)")
+      val usedFVIdents = Seq(Var.maxOf(allDisallowedFVs).toInt, lhs.numFV, rhs.numFV)
+      val newFV = Var(usedFVIdents.max + 1)
+      logger.trace("Introducing new free variable " + PtrVar(newFV) + " replacing " + lvar + " (model formula) and " + rvar + " (unfolding)")
       val newLhs = lhs.instantiateBoundVars(Seq((lvar, newFV)), closeGaps = false)
       val newRhs = rhs.instantiateBoundVars(Seq((rvar, newFV)), closeGaps = false)
       (newLhs, newRhs, newFV, Some(newFV))
     }
 
     if (lvar == rvar) {
-      if (Var.isFV(lvar)) {
+      if (lvar.isFree) {
         // Already same free vars => Nothing to do
         Some(lhs, rhs, lvar, None)
       } else {
@@ -154,7 +154,7 @@ object PointerUnification extends HarrshLogging {
         Some(unbindBoundVariable(lvar, rvar))
       }
     } else {
-      (Var.isFV(lvar), Var.isFV(rvar)) match {
+      (lvar.isFree, rvar.isFree) match {
         case (true, true) =>
           // The vars are different FVs => Need to be equal under pure in the model...
           if (EqualityUtils.varsEqualModuloPureDifferentSides(lhs.pure, lvar, rhs.pure, rvar)) {

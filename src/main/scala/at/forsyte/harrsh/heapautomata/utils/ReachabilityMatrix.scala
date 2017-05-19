@@ -19,23 +19,23 @@ case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean], underlyingPai
     if (reach.length != dim * dim) throw new IllegalStateException("Reachability info is not a " + dim + "*" + dim + " matrix")
   }
 
-  override def toString = "MATRIX(\n" + (for (i <- 0 to numFV) yield getRowFor(i).map(if (_) '1' else '0').mkString(" ")).mkString("\n") + "\n)"
+  override def toString = "MATRIX(\n" + (for (i <- 0 to numFV) yield getRowFor(Var(i)).map(if (_) '1' else '0').mkString(" ")).mkString("\n") + "\n)"
 
-  def isReachable(from : Var, to : Var) : Boolean = isReachableIx(unVar(from), unVar(to))
+  def isReachable(from : Var, to : Var) : Boolean = isReachableIx(from.toInt, to.toInt)
   def isReachableIx(from : Int, to : Int) : Boolean = {
-    val ix = minIndexForSrc(from) + to
+    val ix = minIndexForSrc(Var(from)) + to
     val res = reach(minIndexForSrcIx(from) + to)
     logger.trace("Looking up entry for " + (from, to) + " at index " + ix + " in " + reach.mkString(" ") + " yielding " + res)
     res
   }
 
-  def getRowFor(src: Var): Seq[Boolean] = getRowForIx(unVar(src))
+  def getRowFor(src: Var): Seq[Boolean] = getRowForIx(src.toInt)
   def getRowForIx(src: Int): Seq[Boolean] = {
     val start = minIndexForSrcIx(src)
     reach.slice(start, start + dim)
   }
 
-  def update(from : Var, to : Var, setReachable : Boolean) : Unit = updateIx(unVar(from), unVar(to), setReachable)
+  def update(from : Var, to : Var, setReachable : Boolean) : Unit = updateIx(from.toInt, to.toInt, setReachable)
   def updateIx(from : Int, to : Int, setReachable : Boolean) : Unit = {
     val start = minIndexForSrcIx(from)
     reach.update(start + to, setReachable)
@@ -50,10 +50,10 @@ case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean], underlyingPai
   override def hashCode(): Int = reach.deep.hashCode()
 
   private def minIndexForSrcIx(src : Int) : Int = dim * src
-  private def minIndexForSrc(src : Var) : Int = minIndexForSrcIx(unVar(src))
+  private def minIndexForSrc(src : Var) : Int = minIndexForSrcIx(src.toInt)
 
   private def maxIndexForSrcIx(src : Int) : Int = (dim+1) * src - 1
-  private def maxIndexForSrc(src : Var) : Int = maxIndexForSrcIx(unVar(src))
+  private def maxIndexForSrc(src : Var) : Int = maxIndexForSrcIx(src.toInt)
 
 }
 
@@ -73,8 +73,8 @@ object ReachabilityMatrix extends HarrshLogging {
 
   def fromPairs(numFV : Int, pairs : Seq[(Int,Int)]) : ReachabilityMatrix = {
     val matrix = emptyMatrix(numFV)
-    for ((from, to) <- pairs) matrix.update(from, to, setReachable = true)
-    matrix.copy(underlyingPairs = Some(pairs.toSet))
+    for ((from, to) <- pairs) matrix.update(Var(from), Var(to), setReachable = true)
+    matrix.copy(underlyingPairs = Some(pairs.map(p => (Var(p._1),Var(p._2))).toSet))
   }
 
   def fromSymbolicHeapAndTrackingInfo(numFV : Int, compressedHeap : SymbolicHeap, tracking : TrackingInfo) : ReachabilityMatrix = {
@@ -89,7 +89,7 @@ object ReachabilityMatrix extends HarrshLogging {
     val reach = ReachabilityMatrix.emptyMatrix(numFV)
     for {
       (from, to) <- pairs
-      if isFV(from) && isFV(to)
+      if from.isFree && to.isFree
     } {
       reach.update(from, to, setReachable = true)
     }
@@ -145,7 +145,7 @@ object ReachabilityMatrix extends HarrshLogging {
     // Note: Subtract 1, because the null pointer is either explicitly in vars, or to be ignored
     val reach = ReachabilityMatrix.emptyMatrix(vars.size - 1)
     for ((from, to) <- reachPairs) {
-      reach.update(ixs(from), ixs(to), setReachable = true)
+      reach.update(Var(ixs(from)), Var(ixs(to)), setReachable = true)
     }
 
     logger.debug("Extended matrix for variable numbering " + ixs.toSeq.sortBy(_._2).map(p => p._1 + " -> " + p._2).mkString(", ") + ": " + reach)

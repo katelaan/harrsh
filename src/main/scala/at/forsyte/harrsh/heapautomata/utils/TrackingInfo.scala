@@ -15,12 +15,12 @@ case class TrackingInfo private (alloc: Set[Var], pure: Set[PureAtom]) extends K
   def equalities : Set[PtrEq] = pure.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq])
 
   def dropNonFreeVariables : TrackingInfo = {
-    TrackingInfo(alloc.filter(isFV),
-      pure.filter({
+    TrackingInfo(alloc.filter(_.isFree),
+      pure.filter{
         atom =>
           val (l, r, _) = EqualityUtils.unwrapAtom(atom)
-          isFV(l) && isFV(r)
-      }))
+          l.isFree && r.isFree
+      })
   }
 
   lazy val isConsistent : Boolean =
@@ -67,6 +67,6 @@ object TrackingInfo {
 
   def fromPair = TrackingInfo
 
-  def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = TrackingInfo(Set(), Set() ++ mkAllFVs(numFV) map (fv => PtrNEq(PtrExpr(fv),PtrExpr(fv))))
+  def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = TrackingInfo(Set(), Set() ++ mkAllVars(0 to numFV) map (fv => PtrNEq(PtrExpr(fv),PtrExpr(fv))))
 
 }

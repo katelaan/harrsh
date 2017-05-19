@@ -1,6 +1,5 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.entailment.EntailmentLearningLog.TableOperations.NewEntry
 import at.forsyte.harrsh.entailment.EntailmentLearningLog._
 import at.forsyte.harrsh.entailment.ObservationTable.TableEntry
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap

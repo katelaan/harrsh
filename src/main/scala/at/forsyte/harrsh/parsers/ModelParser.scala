@@ -34,7 +34,7 @@ object ModelParser extends JavaTokenParsers {
     ls =>
       // Arbitrarily assign positive numbers to variables
       ls.zipWithIndex map {
-        case ((_,l),v) => (v+1,l)
+        case ((_,l),v) => (Var(v+1),l)
       }
   }
 

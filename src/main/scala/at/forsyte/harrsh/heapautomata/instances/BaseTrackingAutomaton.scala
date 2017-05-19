@@ -22,7 +22,7 @@ abstract class BaseTrackingAutomaton(val numFV : Int) extends HeapAutomaton with
 
   override lazy val states: Set[State] = for {
     // This also computes plenty (but not all) inconsistent states, but we should actually not call this ever anyway
-    alloc <- Combinators.powerSet(Set() ++ ((1 to numFV) map Var.mkVar))
+    alloc <- Combinators.powerSet(Var.mkSetOfAllVars(1 to numFV))
     pure <- Combinators.powerSet(EqualityUtils.allEqualitiesOverFVs(numFV))
   } yield TrackingInfo.fromPair(alloc, pure)
 
@@ -68,7 +68,7 @@ object BaseTrackingAutomaton extends HarrshLogging {
     */
   class TrackingAutomatonWithSingleFinalState(numFV: Int, alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) extends BaseTrackingAutomaton(numFV) {
 
-    override val description = AutomatonTask.keywords.reltrack + "_" + numFV + "(" + alloc.map(Var.toDefaultString).mkString(",") + "; " + pure.mkString(",") + ")"
+    override val description = AutomatonTask.keywords.reltrack + "_" + numFV + "(" + alloc.mkString(",") + "; " + pure.mkString(",") + ")"
 
     override def isFinal(s: TrackingInfo) = (s.pure == pure && s.alloc == alloc) != negate
 
@@ -79,7 +79,7 @@ object BaseTrackingAutomaton extends HarrshLogging {
     */
   class SubsetTrackingAutomaton(numFV: Int, alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) extends BaseTrackingAutomaton(numFV) {
 
-    override val description = AutomatonTask.keywords.track + "_" + numFV + "(" + alloc.map(Var.toDefaultString).mkString(",") + "; " + pure.mkString(",") + ")"
+    override val description = AutomatonTask.keywords.track + "_" + numFV + "(" + alloc.mkString(",") + "; " + pure.mkString(",") + ")"
 
     override def isFinal(s: TrackingInfo) = (pure.subsetOf(s.pure) && alloc.subsetOf(s.alloc)) != negate
 
@@ -90,7 +90,7 @@ object BaseTrackingAutomaton extends HarrshLogging {
     */
   class AllocationTrackingAutomaton(numFV: Int, alloc : Set[Var], negate : Boolean = false) extends BaseTrackingAutomaton(numFV) {
 
-    override val description = AutomatonTask.keywords.alloc + "_" + numFV + "(" + alloc.map(Var.toDefaultString).mkString(",") + ")"
+    override val description = AutomatonTask.keywords.alloc + "_" + numFV + "(" + alloc.mkString(",") + ")"
 
     override def isFinal(s: TrackingInfo) = (alloc subsetOf s.alloc) != negate
 

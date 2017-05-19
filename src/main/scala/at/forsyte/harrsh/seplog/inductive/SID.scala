@@ -23,7 +23,7 @@ case class SID(startPred : String, rules : Seq[Rule], description : String, numF
   lazy val maximumArity : Int = if (rules.isEmpty) 0 else rules.map(rule => rule.freeVars.size).max
 
   def callToStartPred: SymbolicHeap = {
-    val initialArgs: Seq[PtrExpr] = (1 to arityOfStartPred) map (i => PtrVar(Var.mkVar(i)).asInstanceOf[PtrExpr])
+    val initialArgs: Seq[PtrExpr] = (1 to arityOfStartPred) map (i => PtrVar(Var(i)).asInstanceOf[PtrExpr])
     val initial = SymbolicHeap(Seq.empty, Seq(PredCall(startPred, initialArgs)))
     initial
   }
@@ -57,7 +57,7 @@ object SID extends HarrshLogging {
 
   def fromTopLevelSH(sh: SymbolicHeap, sid: SID) : SID = {
     val startPred = "sh"
-    val newRule = Rule(startPred, Var.mkAllFVs(sh.numFV) map Var.toDefaultString, sh.boundVars.toSeq map Var.toDefaultString, sh)
+    val newRule = Rule(startPred, Var.mkAllVars(1 to sh.numFV) map (_.toString), sh.boundVars.toSeq map (_.toString), sh)
     sid.copy(startPred = startPred, rules = newRule +: sid.rules, description = "symbolic heap")
   }
 

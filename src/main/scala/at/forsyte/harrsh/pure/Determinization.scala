@@ -42,7 +42,7 @@ object Determinization extends HarrshLogging {
 
     val vars = rsh.allVars + Var.nil
     val relevantVars = closure.classRepresentativesOf(vars).toIndexedSeq
-    logger.debug("One variable per equivalence class: " + relevantVars.map(Var.toDefaultString).mkString(", "))
+    logger.debug("One variable per equivalence class: " + relevantVars.mkString(", "))
     val numvars = relevantVars.size
 
     val undeterminedPairs : Seq[(Var,Var)] = for {
@@ -54,7 +54,7 @@ object Determinization extends HarrshLogging {
       orderedPair(relevantVars(fst), relevantVars(snd))
     }
 
-    logger.debug("Undetermined relationships: " + undeterminedPairs.map(pair => (Var.toDefaultString(pair._1),Var.toDefaultString(pair._2))).mkString(", "))
+    logger.debug("Undetermined relationships: " + undeterminedPairs.mkString(", "))
     undeterminedPairs
   }
 

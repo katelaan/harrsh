@@ -1,6 +1,5 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.test.HarrshTest
 
 /**

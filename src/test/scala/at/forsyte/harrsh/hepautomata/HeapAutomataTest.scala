@@ -41,7 +41,7 @@ class HeapAutomataTest extends HarrshTableTest with TestValues {
     (TrackingAutomata.singleTargetStateTracking(2, Set(x1), mkPure((1, 2, NonEmpty))), ExampleSIDs.Sll, Empty),
     (TrackingAutomata.singleTargetStateTracking(2, Set(x1), mkPure()), ExampleSIDs.EmptyLinearPermuter, Empty),
     (TrackingAutomata.singleTargetStateTracking(2, Set(), mkPure((1, 2, Empty))), ExampleSIDs.EmptyLinearPermuter, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(4, Set(x1,mkVar(4)), mkPure()), ExampleSIDs.Dll, Empty),
+    (TrackingAutomata.singleTargetStateTracking(4, Set(x1,x4), mkPure()), ExampleSIDs.Dll, Empty),
     (TrackingAutomata.singleTargetStateTracking(1, Set(x1), mkPure()), ExampleSIDs.Tree, NonEmpty),
     (TrackingAutomata.singleTargetStateTracking(3, Set(x1,x2), mkPure((1,2,NonEmpty))), ExampleSIDs.Tll, NonEmpty),
     // - Inconsistency checks for tracking

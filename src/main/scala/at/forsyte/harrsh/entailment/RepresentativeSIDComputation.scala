@@ -12,8 +12,8 @@ object RepresentativeSIDComputation {
 
     val newBaseRule = Rule(
         head = repSid.startPred,
-        freeVars = (1 to repSid.numFV).map(Var.toDefaultString),
-        qvars = rep.boundVars.toSeq map Var.toDefaultString,
+        freeVars = (1 to repSid.numFV).map(Var(_).toString),
+        qvars = rep.boundVars.toSeq map (_.toString),
         body = rep
     )
 
@@ -32,9 +32,9 @@ object RepresentativeSIDComputation {
       call@PredCall(name, args) <- rule.body.predCalls
       // Add new arguments if the arity has increased
       // FIXME What to do if the arity decreases / in the case where we have null? Can that be deferred completely to postprocessing?
-      newVars : Seq[Var] = (args.size+1 to newNumFV).map(Var.mkVar)
+      newVars : Seq[Var] = (args.size+1 to newNumFV).map(Var(_))
       newCall = PredCall(newStartPred, args ++ newVars.map(PtrVar))
-      newFreeVars  = rule.freeVars ++ newVars.map(Var.toDefaultString)
+      newFreeVars  = rule.freeVars ++ newVars.map(_.toString)
     } yield rule.copy(head = newStartPred,
                       freeVars = newFreeVars,
                       body = rule.body.copy(predCalls = rule.body.predCalls.updated(rule.body.predCalls.indexOf(call), newCall)))

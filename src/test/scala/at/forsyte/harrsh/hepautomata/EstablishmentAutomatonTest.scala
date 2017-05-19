@@ -23,7 +23,7 @@ class EstablishmentAutomatonTest extends HarrshTableTest with TestValues with At
     ("src", "sh", "trg est"),
     // Simple RSHs
     (Seq(), SymbolicHeap(Seq()), true),
-    (Seq(), SymbolicHeap.fromFullDescription(Seq(), Seq(), Seq(), 0, Seq(-1)), false),
+    (Seq(), SymbolicHeap.fromFullDescription(Seq(), Seq(), Seq(), 0, Seq(y1)), false),
     (Seq(), SymbolicHeap(Seq(ptr(x1, x2))), true),
     (Seq(), SymbolicHeap(Seq(), Seq(ptr(x1, x2), ptr(x2, y1)), Seq()), false),
     (Seq(), SymbolicHeap(Seq(ptreq(x1, x2)), Seq(ptr(y1, x2)), Seq()), true),
@@ -34,14 +34,14 @@ class EstablishmentAutomatonTest extends HarrshTableTest with TestValues with At
     (Seq(), SymbolicHeap(Seq(ptreq(x1,x2), ptreq(x2,x3), ptrneq(x1,x3)), Seq(), Seq()), true),
 
     // Non-reduced SHs
-    (Seq(mk(mkAllVar(1), false)), SymbolicHeap(Seq(ptr(x2, nil)), Seq(call("dummy", x1))), false),
-    (Seq(mk(mkAllVar(1), true)), SymbolicHeap(Seq(ptr(x2, nil)), Seq(call("dummy", x1))), true),
-    (Seq(mk(mkAllVar(1), true)), SymbolicHeap(Seq(ptr(x2, nil)), Seq(call("dummy", y1))), true),
-    (Seq(mk(mkAllVar(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(), Seq(call("dummy", x1, y1))), true),
-    (Seq(mk(mkAllVar(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(), Seq(call("dummy", y2, y1))), false),
-    (Seq(mk(mkAllVar(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(ptr(y2, x1)), Seq(call("dummy", y2, y1))), true),
-    (Seq(mk(mkAllVar(1), mkPure((1,2,true)), true)), SymbolicHeap(Seq(ptr(y2, x1)), Seq(call("dummy", y2, y1))), true),
-    (Seq(mk(mkAllVar(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(ptreq(x1, y1)), Seq(ptr(y2, x1)), Seq(call("dummy", y2, y1))), true)
+    (Seq(mk(Set(x1), false)), SymbolicHeap(Seq(ptr(x2, nil)), Seq(call("dummy", x1))), false),
+    (Seq(mk(Set(x1), true)), SymbolicHeap(Seq(ptr(x2, nil)), Seq(call("dummy", x1))), true),
+    (Seq(mk(Set(x1), true)), SymbolicHeap(Seq(ptr(x2, nil)), Seq(call("dummy", y1))), true),
+    (Seq(mk(Set(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(), Seq(call("dummy", x1, y1))), true),
+    (Seq(mk(Set(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(), Seq(call("dummy", y2, y1))), false),
+    (Seq(mk(Set(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(ptr(y2, x1)), Seq(call("dummy", y2, y1))), true),
+    (Seq(mk(Set(x1), mkPure((1,2,true)), true)), SymbolicHeap(Seq(ptr(y2, x1)), Seq(call("dummy", y2, y1))), true),
+    (Seq(mk(Set(), mkPure((1,2,true)), true)), SymbolicHeap(Seq(ptreq(x1, y1)), Seq(ptr(y2, x1)), Seq(call("dummy", y2, y1))), true)
   )
 
 

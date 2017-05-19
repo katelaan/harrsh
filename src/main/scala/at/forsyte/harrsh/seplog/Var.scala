@@ -4,46 +4,54 @@ package at.forsyte.harrsh.seplog
   * Created by jens on 11/2/16.
   */
 
+case class Var(private val underlying : Int) extends AnyVal {
+
+  def toInt = underlying
+
+  def isFreeNonNull : Boolean = underlying > 0
+  def isFree : Boolean = underlying >= 0
+  def isBound : Boolean = underlying < 0
+  def isNull : Boolean = underlying == 0
+
+  override def toString : String = underlying match {
+    case 0 => NullPtr().toString
+    case i if i > 0 => Var.FreeVarString + i
+    case i => Var.BoundVarString + (-i)
+  }
+
+  def <(other : Var) = underlying < other.underlying
+  def >(other : Var) = underlying > other.underlying
+
+  def +(i : Int) = Var(underlying + i)
+  def -(i : Int) = Var(underlying - i)
+
+}
+
 object Var {
 
   val FreeVarString = "x"
 
   val BoundVarString = "y"
 
-  def getFirstBoundVar: Var = -1
+  val nil : Var = Var(0)
 
-  @inline def mkVar(i : Int) : Var = i
-
-  @inline def isFV(fv : Var) = fv >= 0
-
-  @inline def isBound(fv : Var) = fv < 0
-
-  val nil : Var = 0
-
-  def isFV(fv : String) = fv match {
+  def isFreeVariableString(fv : String) = fv match {
     case "null" => true
     case "nil" => true
-    case id => id.startsWith(FreeVarString) // TODO: Should have a more sophisticated for "FV-ness" check here?
+    case id => id.startsWith(FreeVarString)
   }
 
   @inline def stringToFV(fv : String) : Var =
-    if (fv.startsWith(FreeVarString)) Integer.valueOf(fv.drop(FreeVarString.length))
-    else if (fv == "null" || fv == "nil") 0
+    if (fv.startsWith(FreeVarString)) Var(Integer.valueOf(fv.drop(FreeVarString.length)))
+    else if (fv == "null" || fv == "nil") Var(0)
     else throw new IllegalArgumentException("Passed non-free variable identifier to free-variable conversion")
 
-  def toDefaultString(v : Var) = v match {
-    case 0 => NullPtr().toString
-    case i if i > 0 => FreeVarString + i
-    case i => BoundVarString + (-i)
-  }
+  @inline def mkAllVars(ints : Seq[Int]) : Seq[Var] = ints map (Var(_))
 
-  @inline def unVar(v : Var) : Int = v
+  @inline def mkSetOfAllVars(ints : Iterable[Int]) : Set[Var] = Set() ++ ints map (Var(_))
 
-  @inline def mkAllVar(ints : Int*) : Set[Var] = Set() ++ ints map mkVar
+  @inline def maxOf(vars : Iterable[Var]) : Var = Var(vars.map(_.underlying).max)
 
-  @inline def getMaxVarIndex(vars : Set[Var]) : Int = vars.max
-
-  @inline def mkAllFVs(numFV : Int) = (0 to numFV) map mkVar
-
+  @inline def minOf(vars : Iterable[Var]) : Var = Var(vars.map(_.underlying).min)
 
 }

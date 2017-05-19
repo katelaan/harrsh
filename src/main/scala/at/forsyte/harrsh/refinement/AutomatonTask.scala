@@ -69,10 +69,10 @@ sealed trait AutomatonTask {
     case RunWeakAcyclicity() => AutomatonTask.keywords.acyc
     case RunMayHaveGarbage() => AutomatonTask.keywords.garb
     case RunStrongCyclicity() => AutomatonTask.keywords.cyc
-    case RunReachability(from, to, negate) => negationPrefix(negate) + AutomatonTask.keywords.reach + "[" + Var.toDefaultString(from) + "," + Var.toDefaultString(to) + "]"
-    case RunExactTracking(alloc, pure, negate) => negationPrefix(negate) + AutomatonTask.keywords.track + "[" + alloc.map(Var.toDefaultString).mkString(",") + (if (pure.nonEmpty) " : " + pure.mkString(",") else "") + "]"
-    case RunRelaxedTracking(alloc, pure, negate) => negationPrefix(negate) + AutomatonTask.keywords.reltrack + "[" + alloc.map(Var.toDefaultString).mkString(",") + (if (pure.nonEmpty) " : " + pure.mkString(",") else "") + "]"
-    case RunAllocationTracking(alloc, negate) => negationPrefix(negate) + AutomatonTask.keywords.alloc + "[" + alloc.map(Var.toDefaultString).mkString(",") + "]"
+    case RunReachability(from, to, negate) => negationPrefix(negate) + AutomatonTask.keywords.reach + "[" + from + "," + to + "]"
+    case RunExactTracking(alloc, pure, negate) => negationPrefix(negate) + AutomatonTask.keywords.track + "[" + alloc.mkString(",") + (if (pure.nonEmpty) " : " + pure.mkString(",") else "") + "]"
+    case RunRelaxedTracking(alloc, pure, negate) => negationPrefix(negate) + AutomatonTask.keywords.reltrack + "[" + alloc.mkString(",") + (if (pure.nonEmpty) " : " + pure.mkString(",") else "") + "]"
+    case RunAllocationTracking(alloc, negate) => negationPrefix(negate) + AutomatonTask.keywords.alloc + "[" + alloc.mkString(",") + "]"
     case RunPureTracking(pure, negate) => negationPrefix(negate) + AutomatonTask.keywords.pure + "[" + pure.mkString(",") + "]"
   }
 
@@ -160,13 +160,13 @@ object AutomatonTask {
           input <- removeSurroundingKeyword(other, keywords.reach)
           params = input.split(",")
           // TODO Allow variable names as in unparsed SIDs?
-          if params.size == 2 && isFV(params(0)) && isFV(params(1))
+          if params.size == 2 && isFreeVariableString(params(0)) && isFreeVariableString(params(1))
         } yield RunReachability(stringToFV(params(0)), stringToFV(params(1)))
 
         val allocResult = for {
           input <- removeSurroundingKeyword(other, keywords.alloc)
           params = input.split(",")
-          if params.forall(isFV)
+          if params.forall(isFreeVariableString)
           fvs = (params map stringToFV).toSet
         } yield RunAllocationTracking(fvs)
 
@@ -182,7 +182,7 @@ object AutomatonTask {
             params : Array[String] = input.split(":")
             fvparams : Array[String] = params(0).trim.split(",")
             pureparams : Array[String] = if (params.size > 1) params(1).trim.split(",") else Array.empty
-            if fvparams.forall(isFV)
+            if fvparams.forall(isFreeVariableString)
             fvs = (fvparams map stringToFV).toSet
             eqs = (pureparams map parsePure).toSet
           } yield constructor(fvs, eqs, false)

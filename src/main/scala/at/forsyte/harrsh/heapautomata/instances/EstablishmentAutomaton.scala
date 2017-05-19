@@ -48,10 +48,10 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends T
     * Is variable v established according to tracking info s?
     */
   private def isEstablished(s : TrackingInfo, v : Var) = {
-    isFV(v) || s.alloc.contains(v) || s.pure.exists({
+    v.isFree || s.alloc.contains(v) || s.pure.exists({
       // Return true iff the pure atom witnesses that v is equal to a free variable
       // This is enough to show establishment, because we assume that s is congruence closed
-      case PtrEq(l, r) => (l.getVarOrZero == v && isFV(r.getVarOrZero)) || (r.getVarOrZero == v && isFV(l.getVarOrZero))
+      case PtrEq(l, r) => (l.getVarOrZero == v && r.getVarOrZero.isFree) || (r.getVarOrZero == v && l.getVarOrZero.isFree)
       case _ => false
     })
   }

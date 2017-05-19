@@ -31,7 +31,7 @@ private[parsers] trait HarrshSIDParser extends SIDCombinatorParser with HarrshLo
   private def parseHead : Parser[String] = ident <~ opt(paramList)
 
   private def paramList : Parser[Unit] = ("(" ~> repsep(ident, ",") <~ ")") ^? {
-    case ids if ids.forall(Var.isFV) && ids.map(Var.stringToFV) == (1 to ids.length).toList => ()
+    case ids if ids.forall(Var.isFreeVariableString) && ids.map(Var.stringToFV) == Var.mkAllVars(1 to ids.length).toList => ()
   }
 
   override def parseBody : Parser[StringSymbolicHeap] = parseQuantifiers ~> parseSpatial ~ opt(":" ~> parsePure) ^^ {

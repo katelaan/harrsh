@@ -145,15 +145,15 @@ object RefinementAlgorithms {
         (states,body,head,headState) <- reach.toSeq
       } yield Rule(
         head = head+stateToIndex(headState),
-        freeVars = body.freeVars map Var.toDefaultString,
-        qvars = body.boundVars.toSeq map Var.toDefaultString,
+        freeVars = body.freeVars map (_.toString),
+        qvars = body.boundVars.toSeq map (_.toString),
         body = SymbolicHeap.addTagsToPredCalls(body, states map (s => ""+stateToIndex(s))))
       val finalRules = reachedFinalStates.toSeq.map{
         state =>
-          val call = PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map mkVar map (PtrExpr(_)))
+          val call = PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map (i => PtrExpr(Var(i))))
           Rule(
             head = sid.startPred,
-            freeVars = (1 to sid.arityOfStartPred) map Var.toDefaultString,
+            freeVars = (1 to sid.arityOfStartPred) map (Var(_).toString),
             qvars = Seq(),
             body = SymbolicHeap(Seq.empty, Seq(call))
           )

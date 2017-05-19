@@ -9,14 +9,14 @@ import at.forsyte.harrsh.seplog.inductive.{PtrNEq, SymbolicHeap}
   */
 case class Model(stack : Map[Var, Loc], heap : Map[Loc,Seq[Loc]]) {
 
-  assert(stack.keySet.isEmpty || stack.keySet.min > 0) // Only non-null free variables are in the stack
+  assert(stack.keySet.isEmpty || Var.minOf(stack.keySet) > Var.nil) // Only non-null free variables are in the stack
   assert(!heap.keySet.contains(0)) // Null is not allocated
   // The following assertion is violated if there are dangling pointers!
   //assert(stack.values.toSet subsetOf (heap.keySet ++ heap.values.flatten ++ Set(0)))
 
   override def toString: String = {
-    "Stack {\n" + stack.toList.sortBy(_._1).map{
-      case (v, l) => "  " + Var.toDefaultString(v) + " -> " + l
+    "Stack {\n" + stack.toList.sortWith(_._1 < _._1).map{
+      case (v, l) => "  " + v + " -> " + l
     }.mkString("\n") + "\n}\nHeap {\n" + heap.toList.sortBy(_._1).map {
       case (f, t) => "  " + f + " -> " + t.mkString(", ")
     }.mkString("\n") + "\n}"

@@ -14,7 +14,7 @@ object ModelToFormula {
 
     // Get a map from locations to vars
     // Note that if multiple vars point to the same loc, we will lose this info here
-    val locToVar : Map[Loc,Var] = Map() ++ model.stack.toSeq.map(p => (p._2,p._1)) ++ Map(0 -> 0)
+    val locToVar : Map[Loc,Var] = Map() ++ model.stack.toSeq.map(p => (p._2,p._1)) ++ Map(0 -> Var(0))
 
     val (pointers,boundVars) : (Seq[PointsTo],Set[Var]) = generatePointers(locToVar, model.heap.toList)
 
@@ -40,7 +40,7 @@ object ModelToFormula {
     val (reversedPointers, updatedMap) = generatePointers(locToVar, heap, Nil)
     //println(reversedPointers.mkString(","))
     //println(updatedMap.mkString(","))
-    (reversedPointers.reverse, updatedMap.values.filter(_ < 0).toSet)
+    (reversedPointers.reverse, updatedMap.values.filter(_.isBound).toSet)
   }
 
   @tailrec private def generatePointers(locToVar : Map[Loc,Var], heap : List[(Loc,Seq[Loc])], acc : List[PointsTo]) : (Seq[PointsTo], Map[Loc,Var]) = heap match {
@@ -73,7 +73,7 @@ object ModelToFormula {
   }
 
   private def addVarForLoc(locToVar : Map[Loc,Var], loc : Loc) : Map[Loc,Var] = {
-    val min = Math.min(0, locToVar.values.min)
+    val min = Var.minOf(locToVar.values.toSeq :+ Var.nil)
     val newVar = min - 1
     locToVar + (loc -> newVar)
   }

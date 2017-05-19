@@ -4,6 +4,7 @@ import at.forsyte.harrsh.test.HarrshTableTest
 import at.forsyte.harrsh.Implicits._
 import at.forsyte.harrsh.TestValues
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
+import at.forsyte.harrsh.seplog.Var.nil
 
 /**
   * Created by jkatelaa on 5/18/17.

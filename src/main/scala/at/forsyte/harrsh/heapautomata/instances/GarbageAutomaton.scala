@@ -21,12 +21,12 @@ class GarbageAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton[Bo
   override def tagComputation(srcTags: Seq[Boolean], lab : SymbolicHeap, baseTrg: baseAutomaton.State, ei : BaseReachabilityAutomaton.UncleanedTrackingInfo): Boolean = {
     val res = if (negate) {
       val childGarbage = srcTags.exists(b => b)
-      val matrixGarbage = !isGarbageFree(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + mkVar(0), numFV)
+      val matrixGarbage = !isGarbageFree(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + Var.nil, numFV)
       logger.debug("Checking for garbage. In children: " + childGarbage + "; in matrix: " + matrixGarbage)
       childGarbage || matrixGarbage
     } else {
       val childGFree = !srcTags.exists(!_)
-      val matrixGFree = isGarbageFree(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + mkVar(0), numFV)
+      val matrixGFree = isGarbageFree(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + Var.nil, numFV)
       logger.debug("Checking for garbage freedom. In children: " + childGFree + "; in matrix: " + matrixGFree)
       childGFree && matrixGFree
     }
@@ -48,7 +48,7 @@ class GarbageAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton[Bo
       lazy val eqs: Set[(Var, Var)] = ti.equalities.map(atom => (atom.l.getVarOrZero, atom.r.getVarOrZero))
 
       def isEqualToFV(v: Var) = eqs.exists {
-        case (left, right) => left == v && isFV(right) || right == v && isFV(left)
+        case (left, right) => left == v && right.isFree || right == v && left.isFree
       }
 
       val (ixs, reach) = ReachabilityMatrix.computeExtendedMatrix(ti, reachPairs, vars)
@@ -57,19 +57,19 @@ class GarbageAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton[Bo
       def isReachableFromFV(trg: Var): Boolean = {
         val results: Set[Boolean] = for {
           fv <- vars
-          if isFV(fv)
-        } yield reach.isReachable(ixs(fv), ixs(trg))
+          if fv.isFree
+        } yield reach.isReachable(Var(ixs(fv)), Var(ixs(trg)))
 
         results.exists(b => b)
       }
 
       // TODO Stop as soon as garbage is found
-      val reachableFromFV = for (v <- vars) yield isFV(v) || isEqualToFV(v) || isReachableFromFV(v)
+      val reachableFromFV = for (v <- vars) yield v.isFree || isEqualToFV(v) || isReachableFromFV(v)
 
       val garbageFree = !reachableFromFV.exists(!_)
 
       if (!garbageFree) {
-        logger.debug("Discovered garbage: " + (vars filter (v => !(isFV(v) || isEqualToFV(v) || isReachableFromFV(v)))))
+        logger.debug("Discovered garbage: " + (vars filter (v => !v.isFree || isEqualToFV(v) || isReachableFromFV(v))))
       }
 
       garbageFree

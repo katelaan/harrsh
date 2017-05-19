@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.seplog.Var.{isFV, stringToFV, toDefaultString}
+import at.forsyte.harrsh.seplog.Var.{isFreeVariableString, stringToFV}
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.inductive._
 
@@ -14,9 +14,9 @@ case class StringSymbolicHeap(pure : Seq[StringPureAtom], spatial : Seq[StringSp
     * @return Instantiated symbolic heaps + the sequences of free variable and bound variable identifiers that were replaced
     */
   def toSymbolicHeap : (SymbolicHeap, Seq[String], Seq[String]) = {
-    val (freeVarsUnsorted,boundVarsUnsorted) = getVars.toSeq.partition(isFV)
+    val (freeVarsUnsorted,boundVarsUnsorted) = getVars.toSeq.partition(isFreeVariableString)
     val (freeVars,boundVars) = (freeVarsUnsorted.sorted, boundVarsUnsorted.sorted)
-    val filledFreeVars : Seq[String] = if (freeVars.isEmpty) Seq.empty else ((1 to freeVars.map(stringToFV).max) map toDefaultString)
+    val filledFreeVars : Seq[String] = if (freeVars.isEmpty) Seq.empty else (1 to Var.maxOf(freeVars.map(stringToFV)).toInt) map (Var(_).toString)
 
     val naming : VarUnNaming = mkUnNaming(filledFreeVars,boundVars) //mkUnNamingFromIncompleteDefaultNames(freeVars, boundVars)
     val renamedHeap = replaceStringsByIds(naming)

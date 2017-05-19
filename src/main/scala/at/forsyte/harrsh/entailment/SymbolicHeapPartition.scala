@@ -54,10 +54,10 @@ object SymbolicHeapPartition extends HarrshLogging {
   }
 
   private def predCallFromRenamingMap(arity : Int, map : Map[Var,Var]) : PredCall = {
-    assert(map.keys.forall(Var.isFV))
-    assert(map.values.forall(Var.isBound))
+    assert(map.keys.forall(_.isFree))
+    assert(map.values.forall(_.isBound))
 
-    val freeVars = 1 to arity
+    val freeVars = Var.mkAllVars(1 to arity)
     val callArgs = freeVars map (fv => PtrExpr(if (map.isDefinedAt(fv)) map(fv) else fv))
 
     PredCall(partitionDummyPredicateName, callArgs)
@@ -76,7 +76,7 @@ object SymbolicHeapPartition extends HarrshLogging {
     } else {
       val unusedVars = sh.freeVars.toSet -- sh.usedFreeVars
       // FIXME Should we also consider using a fresh FV even if there is an unused one? If the free variable bound is larger than the number of vars we need here, gaps in the set of FVs used should be possible...
-      val instantiations = if (unusedVars.isEmpty) Set(sh.numFV + 1) else unusedVars
+      val instantiations = if (unusedVars.isEmpty) Set(Var(sh.numFV + 1)) else unusedVars
 
       instantiations flatMap {
         unusedFV =>

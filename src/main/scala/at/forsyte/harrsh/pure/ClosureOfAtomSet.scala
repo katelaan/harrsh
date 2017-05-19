@@ -25,7 +25,7 @@ private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure 
     // If the EQ class is defined, check if i is the representation = the minimum of that class
     // Otherwise, no equality for i has been set, so i is the unique and hence minimal element, so it is the representation
     if (mapToClasses.isDefinedAt(fv)) {
-      mapToClasses(fv).min == fv
+      Var.minOf(mapToClasses(fv)) == fv
     } else {
       true
     }

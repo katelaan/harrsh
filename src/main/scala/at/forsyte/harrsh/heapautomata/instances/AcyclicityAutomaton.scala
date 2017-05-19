@@ -18,9 +18,9 @@ class AcyclicityAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton
 
   override def tagComputation(srcTags: Seq[Boolean], lab : SymbolicHeap, baseTrg: baseAutomaton.State, ei : BaseReachabilityAutomaton.UncleanedTrackingInfo): Boolean = {
     if (negate) {
-      srcTags.exists(b => b) || !isAcyclic(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + Var.mkVar(0), numFV)
+      srcTags.exists(b => b) || !isAcyclic(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + Var.nil, numFV)
     } else {
-      !srcTags.exists(!_) && isAcyclic(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + Var.mkVar(0), numFV)
+      !srcTags.exists(!_) && isAcyclic(ei.fullTrackingInfoWithBoundVars, baseTrg.rm.underlyingPairs.get, ei.allVars + Var.nil, numFV)
     }
 }
 
@@ -36,7 +36,7 @@ class AcyclicityAutomaton(numFV : Int, negate : Boolean) extends TaggedAutomaton
       val (ixs, reach) = ReachabilityMatrix.computeExtendedMatrix(ti, reachPairs, vars)
 
       // TODO Stop as soon as cycle is found (but iterating over everything here is needlessly expensive, but through the also needless transformation to Seq, we at least get nice logging below...)
-      val cycles = for (v <- vars.toSeq) yield reach.isReachable(ixs(v), ixs(v))
+      val cycles = for (v <- vars.toSeq) yield reach.isReachable(Var(ixs(v)), Var(ixs(v)))
 
       logger.debug("Cycles: " + (vars zip cycles))
 

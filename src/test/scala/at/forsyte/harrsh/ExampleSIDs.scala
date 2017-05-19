@@ -1,7 +1,7 @@
 package at.forsyte.harrsh
 
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
-import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.seplog.Var.nil
 
 /**
   * Created by jens on 10/15/16.
@@ -165,7 +165,7 @@ object ExampleSIDs extends TestValues with AtomConstructorFunctions {
 
   lazy val NonEstablishedSID = SID("start",
     "Non-Established SID",
-    ("start", Seq("z","y"), SymbolicHeap.fromFullDescription(Seq.empty, Seq.empty, Seq(call("pred", y1, x1)), 1, Seq(-1,-2))),
+    ("start", Seq("z","y"), SymbolicHeap.fromFullDescription(Seq.empty, Seq.empty, Seq(call("pred", y1, x1)), 1, Seq(y1,y2))),
     ("pred", Seq.empty, SymbolicHeap(Seq(ptreq(x1,x2)), Seq.empty, Seq.empty)),
     ("pred", Seq.empty, SymbolicHeap(Seq(ptr(x2,x1))))
   )

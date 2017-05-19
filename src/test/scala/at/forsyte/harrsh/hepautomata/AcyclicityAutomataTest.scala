@@ -43,11 +43,11 @@ class AcyclicityAutomataTest extends HarrshTableTest with TestValues with AtomCo
       (Seq(), SymbolicHeap(Seq(ptrneq(x1, x1)), Seq(ptr(x1, nil)), Seq.empty), WeaklyAcyclic),
 
       // - Non-R SHs
-      (Seq(mk(mkAllVar(1), mkPure(), mx3(1 -> 1), isAcyclic = false)), SymbolicHeap(Seq(), Seq(ptr(x1, x2)), Seq(call("dummy", x2, x1))), Cyclic), // To test propagation of tag bit
-      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), WeaklyAcyclic),
-      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), WeaklyAcyclic), // To test renaming of fresh var
-      (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(x2, y1)), Seq(call("sll", y1, x2))), Cyclic),
-      (Seq(mk(mkAllVar(1,2), mkPure((1,2,true)), mx3(1 -> 2, 1 -> 3)), mk(mkAllVar(2,3), mkPure(), mx3(3 -> 2, 2 -> 1))),
+      (Seq(mk(Set(x1), mkPure(), mx3(1 -> 1), isAcyclic = false)), SymbolicHeap(Seq(), Seq(ptr(x1, x2)), Seq(call("dummy", x2, x1))), Cyclic), // To test propagation of tag bit
+      (Seq(mk(Set(x1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), WeaklyAcyclic),
+      (Seq(mk(Set(x1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), WeaklyAcyclic), // To test renaming of fresh var
+      (Seq(mk(Set(x1), mx3(1 -> 2))), SymbolicHeap(Seq(), Seq(ptr(x2, y1)), Seq(call("sll", y1, x2))), Cyclic),
+      (Seq(mk(Set(x1, x2), mkPure((1,2,true)), mx3(1 -> 2, 1 -> 3)), mk(Set(x2,x3), mkPure(), mx3(3 -> 2, 2 -> 1))),
         SymbolicHeap(Seq(), Seq(ptr(x1, x2)), Seq(call("dummy", x2, y1, y2), call("dummy", x1, x3, y2))),
         Cyclic)
     )

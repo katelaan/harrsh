@@ -33,7 +33,7 @@ case class ReachabilityInfo(ti : TrackingInfo, rm : ReachabilityMatrix) extends 
   private def reachInfoToPtr(src : Var, reach : ReachabilityMatrix) : PointsTo = {
     val info : Seq[Boolean] = reach.getRowFor(src)
 
-    val targets = info.zipWithIndex filter (_._1) map (p=>Var.mkVar(p._2))
+    val targets = info.zipWithIndex filter (_._1) map (p=>Var(p._2))
 
     PointsTo(PtrVar(src), targets map (PtrExpr(_)))
   }
