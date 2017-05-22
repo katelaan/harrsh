@@ -17,26 +17,26 @@ private[pure] case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends C
       throw new IllegalStateException("Assumed " + closure + " is closure, but actual closure is" + computedClosure)
   }
 
-  override def getEquivalenceClass(fv: Var): Set[Var] = {
+  override def getEquivalenceClass(v: Var): Set[Var] = {
     val otherMembers = closure.filter({
       atom =>
         val (l, r, isEq) = unwrapAtom(atom)
-        // Find those equalities that mention fv
-        isEq && (l == fv || r == fv)
+        // Find those equalities that mention v
+        isEq && (l == v || r == v)
     }).map({
       atom =>
         val (l, r, _) = unwrapAtom(atom)
-        // Return the argument that is different from fv
-        if (l == fv) r else l
+        // Return the argument that is different from v
+        if (l == v) r else l
     })
-    Set(fv) union otherMembers
+    Set(v) union otherMembers
   }
 
-  override def isMinimumInItsClass(fv: Var): Boolean = !closure.exists({
+  override def isRepresentative(v: Var): Boolean = !closure.exists({
     atom =>
       // Search for a smaller equal element
       val (l, r, isEq) = unwrapAtom(atom)
-      isEq && r == fv && l < r
+      isEq && r == v && l < r
   })
 
   override def classRepresentativesOf(vars : Set[Var]): Set[Var] = throw new NotImplementedError("To access class representatives, use safe closure implementaton instead")

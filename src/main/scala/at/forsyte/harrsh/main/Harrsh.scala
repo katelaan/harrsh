@@ -3,6 +3,7 @@ package at.forsyte.harrsh.main
 import at.forsyte.harrsh.entailment.{EntailmentAutomatonLearning, GreedyUnfoldingModelChecker}
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
+import at.forsyte.harrsh.util.export.ObservationTableToHtml
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
 import scala.concurrent.duration.{Duration, SECONDS}
@@ -190,9 +191,13 @@ object Harrsh {
             IOUtils.printWarningToConsole("Number of free variables for entailment automaton not specified. Will default to number of free variables in start predicate (" + sid.numFV + ")")
             sid.numFV
           }
-          val (table, log) = EntailmentAutomatonLearning.learnAutomaton(sid, autNumfv, config.reportProgress, maxIterations = 3)
+          val depth = config.oUnfoldingDepth.map{
+            d => println("Will limit unfolding depth to " + d); d
+          }.getOrElse(Int.MaxValue)
+          val (table, log) = EntailmentAutomatonLearning.learnAutomaton(sid, autNumfv, config.reportProgress, maxIterations = depth)
           println("Finished computation of entailment automaton")
-          val resultFile = "automaton_" + (new java.io.File(config.file)).getName + ".aut"
+          val resultFile = "automaton" + autNumfv + "_" + new java.io.File(config.file).getName + ".aut"
+          ObservationTableToHtml(table, "export/autviz" + autNumfv + "_" + sid.startPred)
           MainIO.writeEntailmentAutomatonToFile(sid, autNumfv, table, log, resultFile)
           println("Wrote serialization to " + resultFile)
   }

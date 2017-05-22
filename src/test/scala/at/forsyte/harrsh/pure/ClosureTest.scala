@@ -28,7 +28,7 @@ class ClosureTest extends HarrshTableTest {
 
         for (i <- 1 to 5) {
           info(Var(i) + (if (results(i - 1)) " should be " else " should NOT be ") + "the minimal element in an equality class of " + eqs)
-          closure.isMinimumInItsClass(Var(i)) should be(results(i - 1))
+          closure.isRepresentative(Var(i)) should be(results(i - 1))
         }
     }
 

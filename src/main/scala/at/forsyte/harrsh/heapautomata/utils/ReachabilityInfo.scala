@@ -21,7 +21,7 @@ case class ReachabilityInfo(ti : TrackingInfo, rm : ReachabilityMatrix) extends 
     // TODO Just hide this in tracking info, where we know that we have a closure anyway?
     val closure = Closure.unsafeTrivialClosure(pure)
 
-    val nonredundantAlloc = alloc filter closure.isMinimumInItsClass
+    val nonredundantAlloc = alloc filter closure.isRepresentative
 
     val kernelPtrs : Set[PointsTo] = nonredundantAlloc map (reachInfoToPtr(_, rm))
 

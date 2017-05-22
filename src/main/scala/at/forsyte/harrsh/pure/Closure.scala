@@ -15,18 +15,25 @@ trait Closure {
   def asSetOfAtoms : Set[PureAtom]
 
   /**
-    * Computes the set of all variables that are in the same equivalence class as fv
-    * @param fv Member of class
-    * @return Equivalence class that contains fv
+    * Computes the set of all variables that are in the same equivalence class as v
+    * @param v Member of class
+    * @return Equivalence class that contains v
     */
-  def getEquivalenceClass(fv : Var) : Set[Var]
+  def getEquivalenceClass(v : Var) : Set[Var]
 
   /**
-    * Checks if fv is the (numerically) minimal element in its equivalence class
-    * @param fv Member of class
-    * @return True iff fv is the (numerically) minimal element in its equivalence class
+    * Checks if v is the representative ((numerically) minimal element) of its equivalence class
+    * @param v Member of class
+    * @return True iff v is the (numerically) minimal element in its equivalence class
     */
-  def isMinimumInItsClass(fv : Var) : Boolean
+  def isRepresentative(v : Var) : Boolean
+
+  /**
+    * Get representative of the class of v
+    * @param v Member of class
+    * @return Representative of the class of v
+    */
+  def getRepresentative(v : Var) : Var = Var.minOf(getEquivalenceClass(v))
 
   /**
     * Returns one representative per equivalence class (the minimal element).

@@ -19,13 +19,13 @@ private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure 
     extendEntry(left, right)
   }
 
-  override def getEquivalenceClass(fv : Var) : Set[Var] = mapToClasses.getOrElse(fv, Set(fv))
+  override def getEquivalenceClass(v : Var) : Set[Var] = mapToClasses.getOrElse(v, Set(v))
 
-  override def isMinimumInItsClass(fv : Var) : Boolean = {
+  override def isRepresentative(v : Var) : Boolean = {
     // If the EQ class is defined, check if i is the representation = the minimum of that class
     // Otherwise, no equality for i has been set, so i is the unique and hence minimal element, so it is the representation
-    if (mapToClasses.isDefinedAt(fv)) {
-      Var.minOf(mapToClasses(fv)) == fv
+    if (mapToClasses.isDefinedAt(v)) {
+      Var.minOf(mapToClasses(v)) == v
     } else {
       true
     }
@@ -36,7 +36,7 @@ private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure 
     // val classes = mapToClasses.values.toSet
     // classes.map(_.min)
 
-    vars filter isMinimumInItsClass
+    vars filter isRepresentative
   }
 
   override def isConsistent : Boolean = {

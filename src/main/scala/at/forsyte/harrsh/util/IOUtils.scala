@@ -67,7 +67,12 @@ object IOUtils {
     bw.close()
   }
 
-  def printLinesOf(symbol : Char, numLines : Int) = {
+  def mkDir(fileName : String) : Unit = {
+    val path = java.nio.file.Paths.get(fileName)
+    java.nio.file.Files.createDirectories(path)
+  }
+
+  def printLinesOf(symbol : Char, numLines : Int): Unit = {
     val s : String = symbol.toString
     for (_ <- 1 to numLines) println(s * 80)
   }

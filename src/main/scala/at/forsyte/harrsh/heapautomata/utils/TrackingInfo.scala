@@ -34,7 +34,7 @@ case class TrackingInfo private (alloc: Set[Var], pure: Set[PureAtom]) extends K
     // Here we assume that the state already contains a closure. If this is not the case, the following does not work.
     val closure = Closure.unsafeTrivialClosure(pure)
 
-    val nonredundantAlloc = alloc filter closure.isMinimumInItsClass
+    val nonredundantAlloc = alloc filter closure.isRepresentative
 
     val allocPtr : Set[PointsTo] = nonredundantAlloc map (p => PointsTo(p, nil))
 
