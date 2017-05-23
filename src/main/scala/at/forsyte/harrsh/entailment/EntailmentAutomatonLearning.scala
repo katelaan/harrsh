@@ -1,8 +1,6 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.entailment.EntailmentLearningLog.RedEntCheck
 import at.forsyte.harrsh.entailment.EntailmentLearningLog.RedEntCheck.ExtensionCompatibilityCheck
-import at.forsyte.harrsh.entailment.ObservationTable.TableEntry
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.ConsistencyCheck
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
@@ -13,13 +11,12 @@ import at.forsyte.harrsh.util.{Combinators, IOUtils}
   */
 object EntailmentAutomatonLearning extends HarrshLogging {
 
-  val FindOnlyNonEmpty = true // Only generate non-empty left-hand sides. Still have to figure out if this is the right approach
   val CleanUpSymbolicHeaps = true // Remove redundant variables / (in)equalities [good for performance and readability of the final results, but may complicate debugging]
   val ReportMCProgress = false
 
   type State = (ObservationTable, BreadthFirstUnfoldingsIterator, EntailmentLearningLog)
 
-  def learnAutomaton(sid : SID, maxNumFv : Int, reportProgress : Boolean, maxIterations : Int = Int.MaxValue): (ObservationTable,EntailmentLearningLog) = {
+  def learnAutomaton(sid : SID, maxNumFv : Int, assumeAsymmetry : Boolean, reportProgress : Boolean, maxIterations : Int = Int.MaxValue): (ObservationTable,EntailmentLearningLog) = {
 
     def learningIteration(it : Int, s : State) : State = {
       val (prevObs, unfoldingContinuation, entailmentLog) = s
@@ -35,14 +32,29 @@ object EntailmentAutomatonLearning extends HarrshLogging {
       (cleanedTable, nextContinuation, entailmentLog)
     }
 
+    val learningMode = if (assumeAsymmetry) {
+      if (isStronglySymmetric(sid)) LearnStronglyAsymmetric() else LearnWeaklyAsymmetric()
+    } else {
+      LearnSymmetric()
+    }
+    IOUtils.printIf(reportProgress)("Using learning mode: " + learningMode)
+
     val entailmentLearningLog = new EntailmentLearningLog(reportProgress)
-    val initialState = (ObservationTable.empty(sid, entailmentLearningLog),
-                        BreadthFirstUnfoldingsIterator(sid, iteration = 1, continuation = Seq(sid.callToStartPred), maxNumFv, entailmentLearningLog),
+    entailmentLearningLog.logEvent(EntailmentLearningLog.LearningModeConfig(learningMode))
+
+    val initialState = (ObservationTable.empty(learningMode, sid, entailmentLearningLog),
+                        BreadthFirstUnfoldingsIterator(sid, learningMode, iteration = 1, continuation = Seq(sid.callToStartPred), maxNumFv, entailmentLearningLog),
                         entailmentLearningLog)
 
     val fixedPoint = Combinators.fixedPointComputation[State](initialState, (a,b) => a._1.entries.nonEmpty && a._1 == b._1, maxIterations)(learningIteration)
     fixedPoint._3.logEvent(EntailmentLearningLog.ReachedFixedPoint())
     (fixedPoint._1, fixedPoint._3)
+  }
+
+  private def isStronglySymmetric(sid : SID) : Boolean = {
+    // TODO Is there a meaningful notion of strong asymmetry (where even the emp classes are guaranteed to behave in an asymmetric way)
+    //!sid.rules.exists(rule => rule.body.isReduced && !rule.body.hasPointer)
+    false
   }
 
   private def processPartitions(partitions : Seq[SymbolicHeapPartition], obs : ObservationTable, it : Int, entailmentLog : EntailmentLearningLog) : ObservationTable = {
@@ -69,12 +81,12 @@ object EntailmentAutomatonLearning extends HarrshLogging {
         // There are three cases:
         logger.debug("No exact match for entry " + partition.rep + " => trying reduction to known entry")
 
-        obs.getEntryForEquivalenceClassFromCurrentIteration(partition.rep, it) match {
+        obs.getUnfinishedMatchingEntry(partition.rep, it) match {
           case Some(entry) =>
             // 1.) There is an entry with matching extensions in the current iteration => add representative to that entry
             obs.addRepresentativeToEntry(entry, partition.rep)
           case None =>
-            if (obs.hasEntryForEquivalenceClassFromPreviousIterations(partition.rep, it)) {
+            if (obs.hasMatchingEntryFromPreviousIterations(partition.rep, it)) {
               // 2.) There is an entry with matching extensions in previous iteration => discard partition
               obs
             } else {
@@ -110,9 +122,6 @@ object EntailmentAutomatonLearning extends HarrshLogging {
       val (compatibleWithNewExtension, incompatibleWithNewExtension) = entry.reps.partition {
         rep =>
           val combination = SymbolicHeapPartition(rep, partition.ext, partition.extPredCall).recombined
-          // TODO Abstract away reduced entailment check with integrated logging?
-          entailmentLog.logEvent(RedEntCheck(combination, obs.sid.callToStartPred, ExtensionCompatibilityCheck(rep, partition.ext)))
-
           // If the combination is inconsistent, we conclude incompatibility,
           // since inconsistent heaps are never SID unfoldings
           // (recall that our algorithm assumes that all unfoldings of the SID are satisfiable!)
@@ -121,7 +130,7 @@ object EntailmentAutomatonLearning extends HarrshLogging {
             false
           } else {
             logger.debug("Checking compatibility of " + rep + " with " + partition.ext + " (combination: " + combination + ")")
-            ReducedEntailment.checkSatisfiableRSHAgainstSID(combination, obs.sid.callToStartPred, obs.sid, entailmentLog.reportProgress && ReportMCProgress)
+            reducedEntailmentWithLogging(combination, obs.sid.callToStartPred, obs.sid, ExtensionCompatibilityCheck(rep, partition.ext), entailmentLog, entailmentLog.reportProgress && ReportMCProgress)
           }
       }
 
@@ -135,4 +144,39 @@ object EntailmentAutomatonLearning extends HarrshLogging {
     }
 
   }
+
+  private[entailment] def reducedEntailmentWithLogging(lhs : SymbolicHeap, rhs : SymbolicHeap, sid: SID, reason : EntailmentLearningLog.RedEntCheck.CheckPurpose, learningLog : EntailmentLearningLog, reportProgress : Boolean): Boolean = {
+    learningLog.logEvent(EntailmentLearningLog.RedEntCheck(lhs, rhs, reason))
+    ReducedEntailment.checkSatisfiableRSHAgainstSID(lhs, rhs, sid, reportProgress = reportProgress)
+  }
+
+  sealed trait LearningMode {
+
+    override def toString: String = this match {
+      case LearnWeaklyAsymmetric() => "weakly assymmetric (skip 'emp' during learning, perform full postprocessing)"
+      case LearnStronglyAsymmetric() => "strongly assymmetric (perform renaming postprocessing)"
+      case LearnSymmetric() => "symmetric (integrate renaming in the learning process)"
+    }
+
+    /**
+      * Is the set of classes learned in this mode closed under renaming of free variables
+      */
+    def closedUnderParameterRenaming : Boolean = this match {
+      case LearnWeaklyAsymmetric() => false
+      case LearnStronglyAsymmetric() => false
+      case LearnSymmetric() => true
+    }
+
+    /**
+      * Should the learning algorithm consider unfoldings with empty spatial part?
+      */
+    def closedUnderEmp : Boolean = this match {
+      case LearnWeaklyAsymmetric() => false
+      case LearnStronglyAsymmetric() => true
+      case LearnSymmetric() => true
+    }
+  }
+  case class LearnWeaklyAsymmetric() extends LearningMode
+  case class LearnStronglyAsymmetric() extends LearningMode
+  case class LearnSymmetric() extends LearningMode
 }

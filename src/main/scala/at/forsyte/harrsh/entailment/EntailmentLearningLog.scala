@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.entailment.EntailmentLearningLog._
-import at.forsyte.harrsh.entailment.ObservationTable.TableEntry
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
@@ -36,7 +35,7 @@ class EntailmentLearningLog(val reportProgress : Boolean) {
   }
   
   private def eventBasedProgressReport(le : LearningEvent) : Unit = {
-    if (le.isInstanceOf[ProcessPartition] && counters.partitions % SpacingBetweenProgressMessages == 0) {
+    if ((le.isInstanceOf[ProcessPartition] && counters.partitions % SpacingBetweenProgressMessages == 0) || le.isInstanceOf[ReachedFixedPoint]) {
       printProgress("Processed partitions: " + counters.partitions + " / Table updates: " + counters.tableUpdates + " / Successful table lookups: " + counters.tableLookups + " / Red. entailment checks: " + counters.redents)
     }
     le match {
@@ -66,6 +65,8 @@ object EntailmentLearningLog {
   sealed trait LearningEvent {
 
     override def toString = this match {
+      case LearningModeConfig(learningMode) =>
+        "Configured learning mode: " + learningMode
       case IterationStats(iteration, numUnfs) =>
         "Iteration " + iteration + ": " + numUnfs + " unfoldings to process"
       case ProcessPartition(partition) =>
@@ -82,6 +83,9 @@ object EntailmentLearningLog {
 
   }
 
+
+
+  case class LearningModeConfig(learningMode : EntailmentAutomatonLearning.LearningMode) extends LearningEvent
   case class IterationStats(iteration : Int, numUnfs : Int) extends LearningEvent
   case class ProcessPartition(partition : SymbolicHeapPartition) extends LearningEvent
   case class TableLookupOperation(op : TableOperations.LookupType) extends LearningEvent
@@ -95,8 +99,8 @@ object EntailmentLearningLog {
     case class FinalityCheck() extends CheckPurpose {
       override def toString: String = "if underlying class is accepting"
     }
-    case class ReducibilityCheck(reps : Set[SymbolicHeap]) extends CheckPurpose {
-      override def toString: String = "reducibility to " + reps.mkString("{", ", ", "}")
+    case class ReducibilityCheck(rep : SymbolicHeap) extends CheckPurpose {
+      override def toString: String = "reducibility to " + rep
     }
     case class ExtensionCompatibilityCheck(rep : SymbolicHeap, ext : SymbolicHeap) extends CheckPurpose {
       override def toString: String = "compatibility of " + rep + " with " + ext

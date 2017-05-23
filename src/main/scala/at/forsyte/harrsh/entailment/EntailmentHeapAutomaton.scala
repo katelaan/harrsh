@@ -8,7 +8,7 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
   */
 class EntailmentHeapAutomaton(val numFV : Int, val obs : ObservationTable) extends HeapAutomaton with FVBound {
 
-  val stateMap : Map[Int,ObservationTable.TableEntry] = Map() ++ obs.entries.zipWithIndex.map(_.swap)
+  val stateMap : Map[Int,TableEntry] = Map() ++ obs.entries.zipWithIndex.map(_.swap)
 
   override type State = Int
   override lazy val states: Set[State] = stateMap.keySet
@@ -40,7 +40,7 @@ object EntailmentHeapAutomaton {
     "EntailmentAutomaton {\n" + "  fvbound = " + aut.numFV + "\n" + "  non-sink-states = {\n" + indexedStates.mkString("\n") + "\n  }\n}"
   }
 
-  private def toStateDescription(entry : ObservationTable.TableEntry) : String = {
+  private def toStateDescription(entry : TableEntry) : String = {
     ("{\n"
       + entry.reps.mkString("      representatives = {", ", ", "}\n")
       + entry.exts.mkString("      extensions = {", ", ", "}\n")

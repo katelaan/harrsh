@@ -14,23 +14,28 @@ object Determinization extends HarrshLogging {
 
   // TODO Problem: This naive determinization can produce inconsistent heaps! E.g. for x1 -> x2, one possible determinization is x1 -> x2 : { x1 = x2, x2 = null }!
   def rshDeterminizations(rsh : SymbolicHeap) : Seq[SymbolicHeap] = {
-
     logger.debug("Determinization of " + rsh)
     val undeterminedPairs = undeterminedRelationships(rsh)
+    determineRelationshipsOf(rsh, undeterminedPairs)
+  }
 
+  def determineRelationshipsOf(rsh : SymbolicHeap, undeterminedPairs : Seq[(Var,Var)]) : Seq[SymbolicHeap] = {
     if (undeterminedPairs.isEmpty) {
       // Already determined
       Seq(rsh)
     } else {
       // Not determined, create one new RSH per determinization choice
-      val determiningConstraints: Seq[Set[PureAtom]] = undeterminedPairs map {
-        case (fst, snd) => Set[PureAtom](PtrEq(fst, snd), PtrNEq(fst, snd))
-      }
-
       for {
-        determinizationChoice <- Combinators.choices(determiningConstraints)
+        determinizationChoice <- determinizationChoices(undeterminedPairs)
       } yield rsh.copy(pure = rsh.pure ++ determinizationChoice)
     }
+  }
+
+  private def determinizationChoices(undeterminedPairs : Seq[(Var,Var)]) : Seq[Seq[PureAtom]] = {
+    val determiningConstraints: Seq[Set[PureAtom]] = undeterminedPairs map {
+      case (fst, snd) => Set[PureAtom](PtrEq(fst, snd), PtrNEq(fst, snd))
+    }
+    Combinators.choices(determiningConstraints)
   }
 
   def undeterminedRelationships(rsh : SymbolicHeap) : Seq[(Var,Var)] = {

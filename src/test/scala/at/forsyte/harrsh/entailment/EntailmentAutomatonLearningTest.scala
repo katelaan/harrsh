@@ -15,7 +15,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
   it should "learn SLL entailment checking" in {
 
     val sid = "sll.sid".load()
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, assumeAsymmetry = true, reportProgress =  true)
     printCase(sid, obs, log)
 
     obs.numClasses shouldEqual 1
@@ -31,7 +31,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
   it should "learn ACYC SLL entailment checking" in {
 
     val sid = "sll-acyc.sid".load()
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, assumeAsymmetry = true, reportProgress =  true)
     printCase(sid, obs, log)
 
     obs.numClasses shouldEqual 3
@@ -58,7 +58,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
         |merge <= x1 -> (y1, null) * merge(y1, x2) ;
         |merge <= x1 -> (null, y1) * merge(y1, x2)
       """.stripMargin.parseSID
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, assumeAsymmetry = true, reportProgress =  true)
     printCase(sid, obs, log)
 
     obs.numClasses shouldEqual 1
@@ -82,7 +82,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
         |multi <= x1 -> (y1, null) * multi(y1, x2) ;
         |multi <= x1 -> (null, y1) * multi(y1, x2)
       """.stripMargin.parseSID
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, assumeAsymmetry = true, reportProgress =  true)
     printCase(sid, obs, log)
 
     obs.numClasses shouldEqual 1
@@ -107,7 +107,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
         |overlap <= x1 -> (null, null, y1) * y1 -> (x2, null) ;
         |overlap <= x1 -> (y1, null, null) * overlap(y1, x2)
       """.stripMargin.parseSID
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, assumeAsymmetry = true, reportProgress =  true)
     printCase(sid, obs, log)
 
     obs.numClasses shouldEqual 6
@@ -182,7 +182,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
   it should "learn the null-terminated tree SID" in {
 
     val sid = "tree.sid".load
-    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true)
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, assumeAsymmetry = true, reportProgress =  true)
     printCase(sid, obs, log)
 
     obs.numClasses shouldEqual 3

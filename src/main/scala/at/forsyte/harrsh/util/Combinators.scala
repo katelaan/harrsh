@@ -62,10 +62,16 @@ object Combinators {
   def iteratedBinOp[A](binop : (A, A) => A, zero : A)(ops: Seq[A]) : A =
     if (ops.isEmpty) zero else ops.tail.foldLeft(ops.head)(binop)
 
-  def allSeqsOfLength[A](l : Int, as : Set[A]) : Set[Seq[A]]= {
-    if (l == 1) as map (Seq(_))
+  /**
+    * Generates all sequences of the given length whose elements are from the set as (repetitions allowed)
+    * @param length Length of seqs to generate (at least 1)
+    * @param as Set of elements to draw from
+    * @return All sequences of the given length whose elements are from the set as (repetitions allowed)
+    */
+  def allSeqsOfLength[A](length : Int, as : Set[A]) : Set[Seq[A]]= {
+    if (length == 1) as map (Seq(_))
     else {
-      val shorter = allSeqsOfLength(l-1, as)
+      val shorter = allSeqsOfLength(length-1, as)
       for {
         a <- as
         seq <- shorter

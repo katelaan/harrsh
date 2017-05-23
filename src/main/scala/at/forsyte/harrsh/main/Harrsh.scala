@@ -194,7 +194,10 @@ object Harrsh {
           val depth = config.oUnfoldingDepth.map{
             d => println("Will limit unfolding depth to " + d); d
           }.getOrElse(Int.MaxValue)
-          val (table, log) = EntailmentAutomatonLearning.learnAutomaton(sid, autNumfv, config.reportProgress, maxIterations = depth)
+          // FIXME Set asymmetry assumption via parameter
+          val assumeAsymmetry : Boolean = true
+          println(if (assumeAsymmetry) "Assuming asymmetry of SID" else "Learning possibly symmetrical SID")
+          val (table, log) = EntailmentAutomatonLearning.learnAutomaton(sid, autNumfv, assumeAsymmetry = assumeAsymmetry, config.reportProgress, maxIterations = depth)
           println("Finished computation of entailment automaton")
           val resultFile = "automaton" + autNumfv + "_" + new java.io.File(config.file).getName + ".aut"
           ObservationTableToHtml(table, "export/autviz" + autNumfv + "_" + sid.startPred)

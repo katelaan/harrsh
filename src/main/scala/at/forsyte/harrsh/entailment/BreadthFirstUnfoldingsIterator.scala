@@ -8,7 +8,7 @@ import at.forsyte.harrsh.util.Combinators
 /**
   * Created by jens on 5/3/17.
   */
-case class BreadthFirstUnfoldingsIterator(sid : SID, iteration: Int, continuation : Seq[SymbolicHeap], maxNumFV : Int, entailmentLog : EntailmentLearningLog) extends HarrshLogging {
+case class BreadthFirstUnfoldingsIterator(sid : SID, learningMode : EntailmentAutomatonLearning.LearningMode, iteration: Int, continuation : Seq[SymbolicHeap], maxNumFV : Int, entailmentLog : EntailmentLearningLog) extends HarrshLogging {
 
   // TODO Return lazy iterator instead (and change processing functions accordingly)
   def continue : (Seq[SymbolicHeapPartition],BreadthFirstUnfoldingsIterator) = {
@@ -42,8 +42,8 @@ case class BreadthFirstUnfoldingsIterator(sid : SID, iteration: Int, continuatio
     for {
       (sigma1, sigma2) <- spatialPartitions
       (pi1, pi2) <- purePartitions
-      // FIXME We should probably only keep partitions with empty spatial part if the pure part breaks all symmetries? (I.e. by setting all parameters equal!)
-      if !EntailmentAutomatonLearning.FindOnlyNonEmpty || (sigma1.nonEmpty || pi1.nonEmpty)
+      // FIXME Should we always keep some emp classes (with nonempty pure part)?
+      // if learningMode.closedUnderEmp || sigma1.nonEmpty //(sigma1.nonEmpty || pi1.nonEmpty)
       representative = SymbolicHeap(pi1.toSeq, sigma1.toSeq, Seq.empty)
       extension = SymbolicHeap(pi2.toSeq, sigma2.toSeq, Seq.empty)
       partition <- SymbolicHeapPartition.partitionsFromUnbindingSharedVars(representative, extension)

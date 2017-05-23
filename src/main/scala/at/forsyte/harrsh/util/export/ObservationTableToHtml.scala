@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.util.export
 
 import scala.xml.Elem
-import at.forsyte.harrsh.entailment.ObservationTable
+import at.forsyte.harrsh.entailment.{ObservationTable, TableEntry}
 import at.forsyte.harrsh.seplog.inductive.{PredCall, SymbolicHeap}
 import at.forsyte.harrsh.util.IOUtils
 
@@ -26,7 +26,7 @@ object ObservationTableToHtml {
       <body>
         <div><code>{obs.sid}</code></div>
         <table>
-          <tr><th>State ID</th><th>Representative(s)</th><th>Minimal Extension(s)</th><th>Final?</th></tr>
+          <tr><th>State ID</th><th>Representative(s)</th><th>Minimal Extension(s)</th><th>Final?</th><th>Meta</th></tr>
           {
           obs.entries.sortBy(_.discoveredInIteration).zipWithIndex map (pair => entryToHtml(pair._2 + 1, pair._1))
           }
@@ -34,11 +34,12 @@ object ObservationTableToHtml {
       </body>
     </html>
 
-    private def entryToHtml(id : Int, entry : ObservationTable.TableEntry) : Elem = <tr>
+    private def entryToHtml(id : Int, entry : TableEntry) : Elem = <tr>
       <td>{id}</td>
       <td>{repsToPng(id, entry.reps)}</td>
       <td>{extsToPng(id, entry.exts)}</td>
       <td>{if (entry.isFinal) "Yes" else "No"}</td>
+      <td>{"free vars = " + entry.numFV + ","}<br/>{"iteration = " + entry.discoveredInIteration}<br/>{"introduced in postprocessing = " + entry.introducedThroughClosure}</td>
       </tr>
 
     private def repsToPng(id : Int, reps : Set[SymbolicHeap]) : Elem = {

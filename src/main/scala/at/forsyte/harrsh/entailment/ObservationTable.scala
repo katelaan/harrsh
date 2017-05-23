@@ -1,16 +1,14 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.entailment.EntailmentAutomatonLearning.LearningMode
 import at.forsyte.harrsh.entailment.EntailmentLearningLog.{TableLookupOperation, TableOperations, TableUpdateOperation}
-import at.forsyte.harrsh.entailment.ObservationTable.TableEntry
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.{ConsistencyCheck, ReducedHeapEquivalence}
-import at.forsyte.harrsh.seplog.Renaming
 import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SymbolicHeap}
 
 /**
   * Created by jens on 4/25/17.
   */
-case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entailmentLearningLog: EntailmentLearningLog) extends HarrshLogging {
+case class ObservationTable private (learningMode : LearningMode, sid : SID, entries : Seq[TableEntry], entailmentLearningLog: EntailmentLearningLog) extends HarrshLogging {
 
   private val reportProgress: Boolean = entailmentLearningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress
 
@@ -83,10 +81,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
     logger.debug("Trying to find equivalence class for " + sh)
     val entriesToCheck = entries filter filterPredicate
     val res = entriesToCheck.find {
-      entry =>
-        // TODO Should actually log multiple entailment checks, as one is performed per representative and we're also using the original SID...
-        entailmentLearningLog.logEvent(EntailmentLearningLog.RedEntCheck(sh, sid.callToStartPred, EntailmentLearningLog.RedEntCheck.ReducibilityCheck(entry.reps)))
-        entry.equivalenceClassContains(sh, sid, reportProgress)
+      _.equivalenceClassContains(sh, sid, reportProgress, entailmentLearningLog)
     }
     res.foreach(entry => {
       logger.debug("Can reduce " + sh + " to " + entry.reps)
@@ -96,17 +91,44 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
   }
 
   // FIXME This could be incorrect in some cases, because there is some nondeterminism left in the observation table! Idea: It might be possible to prioritize / only consider classes that do not lead to redundant pure constraints, but have to think this through
-  // E.g. emp { x1 != x2 } is in the language and there are classes with extensions emp and emp : {x1 != x2}, then the heap emp : {x1 != x2} would actually be placed in both classes...
-  def hasEntryForEquivalenceClassFromPreviousIterations(sh : SymbolicHeap, currentIteration : Int) : Boolean = findEntryForEquivalenceClassOf(sh, _.discoveredInIteration < currentIteration).nonEmpty
+  // E.g. if emp { x1 != x2 } is in the language and there are classes with extensions emp and emp : {x1 != x2}, then the heap emp : {x1 != x2} would actually be placed in both classes...
+  def hasMatchingEntryFromPreviousIterations(sh : SymbolicHeap, currentIteration : Int) : Boolean = findEntryForEquivalenceClassOf(sh, _.discoveredInIteration < currentIteration).nonEmpty
 
-  def getEntryForEquivalenceClassFromCurrentIteration(sh : SymbolicHeap, currentIteration : Int) : Option[TableEntry] = findEntryForEquivalenceClassOf(sh, _.discoveredInIteration == currentIteration)
+  /**
+    * Returns some unifished entry containing rep (i.e., entry that can still be extended); an entry is unfinished if it is from the current iteration or if it was from the previous iteration and contains emp.
+    * @param rep Representative whose entry we look for
+    * @param currentIteration Current iteration
+    * @return Some matching entry or nothing
+    */
+  def getUnfinishedMatchingEntry(rep : SymbolicHeap, currentIteration : Int) : Option[TableEntry] = {
+    // If the learning mode closes under emp, i.e. treats emp like every other representative, no special treatment of emp reps is necesary;
+    // In that case, only entries from the current iteration are treated as unfinished
+    // On the other hand, if emp needs special treatment, we might split off its own equivalence class later; we therefore need to find another representative of the class, which might happen only in the iteration after emp is discovered
+    // TODO Is this really the right criterion? What if we disocver both emp and another representative in the same iteration? (I think we still need to consider the next iteration, but am not 100% sure)
+    def isUnfinished(entry : TableEntry) = entry.discoveredInIteration == currentIteration || (!learningMode.closedUnderEmp && entry.discoveredInIteration == currentIteration-1 && entry.hasEmptyRepresentative)
+    findEntryForEquivalenceClassOf(rep, isUnfinished)
+  }
+
+  def getAllMatchingEntries(sh : SymbolicHeap) : Seq[TableEntry] = {
+    // TODO Code duplication wrt findEntryForEquivalenceClassOf
+    logger.debug("Finding all entries for " + sh)
+    val res = entries filter {
+      entry =>
+        entry.equivalenceClassContains(sh, sid, reportProgress, entailmentLearningLog)
+    }
+    res.foreach(entry => {
+      logger.debug("Can reduce " + sh + " to " + entry.reps)
+      entailmentLearningLog.logEvent(TableLookupOperation(TableOperations.FoundReduction(sh, entry)))
+    })
+    res
+  }
 
   def accepts(sh : SymbolicHeap, verbose : Boolean = false) : Boolean = {
     // Note: Checking only final classes is not only good for performance, but actually necessary at this points,
     // because the ObservationTable does *not* resolve all nondeterminism!
-    val entry = findEntryForEquivalenceClassOf(sh, (_.isFinal))
+    val entry = findEntryForEquivalenceClassOf(sh, _.isFinal)
     if (verbose) entry match {
-      case Some(x) => println(sh + " is in class of " + x + " generated by " + x.repSid)
+      case Some(x) => println(sh + " is in class of " + x) // + " generated by " + x.repSid)
       case None => println("No match for " + sh)
     }
     entry.exists(_.isFinal)
@@ -149,99 +171,20 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
   }
 
   private def tableEntryFromPartition(part : SymbolicHeapPartition, iteration : Int) : TableEntry = {
-    entailmentLearningLog.logEvent(EntailmentLearningLog.RedEntCheck(part.rep, sid.callToStartPred, EntailmentLearningLog.RedEntCheck.FinalityCheck()))
-
     TableEntry(
       Set(part.rep),
       Set((part.ext,part.extPredCall)),
-      RepresentativeSIDComputation.adaptSIDToRepresentative(sid, part.rep),
+      //RepresentativeSIDComputation.adaptSIDToRepresentative(sid, part.rep),
       // TODO It should be sufficient to just check for emp in the extension set, but then we might have to update "finality" later, because it is possible that we first discover rep with a nonempty extension
-      ReducedEntailment.checkSatisfiableRSHAgainstSID(part.rep, sid.callToStartPred, sid, reportProgress),
-      iteration)
+      EntailmentAutomatonLearning.reducedEntailmentWithLogging(part.rep, sid.callToStartPred, sid, EntailmentLearningLog.RedEntCheck.FinalityCheck(), entailmentLearningLog, reportProgress),
+      iteration,
+      introducedThroughClosure = false)
   }
 
 }
 
 object ObservationTable {
 
-  def empty(sid : SID, entailmentLearningLog: EntailmentLearningLog) : ObservationTable = ObservationTable(sid, Seq.empty, entailmentLearningLog)
-
-  // TODO Maybe don't store extensions and their predicate calls separately? This would also remove issues with having to keep gaps in bound vars... (Would then have to change the SymbolicHeapPartition class as well)
-  case class TableEntry(reps : Set[SymbolicHeap], exts : Set[(SymbolicHeap,PredCall)], repSid : SID, isFinal : Boolean, discoveredInIteration : Int) extends HarrshLogging {
-
-    assert(reps.nonEmpty && exts.nonEmpty)
-    assert(reps.map(_.numFV).size == 1)
-    assert(exts.map(_._2.args.size).size == 1)
-    assert(reps.head.numFV == exts.head._2.args.size)
-
-    override def toString: String = "Entry(reps = " + reps.mkString("{", ", ", "}") + ", exts = " + exts.map(SymbolicHeapPartition.combinedString).mkString("{", ",", "}") + ", isFinal = " + isFinal + ", i = " + discoveredInIteration + ")"
-
-    override def equals(o: scala.Any): Boolean = o match {
-      case other : TableEntry => other.reps == reps && other.exts == exts
-      case _ => false
-    }
-
-    override def hashCode(): Int = (reps,exts).hashCode()
-
-    lazy val numFV : Int = {
-      // This should be identical for all reps and exts (see also assertions above), so just picking an arbitrary one is fine
-      reps.head.numFV
-    }
-
-    def asPartitionSequence: Seq[SymbolicHeapPartition] = (for {
-      rep <- reps
-      ext <- exts
-    } yield SymbolicHeapPartition(rep, ext._1, ext._2)).toSeq
-
-    def addExtension(ext : SymbolicHeap, extCall : PredCall) : TableEntry = copy(exts = exts + ((ext, extCall)))
-
-    def addRepresentative(rep : SymbolicHeap) : TableEntry = copy(reps = reps + rep, repSid = RepresentativeSIDComputation.addBaseRule(repSid, rep))
-
-    /**
-      * Does this entry's set of representatives contain a heap that is equivalent to sh?
-      * @param rep Heap to check for equivalence
-      * @return true iff there is an equivalent heap in the set of representatives
-      */
-    def containsEquivalentRepresentative(rep: SymbolicHeap) : Boolean = reps.exists(ReducedHeapEquivalence(_,rep))
-
-    /**
-      * Does this table contain the given representative if interpreted as sid-equivalence class,
-      * i.e. is the given representative compatible with all extensions of this table entry?
-      * @param rep Representative whose equivalence we want to check
-      * @param sid The SID we want to learn, i.e., the basis of the equivalence relation
-      * @param reportProgress Should reduced-entailment progress be reported?
-      * @return True iff rep in the class represented by this table entry
-      */
-    def equivalenceClassContains(rep : SymbolicHeap, sid : SID, reportProgress : Boolean = false) : Boolean = {
-      // Note: The entailment check does *not* work, that's too weak: E.g. x1 -> x2 : { x1 != x2 } ENTAILS x1 -> x2,
-      // so the following check would always place the former into the class of the latter!
-      // ReducedEntailment.checkSatisfiableRSHAgainstSID(sh, repSid.callToStartPred, repSid, reportProgress = reportProgress)
-      // That's why we really have to do the check for all extensions against the original SID!
-
-      logger.debug("Checking inclusion of " + rep + " in " + this)
-
-      def doesCombinationEntailSID(ext : (SymbolicHeap,PredCall)) : Boolean = {
-        val merged = SymbolicHeapPartition(rep, ext._1, ext._2).recombined
-        if (!ConsistencyCheck.isConsistent(merged)) {
-          logger.debug("Not in class, because inconsistent: " + merged)
-          false
-        } else {
-          val res = ReducedEntailment.checkSatisfiableRSHAgainstSID(merged, sid.callToStartPred, sid, reportProgress = reportProgress)
-          logger.debug("Checking reduced entailment of " + merged + " against original SID => " + res)
-          res
-        }
-      }
-
-      if (rep.numFV != numFV) {
-        // If the representative and this class differ in the number of free variables, the rep can't be contained in this entry
-        logger.debug("Representative and class differ in number of FVs => Don't belong to same class")
-        false
-      } else {
-        // The representative is assumed to be in the same class iff all combinations with extensions yield satisfiable
-        // heaps that entail the SID
-        exts forall doesCombinationEntailSID
-      }
-    }
-  }
+  def empty(learningMode: LearningMode, sid : SID, entailmentLearningLog: EntailmentLearningLog) : ObservationTable = ObservationTable(learningMode, sid, Seq.empty, entailmentLearningLog)
 
 }
