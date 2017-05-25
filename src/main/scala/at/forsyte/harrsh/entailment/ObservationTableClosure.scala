@@ -19,6 +19,8 @@ object ObservationTableClosure extends HarrshLogging {
 
   def closeUnderParameterRenaming(obs : ObservationTable) : ObservationTable = {
 
+    logger.debug("Closing under parameter renamings")
+
     val newCandidateEntries = obs.entries flatMap {
       entry =>
         for {
@@ -28,6 +30,8 @@ object ObservationTableClosure extends HarrshLogging {
           if renamedEntry.reps.forall(ConsistencyCheck.isConsistent)
         } yield renamedEntry
     }
+
+
 
     ???
 

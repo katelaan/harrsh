@@ -44,6 +44,7 @@ case class BreadthFirstUnfoldingsIterator(sid : SID, learningMode : EntailmentAu
       (pi1, pi2) <- purePartitions
       // FIXME Should we always keep some emp classes (with nonempty pure part)?
       // if learningMode.closedUnderEmp || sigma1.nonEmpty //(sigma1.nonEmpty || pi1.nonEmpty)
+      if sigma1.nonEmpty || pi1.nonEmpty
       representative = SymbolicHeap(pi1.toSeq, sigma1.toSeq, Seq.empty)
       extension = SymbolicHeap(pi2.toSeq, sigma2.toSeq, Seq.empty)
       partition <- SymbolicHeapPartition.partitionsFromUnbindingSharedVars(representative, extension)

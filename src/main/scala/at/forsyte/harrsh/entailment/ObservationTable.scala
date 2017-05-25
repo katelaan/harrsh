@@ -66,7 +66,7 @@ case class ObservationTable private (learningMode : LearningMode, sid : SID, ent
     * @param iteration Only entries discovered in this iteration are searched
     * @return Some iteration with equivalent representative or None
     */
-  def findMatchingEntryFromIteration(representative : SymbolicHeap, iteration : Int) : Option[TableEntry] = {
+  def findEntryWithEquivalentRepFromIteration(representative : SymbolicHeap, iteration : Int) : Option[TableEntry] = {
     val res = entries.find(entry => entry.discoveredInIteration == iteration && entry.containsEquivalentRepresentative(representative))
     res.foreach(entry => entailmentLearningLog.logEvent(TableLookupOperation(TableOperations.FoundEquivalent(representative, entry))))
     res
@@ -137,12 +137,17 @@ case class ObservationTable private (learningMode : LearningMode, sid : SID, ent
   def rejects(sh : SymbolicHeap, verbose : Boolean = false) : Boolean = !accepts(sh, verbose)
 
   def addRepresentativeToEntry(entry : TableEntry, rep : SymbolicHeap) : ObservationTable = {
+    addRepresentativeToEntryAndReturnEntry(entry, rep)._1
+  }
+
+  def addRepresentativeToEntryAndReturnEntry(entry : TableEntry, rep : SymbolicHeap) : (ObservationTable,TableEntry) = {
     entailmentLearningLog.logEvent(TableUpdateOperation(TableOperations.EnlargedEntry(entry, rep, isNewRepresentative = true)))
 
     // TODO Maybe come up with a more efficient implementation of table entry update... Also code duplication
     val ix = entries.indexOf(entry)
-    val newEntries = entries.updated(ix, entry.addRepresentative(rep))
-    copy(entries = newEntries)
+    val newEntry = entry.addRepresentative(rep)
+    val newEntries = entries.updated(ix, newEntry)
+    (copy(entries = newEntries), newEntry)
   }
 
   def addExtensionToEntry(entry : TableEntry, ext : SymbolicHeap, extPredCall : PredCall) : ObservationTable = {
