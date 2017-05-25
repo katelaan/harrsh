@@ -7,7 +7,7 @@ import at.forsyte.harrsh.seplog.inductive.{PointsTo, PredCall, PureAtom, Symboli
   */
 trait SimpleLearningStrategy extends LearningStrategy {
 
-  override def iterationPostprocessing(obs : ObservationTable) : ObservationTable = obs
+  override def iterationPostprocessing(obs : ObservationTable, log : EntailmentLearningLog) : ObservationTable = obs
 
   override def checkPartition(partition : SymbolicHeapPartition, obs : ObservationTable, it : Int, entailmentLog : EntailmentLearningLog) : ObservationTable = {
 
@@ -18,7 +18,7 @@ trait SimpleLearningStrategy extends LearningStrategy {
       } else {
         logger.debug("Matching entry " + entry + " is still open, will add " + partition)
         val (obsWithRep,entryWithRep) = obs.addRepresentativeToEntryAndReturnEntry(entry, partition.rep)
-        enlargeEntryWithExtension(obsWithRep, entryWithRep, partition, it, entailmentLog)
+        obsWithRep.addExtensionToEntry(entryWithRep, partition, it, entailmentLog)
       }
     }
 
@@ -26,7 +26,7 @@ trait SimpleLearningStrategy extends LearningStrategy {
     entries.size match {
       case 0 =>
         // No match, new class
-        withNewTableEntryFromPartition(obs, partition, it)
+        obs.addNewEntryForPartition(partition, it)
       case 1 =>
         // One match => Extend the class (which might trigger a split though, if it actually represents more than one equivalence class!)
         updateEntry(entries.head)

@@ -1,14 +1,15 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.entailment.EntailmentAutomatonLearning.LearningMode
+import at.forsyte.harrsh.entailment.EntailmentLearningLog.RedEntCheck.ExtensionCompatibilityCheck
 import at.forsyte.harrsh.entailment.EntailmentLearningLog.{TableLookupOperation, TableOperations, TableUpdateOperation}
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.pure.ConsistencyCheck
 import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SymbolicHeap}
 
 /**
   * Created by jens on 4/25/17.
   */
-case class ObservationTable private (learningMode : LearningMode, sid : SID, entries : Seq[TableEntry], entailmentLearningLog: EntailmentLearningLog) extends HarrshLogging {
+case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entailmentLearningLog: EntailmentLearningLog) extends HarrshLogging {
 
   private val reportProgress: Boolean = entailmentLearningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress
 
@@ -31,53 +32,12 @@ case class ObservationTable private (learningMode : LearningMode, sid : SID, ent
 
   def finalClasses = entries.filter(_.isFinal)
 
-  def mergeDuplicateEntries : ObservationTable = {
-    // Merge entries with identical sets of extensions
-    // FIXME Will the extensions really be identical or just equivalent? Should come up with a counterexample where we need the latter!
-    val grouped = entries.groupBy(_.exts)
-    val mergedEntries : Seq[TableEntry] = (grouped map {
-      case (ext, groupedEntries) =>
-        if (groupedEntries.size == 1)
-          groupedEntries.head
-        else {
-          logger.debug("Performing merge of the following entries:\n" + groupedEntries.map(" - " + _).mkString("\n"))
-          val byIteration = groupedEntries.groupBy(_.discoveredInIteration)
-          if (byIteration.size > 1) {
-            val minKey = byIteration.keySet.min
-            // FIXME Is this always a correct thing to do? (Should be in the 1-predicate case, but in other cases?)
-            logger.debug("Trivial merge: Discarding all entries found in iteration later than " + minKey)
-            val resultSet = byIteration(minKey)
-            assert(resultSet.size == 1)
-            resultSet.head
-          } else {
-            entailmentLearningLog.logEvent(TableUpdateOperation(TableOperations.MergeTableEntries(groupedEntries)))
-            val mergedReps: Set[SymbolicHeap] = (groupedEntries flatMap (_.reps)).toSet
-            groupedEntries.head.copy(reps = mergedReps)
-          }
-        }
-    }).toSeq
-    copy(entries = mergedEntries)
-  }
-
-  /**
-    * Searches the set of entries for an entry from the given iteration whose set of representatives contains a
-    * representative matching the given representative (i.e., an entry with a rep equivalent to the given heap)
-    * @param representative Heap whose entry we try to find
-    * @param iteration Only entries discovered in this iteration are searched
-    * @return Some iteration with equivalent representative or None
-    */
-  def findEntryWithEquivalentRepFromIteration(representative : SymbolicHeap, iteration : Int) : Option[TableEntry] = {
-    val res = entries.find(entry => entry.discoveredInIteration == iteration && entry.containsEquivalentRepresentative(representative))
-    res.foreach(entry => entailmentLearningLog.logEvent(TableLookupOperation(TableOperations.FoundEquivalent(representative, entry))))
-    res
-  }
-
   /**
     * Searches for an entry whose associated equivalence class contains sh
     * @param sh Heap against which the entries/equivalence classes are checked
     * @return Some table entry representing the equivalence class of sh or None
     */
-  private def findEntryForEquivalenceClassOf(sh : SymbolicHeap, filterPredicate : TableEntry => Boolean) : Option[TableEntry] = {
+  def findEntryForEquivalenceClassOf(sh : SymbolicHeap, filterPredicate : TableEntry => Boolean) : Option[TableEntry] = {
     logger.debug("Trying to find equivalence class for " + sh)
     val entriesToCheck = entries filter filterPredicate
     val res = entriesToCheck.find {
@@ -88,25 +48,6 @@ case class ObservationTable private (learningMode : LearningMode, sid : SID, ent
       entailmentLearningLog.logEvent(TableLookupOperation(TableOperations.FoundReduction(sh, entry)))
     })
     res
-  }
-
-  // FIXME This could be incorrect in some cases, because there is some nondeterminism left in the observation table! Idea: It might be possible to prioritize / only consider classes that do not lead to redundant pure constraints, but have to think this through
-  // E.g. if emp { x1 != x2 } is in the language and there are classes with extensions emp and emp : {x1 != x2}, then the heap emp : {x1 != x2} would actually be placed in both classes...
-  def hasMatchingEntryFromPreviousIterations(sh : SymbolicHeap, currentIteration : Int) : Boolean = findEntryForEquivalenceClassOf(sh, _.discoveredInIteration < currentIteration).nonEmpty
-
-  /**
-    * Returns some unifished entry containing rep (i.e., entry that can still be extended); an entry is unfinished if it is from the current iteration or if it was from the previous iteration and contains emp.
-    * @param rep Representative whose entry we look for
-    * @param currentIteration Current iteration
-    * @return Some matching entry or nothing
-    */
-  def getUnfinishedMatchingEntry(rep : SymbolicHeap, currentIteration : Int) : Option[TableEntry] = {
-    // If the learning mode closes under emp, i.e. treats emp like every other representative, no special treatment of emp reps is necesary;
-    // In that case, only entries from the current iteration are treated as unfinished
-    // On the other hand, if emp needs special treatment, we might split off its own equivalence class later; we therefore need to find another representative of the class, which might happen only in the iteration after emp is discovered
-    // TODO Is this really the right criterion? What if we disocver both emp and another representative in the same iteration? (I think we still need to consider the next iteration, but am not 100% sure)
-    def isUnfinished(entry : TableEntry) = entry.discoveredInIteration == currentIteration || (!learningMode.closedUnderEmp && entry.discoveredInIteration == currentIteration-1 && entry.hasEmptyRepresentative)
-    findEntryForEquivalenceClassOf(rep, isUnfinished)
   }
 
   def getAllMatchingEntries(sh : SymbolicHeap) : Seq[TableEntry] = {
@@ -150,7 +91,44 @@ case class ObservationTable private (learningMode : LearningMode, sid : SID, ent
     (copy(entries = newEntries), newEntry)
   }
 
-  def addExtensionToEntry(entry : TableEntry, ext : SymbolicHeap, extPredCall : PredCall) : ObservationTable = {
+  def addExtensionToEntry(entry: TableEntry, partition: SymbolicHeapPartition, it: Int, entailmentLog : EntailmentLearningLog): ObservationTable = {
+
+    if (entry.reps.size == 1) {
+      // Just one representative => new extension for the same representative => simply extend entry
+      addExtensionToEntryWithoutCompatibilityCheck(entry, partition.ext, partition.extPredCall)
+    } else {
+      logger.debug("Entry has " + entry.reps.size + " representatives => consider splitting in two")
+
+      // There is more than one representative
+      // The new extension only corresponds to one of those representatives
+      // => We might have to split the entry depending on entailment versus the new extension
+      val (compatibleWithNewExtension, incompatibleWithNewExtension) = entry.reps.partition {
+        rep =>
+          val combination = SymbolicHeapPartition(rep, partition.ext, partition.extPredCall).recombined
+          // If the combination is inconsistent, we conclude incompatibility,
+          // since inconsistent heaps are never SID unfoldings
+          // (recall that our algorithm assumes that all unfoldings of the SID are satisfiable!)
+          if (!ConsistencyCheck.isConsistent(combination)) {
+            logger.debug("Checking compatibility of " + rep + " with " + partition.ext + " => Incompatible, since combination " + combination + " is inconsistent")
+            false
+          } else {
+            logger.debug("Checking compatibility of " + rep + " with " + partition.ext + " (combination: " + combination + ")")
+            EntailmentAutomatonLearning.reducedEntailmentWithLogging(combination, sid.callToStartPred, sid, ExtensionCompatibilityCheck(rep, partition.ext), entailmentLog, entailmentLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress)
+          }
+      }
+
+      if (incompatibleWithNewExtension.isEmpty) {
+        logger.debug("No splitting necessary")
+        addExtensionToEntryWithoutCompatibilityCheck(entry, partition.ext, partition.extPredCall)
+      } else {
+        logger.debug("Splitting into compatible reps " + compatibleWithNewExtension.mkString(", ") + " and incomptaible reps " + incompatibleWithNewExtension.mkString(", "))
+        splitEntry(entry, compatibleWithNewExtension, incompatibleWithNewExtension, partition.ext, partition.extPredCall)
+      }
+    }
+
+  }
+
+  private def addExtensionToEntryWithoutCompatibilityCheck(entry : TableEntry, ext : SymbolicHeap, extPredCall : PredCall) : ObservationTable = {
     entailmentLearningLog.logEvent(TableUpdateOperation(TableOperations.EnlargedEntry(entry, ext, isNewRepresentative = false)))
 
     // TODO Maybe come up with a more efficient implementation of table entry update... Also code duplication
@@ -159,7 +137,7 @@ case class ObservationTable private (learningMode : LearningMode, sid : SID, ent
     copy(entries = newEntries)
   }
 
-  def splitEntry(entry: TableEntry, compatibleWithNewExtension: Set[SymbolicHeap], incompatibleWithNewExtension: Set[SymbolicHeap], newExtension: SymbolicHeap, newExtensionCall : PredCall): ObservationTable = {
+  private def splitEntry(entry: TableEntry, compatibleWithNewExtension: Set[SymbolicHeap], incompatibleWithNewExtension: Set[SymbolicHeap], newExtension: SymbolicHeap, newExtensionCall : PredCall): ObservationTable = {
     entailmentLearningLog.logEvent(TableUpdateOperation(TableOperations.SplitTableEntry(compatibleWithNewExtension, incompatibleWithNewExtension, newExtension)))
 
     // TODO Same concern about efficient table entry as above...
@@ -170,9 +148,10 @@ case class ObservationTable private (learningMode : LearningMode, sid : SID, ent
     copy(entries = entriesWithoutOldEntry :+ compatibleEntry :+ incompatibleEntry)
   }
 
-  def addNewEntryForPartition(part : SymbolicHeapPartition, iteration : Int): ObservationTable = {
-    entailmentLearningLog.logEvent(TableUpdateOperation(EntailmentLearningLog.TableOperations.NewEntry(entries.size+1, part)))
-    copy(entries = entries :+ tableEntryFromPartition(part, iteration))
+  def addNewEntryForPartition(partition : SymbolicHeapPartition, iteration : Int): ObservationTable = {
+    val cleanedPartition = if (EntailmentAutomatonLearning.CleanUpSymbolicHeaps) partition.simplify else partition
+    entailmentLearningLog.logEvent(TableUpdateOperation(EntailmentLearningLog.TableOperations.NewEntry(entries.size+1, cleanedPartition)))
+    copy(entries = entries :+ tableEntryFromPartition(cleanedPartition, iteration))
   }
 
   private def tableEntryFromPartition(part : SymbolicHeapPartition, iteration : Int) : TableEntry = {
@@ -190,6 +169,6 @@ case class ObservationTable private (learningMode : LearningMode, sid : SID, ent
 
 object ObservationTable {
 
-  def empty(learningMode: LearningMode, sid : SID, entailmentLearningLog: EntailmentLearningLog) : ObservationTable = ObservationTable(learningMode, sid, Seq.empty, entailmentLearningLog)
+  def empty(sid : SID, entailmentLearningLog: EntailmentLearningLog) : ObservationTable = ObservationTable(sid, Seq.empty, entailmentLearningLog)
 
 }

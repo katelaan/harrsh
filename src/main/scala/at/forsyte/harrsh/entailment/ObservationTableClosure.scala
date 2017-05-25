@@ -1,45 +1,17 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.{ConsistencyCheck, Determinization}
-import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
-import at.forsyte.harrsh.util.Combinators
-
 /**
   * Created by jkatelaa on 5/23/17.
   */
-object ObservationTableClosure extends HarrshLogging {
+object ObservationTableClosure {
 
-  def closureForLearningMode(learningMode : EntailmentAutomatonLearning.LearningMode, numFV : Int, obs : ObservationTable) : ObservationTable = {
-    if (learningMode.closedUnderParameterRenaming) obs else closeUnderParameterRenaming(obs)
-    //val afterRenaming =
-    //if (learningMode.closedUnderEmp) afterRenaming else closeUnderEmp(numFV, obs)
-  }
+  // TODO Remove this object, handled by symmetry traits etc?
 
-  def closeUnderParameterRenaming(obs : ObservationTable) : ObservationTable = {
-
-    logger.debug("Closing under parameter renamings")
-
-    val newCandidateEntries = obs.entries flatMap {
-      entry =>
-        for {
-          renaming <- parameterRenamings(entry.numFV)
-          if renaming != Var.mkAllVars(1 to entry.numFV) // TODO There's a smarter way to achieve this...
-          renamedEntry = entry.renameRepParamsTo(renaming)
-          if renamedEntry.reps.forall(ConsistencyCheck.isConsistent)
-        } yield renamedEntry
-    }
-
-
-
-    ???
-
-  }
-
-  private def parameterRenamings(numFV : Int) : Set[Seq[Var]] = {
-    Combinators.allSeqsOfLength(numFV, Var.mkAllVars(0 to numFV).toSet)
-  }
+//  def closureForLearningMode(learningMode : EntailmentAutomatonLearning.LearningMode, numFV : Int, obs : ObservationTable) : ObservationTable = {
+//    if (learningMode.closedUnderParameterRenaming) obs else closeUnderParameterRenaming(obs)
+//    //val afterRenaming =
+//    //if (learningMode.closedUnderEmp) afterRenaming else closeUnderEmp(numFV, obs)
+//  }
 
 //  def closeUnderEmp(numFV : Int, obs : ObservationTable) : ObservationTable = {
 //

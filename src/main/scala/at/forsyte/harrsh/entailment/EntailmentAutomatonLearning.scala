@@ -14,14 +14,22 @@ object EntailmentAutomatonLearning extends HarrshLogging {
 
   type State = (ObservationTable, BreadthFirstUnfoldingsIterator, EntailmentLearningLog)
 
-  def learnAutomaton(sid : SID, maxNumFv : Int, assumeAsymmetry : Boolean, reportProgress : Boolean, maxIterations : Int = Int.MaxValue): (ObservationTable,EntailmentLearningLog) =
-    (new AutomatonLearningTemplate(sid, maxNumFv, assumeAsymmetry, reportProgress, maxIterations) with IterationAndEquivalenceSensitiveLearningStrategy).run
+  // FIXME Partition generation: Should we always keep some emp classes (with nonempty pure part)?
 
-  class AutomatonLearningTemplate(sid : SID, maxNumFv : Int, assumeAsymmetry : Boolean, reportProgress : Boolean, maxIterations : Int = Int.MaxValue) {
+  def learnAutomaton(sid : SID, maxNumFv : Int, assumeAsymmetry : Boolean, reportProgress : Boolean, maxIterations : Int = Int.MaxValue): (ObservationTable,EntailmentLearningLog) = {
+    val learningAlgorithm : AutomatonLearningTemplate = if (assumeAsymmetry) {
+      new AutomatonLearningTemplate(sid, maxNumFv, reportProgress, maxIterations) with /*SimpleLearningStrategy*/ IterationAndEquivalenceSensitiveLearningStrategy with RemoveEmpPartition with CloseResultUnderSymmetries
+    } else {
+      new AutomatonLearningTemplate(sid, maxNumFv, reportProgress, maxIterations) with SimpleLearningStrategy /*IterationAndEquivalenceSensitiveLearningStrategy*/ with RemoveEmpPartition with CloseUnfoldingsUnderSymmetries
+    }
+    learningAlgorithm.run
+  }
 
-    self: LearningStrategy =>
+  class AutomatonLearningTemplate(sid : SID, maxNumFv : Int, reportProgress : Boolean, maxIterations : Int = Int.MaxValue) {
 
-    def run(): (ObservationTable, EntailmentLearningLog) = {
+    self: LearningStrategy with PartitionFilter with SymmetryHandler =>
+
+    def run: (ObservationTable, EntailmentLearningLog) = {
 
       def learningIteration(it: Int, s: State): State = {
         val (prevObs, unfoldingContinuation, entailmentLog) = s
@@ -33,26 +41,30 @@ object EntailmentAutomatonLearning extends HarrshLogging {
         val extendedTable = processPartitions(newPartitions, prevObs, it, entailmentLog)
         // It can happen that we generate two representatives of the same class
         // We merge the corresponding table entries before continuing with the next iteration
-        val cleanedTable = iterationPostprocessing(extendedTable)
+        val cleanedTable = iterationPostprocessing(extendedTable, entailmentLog)
         (cleanedTable, nextContinuation, entailmentLog)
       }
 
-      val learningMode = if (assumeAsymmetry) {
-        if (isStronglySymmetric(sid)) LearnStronglyAsymmetric() else LearnWeaklyAsymmetric()
-      } else {
-        LearnSymmetric()
-      }
-      IOUtils.printIf(reportProgress)("Using learning mode: " + learningMode)
+//      val learningMode = if (assumeAsymmetry) {
+//        if (isStronglySymmetric(sid)) LearnStronglyAsymmetric() else LearnWeaklyAsymmetric()
+//      } else {
+//        LearnSymmetric()
+//      }
+//      IOUtils.printIf(reportProgress)("Using learning mode: " + learningMode)
 
       val entailmentLearningLog = new EntailmentLearningLog(reportProgress)
-      entailmentLearningLog.logEvent(EntailmentLearningLog.LearningModeConfig(learningMode))
+//      entailmentLearningLog.logEvent(EntailmentLearningLog.LearningModeConfig(learningMode))
 
-      val initialState = (ObservationTable.empty(learningMode, sid, entailmentLearningLog),
-        BreadthFirstUnfoldingsIterator(sid, learningMode, iteration = 1, continuation = Seq(sid.callToStartPred), maxNumFv, entailmentLearningLog),
+      val initialState = (ObservationTable.empty(sid, entailmentLearningLog),
+        BreadthFirstUnfoldingsIterator(sid, iteration = 1, continuation = Seq(sid.callToStartPred), maxNumFv, entailmentLearningLog, this),
         entailmentLearningLog)
 
       val fixedPoint = Combinators.fixedPointComputation[State](initialState, (a, b) => a._1.entries.nonEmpty && a._1 == b._1, maxIterations)(learningIteration)
       fixedPoint._3.logEvent(EntailmentLearningLog.ReachedFixedPoint())
+
+      // TODO Postprocessing
+      // symmetryPostProcessing
+
       (fixedPoint._1, fixedPoint._3)
     }
 
@@ -86,33 +98,33 @@ object EntailmentAutomatonLearning extends HarrshLogging {
     ReducedEntailment.checkSatisfiableRSHAgainstSID(lhs, rhs, sid, reportProgress = reportProgress)
   }
 
-  sealed trait LearningMode {
-
-    override def toString: String = this match {
-      case LearnWeaklyAsymmetric() => "weakly assymmetric (skip 'emp' during learning, perform full postprocessing)"
-      case LearnStronglyAsymmetric() => "strongly assymmetric (perform renaming postprocessing)"
-      case LearnSymmetric() => "symmetric (integrate renaming in the learning process)"
-    }
-
-    /**
-      * Is the set of classes learned in this mode closed under renaming of free variables
-      */
-    def closedUnderParameterRenaming : Boolean = this match {
-      case LearnWeaklyAsymmetric() => false
-      case LearnStronglyAsymmetric() => false
-      case LearnSymmetric() => true
-    }
-
-    /**
-      * Should the learning algorithm consider unfoldings with empty spatial part?
-      */
-    def closedUnderEmp : Boolean = this match {
-      case LearnWeaklyAsymmetric() => false
-      case LearnStronglyAsymmetric() => true
-      case LearnSymmetric() => true
-    }
-  }
-  case class LearnWeaklyAsymmetric() extends LearningMode
-  case class LearnStronglyAsymmetric() extends LearningMode
-  case class LearnSymmetric() extends LearningMode
+//  sealed trait LearningMode {
+//
+//    override def toString: String = this match {
+//      case LearnWeaklyAsymmetric() => "weakly assymmetric (skip 'emp' during learning, perform full postprocessing)"
+//      case LearnStronglyAsymmetric() => "strongly assymmetric (perform renaming postprocessing)"
+//      case LearnSymmetric() => "symmetric (integrate renaming in the learning process)"
+//    }
+//
+//    /**
+//      * Is the set of classes learned in this mode closed under renaming of free variables
+//      */
+//    def closedUnderParameterRenaming : Boolean = this match {
+//      case LearnWeaklyAsymmetric() => false
+//      case LearnStronglyAsymmetric() => false
+//      case LearnSymmetric() => true
+//    }
+//
+//    /**
+//      * Should the learning algorithm consider unfoldings with empty spatial part?
+//      */
+//    def closedUnderEmp : Boolean = this match {
+//      case LearnWeaklyAsymmetric() => false
+//      case LearnStronglyAsymmetric() => true
+//      case LearnSymmetric() => true
+//    }
+//  }
+//  case class LearnWeaklyAsymmetric() extends LearningMode
+//  case class LearnStronglyAsymmetric() extends LearningMode
+//  case class LearnSymmetric() extends LearningMode
 }

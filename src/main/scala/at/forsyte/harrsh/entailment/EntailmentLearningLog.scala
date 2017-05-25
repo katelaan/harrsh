@@ -65,8 +65,8 @@ object EntailmentLearningLog {
   sealed trait LearningEvent {
 
     override def toString = this match {
-      case LearningModeConfig(learningMode) =>
-        "Configured learning mode: " + learningMode
+//      case LearningModeConfig(learningMode) =>
+//        "Configured learning mode: " + learningMode
       case IterationStats(iteration, numUnfs) =>
         "Iteration " + iteration + ": " + numUnfs + " unfoldings to process"
       case ProcessPartition(partition) =>
@@ -83,9 +83,7 @@ object EntailmentLearningLog {
 
   }
 
-
-
-  case class LearningModeConfig(learningMode : EntailmentAutomatonLearning.LearningMode) extends LearningEvent
+  //case class LearningModeConfig(learningMode : EntailmentAutomatonLearning.LearningMode) extends LearningEvent
   case class IterationStats(iteration : Int, numUnfs : Int) extends LearningEvent
   case class ProcessPartition(partition : SymbolicHeapPartition) extends LearningEvent
   case class TableLookupOperation(op : TableOperations.LookupType) extends LearningEvent
