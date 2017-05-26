@@ -1,6 +1,7 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.entailment.learning
 
-import at.forsyte.harrsh.entailment.EntailmentLearningLog._
+import at.forsyte.harrsh.entailment.learning.EntailmentLearningLog._
+import at.forsyte.harrsh.entailment.SymbolicHeapPartition
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**

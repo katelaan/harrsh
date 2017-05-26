@@ -1,8 +1,7 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.entailment.learning
 
-import at.forsyte.harrsh.entailment.EntailmentLearningLog.RedEntCheck.ExtensionCompatibilityCheck
-import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.ConsistencyCheck
+import at.forsyte.harrsh.entailment.SymbolicHeapPartition
+import at.forsyte.harrsh.main._
 
 /**
   * Created by jkatelaa on 5/25/17.

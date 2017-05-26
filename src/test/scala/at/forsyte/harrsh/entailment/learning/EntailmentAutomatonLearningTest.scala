@@ -1,8 +1,8 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.entailment.learning
 
-import at.forsyte.harrsh.test.HarrshTest
 import at.forsyte.harrsh.Implicits._
 import at.forsyte.harrsh.seplog.inductive.SID
+import at.forsyte.harrsh.test.HarrshTest
 import at.forsyte.harrsh.util.IOUtils
 
 /**

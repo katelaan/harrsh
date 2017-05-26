@@ -2,12 +2,13 @@ package at.forsyte.harrsh.main
 
 import java.io.FileNotFoundException
 
+import at.forsyte.harrsh.entailment.learning.{EntailmentLearningLog, ObservationTable}
 import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.parsers.{ModelParser, SIDParsers}
 import at.forsyte.harrsh.util.IOUtils
 import at.forsyte.harrsh.util.IOUtils._
 import at.forsyte.harrsh.refinement.DecisionProcedures.{AnalysisResult, AnalysisStatistics}
-import at.forsyte.harrsh.entailment.{EntailmentHeapAutomaton, EntailmentLearningLog, Model, ObservationTable}
+import at.forsyte.harrsh.entailment.{EntailmentHeapAutomaton, Model}
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.refinement.AutomatonTask
 

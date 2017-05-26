@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.util.export
 
 import scala.xml.Elem
-import at.forsyte.harrsh.entailment.{ObservationTable, TableEntry}
+import at.forsyte.harrsh.entailment.learning.{ObservationTable, TableEntry}
 import at.forsyte.harrsh.seplog.inductive.{PredCall, SymbolicHeap}
 import at.forsyte.harrsh.util.IOUtils
 

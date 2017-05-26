@@ -1,5 +1,6 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.entailment.learning
 
+import at.forsyte.harrsh.entailment.SymbolicHeapPartition
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.{ConsistencyCheck, ReducedHeapEquivalence}
 import at.forsyte.harrsh.seplog.Var

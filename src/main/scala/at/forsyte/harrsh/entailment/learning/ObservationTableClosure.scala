@@ -1,4 +1,4 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.entailment.learning
 
 /**
   * Created by jkatelaa on 5/23/17.

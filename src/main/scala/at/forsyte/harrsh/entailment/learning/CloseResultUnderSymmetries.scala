@@ -1,6 +1,6 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.entailment.learning
 
-import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.pure.ConsistencyCheck
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap

@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.entailment.learning.{ObservationTable, TableEntry}
 import at.forsyte.harrsh.heapautomata.{FVBound, HeapAutomaton}
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 

@@ -1,8 +1,9 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.entailment.learning
 
-import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.entailment.SymbolicHeapPartition
+import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.pure.EqualityBasedSimplifications
-import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.seplog.inductive.{SID, SIDUnfolding, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
 /**

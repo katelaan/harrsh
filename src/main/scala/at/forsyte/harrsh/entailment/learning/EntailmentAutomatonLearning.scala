@@ -1,8 +1,9 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.entailment.learning
 
-import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.util.{Combinators, IOUtils}
+import at.forsyte.harrsh.entailment._
+import at.forsyte.harrsh.main._
+import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
+import at.forsyte.harrsh.util.Combinators
 
 /**
   * Created by jens on 4/25/17.

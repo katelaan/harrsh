@@ -1,5 +1,6 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.entailment.learning
 
+import at.forsyte.harrsh.entailment._
 import at.forsyte.harrsh.seplog.inductive.{PointsTo, PredCall, PureAtom, SymbolicHeap}
 
 /**
