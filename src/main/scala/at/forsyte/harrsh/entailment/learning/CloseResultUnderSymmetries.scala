@@ -11,6 +11,8 @@ import at.forsyte.harrsh.util.Combinators
   */
 trait CloseResultUnderSymmetries extends SymmetryHandler with HarrshLogging {
 
+  override def componentDescriptions : Seq[String] = "symmetry post-processing" +: super.componentDescriptions
+
   override def symmetryInProcessing(rshs : Seq[SymbolicHeap]) : Seq[SymbolicHeap] = rshs
 
   override def symmetryPostProcessing(obs : ObservationTable) : ObservationTable = {

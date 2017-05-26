@@ -6,7 +6,7 @@ import at.forsyte.harrsh.main._
 /**
   * Created by jkatelaa on 5/25/17.
   */
-trait LearningStrategy extends HarrshLogging {
+trait LearningStrategy extends LearningComponent with HarrshLogging {
 
   def iterationPostprocessing(obs : ObservationTable) : ObservationTable
 

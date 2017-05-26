@@ -24,9 +24,7 @@ case class BreadthFirstUnfoldingsIterator(sid : SID, iteration: Int, continuatio
 
     val newPartitions : Seq[SymbolicHeapPartition] = for {
       nextUnf <- reducedUnfs
-      //        printProgress("Processing Unfolding: " + nextUnf)
       simplifiedUnf = EqualityBasedSimplifications.fullEqualitySimplification(nextUnf)
-      //        printProgress("After removing redundancies: " + simplifiedUnf)
       candidate <- partitions(simplifiedUnf, maxNumFV, entailmentLog)
     } yield candidate
 
@@ -45,7 +43,6 @@ case class BreadthFirstUnfoldingsIterator(sid : SID, iteration: Int, continuatio
       (sigma1, sigma2) <- spatialPartitions
       (pi1, pi2) <- purePartitions
 
-      // if learningMode.closedUnderEmp || sigma1.nonEmpty //(sigma1.nonEmpty || pi1.nonEmpty)
       if config.keepPartition(sigma1, pi1)
       representative = SymbolicHeap(pi1.toSeq, sigma1.toSeq, Seq.empty)
       extension = SymbolicHeap(pi2.toSeq, sigma2.toSeq, Seq.empty)

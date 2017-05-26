@@ -7,4 +7,6 @@ trait LearningComponent {
 
   val learningLog : EntailmentLearningLog = new EntailmentLearningLog
 
+  def componentDescriptions : Seq[String] = Seq()
+
 }

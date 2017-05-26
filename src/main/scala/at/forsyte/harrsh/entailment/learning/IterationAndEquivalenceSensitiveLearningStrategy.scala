@@ -9,7 +9,7 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
   */
 trait IterationAndEquivalenceSensitiveLearningStrategy extends LearningStrategy {
 
-  self : LearningComponent =>
+  override def componentDescriptions : Seq[String] = "iteration-sensitive learning" +: super.componentDescriptions
 
   override def iterationPostprocessing(obs : ObservationTable) : ObservationTable = mergeDuplicateEntries(obs)
 

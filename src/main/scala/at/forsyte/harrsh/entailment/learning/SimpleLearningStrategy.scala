@@ -8,7 +8,7 @@ import at.forsyte.harrsh.seplog.inductive.{PointsTo, PredCall, PureAtom, Symboli
   */
 trait SimpleLearningStrategy extends LearningStrategy {
 
-  self : LearningComponent =>
+  override def componentDescriptions : Seq[String] = "simple learning" +: super.componentDescriptions
 
   override def iterationPostprocessing(obs : ObservationTable) : ObservationTable = obs
 

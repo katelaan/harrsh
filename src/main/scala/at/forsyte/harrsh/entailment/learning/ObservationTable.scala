@@ -10,9 +10,9 @@ import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SymbolicHeap}
 /**
   * Created by jens on 4/25/17.
   */
-case class ObservationTable private (sid : SID, entries : Seq[TableEntry], learningLog: EntailmentLearningLog) extends HarrshLogging {
+case class ObservationTable private (sid : SID, entries : Seq[TableEntry], override val learningLog: EntailmentLearningLog) extends HarrshLogging with ReducedEntailmentEngine {
 
-  private val reportProgress: Boolean = learningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress
+  override val reportProgress: Boolean = learningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress
 
   override def toString: String = entries.map("  " + _).mkString("ObservationTable(\n", "\n", "\n)")
 
@@ -42,7 +42,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], learn
     logger.debug("Trying to find equivalence class for " + sh)
     val entriesToCheck = entries filter filterPredicate
     val res = entriesToCheck.find {
-      _.equivalenceClassContains(sh, sid, reportProgress, learningLog)
+      _.equivalenceClassContains(sh, sid, this)
     }
     res.foreach(entry => {
       logger.debug("Can reduce " + sh + " to " + entry.reps)
@@ -56,7 +56,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], learn
     logger.debug("Finding all entries for " + sh)
     val res = entries filter {
       entry =>
-        entry.equivalenceClassContains(sh, sid, reportProgress, learningLog)
+        entry.equivalenceClassContains(sh, sid, this)
     }
     res.foreach(entry => {
       logger.debug("Can reduce " + sh + " to " + entry.reps)
@@ -114,7 +114,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], learn
             false
           } else {
             logger.debug("Checking compatibility of " + rep + " with " + partition.ext + " (combination: " + combination + ")")
-            EntailmentAutomatonLearning.reducedEntailmentWithLogging(combination, sid.callToStartPred, sid, ExtensionCompatibilityCheck(rep, partition.ext), learningLog, learningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress)
+            reducedEntailment(combination, sid.callToStartPred, sid, ExtensionCompatibilityCheck(rep, partition.ext))
           }
       }
 
@@ -161,7 +161,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], learn
       Set((part.ext,part.extPredCall)),
       //RepresentativeSIDComputation.adaptSIDToRepresentative(sid, part.rep),
       // TODO It should be sufficient to just check for emp in the extension set, but then we might have to update "finality" later, because it is possible that we first discover rep with a nonempty extension
-      EntailmentAutomatonLearning.reducedEntailmentWithLogging(part.rep, sid.callToStartPred, sid, EntailmentLearningLog.RedEntCheck.FinalityCheck(), learningLog, reportProgress),
+      reducedEntailment(part.rep, sid.callToStartPred, sid, EntailmentLearningLog.RedEntCheck.FinalityCheck()),
       iteration,
       introducedThroughClosure = false)
   }

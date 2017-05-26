@@ -54,10 +54,10 @@ case class TableEntry(reps : Set[SymbolicHeap], exts : Set[(SymbolicHeap,PredCal
     * i.e. is the given representative compatible with all extensions of this table entry?
     * @param rep Representative whose equivalence we want to check
     * @param sid The SID we want to learn, i.e., the basis of the equivalence relation
-    * @param reportProgress Should reduced-entailment progress be reported?
+    * @param entailmentEngine Entailment checker to use
     * @return True iff rep in the class represented by this table entry
     */
-  def equivalenceClassContains(rep : SymbolicHeap, sid : SID, reportProgress : Boolean, learningLog : EntailmentLearningLog) : Boolean = {
+  def equivalenceClassContains(rep : SymbolicHeap, sid : SID, entailmentEngine : ReducedEntailmentEngine) : Boolean = {
     // Note: The entailment check does *not* work, that's too weak: E.g. x1 -> x2 : { x1 != x2 } ENTAILS x1 -> x2,
     // so the following check would always place the former into the class of the latter!
     // ReducedEntailment.checkSatisfiableRSHAgainstSID(sh, repSid.callToStartPred, repSid, reportProgress = reportProgress)
@@ -71,7 +71,7 @@ case class TableEntry(reps : Set[SymbolicHeap], exts : Set[(SymbolicHeap,PredCal
         logger.debug("Not in class, because inconsistent: " + merged)
         false
       } else {
-        val res = EntailmentAutomatonLearning.reducedEntailmentWithLogging(merged, sid.callToStartPred, sid, EntailmentLearningLog.RedEntCheck.ReducibilityCheck(rep), learningLog, reportProgress)
+        val res = entailmentEngine.reducedEntailment(merged, sid.callToStartPred, sid, EntailmentLearningLog.RedEntCheck.ReducibilityCheck(rep))
         logger.debug("Checking reduced entailment of " + merged + " against original SID => " + res)
         res
       }

@@ -8,7 +8,7 @@ scalaVersion := "2.11.11"
 scalacOptions ++= Seq("-Xmax-classfile-name","78")
 
 libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.6"
-libraryDependencies += "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.6"
+libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.6"
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3"
 libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0"

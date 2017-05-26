@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 /**
   * Created by jkatelaa on 5/25/17.
   */
-trait SymmetryHandler {
+trait SymmetryHandler extends LearningComponent {
 
   def symmetryInProcessing(rshs : Seq[SymbolicHeap]) : Seq[SymbolicHeap]
 
