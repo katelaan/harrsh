@@ -6,11 +6,13 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 /**
   * Created by jens on 5/3/17.
   */
-class EntailmentLearningLog(val reportProgress : Boolean) {
+class EntailmentLearningLog {
 
   private val SpacingBetweenProgressMessages : Int = 10
 
   private var learningEventLog : Seq[LearningEvent] = Seq()
+
+  var reportProgress : Boolean = false
 
   private object counters {
     var partitions : Int = 0

@@ -12,37 +12,39 @@ object EntailmentAutomatonLearning extends HarrshLogging {
   val CleanUpSymbolicHeaps = true // Remove redundant variables / (in)equalities [good for performance and readability of the final results, but may complicate debugging]
   val ReportMCProgress = false
 
-  type State = (ObservationTable, BreadthFirstUnfoldingsIterator, EntailmentLearningLog)
+  type State = (ObservationTable, BreadthFirstUnfoldingsIterator)
 
   // FIXME Partition generation: Should we always keep some emp classes (with nonempty pure part)?
 
-  def learnAutomaton(sid : SID, maxNumFv : Int, assumeAsymmetry : Boolean, reportProgress : Boolean, maxIterations : Int = Int.MaxValue): (ObservationTable,EntailmentLearningLog) = {
-    val learningAlgorithm : AutomatonLearningTemplate = if (assumeAsymmetry) {
-      new AutomatonLearningTemplate(sid, maxNumFv, reportProgress, maxIterations) with /*SimpleLearningStrategy*/ IterationAndEquivalenceSensitiveLearningStrategy with RemoveEmpPartition with CloseResultUnderSymmetries
-    } else {
-      new AutomatonLearningTemplate(sid, maxNumFv, reportProgress, maxIterations) with SimpleLearningStrategy /*IterationAndEquivalenceSensitiveLearningStrategy*/ with RemoveEmpPartition with CloseUnfoldingsUnderSymmetries
+  def learnAutomaton(sid : SID, maxNumFv : Int, assumeAsymmetry : Boolean, useSimpleLearning : Boolean, reportProgress : Boolean, maxIterations : Int = Int.MaxValue): (ObservationTable,EntailmentLearningLog) = {
+
+    val learningAlgorithm : AutomatonLearningTemplate = (assumeAsymmetry, useSimpleLearning) match {
+      case (true, true) => new AutomatonLearningTemplate with RemoveEmpPartition with SimpleLearningStrategy with CloseResultUnderSymmetries
+      case (true, false) => new AutomatonLearningTemplate with RemoveEmpPartition with IterationAndEquivalenceSensitiveLearningStrategy  with CloseResultUnderSymmetries
+      case (false, true) => new AutomatonLearningTemplate with RemoveEmpPartition with SimpleLearningStrategy with CloseUnfoldingsUnderSymmetries
+      case (false, false) => new AutomatonLearningTemplate with RemoveEmpPartition with IterationAndEquivalenceSensitiveLearningStrategy with CloseUnfoldingsUnderSymmetries
     }
-    learningAlgorithm.run
+
+    learningAlgorithm.run(sid, maxNumFv, reportProgress, maxIterations)
   }
 
-  class AutomatonLearningTemplate(sid : SID, maxNumFv : Int, reportProgress : Boolean, maxIterations : Int = Int.MaxValue) {
+  trait AutomatonLearningTemplate extends LearningComponent {
 
     self: LearningStrategy with PartitionFilter with SymmetryHandler =>
 
-    def run: (ObservationTable, EntailmentLearningLog) = {
+    def run(sid : SID, maxNumFv : Int, reportProgress : Boolean, maxIterations : Int = Int.MaxValue): (ObservationTable, EntailmentLearningLog) = {
 
       def learningIteration(it: Int, s: State): State = {
-        val (prevObs, unfoldingContinuation, entailmentLog) = s
-        entailmentLog.printProgress("Beginning iteration " + it)
-        logger.debug("Computation so far:\n" + entailmentLog)
+        val (prevObs, unfoldingContinuation) = s
+        learningLog.printProgress("Beginning iteration " + it)
 
         val (newPartitions, nextContinuation) = unfoldingContinuation.continue
         // Extend the observation table with the new observations (unfoldings)
-        val extendedTable = processPartitions(newPartitions, prevObs, it, entailmentLog)
+        val extendedTable = processPartitions(newPartitions, prevObs, it, learningLog)
         // It can happen that we generate two representatives of the same class
         // We merge the corresponding table entries before continuing with the next iteration
-        val cleanedTable = iterationPostprocessing(extendedTable, entailmentLog)
-        (cleanedTable, nextContinuation, entailmentLog)
+        val cleanedTable = iterationPostprocessing(extendedTable)
+        (cleanedTable, nextContinuation)
       }
 
 //      val learningMode = if (assumeAsymmetry) {
@@ -52,20 +54,19 @@ object EntailmentAutomatonLearning extends HarrshLogging {
 //      }
 //      IOUtils.printIf(reportProgress)("Using learning mode: " + learningMode)
 
-      val entailmentLearningLog = new EntailmentLearningLog(reportProgress)
+      learningLog.reportProgress = reportProgress
 //      entailmentLearningLog.logEvent(EntailmentLearningLog.LearningModeConfig(learningMode))
 
-      val initialState = (ObservationTable.empty(sid, entailmentLearningLog),
-        BreadthFirstUnfoldingsIterator(sid, iteration = 1, continuation = Seq(sid.callToStartPred), maxNumFv, entailmentLearningLog, this),
-        entailmentLearningLog)
+      val initialState = (ObservationTable.empty(sid, learningLog),
+        BreadthFirstUnfoldingsIterator(sid, iteration = 1, continuation = Seq(sid.callToStartPred), maxNumFv, learningLog, this))
 
       val fixedPoint = Combinators.fixedPointComputation[State](initialState, (a, b) => a._1.entries.nonEmpty && a._1 == b._1, maxIterations)(learningIteration)
-      fixedPoint._3.logEvent(EntailmentLearningLog.ReachedFixedPoint())
+      learningLog.logEvent(EntailmentLearningLog.ReachedFixedPoint())
 
       // TODO Postprocessing
       // symmetryPostProcessing
 
-      (fixedPoint._1, fixedPoint._3)
+      (fixedPoint._1, learningLog)
     }
 
     private def isStronglySymmetric(sid: SID): Boolean = {
@@ -87,7 +88,7 @@ object EntailmentAutomatonLearning extends HarrshLogging {
       logger.debug("Processing Partition: " + partition)
       entailmentLog.logEvent(EntailmentLearningLog.ProcessPartition(partition))
 
-      checkPartition(partition, obs, it, entailmentLog)
+      checkPartition(partition, obs, it)
       //iterationAndEquivalenceBasedOptimizedProcessing(partition, obs, it, entailmentLog)
     }
 

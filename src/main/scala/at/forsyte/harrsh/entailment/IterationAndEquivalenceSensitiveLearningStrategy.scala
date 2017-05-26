@@ -8,15 +8,17 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
   */
 trait IterationAndEquivalenceSensitiveLearningStrategy extends LearningStrategy {
 
-  override def iterationPostprocessing(obs : ObservationTable, log : EntailmentLearningLog) : ObservationTable = mergeDuplicateEntries(obs, log)
+  self : LearningComponent =>
 
-  override def checkPartition(partition: SymbolicHeapPartition, obs: ObservationTable, it: Int, entailmentLog: EntailmentLearningLog): ObservationTable = {
-    findEntryWithEquivalentRepFromIteration(obs, partition.rep, it, entailmentLog) match {
+  override def iterationPostprocessing(obs : ObservationTable) : ObservationTable = mergeDuplicateEntries(obs)
+
+  override def checkPartition(partition: SymbolicHeapPartition, obs: ObservationTable, it: Int): ObservationTable = {
+    findEntryWithEquivalentRepFromIteration(obs, partition.rep, it) match {
       case Some(entry) =>
         // Found an entry from the current iteration that contains the representative,
         // so we add the new extension
         logger.debug(entry + " containing " + partition.rep + " is from current iteration => Add new extension " + partition.ext + " to entry")
-        obs.addExtensionToEntry(entry, partition, it, entailmentLog)
+        obs.addExtensionToEntry(entry, partition, it)
       case None =>
         // This exact representative is *not* in the table
         // There are three cases:
@@ -47,9 +49,9 @@ trait IterationAndEquivalenceSensitiveLearningStrategy extends LearningStrategy 
     * @param iteration Only entries discovered in this iteration are searched
     * @return Some iteration with equivalent representative or None
     */
-  private def findEntryWithEquivalentRepFromIteration(obs : ObservationTable, representative : SymbolicHeap, iteration : Int, entailmentLog: EntailmentLearningLog) : Option[TableEntry] = {
+  private def findEntryWithEquivalentRepFromIteration(obs : ObservationTable, representative : SymbolicHeap, iteration : Int) : Option[TableEntry] = {
     val res = obs.entries.find(entry => entry.discoveredInIteration == iteration && entry.containsEquivalentRepresentative(representative))
-    res.foreach(entry => entailmentLog.logEvent(TableLookupOperation(TableOperations.FoundEquivalent(representative, entry))))
+    res.foreach(entry => learningLog.logEvent(TableLookupOperation(TableOperations.FoundEquivalent(representative, entry))))
     res
   }
 
@@ -72,7 +74,7 @@ trait IterationAndEquivalenceSensitiveLearningStrategy extends LearningStrategy 
     obs.findEntryForEquivalenceClassOf(rep, isUnfinished)
   }
 
-  private def mergeDuplicateEntries(obs : ObservationTable, entailmentLearningLog : EntailmentLearningLog) : ObservationTable = {
+  private def mergeDuplicateEntries(obs : ObservationTable) : ObservationTable = {
     // Merge entries with identical sets of extensions
     // FIXME Will the extensions really be identical or just equivalent? Should come up with a counterexample where we need the latter!
     val grouped = obs.entries.groupBy(_.exts)
@@ -91,7 +93,7 @@ trait IterationAndEquivalenceSensitiveLearningStrategy extends LearningStrategy 
             assert(resultSet.size == 1)
             resultSet.head
           } else {
-            entailmentLearningLog.logEvent(TableUpdateOperation(TableOperations.MergeTableEntries(groupedEntries)))
+            learningLog.logEvent(TableUpdateOperation(TableOperations.MergeTableEntries(groupedEntries)))
             val mergedReps: Set[SymbolicHeap] = (groupedEntries flatMap (_.reps)).toSet
             groupedEntries.head.copy(reps = mergedReps)
           }

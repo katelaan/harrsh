@@ -9,9 +9,9 @@ import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SymbolicHeap}
 /**
   * Created by jens on 4/25/17.
   */
-case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entailmentLearningLog: EntailmentLearningLog) extends HarrshLogging {
+case class ObservationTable private (sid : SID, entries : Seq[TableEntry], learningLog: EntailmentLearningLog) extends HarrshLogging {
 
-  private val reportProgress: Boolean = entailmentLearningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress
+  private val reportProgress: Boolean = learningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress
 
   override def toString: String = entries.map("  " + _).mkString("ObservationTable(\n", "\n", "\n)")
 
@@ -41,11 +41,11 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
     logger.debug("Trying to find equivalence class for " + sh)
     val entriesToCheck = entries filter filterPredicate
     val res = entriesToCheck.find {
-      _.equivalenceClassContains(sh, sid, reportProgress, entailmentLearningLog)
+      _.equivalenceClassContains(sh, sid, reportProgress, learningLog)
     }
     res.foreach(entry => {
       logger.debug("Can reduce " + sh + " to " + entry.reps)
-      entailmentLearningLog.logEvent(TableLookupOperation(TableOperations.FoundReduction(sh, entry)))
+      learningLog.logEvent(TableLookupOperation(TableOperations.FoundReduction(sh, entry)))
     })
     res
   }
@@ -55,11 +55,11 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
     logger.debug("Finding all entries for " + sh)
     val res = entries filter {
       entry =>
-        entry.equivalenceClassContains(sh, sid, reportProgress, entailmentLearningLog)
+        entry.equivalenceClassContains(sh, sid, reportProgress, learningLog)
     }
     res.foreach(entry => {
       logger.debug("Can reduce " + sh + " to " + entry.reps)
-      entailmentLearningLog.logEvent(TableLookupOperation(TableOperations.FoundReduction(sh, entry)))
+      learningLog.logEvent(TableLookupOperation(TableOperations.FoundReduction(sh, entry)))
     })
     res
   }
@@ -82,7 +82,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
   }
 
   def addRepresentativeToEntryAndReturnEntry(entry : TableEntry, rep : SymbolicHeap) : (ObservationTable,TableEntry) = {
-    entailmentLearningLog.logEvent(TableUpdateOperation(TableOperations.EnlargedEntry(entry, rep, isNewRepresentative = true)))
+    learningLog.logEvent(TableUpdateOperation(TableOperations.EnlargedEntry(entry, rep, isNewRepresentative = true)))
 
     // TODO Maybe come up with a more efficient implementation of table entry update... Also code duplication
     val ix = entries.indexOf(entry)
@@ -91,7 +91,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
     (copy(entries = newEntries), newEntry)
   }
 
-  def addExtensionToEntry(entry: TableEntry, partition: SymbolicHeapPartition, it: Int, entailmentLog : EntailmentLearningLog): ObservationTable = {
+  def addExtensionToEntry(entry: TableEntry, partition: SymbolicHeapPartition, it: Int): ObservationTable = {
 
     if (entry.reps.size == 1) {
       // Just one representative => new extension for the same representative => simply extend entry
@@ -113,7 +113,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
             false
           } else {
             logger.debug("Checking compatibility of " + rep + " with " + partition.ext + " (combination: " + combination + ")")
-            EntailmentAutomatonLearning.reducedEntailmentWithLogging(combination, sid.callToStartPred, sid, ExtensionCompatibilityCheck(rep, partition.ext), entailmentLog, entailmentLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress)
+            EntailmentAutomatonLearning.reducedEntailmentWithLogging(combination, sid.callToStartPred, sid, ExtensionCompatibilityCheck(rep, partition.ext), learningLog, learningLog.reportProgress && EntailmentAutomatonLearning.ReportMCProgress)
           }
       }
 
@@ -129,7 +129,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
   }
 
   private def addExtensionToEntryWithoutCompatibilityCheck(entry : TableEntry, ext : SymbolicHeap, extPredCall : PredCall) : ObservationTable = {
-    entailmentLearningLog.logEvent(TableUpdateOperation(TableOperations.EnlargedEntry(entry, ext, isNewRepresentative = false)))
+    learningLog.logEvent(TableUpdateOperation(TableOperations.EnlargedEntry(entry, ext, isNewRepresentative = false)))
 
     // TODO Maybe come up with a more efficient implementation of table entry update... Also code duplication
     val ix = entries.indexOf(entry)
@@ -138,7 +138,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
   }
 
   private def splitEntry(entry: TableEntry, compatibleWithNewExtension: Set[SymbolicHeap], incompatibleWithNewExtension: Set[SymbolicHeap], newExtension: SymbolicHeap, newExtensionCall : PredCall): ObservationTable = {
-    entailmentLearningLog.logEvent(TableUpdateOperation(TableOperations.SplitTableEntry(compatibleWithNewExtension, incompatibleWithNewExtension, newExtension)))
+    learningLog.logEvent(TableUpdateOperation(TableOperations.SplitTableEntry(compatibleWithNewExtension, incompatibleWithNewExtension, newExtension)))
 
     // TODO Same concern about efficient table entry as above...
     val entriesWithoutOldEntry = entries.filterNot(_ == entry)
@@ -150,7 +150,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
 
   def addNewEntryForPartition(partition : SymbolicHeapPartition, iteration : Int): ObservationTable = {
     val cleanedPartition = if (EntailmentAutomatonLearning.CleanUpSymbolicHeaps) partition.simplify else partition
-    entailmentLearningLog.logEvent(TableUpdateOperation(EntailmentLearningLog.TableOperations.NewEntry(entries.size+1, cleanedPartition)))
+    learningLog.logEvent(TableUpdateOperation(EntailmentLearningLog.TableOperations.NewEntry(entries.size+1, cleanedPartition)))
     copy(entries = entries :+ tableEntryFromPartition(cleanedPartition, iteration))
   }
 
@@ -160,7 +160,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], entai
       Set((part.ext,part.extPredCall)),
       //RepresentativeSIDComputation.adaptSIDToRepresentative(sid, part.rep),
       // TODO It should be sufficient to just check for emp in the extension set, but then we might have to update "finality" later, because it is possible that we first discover rep with a nonempty extension
-      EntailmentAutomatonLearning.reducedEntailmentWithLogging(part.rep, sid.callToStartPred, sid, EntailmentLearningLog.RedEntCheck.FinalityCheck(), entailmentLearningLog, reportProgress),
+      EntailmentAutomatonLearning.reducedEntailmentWithLogging(part.rep, sid.callToStartPred, sid, EntailmentLearningLog.RedEntCheck.FinalityCheck(), learningLog, reportProgress),
       iteration,
       introducedThroughClosure = false)
   }

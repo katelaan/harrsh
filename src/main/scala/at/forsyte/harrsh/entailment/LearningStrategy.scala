@@ -9,8 +9,8 @@ import at.forsyte.harrsh.pure.ConsistencyCheck
   */
 trait LearningStrategy extends HarrshLogging {
 
-  def iterationPostprocessing(obs : ObservationTable, log : EntailmentLearningLog) : ObservationTable
+  def iterationPostprocessing(obs : ObservationTable) : ObservationTable
 
-  def checkPartition(partition : SymbolicHeapPartition, obs : ObservationTable, it : Int, entailmentLog : EntailmentLearningLog) : ObservationTable
+  def checkPartition(partition : SymbolicHeapPartition, obs : ObservationTable, it : Int) : ObservationTable
 
 }
