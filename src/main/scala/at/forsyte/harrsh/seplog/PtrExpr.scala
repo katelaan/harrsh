@@ -10,7 +10,7 @@ sealed trait PtrExpr extends Expr with ToStringWithVarnames {
     case PtrVar(id) => names(id)
   }
 
-  def getVar : Set[Var] = this match {
+  def getNonNullVar : Set[Var] = this match {
     case NullPtr() => Set()
     case PtrVar(id) => Set(id)
   }
@@ -20,10 +20,10 @@ sealed trait PtrExpr extends Expr with ToStringWithVarnames {
     case PtrVar(id) => id
   }
 
-  def getVarUnsafe : Var = this match {
-    case NullPtr() => throw new Throwable("Tried to convert null pointer to variable")
-    case PtrVar(id) => id
-  }
+//  def getVarUnsafe : Var = this match {
+//    case NullPtr() => throw new Throwable("Tried to convert null pointer to variable")
+//    case PtrVar(id) => id
+//  }
 
   def <(other : PtrExpr) : Boolean = (this, other) match {
     case (NullPtr(), NullPtr()) => false

@@ -196,7 +196,7 @@ object Harrsh {
             d => println("Will limit unfolding depth to " + d); d
           }.getOrElse(Int.MaxValue)
           // FIXME Set assumptions via parameters
-          val assumeAsymmetry : Boolean = true
+          val assumeAsymmetry : Boolean = false
           val useSimpleLearning : Boolean = true
           println(if (assumeAsymmetry) "Assuming asymmetry of SID" else "Learning possibly symmetrical SID")
           val (table, log) = EntailmentAutomatonLearning.learnAutomaton(sid, autNumfv, assumeAsymmetry = assumeAsymmetry, useSimpleLearning = useSimpleLearning, config.reportProgress, maxIterations = depth)

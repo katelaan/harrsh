@@ -160,8 +160,6 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], overr
       Set(part.rep),
       Set((part.ext,part.extPredCall)),
       //RepresentativeSIDComputation.adaptSIDToRepresentative(sid, part.rep),
-      // TODO It should be sufficient to just check for emp in the extension set, but then we might have to update "finality" later, because it is possible that we first discover rep with a nonempty extension
-      reducedEntailment(part.rep, sid.callToStartPred, sid, EntailmentLearningLog.RedEntCheck.FinalityCheck()),
       iteration,
       introducedThroughClosure = false)
   }

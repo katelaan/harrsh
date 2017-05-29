@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.pure
 
-import at.forsyte.harrsh.seplog.{NullPtr, PtrVar, Var}
+import at.forsyte.harrsh.seplog.{NullPtr, PtrExpr, PtrVar, Var}
 import at.forsyte.harrsh.seplog.inductive.{PtrNEq, PureAtom, SymbolicHeap}
 
 /**
@@ -32,11 +32,11 @@ object ConsistencyCheck {
   }
 
   def allocationInfoToConsistencyConstraints(alloc : Seq[Var]) : Iterable[PureAtom] = {
-    val allocNotNull : Seq[PureAtom] = alloc map (v => PtrNEq(PtrVar(v), NullPtr()))
+    val allocNotNull : Seq[PureAtom] = alloc map (v => PtrNEq(PtrExpr(v), NullPtr()))
     val allocNotEqual : Seq[PureAtom] = for {
       i <- 0 until alloc.size - 1
       j <- i+1 until alloc.size
-    } yield PtrNEq(PtrVar(alloc(i)), PtrVar(alloc(j)))
+    } yield PtrNEq(PtrExpr(alloc(i)), PtrExpr(alloc(j)))
     allocNotNull ++ allocNotEqual
   }
 

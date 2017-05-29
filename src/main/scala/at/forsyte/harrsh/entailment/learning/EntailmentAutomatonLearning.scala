@@ -1,9 +1,8 @@
 package at.forsyte.harrsh.entailment.learning
 
 import at.forsyte.harrsh.entailment._
-import at.forsyte.harrsh.entailment.learning.PartitionFilter.RemoveEmpPartition
 import at.forsyte.harrsh.main._
-import at.forsyte.harrsh.seplog.inductive.SID
+import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
 /**
@@ -20,15 +19,13 @@ object EntailmentAutomatonLearning extends HarrshLogging {
 
   type State = (ObservationTable, BreadthFirstUnfoldingsIterator)
 
-  // FIXME Is RemoveEmpPartition a suitable partition filter?
-
   def learnAutomaton(sid: SID, maxNumFv: Int, assumeAsymmetry: Boolean, useSimpleLearning: Boolean, reportProgress: Boolean, maxIterations: Int = Int.MaxValue): (ObservationTable, EntailmentLearningLog) = {
 
-    val learningAlgorithm: AutomatonLearningTemplate = (assumeAsymmetry, useSimpleLearning) match {
-      case (true, true) => new AutomatonLearningTemplate with RemoveEmpPartition with SimpleLearningStrategy with CloseResultUnderSymmetries
-      case (true, false) => new AutomatonLearningTemplate with RemoveEmpPartition with IterationAndEquivalenceSensitiveLearningStrategy with CloseResultUnderSymmetries
-      case (false, true) => new AutomatonLearningTemplate with RemoveEmpPartition with SimpleLearningStrategy with CloseUnfoldingsUnderSymmetries
-      case (false, false) => new AutomatonLearningTemplate with RemoveEmpPartition with IterationAndEquivalenceSensitiveLearningStrategy with CloseUnfoldingsUnderSymmetries
+    val learningAlgorithm: AutomatonLearningTemplate = (useSimpleLearning, assumeAsymmetry) match {
+      case (true, true) => new AutomatonLearningTemplate with SimpleLearningStrategy with CloseResultUnderSymmetries
+      case (true, false) => new AutomatonLearningTemplate with SimpleLearningStrategy with ClosePartitionsUnderSymmetries
+      case (false, true) => new AutomatonLearningTemplate with IterationAndEquivalenceSensitiveLearningStrategy with CloseResultUnderSymmetries
+      case (false, false) => new AutomatonLearningTemplate with IterationAndEquivalenceSensitiveLearningStrategy with ClosePartitionsUnderSymmetries
     }
 
     learningAlgorithm.run(sid, maxNumFv, reportProgress, maxIterations)
@@ -36,7 +33,7 @@ object EntailmentAutomatonLearning extends HarrshLogging {
 
   trait AutomatonLearningTemplate extends LearningComponent {
 
-    self: LearningStrategy with PartitionFilter with SymmetryHandler =>
+    self: LearningStrategy with SymmetryHandler =>
 
     def run(sid: SID, maxNumFv: Int, reportProgress: Boolean, maxIterations: Int = Int.MaxValue): (ObservationTable, EntailmentLearningLog) = {
 
@@ -62,16 +59,14 @@ object EntailmentAutomatonLearning extends HarrshLogging {
       val fixedPoint = Combinators.fixedPointComputation[State](initialState, (a, b) => a._1.entries.nonEmpty && a._1 == b._1, maxIterations)(learningIteration)
       learningLog.logEvent(EntailmentLearningLog.ReachedFixedPoint())
 
+      // TODO Should actually check for equivalence of representatives? And in any case, enable configuration of when to establish normal form/check for equivalence?
+      val obs = fixedPoint._1
+      val cleaned = obs.copy(entries = obs.entries.map(cleanupEntry))
+
       // TODO Postprocessing
       // symmetryPostProcessing
 
-      (fixedPoint._1, learningLog)
-    }
-
-    private def isStronglySymmetric(sid: SID): Boolean = {
-      // TODO Is there a meaningful notion of strong asymmetry (where even the emp classes are guaranteed to behave in an asymmetric way)
-      //!sid.rules.exists(rule => rule.body.isReduced && !rule.body.hasPointer)
-      false
+      (cleaned, learningLog)
     }
 
     private def processPartitions(partitions: Seq[SymbolicHeapPartition], obs: ObservationTable, it: Int, entailmentLog: EntailmentLearningLog): ObservationTable = {
@@ -88,6 +83,15 @@ object EntailmentAutomatonLearning extends HarrshLogging {
       entailmentLog.logEvent(EntailmentLearningLog.ProcessPartition(partition))
 
       checkPartition(partition, obs, it)
+    }
+
+    private def cleanupEntry(entry : TableEntry) : TableEntry = {
+      entry.copy(reps = entry.reps map cleanupHeap)
+    }
+
+    private def cleanupHeap(sh : SymbolicHeap) : SymbolicHeap = {
+      // TODO Other normalization: Rename bound variables in the order they are discovered
+      sh.copy(pure = sh.pure map (_.ordered))
     }
 
   }

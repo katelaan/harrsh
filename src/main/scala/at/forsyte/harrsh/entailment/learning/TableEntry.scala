@@ -10,7 +10,7 @@ import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SymbolicHeap}
   * Created by jkatelaa on 5/23/17.
   */
 // TODO Maybe don't store extensions and their predicate calls separately?
-case class TableEntry(reps : Set[SymbolicHeap], exts : Set[(SymbolicHeap,PredCall)], /*repSid : SID,*/ isFinal : Boolean, discoveredInIteration : Int, introducedThroughClosure : Boolean) extends HarrshLogging {
+case class TableEntry(reps : Set[SymbolicHeap], exts : Set[(SymbolicHeap,PredCall)], /*repSid : SID,*/ discoveredInIteration : Int, introducedThroughClosure : Boolean) extends HarrshLogging {
 
   assert(reps.nonEmpty && exts.nonEmpty)
   assert(reps.map(_.numFV).size == 1)
@@ -18,6 +18,12 @@ case class TableEntry(reps : Set[SymbolicHeap], exts : Set[(SymbolicHeap,PredCal
   assert(reps.head.numFV == exts.head._2.args.size)
 
   override def toString: String = "Entry(reps = " + reps.mkString("{", ", ", "}") + ", exts = " + exts.map(SymbolicHeapPartition.combinedString).mkString("{", ",", "}") + ", isFinal = " + isFinal + ", i = " + discoveredInIteration + ")"
+
+  lazy val isFinal : Boolean = {
+    // Note: Dropped finality entailment check; instead mark as final iff the extension is emp. This has the result that final states might temporarily be marked as non-final, but by the time the algorithm terminates, we will always have encountered the emp extension
+    //reducedEntailment(part.rep, sid.callToStartPred, sid, EntailmentLearningLog.RedEntCheck.FinalityCheck()),
+    exts.exists(isTrivialExtension)
+  }
 
   override def equals(o: scala.Any): Boolean = o match {
     case other : TableEntry => other.reps == reps && other.exts == exts
@@ -88,6 +94,20 @@ case class TableEntry(reps : Set[SymbolicHeap], exts : Set[(SymbolicHeap,PredCal
     }
   }
 
-  def renameRepParamsTo(renaming : Seq[Var]) : TableEntry = ???
+  //TableEntry(reps :  exts :  /*repSid : SID,*/ isFinal : Boolean, discoveredInIteration : Int, introducedThroughClosure : Boolean) extends HarrshLogging {
+  def renameRepParamsTo(renaming : Seq[Var]) : TableEntry = {
+    val renamedReps = reps map (SymbolicHeap.renameFVs(_, renaming))
+    val renamedExts = exts map (pair => (pair._1, ???))//PredCall(pair._2.name, renaming)))
+
+    ??? //TableEntry(, exts map (SymbolicHeap.renameFVs(_, renaming)), isFinal)
+  }
+
+  //private def reorderCallArgs(renaming : Seq[Var])
+
+  private def isTrivialExtension(ext : (SymbolicHeap,PredCall)) = {
+    val argInts = ext._2.args map (_.getVarOrZero.toInt)
+    // Triviality check is somewhat inefficient due to the creation of intermediate sequences
+    ext._1.isEmpty && argInts.zip(1 to argInts.size).forall(pair => pair._1 == pair._2)
+  }
 
 }

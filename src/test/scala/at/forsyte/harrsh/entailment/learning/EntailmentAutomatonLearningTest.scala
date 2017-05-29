@@ -1,14 +1,15 @@
 package at.forsyte.harrsh.entailment.learning
 
+import at.forsyte.harrsh.{AtomConstructorFunctions, TestValues}
 import at.forsyte.harrsh.Implicits._
-import at.forsyte.harrsh.seplog.inductive.SID
+import at.forsyte.harrsh.seplog.inductive.{PointsTo, SID}
 import at.forsyte.harrsh.test.HarrshTest
 import at.forsyte.harrsh.util.IOUtils
 
 /**
   * Created by jens on 5/3/17.
   */
-class EntailmentAutomatonLearningTest extends HarrshTest {
+class EntailmentAutomatonLearningTest extends HarrshTest with TestValues with AtomConstructorFunctions {
 
   behavior of "entailment automaton learning"
 
@@ -42,6 +43,35 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     assert(automatonRejects("x1 -> y1 * y1 -> x2 : {x1 != x2}", obs)) // Rejected because cycle from x2 to y1 possible
     assert(automatonAccepts("emp : {x1 = x2}", obs))
     assert(automatonAccepts("x1 -> x2 : {x1 != x2}", obs))
+    assert(automatonAccepts("x1 -> y1 * y1 -> x2 : {y1 != x2, x1 != x2}", obs))
+    IOUtils.printLinesOf('#', 1)
+  }
+
+  it should "learn symmetry-closed ACYC SLL entailment checking" in {
+
+    val sid = "sll-acyc.sid".load()
+    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, assumeAsymmetry = false, useSimpleLearning = true, reportProgress =  true)
+    printCase(sid, obs, log)
+
+    obs.numClasses shouldEqual 7
+    // Two final classes: The empty one (which can be extended symmetrically) and the non-empty one
+    obs.finalClasses.size shouldEqual 2
+    // Three classes with empty spatial parts (no pure formula, inequality, equality)
+    obs.entries.filterNot(_.reps.head.hasPointer).size shouldEqual 3
+    // Two classes x1 -> x2 (with and without inequality -- equality not derivable from unfoldings)
+    obs.entries.count(_.reps.head.pointers.contains(ptr(x1, x2))) shouldEqual 2
+    // Symmetrically, two classes x2 -> x1
+    obs.entries.count(_.reps.head.pointers.contains(ptr(x2, x1))) shouldEqual 2
+
+    assert(automatonRejects("emp", obs))
+    assert(automatonRejects("emp : {x1 != x2}", obs))
+    assert(automatonRejects("x1 -> x2", obs))
+    assert(automatonRejects("x2 -> x1", obs))
+    assert(automatonRejects("x1 -> y1 * y1 -> x2 : {x1 != x2}", obs)) // Rejected because cycle from x2 to y1 possible
+    assert(automatonAccepts("emp : {x1 = x2}", obs))
+    assert(automatonAccepts("emp : {x2 = x1}", obs))
+    assert(automatonAccepts("x1 -> x2 : {x1 != x2}", obs))
+    assert(automatonAccepts("x1 -> x2 : {x2 != x1}", obs))
     assert(automatonAccepts("x1 -> y1 * y1 -> x2 : {y1 != x2, x1 != x2}", obs))
     IOUtils.printLinesOf('#', 1)
   }
@@ -144,7 +174,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     IOUtils.printLinesOf('#', 1)
   }
 
-//  ignore should "learn SIDs with three overlapping classes" in {
+//  it should "learn SIDs with three overlapping classes" in {
 //
 //    val sid =
 //      """
@@ -160,7 +190,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
 //    IOUtils.printLinesOf('#', 1)
 //  }
 //
-//  ignore should "learn SIDs with overlaid classes" in {
+//  it should "learn SIDs with overlaid classes" in {
 //
 //    // Here we have a more complicated overlapping pattern, since pointers of the same type occur both on the left
 //    // and on the right of the two-pointer base-rules
@@ -207,7 +237,7 @@ class EntailmentAutomatonLearningTest extends HarrshTest {
     IOUtils.printLinesOf('#', 1)
   }
 
-//  ignore should "not crash on tlls" in {
+//  it should "not crash on tlls" in {
 //
 //    val sid = "tll.sid".load
 //    val (obs, log) = EntailmentAutomatonLearning.learnAutomaton(sid, 2, true, 4)

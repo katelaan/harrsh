@@ -9,15 +9,14 @@ import at.forsyte.harrsh.util.Combinators
 /**
   * Created by jens on 5/3/17.
   */
-case class BreadthFirstUnfoldingsIterator(sid : SID, iteration: Int, continuation : Seq[SymbolicHeap], maxNumFV : Int, entailmentLog : EntailmentLearningLog, config : PartitionFilter with SymmetryHandler) extends HarrshLogging {
+case class BreadthFirstUnfoldingsIterator(sid : SID, iteration: Int, continuation : Seq[SymbolicHeap], maxNumFV : Int, entailmentLog : EntailmentLearningLog, config : SymmetryHandler) extends HarrshLogging {
 
   // TODO Return lazy iterator instead (and change processing functions accordingly)
   def continue : (Seq[SymbolicHeapPartition],BreadthFirstUnfoldingsIterator) = {
 
     logger.debug("Will unfold the following formulas:\n" + continuation.map(" - " + _).mkString("\n"))
     val nextUnfs = SIDUnfolding.unfoldOnce(sid, continuation)
-    val (reducedUnfsCandidates, newContinuation) = nextUnfs.partition(_.isReduced)
-    val reducedUnfs = config.symmetryInProcessing(reducedUnfsCandidates)
+    val (reducedUnfs, newContinuation) = nextUnfs.partition(_.isReduced)
     logger.debug("Reduced unfs for current iteration:\n" + reducedUnfs.map(" - " + _).mkString("\n"))
     logger.debug("Non-reduced unfs for next iteration:\n" + newContinuation.map(" - " + _).mkString("\n"))
     entailmentLog.logEvent(EntailmentLearningLog.IterationStats(iteration, reducedUnfs.size))
@@ -26,7 +25,8 @@ case class BreadthFirstUnfoldingsIterator(sid : SID, iteration: Int, continuatio
       nextUnf <- reducedUnfs
       simplifiedUnf = EqualityBasedSimplifications.fullEqualitySimplification(nextUnf)
       candidate <- partitions(simplifiedUnf, maxNumFV, entailmentLog)
-    } yield candidate
+      candidateNamingChoice <- config.symmetryInProcessing(candidate)
+    } yield candidateNamingChoice
 
     (newPartitions, copy(iteration = iteration + 1, continuation = newContinuation))
   }

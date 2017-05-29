@@ -22,8 +22,8 @@ sealed trait PureAtom extends SepLogAtom with HarrshLogging {
   }
 
   override def getVars : Set[Var] = this match {
-    case PtrEq(l, r) => l.getVar union r.getVar
-    case PtrNEq(l, r) => l.getVar union r.getVar
+    case PtrEq(l, r) => l.getNonNullVar union r.getNonNullVar
+    case PtrNEq(l, r) => l.getNonNullVar union r.getNonNullVar
   }
 
   def getVarsWithNull : Set[Var] = this match {

@@ -79,6 +79,22 @@ object Combinators {
     }
   }
 
+  def permutations[A](as : Seq[A]) : Seq[Seq[A]] = {
+    if (as.isEmpty) Seq(Seq.empty)
+    else {
+      for {
+        headIx <- as.indices
+        (fst, snd) = as.splitAt(headIx)
+        tail <- permutations(fst ++ snd.tail)
+      } yield snd.head +: tail
+    }
+  }
+
+  def dropElemAtIndex[A](as : Seq[A], ix : Int) : Seq[A] = {
+    val (fst, snd) = as.splitAt(ix)
+    fst ++ snd.tail
+  }
+
   /**
     * Computes all ordered pairs (a,b) with seq.indexOf(a) < seq.indexOf(b)
     *

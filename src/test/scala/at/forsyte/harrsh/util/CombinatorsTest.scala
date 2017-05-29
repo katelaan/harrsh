@@ -24,4 +24,21 @@ class CombinatorsTest extends HarrshTest {
 
   }
 
+  they should "generate all permutations" in {
+
+    val input = Seq(1,2,3,4)
+    val permutations = Combinators.permutations(input)
+    assert(permutations.size == 4*3*2*1)
+    for {
+      i <- 1 to 4
+      j <- 1 to 4
+      k <- 1 to 4
+      l <- 1 to 4
+      if i != j && i != k && i != l && j != k && j != l && k != l
+    }{
+      assert(permutations.contains(Seq(i,j,k,l)))
+    }
+
+  }
+
 }

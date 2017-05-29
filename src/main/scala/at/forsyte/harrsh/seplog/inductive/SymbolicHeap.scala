@@ -2,7 +2,6 @@ package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog._
-import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
@@ -34,6 +33,8 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
     val pureString = if (pure.isEmpty) "" else pure.map(_.toStringWithVarNames(naming)).mkString(" : {", ", ", "}")
     prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString //+ " [" + numFV + "/" + boundVars.size + "]"
   }
+
+  def isEmpty = pure.isEmpty && pointers.isEmpty && predCalls.isEmpty
 
   def hasPointer: Boolean = pointers.nonEmpty
 
@@ -274,11 +275,6 @@ object SymbolicHeap extends HarrshLogging {
     SymbolicHeap(pure, spatial, calls, numFV, SortedSet.empty(boundVarOrdering) ++ boundVars)
   }
 
-//  def addTagToPredCall(sh : SymbolicHeap, call : PredCall, tag : String) : SymbolicHeap = {
-//    if (!sh.predCalls.contains(call)) throw new IllegalArgumentException("Non-existent call passed")
-//    sh.copy(predCalls = sh.predCalls.updated(sh.predCalls.indexOf(call), call.copy(name = call.name + tag)))
-//  }
-
   def addTagsToPredCalls(sh : SymbolicHeap, tags : Seq[String]) : SymbolicHeap = {
     if (tags.size != sh.predCalls.size) throw new IllegalArgumentException("Wrong number of tags passed")
     val newCalls = sh.predCalls zip tags map {
@@ -353,6 +349,14 @@ object SymbolicHeap extends HarrshLogging {
         case _ => (s + curr, curr)
       }
     }._1
+  }
+
+  def renameFVs(sh: SymbolicHeap, newVarNames: Seq[Var]) = {
+    assert(sh.numFV == newVarNames.length)
+    assert(newVarNames forall (_.isFree))
+    val renamingMap = Map.empty ++ newVarNames.zipWithIndex.map{pair => (Var(pair._2 + 1), pair._1)}
+    val renaming = Renaming.fromMap(renamingMap)
+    sh.renameVars(renaming, avoidDoubleCapture = false)
   }
 
 }

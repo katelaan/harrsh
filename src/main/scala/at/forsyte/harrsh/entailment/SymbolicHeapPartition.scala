@@ -16,7 +16,7 @@ case class SymbolicHeapPartition(rep : SymbolicHeap, ext : SymbolicHeap, extPred
   assert(rep.isReduced)
   assert(ext.isReduced)
 
-  // FIXME This assertion should be falsified later when we allow gaps in the free vars of representatives; see also comment in companion object
+  // TODO Should we allow gaps in the free vars in reps? It's easy to argue that NOT doing so (like currently) is wlog
   if (rep.numFV > extPredCall.args.size) {
     IOUtils.printWarningToConsole("Rep " + rep + " has " + rep.numFV + " fvs, but call is " + extPredCall)
     assert(rep.numFV <= extPredCall.args.size)
