@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.entailment.learning
 
 import at.forsyte.harrsh.entailment._
-import at.forsyte.harrsh.seplog.inductive.{PointsTo, PredCall, PureAtom, SymbolicHeap}
 
 /**
   * Created by jkatelaa on 5/25/17.
@@ -35,36 +34,10 @@ trait SimpleLearningStrategy extends LearningStrategy {
         updateEntry(entries.head)
       case i =>
         // Need to implement order on equivalence classes...
-        logger.warn(i + " matching entries for " + partition + ":\n" + entries.mkString("\n"))
-        val strongest = strongestEntry(entries)
-        logger.warn("Strongest entry: " + strongest)
+        logger.debug(i + " matching entries for " + partition + ":\n" + entries.mkString("\n"))
+        val strongest = TableEntry.strongestEntry(entries)
+        logger.debug("Strongest entry: " + strongest)
         updateEntry(strongest)
-    }
-  }
-
-  private def strongestEntry(entries : Seq[TableEntry]) : TableEntry = {
-
-    def isWeakerEntryIn(exts : Set[(Set[PointsTo], Set[PureAtom], PredCall)])(ext : (SymbolicHeap, PredCall)) : Boolean = {
-      // FIXME This is a very naive check. Have to improve this as soon as we run into the exception thrown below
-      val (ptrSet, pureSet) = (ext._1.pointers.toSet, ext._1.pure.toSet)
-      val matchingExt = exts.find(triple => triple._1 == ptrSet && triple._3 == ext._2)
-      matchingExt.exists{
-        _._2 subsetOf pureSet
-      }
-    }
-
-    def isStronger(fst : TableEntry, snd : TableEntry) = {
-      val sndAsSets = snd.exts.map{
-        case (ext,call) => (ext.pointers.toSet, ext.pure.toSet, call)
-      }
-      fst.exts forall isWeakerEntryIn(sndAsSets)
-    }
-
-    entries.tail.foldLeft(entries.head){
-      case (fst, snd) =>
-        if (isStronger(fst,snd)) fst
-        else if (isStronger(snd,fst)) snd
-        else throw new Throwable("Cannot resolve ambiguity in table entries")
     }
   }
 

@@ -21,11 +21,11 @@ class EntailmentAutomatonLearningTest extends HarrshTest with TestValues with At
 
     obs.numClasses shouldEqual 1
     obs.finalClasses.size shouldEqual 1
-    assert(automatonAccepts("x1 -> x2", obs))
-    assert(automatonAccepts("x1 -> y1 * y1 -> x2", obs))
-    assert(automatonAccepts("x1 -> y1 * y1 -> y3 * y3 -> y5 * y5 -> y6 * y6 -> y4 * y4 -> y2 * y2 -> x2", obs))
-    assert(automatonRejects("emp", obs)) // Rejected because emp gets its own equivalence class in asymmetric SIDs
-    assert(automatonRejects("x2 -> x1", obs)) // Rejected because we only learn the classes for a fixed variable ordering
+    assert(observationTableAccepts("x1 -> x2", obs))
+    assert(observationTableAccepts("x1 -> y1 * y1 -> x2", obs))
+    assert(observationTableAccepts("x1 -> y1 * y1 -> y3 * y3 -> y5 * y5 -> y6 * y6 -> y4 * y4 -> y2 * y2 -> x2", obs))
+    assert(observationTableReject("emp", obs)) // Rejected because emp gets its own equivalence class in asymmetric SIDs
+    assert(observationTableReject("x2 -> x1", obs)) // Rejected because we only learn the classes for a fixed variable ordering
     IOUtils.printLinesOf('#', 1)
   }
 
@@ -37,13 +37,13 @@ class EntailmentAutomatonLearningTest extends HarrshTest with TestValues with At
 
     obs.numClasses shouldEqual 3
     obs.finalClasses.size shouldEqual 1
-    assert(automatonRejects("emp", obs))
-    assert(automatonRejects("emp : {x1 != x2}", obs))
-    assert(automatonRejects("x1 -> x2", obs))
-    assert(automatonRejects("x1 -> y1 * y1 -> x2 : {x1 != x2}", obs)) // Rejected because cycle from x2 to y1 possible
-    assert(automatonAccepts("emp : {x1 = x2}", obs))
-    assert(automatonAccepts("x1 -> x2 : {x1 != x2}", obs))
-    assert(automatonAccepts("x1 -> y1 * y1 -> x2 : {y1 != x2, x1 != x2}", obs))
+    assert(observationTableReject("emp", obs))
+    assert(observationTableReject("emp : {x1 != x2}", obs))
+    assert(observationTableReject("x1 -> x2", obs))
+    assert(observationTableReject("x1 -> y1 * y1 -> x2 : {x1 != x2}", obs)) // Rejected because cycle from x2 to y1 possible
+    assert(observationTableAccepts("emp : {x1 = x2}", obs))
+    assert(observationTableAccepts("x1 -> x2 : {x1 != x2}", obs))
+    assert(observationTableAccepts("x1 -> y1 * y1 -> x2 : {y1 != x2, x1 != x2}", obs))
     IOUtils.printLinesOf('#', 1)
   }
 
@@ -63,16 +63,16 @@ class EntailmentAutomatonLearningTest extends HarrshTest with TestValues with At
     // Symmetrically, two classes x2 -> x1
     obs.entries.count(_.reps.head.pointers.contains(ptr(x2, x1))) shouldEqual 2
 
-    assert(automatonRejects("emp", obs))
-    assert(automatonRejects("emp : {x1 != x2}", obs))
-    assert(automatonRejects("x1 -> x2", obs))
-    assert(automatonRejects("x2 -> x1", obs))
-    assert(automatonRejects("x1 -> y1 * y1 -> x2 : {x1 != x2}", obs)) // Rejected because cycle from x2 to y1 possible
-    assert(automatonAccepts("emp : {x1 = x2}", obs))
-    assert(automatonAccepts("emp : {x2 = x1}", obs))
-    assert(automatonAccepts("x1 -> x2 : {x1 != x2}", obs))
-    assert(automatonAccepts("x1 -> x2 : {x2 != x1}", obs))
-    assert(automatonAccepts("x1 -> y1 * y1 -> x2 : {y1 != x2, x1 != x2}", obs))
+    assert(observationTableReject("emp", obs))
+    assert(observationTableReject("emp : {x1 != x2}", obs))
+    assert(observationTableReject("x1 -> x2", obs))
+    assert(observationTableReject("x2 -> x1", obs))
+    assert(observationTableReject("x1 -> y1 * y1 -> x2 : {x1 != x2}", obs)) // Rejected because cycle from x2 to y1 possible
+    assert(observationTableAccepts("emp : {x1 = x2}", obs))
+    assert(observationTableAccepts("emp : {x2 = x1}", obs))
+    assert(observationTableAccepts("x1 -> x2 : {x1 != x2}", obs))
+    assert(observationTableAccepts("x1 -> x2 : {x2 != x1}", obs))
+    assert(observationTableAccepts("x1 -> y1 * y1 -> x2 : {y1 != x2, x1 != x2}", obs))
     IOUtils.printLinesOf('#', 1)
   }
 
@@ -93,9 +93,9 @@ class EntailmentAutomatonLearningTest extends HarrshTest with TestValues with At
 
     obs.numClasses shouldEqual 1
     obs.finalClasses.size shouldEqual 1
-    assert(automatonAccepts("emp : {x1 = x2}", obs))
-    assert(automatonAccepts("x1 -> (y1,null) * y1 -> (null,y2) * y2 -> (y3,null) : {y3 = x2}", obs))
-    assert(automatonAccepts("x1 -> (y1,null) * y1 -> (null,y2) * y2 -> (x2,null)", obs))
+    assert(observationTableAccepts("emp : {x1 = x2}", obs))
+    assert(observationTableAccepts("x1 -> (y1,null) * y1 -> (null,y2) * y2 -> (y3,null) : {y3 = x2}", obs))
+    assert(observationTableAccepts("x1 -> (y1,null) * y1 -> (null,y2) * y2 -> (x2,null)", obs))
     IOUtils.printLinesOf('#', 1)
   }
 
@@ -118,8 +118,8 @@ class EntailmentAutomatonLearningTest extends HarrshTest with TestValues with At
     obs.numClasses shouldEqual 1
     obs.finalClasses.size shouldEqual 1
     obs.finalClasses.head.reps.size shouldEqual 2
-    assert(automatonAccepts("x1 -> (y1,null) * y1 -> (null,y2) * y2 -> (y3,null) : {y3 = x2}", obs))
-    assert(automatonAccepts("x1 -> (y1,null) * y1 -> (null,y2) * y2 -> (x2,null)", obs))
+    assert(observationTableAccepts("x1 -> (y1,null) * y1 -> (null,y2) * y2 -> (y3,null) : {y3 = x2}", obs))
+    assert(observationTableAccepts("x1 -> (y1,null) * y1 -> (null,y2) * y2 -> (x2,null)", obs))
     IOUtils.printLinesOf('#', 1)
   }
 
@@ -164,12 +164,12 @@ class EntailmentAutomatonLearningTest extends HarrshTest with TestValues with At
       assert(hasClassRepresentedBy(obs, rep))
     }
 
-    assert(automatonAccepts("∃y1 . y1 ↦ (x2, null) * x1 ↦ (null, y1, null)", obs))
-    assert(automatonAccepts("∃y1 ∃y2 ∃y3 . x1 ↦ (y1, null, null) * y1 ↦ (y2, null, null) * y2 ↦ (null, y3, null) * y3 ↦ (x2, null)", obs))
-    assert(automatonRejects("x1 -> (x2, null, null)", obs))
-    assert(automatonRejects("x1 -> (null, x2, null)", obs))
-    assert(automatonRejects("x1 -> (x2, null)", obs))
-    assert(automatonRejects("x1 -> (y1, null, null) * y1 -> (null, x2, null)", obs))
+    assert(observationTableAccepts("∃y1 . y1 ↦ (x2, null) * x1 ↦ (null, y1, null)", obs))
+    assert(observationTableAccepts("∃y1 ∃y2 ∃y3 . x1 ↦ (y1, null, null) * y1 ↦ (y2, null, null) * y2 ↦ (null, y3, null) * y3 ↦ (x2, null)", obs))
+    assert(observationTableReject("x1 -> (x2, null, null)", obs))
+    assert(observationTableReject("x1 -> (null, x2, null)", obs))
+    assert(observationTableReject("x1 -> (x2, null)", obs))
+    assert(observationTableReject("x1 -> (y1, null, null) * y1 -> (null, x2, null)", obs))
       
     IOUtils.printLinesOf('#', 1)
   }
@@ -245,11 +245,11 @@ class EntailmentAutomatonLearningTest extends HarrshTest with TestValues with At
 //    IOUtils.printLinesOf('#', 1)
 //  }
 
-  private def automatonAccepts(sh : String, obs : ObservationTable) : Boolean = {
+  private def observationTableAccepts(sh : String, obs : ObservationTable) : Boolean = {
     println("Automaton should accept " + sh)
     obs.accepts(sh.parse, verbose = true)
   }
-  private def automatonRejects(sh : String, obs : ObservationTable) : Boolean = {
+  private def observationTableReject(sh : String, obs : ObservationTable) : Boolean = {
     println("Automaton should reject " + sh)
     obs.rejects(sh.parse, verbose = true)
   }

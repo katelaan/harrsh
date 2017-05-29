@@ -4,7 +4,7 @@ import at.forsyte.harrsh.entailment.SymbolicHeapPartition
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.{ConsistencyCheck, ReducedHeapEquivalence}
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive._
 
 /**
   * Created by jkatelaa on 5/23/17.
@@ -108,6 +108,44 @@ case class TableEntry(reps : Set[SymbolicHeap], exts : Set[(SymbolicHeap,PredCal
     val argInts = ext._2.args map (_.getVarOrZero.toInt)
     // Triviality check is somewhat inefficient due to the creation of intermediate sequences
     ext._1.isEmpty && argInts.zip(1 to argInts.size).forall(pair => pair._1 == pair._2)
+  }
+
+}
+
+object TableEntry {
+
+  def strongestEntry(entries : Seq[TableEntry]) : TableEntry = {
+    entries.tail.foldLeft(entries.head){
+      case (fst, snd) =>
+        if (isStronger(fst,snd)) fst
+        else if (isStronger(snd,fst)) snd
+        else throw new Throwable("Cannot resolve ambiguity in table entries")
+    }
+  }
+
+  def weakestEntry(entries : Seq[TableEntry]) : TableEntry = {
+    entries.tail.foldLeft(entries.head){
+      case (fst, snd) =>
+        if (isStronger(fst,snd)) snd
+        else if (isStronger(snd,fst)) fst
+        else throw new Throwable("Cannot resolve ambiguity in table entries")
+    }
+  }
+
+  private def isWeakerEntryIn(exts : Set[(Set[PointsTo], Set[PureAtom], PredCall)])(ext : (SymbolicHeap, PredCall)) : Boolean = {
+    // FIXME This is a very naive check. Have to improve this as soon as we run into the exception thrown below
+    val (ptrSet, pureSet) = (ext._1.pointers.toSet, ext._1.pure.toSet)
+    val matchingExt = exts.find(triple => triple._1 == ptrSet && triple._3 == ext._2)
+    matchingExt.exists{
+      _._2 subsetOf pureSet
+    }
+  }
+
+  private def isStronger(fst : TableEntry, snd : TableEntry) = {
+    val sndAsSets = snd.exts.map{
+      case (ext,call) => (ext.pointers.toSet, ext.pure.toSet, call)
+    }
+    fst.exts forall isWeakerEntryIn(sndAsSets)
   }
 
 }

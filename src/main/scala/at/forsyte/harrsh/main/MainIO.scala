@@ -17,7 +17,7 @@ import at.forsyte.harrsh.refinement.AutomatonTask
   */
 object MainIO extends HarrshLogging {
   def writeEntailmentAutomatonToFile(sid: SID, numFV : Int, table: ObservationTable, log: EntailmentLearningLog, filename: String) : Unit = {
-    val automaton = new EntailmentHeapAutomaton(numFV, table)
+    val automaton = EntailmentHeapAutomaton.fromObservationTable(numFV, table)
 
     val content = "ENTAILMENT AUTOMATON FOR SID\n" + sid + "\n\n" + EntailmentHeapAutomaton.serialize(automaton) + "\n\n" + ("#"*80) + "\n\nCOMPUTATION LOG\n\n" + log
     writeFile(filename, content)
