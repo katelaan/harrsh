@@ -5,7 +5,9 @@ import at.forsyte.harrsh.heapautomata.{FVBound, HeapAutomaton, TargetComputation
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.ConsistencyCheck
 import at.forsyte.harrsh.refinement.DecisionProcedures
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
+import at.forsyte.harrsh.util.Combinators
 
 import scala.concurrent.duration.Duration
 
@@ -14,7 +16,7 @@ import scala.concurrent.duration.Duration
   */
 case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate : Boolean) extends HeapAutomaton with TargetComputation with FVBound with HarrshLogging {
 
-  override type State = Int
+  override type State = (Int, Set[Var])
 
   private object States {
 
@@ -23,55 +25,60 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     private val entryToStateMap: Map[TableEntry, Int] = Map() ++ obs.entries.zipWithIndex
 
     // We need a single sink state for those heaps that are consistent but cannot be extended to unfoldings of the RHS
-    val sinkState : State = stateToEntryMap.size + 1
+    val sinkStateIndex : Int = stateToEntryMap.size + 1
     // Inconsistent heaps always make the entailment true, so we have a distinguished inconsistent state
-    val inconsistentState : State = sinkState + 1
+    val inconsistentStateIndex : Int = sinkStateIndex + 1
 
-    logger.debug("Automaton state space:\n" + stateToEntryMap.toSeq.sortBy(_._1).map{ pair => (pair._1, pair._2, isFinal(pair._1))}.mkString("\n"))
+    logger.debug("Automaton state space:\n" + stateToEntryMap.toSeq.sortBy(_._1).map{ pair => (pair._1, pair._2, isFinal((pair._1,Set.empty)))}.mkString("\n"))
 
-    def setOfStates : Set[State] = stateToEntryMap.keySet + sinkState + inconsistentState
+    def stateIndices : Set[Int] = stateToEntryMap.keySet + sinkStateIndex + inconsistentStateIndex
 
     // TODO Guarantee that we take the spatially smallest representative. Do we even want to keep more than one rep?
     def rep(s : State) : SymbolicHeap = {
       assert(!isSink(s) && !isInconsistent(s))
-      stateToEntryMap(s).reps.head
+      stateToEntryMap(s._1).reps.head
     }
 
-    def isFinal(s : State) : Boolean = negate != (isInconsistent(s) || (!isSink(s) && stateToEntryMap(s).isFinal))
+    def isFinal(s : State) : Boolean = negate != (isInconsistent(s) || (!isSink(s) && stateToEntryMap(s._1).isFinal))
 
     def stateOfHeap(sh : SymbolicHeap) : State = {
 
       if (!ConsistencyCheck.isConsistent(sh)) {
-        logger.debug("Heap " + sh + " is inconsistent => Go to accepting sink state " + inconsistentState)
-        inconsistentState
+        logger.debug("Heap " + sh + " is inconsistent => Go to accepting sink state " + inconsistentStateIndex)
+        (inconsistentStateIndex, Set.empty)
       } else {
         // Try to match the heap against the equivalence classes of the SID
         val matches = obs.getAllMatchingEntries(sh)
         if (matches.isEmpty) {
           // No match => Not extensible to SID unfolding => go to sink
-          logger.debug("No match for " + sh + " => Go to rejecting sink state " + sinkState)
-          sinkState
+          logger.debug("No match for " + sh + " => Check if we get match under external assumptions" + sinkStateIndex)
+          // FIXME Check external assumptions
+          (sinkStateIndex,Set.empty)
         } else {
           // TODO Do we have to support "real" nondeterminism? (Currently we'll have an exception in that case.)
           //val strongest = TableEntry.entryWithWeakestExtensions(matches)
           val strongest = TableEntry.entryWithMinimalExtensionSet(matches)
-          entryToStateMap(strongest)
+          (entryToStateMap(strongest), Set.empty)
         }
       }
     }
 
-    def isSink(s : State) : Boolean = s == sinkState
-    def isInconsistent(s : State) : Boolean = s == inconsistentState
+    def isSink(s : State) : Boolean = s._1 == sinkStateIndex
+    def isInconsistent(s : State) : Boolean = s._1 == inconsistentStateIndex
   }
 
-  override lazy val states: Set[State] = States.setOfStates
+  override lazy val states: Set[State] = for {
+    index <- States.stateIndices
+    externalAssumption <- Var.mkAllVars(1 to numFV).toSet.subsets()
+  } yield (index, externalAssumption)
+
   override def isFinal(s: State): Boolean = States.isFinal(s)
 
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     if (src.exists(States.isSink)) {
       // The sink state propagates
       logger.debug("Children " + src.mkString(", ") + " contain sink => target for " + lab + " is sink")
-      Set(States.sinkState)
+      Set((States.sinkStateIndex,Set.empty[Var]))
     } else {
       val shrunk = lab.replaceCalls(src map States.rep)
       logger.debug("Children " + src.mkString(", ") + " => Shrink " + lab + " to " + shrunk)

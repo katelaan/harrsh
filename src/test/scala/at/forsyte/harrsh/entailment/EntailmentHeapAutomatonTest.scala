@@ -13,19 +13,17 @@ class EntailmentHeapAutomatonTest extends HarrshTest {
 
   behavior of "entailment heap auotmaton"
 
-  it should "solve entailment checking for ASLLs" in {
+  it should "solve entailment checking for ASLLs without tagging needs" in {
 
     val sid = "sll-acyc.sid".load()
     val numFV = 2
-    val (asllTable, _) = EntailmentAutomatonLearning.learnAutomaton(sid, numFV, assumeAsymmetry = false, useSimpleLearning = true, reportProgress = false)
-    val automaton = EntailmentHeapAutomaton.fromObservationTable(numFV, asllTable)
-
-    def decide(sid : SID) : Boolean = EntailmentHeapAutomaton.decideEntailment(sid, automaton, TestValues.DefaultTestTimeout, verbose = true, reportProgress = true)
+    val automaton = learnAutomaton(sid, numFV)
+    val sidCyc = "sll.sid".load()
+    def decide : SID => Boolean = runAutomaton(automaton)
 
     // The SID should of course entail itself
     decide(sid) shouldBe true
     // Since standard lists can be cyclic, the entailment should be false
-    val sidCyc = "sll.sid".load()
     decide(sidCyc) shouldBe false
 
     // Individual acyclic lists should also be accepted
@@ -47,12 +45,29 @@ class EntailmentHeapAutomatonTest extends HarrshTest {
     decide(twoLists) shouldBe true
     val twoListsWithoutPure = "asll(x1, y1) * asll(y1, x2)".parse.toSid(sid)
     decide(twoListsWithoutPure) shouldBe false
+  }
+
+  it should "solve entailment checking for ASLLs with tagging needs" in {
+
+    val sid = "sll-acyc.sid".load()
+    val numFV = 2
+    val automaton = learnAutomaton(sid, numFV)
+    val sidCyc = "sll.sid".load()
+
+    def decide : SID => Boolean = runAutomaton(automaton)
 
     // Chaining possibly cyclic lists together should work if the side conditions enforce acyclicity
     // FIXME Make this work
-    //val twoListsCyc = "sll(x1, y1) * sll(y1, x2) : {x1 != y1, x1 != x2, y1 != x2}".parse.toSid(sidCyc)
-    //decide(twoListsCyc) shouldBe true
+    val twoListsCyc = "sll(x1, y1) * sll(y1, x2) : {x1 != y1, x1 != x2, y1 != x2}".parse.toSid(sidCyc)
+    decide(twoListsCyc) shouldBe true
 
   }
+
+  private def learnAutomaton(sid : SID, numFV : Int) : EntailmentHeapAutomaton = {
+    val (asllTable, _) = EntailmentAutomatonLearning.learnAutomaton(sid, numFV, assumeAsymmetry = false, useSimpleLearning = true, reportProgress = false)
+    EntailmentHeapAutomaton.fromObservationTable(numFV, asllTable)
+  }
+
+  private def runAutomaton(automaton : EntailmentHeapAutomaton)(sid: SID): Boolean = EntailmentHeapAutomaton.decideEntailment(sid, automaton, TestValues.DefaultTestTimeout, verbose = true, reportProgress = true)
 
 }
