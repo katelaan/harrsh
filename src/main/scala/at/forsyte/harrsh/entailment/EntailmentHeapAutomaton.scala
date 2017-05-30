@@ -6,7 +6,7 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.ConsistencyCheck
 import at.forsyte.harrsh.refinement.DecisionProcedures
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{PtrNEq, PureAtom, SID, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
 import scala.concurrent.duration.Duration
@@ -41,11 +41,17 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
 
     def isFinal(s : State) : Boolean = negate != (isInconsistent(s) || (!isSink(s) && stateToEntryMap(s._1).isFinal))
 
-    def stateOfHeap(sh : SymbolicHeap) : State = {
+    def statesOfHeap(sh : SymbolicHeap) : Set[State] = {
 
+      val stateIndex = stateWithoutExternalAssumptions(sh)
+      // Close under possible external assumptions
+      Set((stateIndex,Set.empty[Var])) ++ targetStatesWithExternalAssumptions(sh)
+    }
+
+    private def stateWithoutExternalAssumptions(sh : SymbolicHeap) : Int = {
       if (!ConsistencyCheck.isConsistent(sh)) {
         logger.debug("Heap " + sh + " is inconsistent => Go to accepting sink state " + inconsistentStateIndex)
-        (inconsistentStateIndex, Set.empty)
+        inconsistentStateIndex
       } else {
         // Try to match the heap against the equivalence classes of the SID
         val matches = obs.getAllMatchingEntries(sh)
@@ -53,14 +59,42 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
           // No match => Not extensible to SID unfolding => go to sink
           logger.debug("No match for " + sh + " => Check if we get match under external assumptions" + sinkStateIndex)
           // FIXME Check external assumptions
-          (sinkStateIndex,Set.empty)
+          sinkStateIndex
         } else {
-          // TODO Do we have to support "real" nondeterminism? (Currently we'll have an exception in that case.)
+          // TODO Do we have to support "real" nondeterminism w.r.t. state indeices as well? (Currently we'll have an exception in that case.)
           //val strongest = TableEntry.entryWithWeakestExtensions(matches)
           val strongest = TableEntry.entryWithMinimalExtensionSet(matches)
-          (entryToStateMap(strongest), Set.empty)
+          entryToStateMap(strongest)
         }
       }
+    }
+
+    private def nonalloced(sh : SymbolicHeap): Set[Var] = {
+      val alloc = sh.pointers map (_.fromAsVar)
+      // TODO This is actually not quite true because of possible equality constraints between FVs, but this should only be an efficiency, not a correctness concern
+      Var.mkSetOfAllVars(1 to numFV) -- alloc
+    }
+
+    private def externalConstraints(sh : SymbolicHeap, externalAllocAssumption : Set[Var]) : Set[PureAtom] = {
+      (for {
+        allocedVar <- sh.pointers map (_.fromAsVar)
+        externalVar <- externalAllocAssumption
+      } yield PtrNEq(allocedVar, externalVar)).toSet
+    }
+
+    private def taggingCandidates(sh : SymbolicHeap) : Set[(Set[Var], Set[PureAtom])] = {
+      (for {
+        externalAllocationOption <- nonalloced(sh).subsets()
+        if externalAllocationOption.nonEmpty
+        constraints = externalConstraints(sh, externalAllocationOption)
+      } yield (externalAllocationOption, constraints)).toSet
+    }
+
+    private def targetStatesWithExternalAssumptions(sh : SymbolicHeap) : Set[State] = {
+      for {
+        (tag, atoms) <- taggingCandidates(sh)
+        extendedSh = sh.copy(pure = sh.pure ++ atoms)
+      } yield (stateWithoutExternalAssumptions(extendedSh), tag)
     }
 
     def isSink(s : State) : Boolean = s._1 == sinkStateIndex
@@ -69,7 +103,7 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
 
   override lazy val states: Set[State] = for {
     index <- States.stateIndices
-    externalAssumption <- Var.mkAllVars(1 to numFV).toSet.subsets()
+    externalAssumption <- Var.mkSetOfAllVars(1 to numFV).subsets()
   } yield (index, externalAssumption)
 
   override def isFinal(s: State): Boolean = States.isFinal(s)
@@ -82,9 +116,9 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     } else {
       val shrunk = lab.replaceCalls(src map States.rep)
       logger.debug("Children " + src.mkString(", ") + " => Shrink " + lab + " to " + shrunk)
-      val res = States.stateOfHeap(shrunk)
+      val res = States.statesOfHeap(shrunk)
       logger.debug("Target state: " + res)
-      Set(res)
+      res
     }
   }
 }
