@@ -98,7 +98,7 @@ object PointerUnification extends HarrshLogging {
         logger.debug("New rhs: " + renamedRhs)
 
         // Check if we now have null pointers on the lhs in the model; if so, abort
-        if (renamedLhs.pointers.exists(_.from.getVarOrZero == 0)) {
+        if (renamedLhs.pointers.exists(_.from.getVarOrZero == Var(0))) {
           logger.debug("Introduced null pointer allocation into model " + renamedLhs + " => no model => abort branch")
           None
         } else {

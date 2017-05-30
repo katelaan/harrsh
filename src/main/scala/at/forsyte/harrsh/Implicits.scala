@@ -147,26 +147,33 @@ object Implicits {
       ReducedEntailment.checkSatisfiableRSHAgainstSID(sh, sid.callToStartPred, sid, Defaults.reportProgress)
     }
 
+    def toSid(callIntepretation: SID) : SID = SID.fromTopLevelSH(sh, callIntepretation)
+
+    def toSid : SID = {
+      if (sh.nonReduced) throw new Throwable("Can't convert non-reduced heap to SID without SID for calls")
+      else SID.fromTopLevelSH(sh, SID.empty)
+    }
+
     def refineBy(sid: SID, task : AutomatonTask) : (SID,Boolean) = {
-      SID.fromTopLevelSH(sh, sid).refineAndCheckEmptiness(task)
+      toSid(sid).refineAndCheckEmptiness(task)
     }
 
     def exists(sid: SID, task : AutomatonTask) : Boolean = {
-      SID.fromTopLevelSH(sh, sid).exists(task)
+      toSid(sid).exists(task)
     }
 
     def exists(task : AutomatonTask) : Boolean = {
       if (sh.nonReduced) throw new Throwable("Can't decide properties of non-reduced heaps without reference to an SID")
-      SID.fromTopLevelSH(sh, SID.empty).exists(task)
+      toSid.exists(task)
     }
 
     def forall(sid: SID, task : AutomatonTask) : Boolean = {
-      SID.fromTopLevelSH(sh, sid).forall(task)
+      toSid(sid).forall(task)
     }
 
     def forall(task : AutomatonTask) : Boolean = {
       if (sh.nonReduced) throw new Throwable("Can't decide properties of non-reduced heaps without reference to an SID")
-      SID.fromTopLevelSH(sh, SID.empty).forall(task)
+      toSid.forall(task)
     }
 
     def isSat(sid : SID) : Boolean = exists(sid, RunSat())

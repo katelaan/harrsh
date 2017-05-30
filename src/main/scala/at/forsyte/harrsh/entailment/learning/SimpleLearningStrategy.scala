@@ -33,10 +33,13 @@ trait SimpleLearningStrategy extends LearningStrategy {
         // One match => Extend the class (which might trigger a split though, if it actually represents more than one equivalence class!)
         updateEntry(entries.head)
       case i =>
-        // Need to implement order on equivalence classes...
+        // Multiple entries match. This is ok, as long as the extensions sets of these entries form a semi-lattice,
+        // i.e.
         logger.debug(i + " matching entries for " + partition + ":\n" + entries.mkString("\n"))
-        val strongest = TableEntry.strongestEntry(entries)
-        logger.debug("Strongest entry: " + strongest)
+        // FIXME Right way to resolve ambiguity?
+        val strongest = TableEntry.entryWithWeakestExtensions(entries)
+        //val strongest = TableEntry.entryWithMoreExtensions(entries)
+        logger.debug("Strongest entry (i.e., with weakest extensions): " + strongest)
         updateEntry(strongest)
     }
   }

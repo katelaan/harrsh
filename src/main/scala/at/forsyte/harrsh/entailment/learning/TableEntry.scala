@@ -114,7 +114,21 @@ case class TableEntry(reps : Set[SymbolicHeap], exts : Set[(SymbolicHeap,PredCal
 
 object TableEntry {
 
-  def strongestEntry(entries : Seq[TableEntry]) : TableEntry = {
+  def entryWithMinimalExtensionSet(entries : Seq[TableEntry]) : TableEntry = {
+    entries.tail.foldLeft(entries.head){
+      case (fst, snd) =>
+        if (hasMoreExtensions(fst,snd)) fst
+        else if (hasMoreExtensions(snd,fst)) snd
+        else throw new Throwable("Cannot resolve ambiguity in table entries")
+    }
+  }
+
+  private def hasMoreExtensions(fst : TableEntry, snd : TableEntry) = {
+    snd.exts subsetOf fst.exts
+  }
+
+  @deprecated("The learning process should only require access to the entry with weakest extensions, as this corresponds to the strongest representatives")
+  def entryWithStrongestExtensions(entries : Seq[TableEntry]) : TableEntry = {
     entries.tail.foldLeft(entries.head){
       case (fst, snd) =>
         if (isStronger(fst,snd)) fst
@@ -123,7 +137,7 @@ object TableEntry {
     }
   }
 
-  def weakestEntry(entries : Seq[TableEntry]) : TableEntry = {
+  def entryWithWeakestExtensions(entries : Seq[TableEntry]) : TableEntry = {
     entries.tail.foldLeft(entries.head){
       case (fst, snd) =>
         if (isStronger(fst,snd)) snd
@@ -133,7 +147,7 @@ object TableEntry {
   }
 
   private def isWeakerEntryIn(exts : Set[(Set[PointsTo], Set[PureAtom], PredCall)])(ext : (SymbolicHeap, PredCall)) : Boolean = {
-    // FIXME This is a very naive check. Have to improve this as soon as we run into the exception thrown below
+    // FIXME This is a very naive check. Have to improve this as soon as we run into the ambiguity exception thrown above
     val (ptrSet, pureSet) = (ext._1.pointers.toSet, ext._1.pure.toSet)
     val matchingExt = exts.find(triple => triple._1 == ptrSet && triple._3 == ext._2)
     matchingExt.exists{
