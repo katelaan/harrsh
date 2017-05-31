@@ -6,7 +6,7 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.ConsistencyCheck
 import at.forsyte.harrsh.refinement.DecisionProcedures
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.{PtrNEq, PureAtom, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
 import scala.concurrent.duration.Duration
@@ -39,7 +39,14 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
       stateToEntryMap(s._1).reps.head
     }
 
-    def isFinal(s : State) : Boolean = negate != (isInconsistent(s) || (!isSink(s) && stateToEntryMap(s._1).isFinal))
+    def isFinal(s : State) : Boolean = if (s._2.nonEmpty) {
+      // There are external constraints left => Reject
+      false
+    } else {
+      // If the goal is to prove entailment, accept inconsistent heaps and those that correspond to an accepting table entry;
+      // If the goal is to prove non-entailment, negate
+      negate != (isInconsistent(s) || (!isSink(s) && stateToEntryMap(s._1).isFinal))
+    }
 
     def statesOfHeap(sh : SymbolicHeap) : Set[State] = {
 
@@ -69,30 +76,11 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
       }
     }
 
-    private def nonalloced(sh : SymbolicHeap): Set[Var] = {
-      val alloc = sh.pointers map (_.fromAsVar)
-      // TODO This is actually not quite true because of possible equality constraints between FVs, but this should only be an efficiency, not a correctness concern
-      Var.mkSetOfAllVars(1 to numFV) -- alloc
-    }
-
-    private def externalConstraints(sh : SymbolicHeap, externalAllocAssumption : Set[Var]) : Set[PureAtom] = {
-      (for {
-        allocedVar <- sh.pointers map (_.fromAsVar)
-        externalVar <- externalAllocAssumption
-      } yield PtrNEq(allocedVar, externalVar)).toSet
-    }
-
-    private def taggingCandidates(sh : SymbolicHeap) : Set[(Set[Var], Set[PureAtom])] = {
-      (for {
-        externalAllocationOption <- nonalloced(sh).subsets()
-        if externalAllocationOption.nonEmpty
-        constraints = externalConstraints(sh, externalAllocationOption)
-      } yield (externalAllocationOption, constraints)).toSet
-    }
-
     private def targetStatesWithExternalAssumptions(sh : SymbolicHeap) : Set[State] = {
+      val candidates = taggingCandidates(sh)
+      logger.debug("Considering tagging options " + candidates.map(_._1).mkString(", ") + " for " + sh)
       for {
-        (tag, atoms) <- taggingCandidates(sh)
+        (tag, atoms) <- candidates
         extendedSh = sh.copy(pure = sh.pure ++ atoms)
       } yield (stateWithoutExternalAssumptions(extendedSh), tag)
     }
@@ -116,10 +104,71 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     } else {
       val shrunk = lab.replaceCalls(src map States.rep)
       logger.debug("Children " + src.mkString(", ") + " => Shrink " + lab + " to " + shrunk)
-      val res = States.statesOfHeap(shrunk)
-      logger.debug("Target state: " + res)
-      res
+
+      val allocRequirements = renameExternalRequirements(src.map(_._2) zip lab.predCalls)
+      val remainingRequirements = unmetRequirements(shrunk, allocRequirements)
+      if (remainingRequirements.exists(_.isBound)) {
+        logger.debug("Remaining allocation requirements " + remainingRequirements + " cannot be met later since they contain a bound var => discard state")
+        Set.empty
+      } else {
+        val shrunkHeapWithRequirements = if (remainingRequirements.isEmpty) shrunk
+        else {
+          val constraints = externalConstraints(shrunk, remainingRequirements)
+          logger.debug("External requirements " + allocRequirements + "; not met by " + shrunk + ": " + remainingRequirements + " => additional constraint " + constraints)
+          shrunk.copy(pure = shrunk.pure ++ constraints)
+        }
+        val res = States.statesOfHeap(shrunkHeapWithRequirements).map(pair => (pair._1, remainingRequirements ++ pair._2))
+        logger.debug("Target states: " + res)
+        res
+      }
     }
+  }
+
+  private def nonalloced(sh : SymbolicHeap): Set[Var] = {
+    val alloc = sh.pointers map (_.fromAsVar)
+    // TODO This is actually not quite true because of possible equality constraints between FVs, but this should only be an efficiency, not a correctness concern
+    Var.mkSetOfAllVars(1 to numFV) -- alloc
+  }
+
+  private def externalConstraints(sh : SymbolicHeap, externalAllocAssumption : Set[Var]) : Set[PureAtom] = {
+    (for {
+      allocedVar <- sh.pointers map (_.fromAsVar)
+      externalVar <- externalAllocAssumption
+    } yield PtrNEq(allocedVar, externalVar)).toSet
+  }
+
+  private def taggingCandidates(sh : SymbolicHeap) : Set[(Set[Var], Set[PureAtom])] = {
+    (for {
+      externalAllocationOption <- nonalloced(sh).subsets()
+      if externalAllocationOption.nonEmpty
+      constraints = externalConstraints(sh, externalAllocationOption)
+    } yield (externalAllocationOption, constraints)).toSet
+  }
+
+  private def unmetRequirements(sh : SymbolicHeap, allocRequirements : Set[Var]) : Set[Var] = {
+    // TODO Close under pure formulas?! (Will have this for free as soon as we track alloc in the state space as well.)
+    // TODO Alloc info computation as method of symbolic heaps?
+    val alloced = sh.pointers.map(_.fromAsVar).toSet
+    allocRequirements diff alloced
+  }
+
+//  private def requirementsMet(sh : SymbolicHeap, allocRequirements : Set[Var]) : Boolean = {
+//    // TODO Close under pure formulas?! (Will have this for free as soon as we track alloc in the state space as well.)
+//    // TODO Alloc info computation as method of symbolic heaps?
+//    val alloced = sh.pointers.map(_.fromAsVar).toSet
+//    allocRequirements forall alloced.contains
+//  }
+
+  private def renameExternalRequirements(requirementMatching : Seq[(Set[Var], PredCall)]) : Set[Var] = {
+    (requirementMatching flatMap {
+      case (vars, call@PredCall(_, args)) =>
+        logger.debug("Renaming " + vars + " according to " + call)
+        vars map {
+          case v@Var(i) =>
+            assert(v.isFree)
+            args(i-1).getVarOrZero
+      }
+    }).toSet
   }
 }
 

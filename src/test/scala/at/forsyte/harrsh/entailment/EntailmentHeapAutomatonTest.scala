@@ -13,7 +13,7 @@ class EntailmentHeapAutomatonTest extends HarrshTest {
 
   behavior of "entailment heap auotmaton"
 
-  it should "solve entailment checking for ASLLs without tagging needs" in {
+  ignore should "solve entailment checking for ASLLs without tagging needs" in {
 
     val sid = "sll-acyc.sid".load()
     val numFV = 2
@@ -23,6 +23,7 @@ class EntailmentHeapAutomatonTest extends HarrshTest {
 
     // The SID should of course entail itself
     decide(sid) shouldBe true
+
     // Since standard lists can be cyclic, the entailment should be false
     decide(sidCyc) shouldBe false
 
