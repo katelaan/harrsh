@@ -7,7 +7,6 @@ import at.forsyte.harrsh.pure.ConsistencyCheck
 import at.forsyte.harrsh.refinement.DecisionProcedures
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.util.Combinators
 
 import scala.concurrent.duration.Duration
 
@@ -16,7 +15,19 @@ import scala.concurrent.duration.Duration
   */
 case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate : Boolean) extends HeapAutomaton with TargetComputation with FVBound with HarrshLogging {
 
-  case class StateDesc(stateIndex : Int, requiredContext : Set[Var], forbiddenContext : Set[Var])
+  sealed trait StateDesc {
+    val stateIndex : Int
+    val requiredContext : Set[Var]
+    def addRequirements(reqs : Set[Var]) : StateDesc = this match {
+      case s@RejectingSink(alloced, forbiddenContexts) => s //throw new IllegalStateException("Can't add requirements to sink state")
+      case NormalState(stateIndex, requiredContext) => NormalState(stateIndex, reqs ++ requiredContext)
+    }
+  }
+  case class RejectingSink(alloced : Set[Var], forbiddenContexts : Set[Set[Var]]) extends StateDesc {
+    override val stateIndex = States.sinkStateIndex
+    override val requiredContext = Set.empty
+  }
+  case class NormalState(override val stateIndex : Int, override val requiredContext : Set[Var]) extends StateDesc
 
   override type State = StateDesc
 
@@ -26,7 +37,10 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     // TODO For large automata, keeping two maps wastes quite a bit of memory
     private val entryToStateMap: Map[TableEntry, Int] = Map() ++ obs.entries.zipWithIndex
 
-    def untaggedStateFromIndex(stateIndex : Int) : State = StateDesc(stateIndex, Set.empty, Set.empty)
+    def untaggedStateFromIndex(stateIndex : Int) : State = {
+      assert(stateIndex != sinkStateIndex)
+      NormalState(stateIndex, Set.empty)
+    }
 
     // We need a single sink state for those heaps that are consistent but cannot be extended to unfoldings of the RHS
     val sinkStateIndex : Int = stateToEntryMap.size + 1
@@ -55,8 +69,12 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     def statesOfHeap(sh : SymbolicHeap) : Set[State] = {
 
       val stateIndex = stateWithoutExternalAssumptions(sh)
-      // Close under possible external assumptions
-      Set(untaggedStateFromIndex(stateIndex)) ++ targetStatesWithExternalAssumptions(sh)
+      if (stateIndex != States.sinkStateIndex) {
+        // Non-sink state => All pure formulas for bound variables are there => External assumptions irrelevant
+        Set(untaggedStateFromIndex(stateIndex))
+      } else {
+        targetStatesWithExternalAssumptions(sh)
+      }
     }
 
     private def stateWithoutExternalAssumptions(sh : SymbolicHeap) : Int = {
@@ -83,21 +101,22 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     private def targetStatesWithExternalAssumptions(sh : SymbolicHeap) : Set[State] = {
       val candidates = taggingCandidates(sh)
       logger.debug("Considering tagging options " + candidates.map(_._1).mkString(", ") + " for " + sh)
-      for {
+      val withAssumptions : Set[State] = for {
         (tag, atoms) <- candidates
         extendedSh = sh.copy(pure = sh.pure ++ atoms)
-      } yield StateDesc(stateWithoutExternalAssumptions(extendedSh), tag, Set.empty)
+        stateIndex = stateWithoutExternalAssumptions(extendedSh)
+        // Only keep external assumptions if it actually makes a difference
+        if States.sinkStateIndex != stateIndex
+      } yield NormalState(stateIndex, tag)
+      val sink = RejectingSink(sh.alloc, withAssumptions.map(_.requiredContext))
+      withAssumptions + sink
     }
 
     def isSink(s : State) : Boolean = s.stateIndex == sinkStateIndex
     def isInconsistent(s : State) : Boolean = s.stateIndex == inconsistentStateIndex
   }
 
-  override lazy val states: Set[State] = for {
-    index <- States.stateIndices
-    required <- Var.mkSetOfAllVars(1 to numFV).subsets()
-    forbidden <- Var.mkSetOfAllVars(1 to numFV).subsets()
-  } yield StateDesc(index, required, forbidden)
+  override lazy val states: Set[State] = throw new NotImplementedError("No access to explicit set of states")
 
   override def isFinal(s: State): Boolean = States.isFinal(s)
 
@@ -105,6 +124,7 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     if (src.exists(States.isSink)) {
       // The sink state propagates
       logger.debug("Children " + src.mkString(", ") + " contain sink => target for " + lab + " is sink")
+      // TODO Only propagate sink state if we don't have a contradiction with the forbidden allocation info
       Set(States.untaggedStateFromIndex(States.sinkStateIndex))
     } else {
       val shrunk = lab.replaceCalls(src map States.rep)
@@ -122,7 +142,7 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
           logger.debug("External requirements " + allocRequirements + "; not met by " + shrunk + ": " + remainingRequirements + " => additional constraint " + constraints)
           shrunk.copy(pure = shrunk.pure ++ constraints)
         }
-        val res = States.statesOfHeap(shrunkHeapWithRequirements).map(s => s.copy(requiredContext = remainingRequirements ++ s.requiredContext))
+        val res = States.statesOfHeap(shrunkHeapWithRequirements).map(s => s.addRequirements(remainingRequirements))
         logger.debug("Target states: " + res)
         res
       }
@@ -188,6 +208,7 @@ object EntailmentHeapAutomaton extends HarrshLogging {
     ("{\n"
       + entry.reps.mkString("      representatives = {", ", ", "}\n")
       + entry.exts.mkString("      extensions = {", ", ", "}\n")
+      + entry.trackingInfo + "\n"
       + "    }")
   }
 
