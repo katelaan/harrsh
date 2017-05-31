@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment.learning
 
 import at.forsyte.harrsh.entailment.SymbolicHeapPartition
+import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.{ConsistencyCheck, ReducedHeapEquivalence}
 import at.forsyte.harrsh.seplog.Var
@@ -9,15 +10,14 @@ import at.forsyte.harrsh.seplog.inductive._
 /**
   * Created by jkatelaa on 5/23/17.
   */
-// TODO Maybe don't store extensions and their predicate calls separately?
-case class TableEntry(reps : Set[SymbolicHeap], exts : Set[(SymbolicHeap,PredCall)], /*repSid : SID,*/ discoveredInIteration : Int, introducedThroughClosure : Boolean) extends HarrshLogging {
+case class TableEntry(reps : Set[SymbolicHeap], exts : Set[(SymbolicHeap,PredCall)], trackingInfo : TrackingInfo, /*repSid : SID,*/ discoveredInIteration : Int, introducedThroughClosure : Boolean) extends HarrshLogging {
 
   assert(reps.nonEmpty && exts.nonEmpty)
   assert(reps.map(_.numFV).size == 1)
   assert(exts.map(_._2.args.size).size == 1)
   assert(reps.head.numFV == exts.head._2.args.size)
 
-  override def toString: String = "Entry(reps = " + reps.mkString("{", ", ", "}") + ", exts = " + exts.map(SymbolicHeapPartition.combinedString).mkString("{", ",", "}") + ", isFinal = " + isFinal + ", i = " + discoveredInIteration + ")"
+  override def toString: String = "Entry(reps = " + reps.mkString("{", ", ", "}") + ", exts = " + exts.map(SymbolicHeapPartition.combinedString).mkString("{", ",", "}") + ", tracking = " + trackingInfo + ", isFinal = " + isFinal + ", i = " + discoveredInIteration + ")"
 
   lazy val isFinal : Boolean = {
     // Note: Dropped finality entailment check; instead mark as final iff the extension is emp. This has the result that final states might temporarily be marked as non-final, but by the time the algorithm terminates, we will always have encountered the emp extension
@@ -86,6 +86,9 @@ case class TableEntry(reps : Set[SymbolicHeap], exts : Set[(SymbolicHeap,PredCal
     if (rep.numFV != numFV) {
       // If the representative and this class differ in the number of free variables, the rep can't be contained in this entry
       logger.debug("Representative and class differ in number of FVs => Don't belong to same class")
+      false
+    } else if (rep.freeVariableTrackingInfo != trackingInfo) {
+      logger.debug("Representative and class differ in tracking info => Don't belong to same class")
       false
     } else {
       // The representative is assumed to be in the same class iff all combinations with extensions yield satisfiable

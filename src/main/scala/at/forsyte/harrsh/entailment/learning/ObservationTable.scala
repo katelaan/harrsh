@@ -83,6 +83,8 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], overr
   }
 
   def addRepresentativeToEntryAndReturnEntry(entry : TableEntry, rep : SymbolicHeap) : (ObservationTable,TableEntry) = {
+    assert(entry.trackingInfo == rep.freeVariableTrackingInfo)
+
     learningLog.logEvent(TableUpdateOperation(TableOperations.EnlargedEntry(entry, rep, isNewRepresentative = true)))
 
     // TODO Maybe come up with a more efficient implementation of table entry update... Also code duplication
@@ -93,6 +95,8 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], overr
   }
 
   def addExtensionToEntry(entry: TableEntry, partition: SymbolicHeapPartition, it: Int): ObservationTable = {
+    assert(entry.numFV == partition.repFV)
+    assert(entry.trackingInfo == partition.rep.freeVariableTrackingInfo)
 
     if (entry.reps.size == 1) {
       // Just one representative => new extension for the same representative => simply extend entry
@@ -151,7 +155,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], overr
 
   def addNewEntryForPartition(partition : SymbolicHeapPartition, iteration : Int): ObservationTable = {
     val cleanedPartition = if (EntailmentAutomatonLearning.CleanUpSymbolicHeaps) partition.simplify else partition
-    learningLog.logEvent(TableUpdateOperation(EntailmentLearningLog.TableOperations.NewEntry(entries.size+1, cleanedPartition)))
+    learningLog.logEvent(TableUpdateOperation(EntailmentLearningLog.TableOperations.NewEntry(entries.size+1, cleanedPartition, partition.rep.freeVariableTrackingInfo)))
     copy(entries = entries :+ tableEntryFromPartition(cleanedPartition, iteration))
   }
 
@@ -160,6 +164,7 @@ case class ObservationTable private (sid : SID, entries : Seq[TableEntry], overr
       Set(part.rep),
       Set((part.ext,part.extPredCall)),
       //RepresentativeSIDComputation.adaptSIDToRepresentative(sid, part.rep),
+      part.rep.freeVariableTrackingInfo,
       iteration,
       introducedThroughClosure = false)
   }

@@ -2,6 +2,7 @@ package at.forsyte.harrsh.entailment.learning
 
 import at.forsyte.harrsh.entailment.learning.EntailmentLearningLog._
 import at.forsyte.harrsh.entailment.SymbolicHeapPartition
+import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
@@ -123,8 +124,8 @@ object EntailmentLearningLog {
     case class EnlargedEntry(entry : TableEntry, addition : SymbolicHeap, isNewRepresentative : Boolean) extends UpdateType {
       override def toString: String = "Extended " + entry + " with new " + (if (isNewRepresentative) "representative " else "extension ") + addition
     }
-    case class NewEntry(entryId : Int, cleanedPartition: SymbolicHeapPartition) extends UpdateType {
-      override def toString: String = "New table entry #" + entryId + ": " + cleanedPartition
+    case class NewEntry(entryId : Int, cleanedPartition: SymbolicHeapPartition, trackingInfo : TrackingInfo) extends UpdateType {
+      override def toString: String = "New table entry #" + entryId + ": " + cleanedPartition + " with tracking " + trackingInfo
     }
     case class SplitTableEntry(compatibleReps : Set[SymbolicHeap], incompatibleReps : Set[SymbolicHeap], triggeringExtension : SymbolicHeap) extends UpdateType {
       override def toString: String = "Splitting entry triggered by " + triggeringExtension + " yielding " + compatibleReps.mkString("{",", ","}") + " and " + incompatibleReps.mkString("{",", ","}")

@@ -26,7 +26,7 @@ object ObservationTableToHtml {
       <body>
         <div><code>{obs.sid}</code></div>
         <table>
-          <tr><th>State ID</th><th>Representative(s)</th><th>Minimal Extension(s)</th><th>Final?</th><th>Meta</th></tr>
+          <tr><th>State ID</th><th>Representative(s)</th><th>Minimal Extension(s)</th><th>Tracking info</th><th>Final?</th><th>Meta</th></tr>
           {
           obs.entries.sortBy(_.discoveredInIteration).zipWithIndex map (pair => entryToHtml(pair._2 + 1, pair._1))
           }
@@ -38,6 +38,7 @@ object ObservationTableToHtml {
       <td>{id}</td>
       <td>{repsToPng(id, entry.reps)}</td>
       <td>{extsToPng(id, entry.exts)}</td>
+      <td>{"allocated = " + entry.trackingInfo.alloc.mkString("{",", ","}")}<br/>{"(in)equalities = " + entry.trackingInfo.pure.mkString("{",", ","}")}</td>
       <td>{if (entry.isFinal) "Yes" else "No"}</td>
       <td>{"free vars = " + entry.numFV + ","}<br/>{"iteration = " + entry.discoveredInIteration}<br/>{"introduced in postprocessing = " + entry.introducedThroughClosure}</td>
       </tr>

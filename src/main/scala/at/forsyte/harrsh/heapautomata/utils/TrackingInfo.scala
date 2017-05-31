@@ -30,6 +30,8 @@ case class TrackingInfo private (alloc: Set[Var], pure: Set[PureAtom]) extends K
       case _ => false
     }
 
+  def projectionToFreeVars : TrackingInfo = TrackingInfo(alloc.filter(_.isFree), pure.filter(_.comparesFree))
+
   override def kernel : SymbolicHeap = {
     // Here we assume that the state already contains a closure. If this is not the case, the following does not work.
     val closure = Closure.unsafeTrivialClosure(pure)

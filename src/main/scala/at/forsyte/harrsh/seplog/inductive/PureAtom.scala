@@ -31,6 +31,8 @@ sealed trait PureAtom extends SepLogAtom with HarrshLogging {
     case PtrNEq(l, r) => Set(l.getVarOrZero, r.getVarOrZero)
   }
 
+  def comparesFree: Boolean = getVars.forall(_.isFree)
+
   def isPointerComparison = true
 
   def ordered : PureAtom = this match {

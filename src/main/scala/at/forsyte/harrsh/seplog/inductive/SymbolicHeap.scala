@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.seplog.inductive
 
+import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.util.Combinators
@@ -41,6 +42,9 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
   def isReduced: Boolean = predCalls.isEmpty
 
   def nonReduced: Boolean = predCalls.nonEmpty
+
+  // TODO This should probably not be a method here, but then I have to make sure to cache the value elsewhere to avoid multiple computation
+  lazy val freeVariableTrackingInfo : TrackingInfo = TrackingInfo.fromSymbolicHeap(this).projectionToFreeVars
 
   lazy val identsOfCalledPreds: Seq[String] = predCalls map (_.name)
 
