@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.entailment.learning.{ObservationTable, TableEntry}
+import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.heapautomata.{FVBound, HeapAutomaton, TargetComputation}
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.ConsistencyCheck
@@ -19,19 +20,46 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     val stateIndex : Int
     val requiredContext : Set[Var]
     def addRequirements(reqs : Set[Var]) : StateDesc = this match {
-      case s@RejectingSink(alloced, forbiddenContexts) => s //throw new IllegalStateException("Can't add requirements to sink state")
+      case s : RejectingSink => s //throw new IllegalStateException("Can't add requirements to sink state")
+      case s : InconsistentState => s //throw new IllegalStateException("Can't add requirements to sink state")
       case NormalState(stateIndex, requiredContext) => NormalState(stateIndex, reqs ++ requiredContext)
     }
+
+    def isSink : Boolean = this match {
+      case _ : RejectingSink => true
+      case _ => false
+    }
+
+    def isInconsistent : Boolean = this match {
+      case _ : InconsistentState => true
+      case _ => false
+    }
+
+    def kernel : SymbolicHeap = this match {
+      case RejectingSink(ti, forbiddenContexts) =>
+        ti.kernel
+      case NormalState(stateIndex, requiredContext) =>
+        // TODO Guarantee that we take the spatially smallest representative. Do we even want to keep more than one rep?
+        States(stateIndex).reps.head
+      case InconsistentState() =>
+        SymbolicHeap(Seq(PtrNEq(Var.nil,Var.nil)), Seq.empty, Seq.empty)
+    }
   }
-  case class RejectingSink(alloced : Set[Var], forbiddenContexts : Set[Set[Var]]) extends StateDesc {
+  case class RejectingSink(ti : TrackingInfo, forbiddenContexts : Set[Set[Var]]) extends StateDesc {
     override val stateIndex = States.sinkStateIndex
     override val requiredContext = Set.empty
   }
   case class NormalState(override val stateIndex : Int, override val requiredContext : Set[Var]) extends StateDesc
+  case class InconsistentState() extends StateDesc {
+    override val stateIndex = States.inconsistentStateIndex
+    override val requiredContext = Set.empty
+  }
 
   override type State = StateDesc
 
   private object States {
+
+    def apply(stateIndex : Int) = stateToEntryMap(stateIndex)
 
     private val stateToEntryMap: Map[Int, TableEntry] = Map() ++ obs.entries.zipWithIndex.map(_.swap)
     // TODO For large automata, keeping two maps wastes quite a bit of memory
@@ -51,19 +79,14 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
 
     def stateIndices : Set[Int] = stateToEntryMap.keySet + sinkStateIndex + inconsistentStateIndex
 
-    // TODO Guarantee that we take the spatially smallest representative. Do we even want to keep more than one rep?
-    def rep(s : State) : SymbolicHeap = {
-      assert(!isSink(s) && !isInconsistent(s))
-      stateToEntryMap(s.stateIndex).reps.head
-    }
-
+    // TODO Also put this into the StateDesc trait
     def isFinal(s : State) : Boolean = if (s.requiredContext.nonEmpty) {
       // There are external constraints left => Reject
       false
     } else {
       // If the goal is to prove entailment, accept inconsistent heaps and those that correspond to an accepting table entry;
       // If the goal is to prove non-entailment, negate
-      negate != (isInconsistent(s) || (!isSink(s) && stateToEntryMap(s.stateIndex).isFinal))
+      negate != (s.isInconsistent || (!s.isSink && stateToEntryMap(s.stateIndex).isFinal))
     }
 
     def statesOfHeap(sh : SymbolicHeap) : Set[State] = {
@@ -108,44 +131,51 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
         // Only keep external assumptions if it actually makes a difference
         if States.sinkStateIndex != stateIndex
       } yield NormalState(stateIndex, tag)
-      val sink = RejectingSink(sh.alloc, withAssumptions.map(_.requiredContext))
+      val sink = RejectingSink(sh.freeVariableTrackingInfo, withAssumptions.map(_.requiredContext))
       withAssumptions + sink
     }
-
-    def isSink(s : State) : Boolean = s.stateIndex == sinkStateIndex
-    def isInconsistent(s : State) : Boolean = s.stateIndex == inconsistentStateIndex
   }
 
   override lazy val states: Set[State] = throw new NotImplementedError("No access to explicit set of states")
 
   override def isFinal(s: State): Boolean = States.isFinal(s)
 
-  override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
-    if (src.exists(States.isSink)) {
-      // The sink state propagates
-      logger.debug("Children " + src.mkString(", ") + " contain sink => target for " + lab + " is sink")
-      // TODO Only propagate sink state if we don't have a contradiction with the forbidden allocation info
-      Set(States.untaggedStateFromIndex(States.sinkStateIndex))
-    } else {
-      val shrunk = lab.replaceCalls(src map States.rep)
-      logger.debug("Children " + src.mkString(", ") + " => Shrink " + lab + " to " + shrunk)
+  def handleSink(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
+    // TODO If one of the forbidden contexts occurs, we get stuck
+    // TODO If the kernel is inconsistent, we go to the inconsistent state
+    // TODO Only propagate sink state otherwise
 
-      val allocRequirements = renameExternalRequirements(src.map(_.requiredContext) zip lab.predCalls)
-      val remainingRequirements = unmetRequirements(shrunk, allocRequirements)
-      if (remainingRequirements.exists(_.isBound)) {
-        logger.debug("Remaining allocation requirements " + remainingRequirements + " cannot be met later since they contain a bound var => discard state")
-        Set.empty
-      } else {
-        val shrunkHeapWithRequirements = if (remainingRequirements.isEmpty) shrunk
-        else {
-          val constraints = externalConstraints(shrunk, remainingRequirements)
-          logger.debug("External requirements " + allocRequirements + "; not met by " + shrunk + ": " + remainingRequirements + " => additional constraint " + constraints)
-          shrunk.copy(pure = shrunk.pure ++ constraints)
-        }
-        val res = States.statesOfHeap(shrunkHeapWithRequirements).map(s => s.addRequirements(remainingRequirements))
-        logger.debug("Target states: " + res)
-        res
+    logger.debug("Children " + src.mkString(", ") + " contain sink => target for " + lab + " is sink")
+    Set(States.untaggedStateFromIndex(States.sinkStateIndex))
+  }
+
+  def handleNormalChildren(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
+    val shrunk = lab.replaceCalls(src map (_.kernel))
+    logger.debug("Children " + src.mkString(", ") + " => Shrink " + lab + " to " + shrunk)
+
+    val allocRequirements = renameExternalRequirements(src.map(_.requiredContext) zip lab.predCalls)
+    val remainingRequirements = unmetRequirements(shrunk, allocRequirements)
+    if (remainingRequirements.exists(_.isBound)) {
+      logger.debug("Remaining allocation requirements " + remainingRequirements + " cannot be met later since they contain a bound var => discard state")
+      Set.empty
+    } else {
+      val shrunkHeapWithRequirements = if (remainingRequirements.isEmpty) shrunk
+      else {
+        val constraints = externalConstraints(shrunk, remainingRequirements)
+        logger.debug("External requirements " + allocRequirements + "; not met by " + shrunk + ": " + remainingRequirements + " => additional constraint " + constraints)
+        shrunk.copy(pure = shrunk.pure ++ constraints)
       }
+      val res = States.statesOfHeap(shrunkHeapWithRequirements).map(s => s.addRequirements(remainingRequirements))
+      logger.debug("Target states: " + res)
+      res
+    }
+  }
+
+  override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
+    if (src.exists(_.isSink)) {
+      handleSink(src, lab)
+    } else {
+      handleNormalChildren(src, lab)
     }
   }
 
