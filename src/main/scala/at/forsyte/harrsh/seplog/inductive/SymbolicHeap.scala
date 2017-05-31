@@ -46,6 +46,8 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
   // TODO This should probably not be a method here, but then I have to make sure to cache the value elsewhere to avoid multiple computation
   lazy val freeVariableTrackingInfo : TrackingInfo = TrackingInfo.fromSymbolicHeap(this).projectionToFreeVars
 
+  def alloc = freeVariableTrackingInfo.alloc
+
   lazy val identsOfCalledPreds: Seq[String] = predCalls map (_.name)
 
   lazy val equalities : Seq[PtrEq] = pure filter (_.isInstanceOf[PtrEq]) map (_.asInstanceOf[PtrEq])

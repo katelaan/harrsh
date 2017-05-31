@@ -16,7 +16,7 @@ import scala.concurrent.duration.Duration
   */
 case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate : Boolean) extends HeapAutomaton with TargetComputation with FVBound with HarrshLogging {
 
-  case class StateDesc(stateIndex : Int, alloced : Set[Var], requiredContext : Set[Var], forbiddenContext : Set[Var])
+  case class StateDesc(stateIndex : Int, requiredContext : Set[Var], forbiddenContext : Set[Var])
 
   override type State = StateDesc
 
@@ -26,7 +26,7 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     // TODO For large automata, keeping two maps wastes quite a bit of memory
     private val entryToStateMap: Map[TableEntry, Int] = Map() ++ obs.entries.zipWithIndex
 
-    def untaggedStateFromIndex(stateIndex : Int) : State = StateDesc(stateIndex, Set.empty, Set.empty, Set.empty)
+    def untaggedStateFromIndex(stateIndex : Int) : State = StateDesc(stateIndex, Set.empty, Set.empty)
 
     // We need a single sink state for those heaps that are consistent but cannot be extended to unfoldings of the RHS
     val sinkStateIndex : Int = stateToEntryMap.size + 1
@@ -86,7 +86,7 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
       for {
         (tag, atoms) <- candidates
         extendedSh = sh.copy(pure = sh.pure ++ atoms)
-      } yield StateDesc(stateWithoutExternalAssumptions(extendedSh), Set.empty, tag, Set.empty)
+      } yield StateDesc(stateWithoutExternalAssumptions(extendedSh), tag, Set.empty)
     }
 
     def isSink(s : State) : Boolean = s.stateIndex == sinkStateIndex
@@ -95,10 +95,9 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
 
   override lazy val states: Set[State] = for {
     index <- States.stateIndices
-    alloced <- Var.mkSetOfAllVars(1 to numFV).subsets()
     required <- Var.mkSetOfAllVars(1 to numFV).subsets()
     forbidden <- Var.mkSetOfAllVars(1 to numFV).subsets()
-  } yield StateDesc(index, alloced, required, forbidden)
+  } yield StateDesc(index, required, forbidden)
 
   override def isFinal(s: State): Boolean = States.isFinal(s)
 
@@ -131,14 +130,12 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
   }
 
   private def nonalloced(sh : SymbolicHeap): Set[Var] = {
-    val alloc = sh.pointers map (_.fromAsVar)
-    // TODO This is actually not quite true because of possible equality constraints between FVs, but this should only be an efficiency, not a correctness concern
-    Var.mkSetOfAllVars(1 to numFV) -- alloc
+    Var.mkSetOfAllVars(1 to sh.numFV) -- sh.alloc
   }
 
   private def externalConstraints(sh : SymbolicHeap, externalAllocAssumption : Set[Var]) : Set[PureAtom] = {
     (for {
-      allocedVar <- sh.pointers map (_.fromAsVar)
+      allocedVar <- sh.alloc
       externalVar <- externalAllocAssumption
     } yield PtrNEq(allocedVar, externalVar)).toSet
   }
@@ -152,18 +149,8 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
   }
 
   private def unmetRequirements(sh : SymbolicHeap, allocRequirements : Set[Var]) : Set[Var] = {
-    // TODO Close under pure formulas?! (Will have this for free as soon as we track alloc in the state space as well.)
-    // TODO Alloc info computation as method of symbolic heaps?
-    val alloced = sh.pointers.map(_.fromAsVar).toSet
-    allocRequirements diff alloced
+    allocRequirements diff sh.alloc
   }
-
-//  private def requirementsMet(sh : SymbolicHeap, allocRequirements : Set[Var]) : Boolean = {
-//    // TODO Close under pure formulas?! (Will have this for free as soon as we track alloc in the state space as well.)
-//    // TODO Alloc info computation as method of symbolic heaps?
-//    val alloced = sh.pointers.map(_.fromAsVar).toSet
-//    allocRequirements forall alloced.contains
-//  }
 
   private def renameExternalRequirements(requirementMatching : Seq[(Set[Var], PredCall)]) : Set[Var] = {
     (requirementMatching flatMap {
