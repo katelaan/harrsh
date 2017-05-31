@@ -13,7 +13,7 @@ class EntailmentHeapAutomatonTest extends HarrshTest {
 
   behavior of "entailment heap auotmaton"
 
-  ignore should "solve entailment checking for ASLLs without tagging needs" in {
+  it should "solve entailment checking for ASLLs without tagging needs" in {
 
     val sid = "sll-acyc.sid".load()
     val numFV = 2

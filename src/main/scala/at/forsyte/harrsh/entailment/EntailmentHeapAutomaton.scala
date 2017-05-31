@@ -16,7 +16,9 @@ import scala.concurrent.duration.Duration
   */
 case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate : Boolean) extends HeapAutomaton with TargetComputation with FVBound with HarrshLogging {
 
-  override type State = (Int, Set[Var])
+  case class StateDesc(stateIndex : Int, alloced : Set[Var], requiredContext : Set[Var], forbiddenContext : Set[Var])
+
+  override type State = StateDesc
 
   private object States {
 
@@ -24,35 +26,37 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     // TODO For large automata, keeping two maps wastes quite a bit of memory
     private val entryToStateMap: Map[TableEntry, Int] = Map() ++ obs.entries.zipWithIndex
 
+    def untaggedStateFromIndex(stateIndex : Int) : State = StateDesc(stateIndex, Set.empty, Set.empty, Set.empty)
+
     // We need a single sink state for those heaps that are consistent but cannot be extended to unfoldings of the RHS
     val sinkStateIndex : Int = stateToEntryMap.size + 1
     // Inconsistent heaps always make the entailment true, so we have a distinguished inconsistent state
     val inconsistentStateIndex : Int = sinkStateIndex + 1
 
-    logger.debug("Automaton state space:\n" + stateToEntryMap.toSeq.sortBy(_._1).map{ pair => (pair._1, pair._2, isFinal((pair._1,Set.empty)))}.mkString("\n"))
+    logger.debug("Automaton state space:\n" + stateToEntryMap.toSeq.sortBy(_._1).map{ pair => (pair._1, pair._2, isFinal(untaggedStateFromIndex(pair._1)))}.mkString("\n"))
 
     def stateIndices : Set[Int] = stateToEntryMap.keySet + sinkStateIndex + inconsistentStateIndex
 
     // TODO Guarantee that we take the spatially smallest representative. Do we even want to keep more than one rep?
     def rep(s : State) : SymbolicHeap = {
       assert(!isSink(s) && !isInconsistent(s))
-      stateToEntryMap(s._1).reps.head
+      stateToEntryMap(s.stateIndex).reps.head
     }
 
-    def isFinal(s : State) : Boolean = if (s._2.nonEmpty) {
+    def isFinal(s : State) : Boolean = if (s.requiredContext.nonEmpty) {
       // There are external constraints left => Reject
       false
     } else {
       // If the goal is to prove entailment, accept inconsistent heaps and those that correspond to an accepting table entry;
       // If the goal is to prove non-entailment, negate
-      negate != (isInconsistent(s) || (!isSink(s) && stateToEntryMap(s._1).isFinal))
+      negate != (isInconsistent(s) || (!isSink(s) && stateToEntryMap(s.stateIndex).isFinal))
     }
 
     def statesOfHeap(sh : SymbolicHeap) : Set[State] = {
 
       val stateIndex = stateWithoutExternalAssumptions(sh)
       // Close under possible external assumptions
-      Set((stateIndex,Set.empty[Var])) ++ targetStatesWithExternalAssumptions(sh)
+      Set(untaggedStateFromIndex(stateIndex)) ++ targetStatesWithExternalAssumptions(sh)
     }
 
     private def stateWithoutExternalAssumptions(sh : SymbolicHeap) : Int = {
@@ -82,17 +86,19 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
       for {
         (tag, atoms) <- candidates
         extendedSh = sh.copy(pure = sh.pure ++ atoms)
-      } yield (stateWithoutExternalAssumptions(extendedSh), tag)
+      } yield StateDesc(stateWithoutExternalAssumptions(extendedSh), Set.empty, tag, Set.empty)
     }
 
-    def isSink(s : State) : Boolean = s._1 == sinkStateIndex
-    def isInconsistent(s : State) : Boolean = s._1 == inconsistentStateIndex
+    def isSink(s : State) : Boolean = s.stateIndex == sinkStateIndex
+    def isInconsistent(s : State) : Boolean = s.stateIndex == inconsistentStateIndex
   }
 
   override lazy val states: Set[State] = for {
     index <- States.stateIndices
-    externalAssumption <- Var.mkSetOfAllVars(1 to numFV).subsets()
-  } yield (index, externalAssumption)
+    alloced <- Var.mkSetOfAllVars(1 to numFV).subsets()
+    required <- Var.mkSetOfAllVars(1 to numFV).subsets()
+    forbidden <- Var.mkSetOfAllVars(1 to numFV).subsets()
+  } yield StateDesc(index, alloced, required, forbidden)
 
   override def isFinal(s: State): Boolean = States.isFinal(s)
 
@@ -100,12 +106,12 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     if (src.exists(States.isSink)) {
       // The sink state propagates
       logger.debug("Children " + src.mkString(", ") + " contain sink => target for " + lab + " is sink")
-      Set((States.sinkStateIndex,Set.empty[Var]))
+      Set(States.untaggedStateFromIndex(States.sinkStateIndex))
     } else {
       val shrunk = lab.replaceCalls(src map States.rep)
       logger.debug("Children " + src.mkString(", ") + " => Shrink " + lab + " to " + shrunk)
 
-      val allocRequirements = renameExternalRequirements(src.map(_._2) zip lab.predCalls)
+      val allocRequirements = renameExternalRequirements(src.map(_.requiredContext) zip lab.predCalls)
       val remainingRequirements = unmetRequirements(shrunk, allocRequirements)
       if (remainingRequirements.exists(_.isBound)) {
         logger.debug("Remaining allocation requirements " + remainingRequirements + " cannot be met later since they contain a bound var => discard state")
@@ -117,7 +123,7 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
           logger.debug("External requirements " + allocRequirements + "; not met by " + shrunk + ": " + remainingRequirements + " => additional constraint " + constraints)
           shrunk.copy(pure = shrunk.pure ++ constraints)
         }
-        val res = States.statesOfHeap(shrunkHeapWithRequirements).map(pair => (pair._1, remainingRequirements ++ pair._2))
+        val res = States.statesOfHeap(shrunkHeapWithRequirements).map(s => s.copy(requiredContext = remainingRequirements ++ s.requiredContext))
         logger.debug("Target states: " + res)
         res
       }
