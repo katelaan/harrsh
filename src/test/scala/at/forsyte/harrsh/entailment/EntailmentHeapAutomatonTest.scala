@@ -38,7 +38,7 @@ class EntailmentHeapAutomatonTest extends HarrshTest {
     // Cyclic instances should be rejected
     val stronglyCycInstance = "x1 -> y1 * y2 -> y3 * y1 -> y2 * y3 -> x1".parse.toSid
     decide(stronglyCycInstance) shouldBe false
-    val stronglyCycInstance2 = "x1 -> y1 * y2 -> y3 * y1 -> y2 * y3 : { y3 = x1 }".parse.toSid
+    val stronglyCycInstance2 = "x1 -> y1 * y2 -> y3 * y1 -> y2 : { y3 = x1 }".parse.toSid
     decide(stronglyCycInstance2) shouldBe false
 
     // Chaining acylic lists together should work under the appropriate side conditions

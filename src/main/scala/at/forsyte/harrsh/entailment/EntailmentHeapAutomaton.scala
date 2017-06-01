@@ -35,6 +35,15 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
       case _ => false
     }
 
+    def isFinal : Boolean = if (requiredContext.nonEmpty) {
+      // There are external constraints left => Reject
+      false
+    } else {
+      // If the goal is to prove entailment, accept inconsistent heaps and those that correspond to an accepting table entry;
+      // If the goal is to prove non-entailment, negate
+      negate != (isInconsistent || (!isSink && States(stateIndex).isFinal))
+    }
+
     def kernel : SymbolicHeap = this match {
       case RejectingSink(ti, forbiddenContexts) =>
         ti.kernel
@@ -49,7 +58,10 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     override val stateIndex = States.sinkStateIndex
     override val requiredContext = Set.empty
   }
-  case class NormalState(override val stateIndex : Int, override val requiredContext : Set[Var]) extends StateDesc
+  case class NormalState(override val stateIndex : Int, override val requiredContext : Set[Var]) extends StateDesc {
+    assert(stateIndex != States.sinkStateIndex && stateIndex != States.inconsistentStateIndex)
+  }
+
   case class InconsistentState() extends StateDesc {
     override val stateIndex = States.inconsistentStateIndex
     override val requiredContext = Set.empty
@@ -67,7 +79,7 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
 
     def untaggedStateFromIndex(stateIndex : Int) : State = {
       assert(stateIndex != sinkStateIndex)
-      NormalState(stateIndex, Set.empty)
+      if (stateIndex == inconsistentStateIndex) InconsistentState() else NormalState(stateIndex, Set.empty)
     }
 
     // We need a single sink state for those heaps that are consistent but cannot be extended to unfoldings of the RHS
@@ -75,19 +87,9 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
     // Inconsistent heaps always make the entailment true, so we have a distinguished inconsistent state
     val inconsistentStateIndex : Int = sinkStateIndex + 1
 
-    logger.debug("Automaton state space:\n" + stateToEntryMap.toSeq.sortBy(_._1).map{ pair => (pair._1, pair._2, isFinal(untaggedStateFromIndex(pair._1)))}.mkString("\n"))
+    logger.debug("Automaton state space:\n" + stateToEntryMap.toSeq.sortBy(_._1).map{ pair => (pair._1, pair._2, negate != pair._2.isFinal) }.mkString("\n"))
 
     def stateIndices : Set[Int] = stateToEntryMap.keySet + sinkStateIndex + inconsistentStateIndex
-
-    // TODO Also put this into the StateDesc trait
-    def isFinal(s : State) : Boolean = if (s.requiredContext.nonEmpty) {
-      // There are external constraints left => Reject
-      false
-    } else {
-      // If the goal is to prove entailment, accept inconsistent heaps and those that correspond to an accepting table entry;
-      // If the goal is to prove non-entailment, negate
-      negate != (s.isInconsistent || (!s.isSink && stateToEntryMap(s.stateIndex).isFinal))
-    }
 
     def statesOfHeap(sh : SymbolicHeap) : Set[State] = {
 
@@ -113,7 +115,7 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
           // FIXME Check external assumptions
           sinkStateIndex
         } else {
-          // TODO Do we have to support "real" nondeterminism w.r.t. state indeices as well? (Currently we'll have an exception in that case.)
+          // TODO Do we have to support "real" nondeterminism w.r.t. state indices as well? (Currently we'll have an exception in that case.)
           //val strongest = TableEntry.entryWithWeakestExtensions(matches)
           val strongest = TableEntry.entryWithMinimalExtensionSet(matches)
           entryToStateMap(strongest)
@@ -138,7 +140,7 @@ case class EntailmentHeapAutomaton(numFV : Int, obs : ObservationTable, negate :
 
   override lazy val states: Set[State] = throw new NotImplementedError("No access to explicit set of states")
 
-  override def isFinal(s: State): Boolean = States.isFinal(s)
+  override def isFinal(s: State): Boolean = s.isFinal
 
   def handleSink(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     // TODO If one of the forbidden contexts occurs, we get stuck
