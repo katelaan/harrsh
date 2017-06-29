@@ -1,10 +1,8 @@
 package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.entailment.GreedyUnfoldingModelChecker
-import at.forsyte.harrsh.entailment.learning.EntailmentAutomatonLearning
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
-import at.forsyte.harrsh.util.export.ObservationTableToHtml
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
 import scala.concurrent.duration.{Duration, SECONDS}
@@ -195,16 +193,7 @@ object Harrsh {
           val depth = config.oUnfoldingDepth.map{
             d => println("Will limit unfolding depth to " + d); d
           }.getOrElse(Int.MaxValue)
-          // FIXME Set assumptions via parameters
-          val assumeAsymmetry : Boolean = false
-          val useSimpleLearning : Boolean = true
-          println(if (assumeAsymmetry) "Assuming asymmetry of SID" else "Learning possibly symmetrical SID")
-          val (table, log) = EntailmentAutomatonLearning.learnAutomaton(sid, autNumfv, assumeAsymmetry = assumeAsymmetry, useSimpleLearning = useSimpleLearning, config.reportProgress, maxIterations = depth)
-          println("Finished computation of entailment automaton")
-          val resultFile = "automaton" + autNumfv + "_" + new java.io.File(config.file).getName + ".aut"
-          ObservationTableToHtml(table, "export/autviz" + autNumfv + "_" + sid.startPred)
-          MainIO.writeEntailmentAutomatonToFile(sid, autNumfv, table, log, resultFile)
-          println("Wrote serialization to " + resultFile)
+          println("Entailment learning not available on this branch.")
   }
 
 
