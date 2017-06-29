@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.heapautomata.utils
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.{EqualityUtils, UnsafeAtomsAsClosure}
+import at.forsyte.harrsh.pure.{Closure, ConstraintPropagation, EqualityUtils}
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.inductive._
@@ -15,12 +15,12 @@ case class TrackingInfo private (alloc: Set[Var], pure: Set[PureAtom]) extends K
   def equalities : Set[PtrEq] = pure.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq])
 
   def dropNonFreeVariables : TrackingInfo = {
-    TrackingInfo(alloc.filter(isFV),
-      pure.filter({
+    TrackingInfo(alloc.filter(_.isFree),
+      pure.filter{
         atom =>
           val (l, r, _) = EqualityUtils.unwrapAtom(atom)
-          isFV(l) && isFV(r)
-      }))
+          l.isFree && r.isFree
+      })
   }
 
   lazy val isConsistent : Boolean =
@@ -30,13 +30,15 @@ case class TrackingInfo private (alloc: Set[Var], pure: Set[PureAtom]) extends K
       case _ => false
     }
 
+  def projectionToFreeVars : TrackingInfo = TrackingInfo(alloc.filter(_.isFree), pure.filter(_.comparesFree))
+
   override def kernel : SymbolicHeap = {
     // Here we assume that the state already contains a closure. If this is not the case, the following does not work.
-    val closure = UnsafeAtomsAsClosure(pure)
+    val closure = Closure.unsafeTrivialClosure(pure)
 
-    val nonredundantAlloc = alloc filter closure.isMinimumInItsClass
+    val nonredundantAlloc = alloc filter closure.isRepresentative
 
-    val allocPtr : Set[PointsTo] = nonredundantAlloc map (p => ptr(p, nil))
+    val allocPtr : Set[PointsTo] = nonredundantAlloc map (p => PointsTo(p, nil))
 
     val res = SymbolicHeap(pure.toSeq, allocPtr.toSeq, Seq.empty)
     logger.debug("Converting " + this + " to " + res)
@@ -61,12 +63,12 @@ object TrackingInfo {
     val pureWithAlloc : Set[PureAtom] = pureExplicit ++ inequalitiesFromAlloc
 
     // Compute fixed point of inequalities and fill up alloc info accordingly
-    val (alloc, pure) = EqualityUtils.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
+    val (alloc, pure) = ConstraintPropagation.propagateConstraints(allocExplicit.toSet, pureWithAlloc)
     TrackingInfo(alloc, pure)
   }
 
   def fromPair = TrackingInfo
 
-  def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = TrackingInfo(Set(), Set() ++ mkAllFVs(numFV) map (fv => PtrNEq(PtrExpr.fromFV(fv),PtrExpr.fromFV(fv))))
+  def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = TrackingInfo(Set(), Set() ++ mkAllVars(0 to numFV) map (fv => PtrNEq(PtrExpr(fv),PtrExpr(fv))))
 
 }

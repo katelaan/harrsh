@@ -13,7 +13,7 @@ object ToyExampleAutomata {
   /**
     * An automaton that reaches a final state iff there is at least one points-to assertion
     */
-  lazy val HasPointerAutomaton = new HeapAutomaton with HarrshLogging {
+  def hasPointerAutomaton(negate : Boolean = false) = new HeapAutomaton with HarrshLogging {
 
     override val description: String = AutomatonTask.keywords.hasptr
 
@@ -21,7 +21,7 @@ object ToyExampleAutomata {
 
     override val states: Set[State] = Set(true, false)
 
-    override def isFinal(s: State): Boolean = s
+    override def isFinal(s: State): Boolean = s != negate
 
     // No restrictions regarding the SH
     override def doesAlphabetContain(lab: SymbolicHeap): Boolean = true
@@ -43,7 +43,7 @@ object ToyExampleAutomata {
 
   lazy val EvenAutomaton = moduloAutomaton(0,2)
 
-  def moduloAutomaton(remainder : Int, divisor : Int) = new HeapAutomaton with HarrshLogging {
+  def moduloAutomaton(remainder : Int, divisor : Int, negate : Boolean = false) = new HeapAutomaton with HarrshLogging {
 
     override val description: String = AutomatonTask.keywords.mod + "(" + remainder + ", " + divisor + ")"
 
@@ -51,7 +51,7 @@ object ToyExampleAutomata {
 
     override val states: Set[State] = Set() ++ (0 until divisor)
 
-    override def isFinal(s: State): Boolean = s == remainder
+    override def isFinal(s: State): Boolean = (s == remainder) != negate
 
     // No restrictions regarding the SH
     override def doesAlphabetContain(lab: SymbolicHeap): Boolean = true

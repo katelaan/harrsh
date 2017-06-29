@@ -15,30 +15,51 @@ sealed trait AutomatonTask {
   // TODO Possibly give Boolean param to SAT, EST etc instead of having two separate case classes?
 
   def getAutomaton(numFV : Int) : HeapAutomaton = this match {
-    case RunHasPointer() => ToyExampleAutomata.HasPointerAutomaton
-    case RunModulo(remainder : Int, divisor : Int) => ToyExampleAutomata.moduloAutomaton(remainder, divisor)
-    case RunExactTracking(alloc, pure) => TrackingAutomata.singleTargetStateTracking(numFV, alloc, pure)
-    case RunRelaxedTracking(alloc, pure) => TrackingAutomata.subsetTracking(numFV, alloc, pure)
-    case RunAllocationTracking(alloc) => TrackingAutomata.allocTracking(numFV, alloc)
-    case RunPureTracking(pure) => TrackingAutomata.pureTracking(numFV, pure)
+    case RunHasPointer(negate : Boolean) => ToyExampleAutomata.hasPointerAutomaton(negate)
+    case RunModulo(remainder : Int, divisor : Int, negate : Boolean) => ToyExampleAutomata.moduloAutomaton(remainder, divisor, negate)
+    case RunExactTracking(alloc, pure, negate) => TrackingAutomata.singleTargetStateTracking(numFV, alloc, pure, negate)
+    case RunRelaxedTracking(alloc, pure, negate) => TrackingAutomata.subsetTracking(numFV, alloc, pure, negate)
+    case RunAllocationTracking(alloc, negate) => TrackingAutomata.allocTracking(numFV, alloc, negate)
+    case RunPureTracking(pure, negate) => TrackingAutomata.pureTracking(numFV, pure, negate)
     case RunSat() => TrackingAutomata.satAutomaton(numFV)
     case RunUnsat() => TrackingAutomata.unsatAutomaton(numFV)
     case RunEstablishment() => TrackingAutomata.establishmentAutomaton(numFV)
     case RunNonEstablishment() => TrackingAutomata.nonEstablishmentAutomaton(numFV)
-    case RunReachability(from, to) => TrackingAutomata.reachabilityAutomaton(numFV, from, to)
+    case RunReachability(from, to, negate) => TrackingAutomata.reachabilityAutomaton(numFV, from, to, negate)
     case RunGarbageFreedom() => TrackingAutomata.garbageFreedomAutomaton(numFV)
     case RunWeakAcyclicity() => TrackingAutomata.weakAcyclicityAutomaton(numFV)
     case RunMayHaveGarbage() => TrackingAutomata.mayHaveGarbageAutomaton(numFV)
     case RunStrongCyclicity() => TrackingAutomata.strongCyclicityAutomaton(numFV)
   }
 
-  // TODO Code duplication with fromString
+  // TODO Finish complementation
+  def complement : AutomatonTask = this match {
+    case RunHasPointer(negate : Boolean) => RunHasPointer(!negate)
+    case RunModulo(remainder, divisor, negate : Boolean) =>
+      if (divisor == 2) RunModulo(1-remainder, divisor, negate) else RunModulo(remainder, divisor, !negate)
+    case RunAllocationTracking(alloc, negate) => RunAllocationTracking(alloc, !negate)
+    case RunPureTracking(pure, negate) => RunPureTracking(pure, !negate)
+    case RunExactTracking(alloc, pure, negate) => RunExactTracking(alloc, pure, !negate)
+    case RunRelaxedTracking(alloc, pure, negate) => RunRelaxedTracking(alloc, pure, !negate)
+    case RunSat() => RunUnsat()
+    case RunUnsat() => RunSat()
+    case RunEstablishment() => RunNonEstablishment()
+    case RunNonEstablishment() => RunEstablishment()
+    case RunReachability(from, to, negate) => RunReachability(from, to, !negate)
+    case RunGarbageFreedom() => RunMayHaveGarbage()
+    case RunWeakAcyclicity() => RunStrongCyclicity()
+    case RunMayHaveGarbage() => RunGarbageFreedom()
+    case RunStrongCyclicity() => RunWeakAcyclicity()
+  }
+
+  private def negationPrefix(negate : Boolean) = if (negate) "~" else ""
+
   override def toString: String = this match {
-    case RunHasPointer() => AutomatonTask.keywords.hasptr
-    case RunModulo(remainder : Int, divisor : Int) => (remainder, divisor) match {
-      case (1, 2) => AutomatonTask.keywords.odd
-      case (0, 2) => AutomatonTask.keywords.even
-      case _ => AutomatonTask.keywords.mod + "[" + remainder + "," + divisor + "]"
+    case RunHasPointer(negate : Boolean) => negationPrefix(negate) + AutomatonTask.keywords.hasptr
+    case RunModulo(remainder : Int, divisor : Int, negate : Boolean) => (remainder, divisor, negate) match {
+      case (1, 2, false) => AutomatonTask.keywords.odd
+      case (0, 2, false) => AutomatonTask.keywords.even
+      case _ => negationPrefix(negate) + AutomatonTask.keywords.mod + "[" + remainder + "," + divisor + "]"
     }
     case RunSat() => AutomatonTask.keywords.sat
     case RunUnsat() => AutomatonTask.keywords.unsat
@@ -48,25 +69,26 @@ sealed trait AutomatonTask {
     case RunWeakAcyclicity() => AutomatonTask.keywords.acyc
     case RunMayHaveGarbage() => AutomatonTask.keywords.garb
     case RunStrongCyclicity() => AutomatonTask.keywords.cyc
-    case RunReachability(from, to) => AutomatonTask.keywords.reach + "[" + Var.toDefaultString(from) + "," + Var.toDefaultString(to) + "]"
-    case RunExactTracking(alloc, pure) => AutomatonTask.keywords.track + "[" + alloc.map(Var.toDefaultString).mkString(",") + (if (pure.nonEmpty) " : " + pure.mkString(",") else "") + "]"
-    case RunRelaxedTracking(alloc, pure) => AutomatonTask.keywords.reltrack + "[" + alloc.map(Var.toDefaultString).mkString(",") + (if (pure.nonEmpty) " : " + pure.mkString(",") else "") + "]"
-    case RunAllocationTracking(alloc) => AutomatonTask.keywords.alloc + "[" + alloc.map(Var.toDefaultString).mkString(",") + "]"
-    case RunPureTracking(pure) => AutomatonTask.keywords.pure + "[" + pure.mkString(",") + "]"
+    case RunReachability(from, to, negate) => negationPrefix(negate) + AutomatonTask.keywords.reach + "[" + from + "," + to + "]"
+    case RunExactTracking(alloc, pure, negate) => negationPrefix(negate) + AutomatonTask.keywords.track + "[" + alloc.mkString(",") + (if (pure.nonEmpty) " : " + pure.mkString(",") else "") + "]"
+    case RunRelaxedTracking(alloc, pure, negate) => negationPrefix(negate) + AutomatonTask.keywords.reltrack + "[" + alloc.mkString(",") + (if (pure.nonEmpty) " : " + pure.mkString(",") else "") + "]"
+    case RunAllocationTracking(alloc, negate) => negationPrefix(negate) + AutomatonTask.keywords.alloc + "[" + alloc.mkString(",") + "]"
+    case RunPureTracking(pure, negate) => negationPrefix(negate) + AutomatonTask.keywords.pure + "[" + pure.mkString(",") + "]"
   }
 
   def resultToString(isEmpty : Boolean) : String = this match {
-    case RunHasPointer() => if (isEmpty) "no alloc" else "alloc"
-    case RunModulo(remainder : Int, divisor : Int) => (if (isEmpty) "all" else "ex.") + " #ptr " + (if (isEmpty) "!= " else "== ") + remainder + "%" + divisor
-    case RunExactTracking(alloc, pure) => if (isEmpty) "no matching unf." else "ex. matching unf."
-    case RunRelaxedTracking(alloc, pure) => if (isEmpty) "no superset unf." else "ex. superset unf."
-    case RunAllocationTracking(alloc) => if (isEmpty) "no superset unf." else "ex. superset unf."
-    case RunPureTracking(pure) => if (isEmpty) "no superset unf." else "ex. superset unf."
+    case RunHasPointer(negate : Boolean) => if (isEmpty != negate) "no alloc" else "alloc"
+    case RunModulo(remainder : Int, divisor : Int, negate : Boolean) => (if (isEmpty) "all" else "ex.") + " #ptr " + (if (isEmpty != negate) "!= " else "== ") + remainder + "%" + divisor
+    // TODO Other strings for negated automata?
+    case RunExactTracking(alloc, pure, negate) => if (isEmpty) "no matching unf." else "ex. matching unf."
+    case RunRelaxedTracking(alloc, pure, negate) => if (isEmpty) "no superset unf." else "ex. superset unf."
+    case RunAllocationTracking(alloc, negate) => if (isEmpty) "no superset unf." else "ex. superset unf."
+    case RunPureTracking(pure, negate) => if (isEmpty) "no superset unf." else "ex. superset unf."
     case RunSat() => if (isEmpty) "all unsat" else "ex. sat"
     case RunUnsat() => if (isEmpty) "all sat" else "ex. unsat"
     case RunEstablishment() => if (isEmpty) "all non-est." else "ex. est."
     case RunNonEstablishment() => if (isEmpty) "all est." else "ex. non-est"
-    case RunReachability(from, to) => if (isEmpty) "all unreach" else "ex. reach"
+    case RunReachability(from, to, negate) => if (isEmpty != negate) "all unreach" else "ex. reach"
     case RunGarbageFreedom() => if (isEmpty) "all garbage" else "ex. garbage free"
     case RunWeakAcyclicity() => if (isEmpty) "all cyclic" else "ex. weak. acyc."
     case RunMayHaveGarbage() => if (isEmpty) "all garb. free" else "may ex. garb."
@@ -75,17 +97,19 @@ sealed trait AutomatonTask {
 
 }
 
-case class RunHasPointer() extends AutomatonTask
+case class RunHasPointer(negate : Boolean = false) extends AutomatonTask
 
-case class RunModulo(remainder : Int, divisor : Int) extends AutomatonTask
+case class RunModulo(remainder : Int, divisor : Int, negate : Boolean = false) extends AutomatonTask {
+  assert(remainder < divisor)
+}
 
-case class RunAllocationTracking(alloc : Set[Var]) extends AutomatonTask
+case class RunAllocationTracking(alloc : Set[Var], negate : Boolean = false) extends AutomatonTask
 
-case class RunPureTracking(pure : Set[PureAtom]) extends AutomatonTask
+case class RunPureTracking(pure : Set[PureAtom], negate : Boolean = false) extends AutomatonTask
 
-case class RunExactTracking(alloc : Set[Var], pure : Set[PureAtom]) extends AutomatonTask
+case class RunExactTracking(alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) extends AutomatonTask
 
-case class RunRelaxedTracking(alloc : Set[Var], pure : Set[PureAtom]) extends AutomatonTask
+case class RunRelaxedTracking(alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) extends AutomatonTask
 
 case class RunSat() extends AutomatonTask
 
@@ -95,7 +119,7 @@ case class RunEstablishment() extends AutomatonTask
 
 case class RunNonEstablishment() extends AutomatonTask
 
-case class RunReachability(from : Var, to : Var) extends AutomatonTask
+case class RunReachability(from : Var, to : Var, negate : Boolean = false) extends AutomatonTask
 
 case class RunGarbageFreedom() extends AutomatonTask
 
@@ -109,6 +133,7 @@ object AutomatonTask {
 
   // TODO Clean this up a little bit. Is getting very long + somewhat repetitive
   def fromString(s : String) : Option[AutomatonTask] = s match {
+    case "" => None
     case keywords.sat => Some(RunSat())
     case keywords.unsat => Some(RunUnsat())
     case keywords.hasptr => Some(RunHasPointer())
@@ -135,13 +160,13 @@ object AutomatonTask {
           input <- removeSurroundingKeyword(other, keywords.reach)
           params = input.split(",")
           // TODO Allow variable names as in unparsed SIDs?
-          if params.size == 2 && isFV(params(0)) && isFV(params(1))
+          if params.size == 2 && isFreeVariableString(params(0)) && isFreeVariableString(params(1))
         } yield RunReachability(stringToFV(params(0)), stringToFV(params(1)))
 
         val allocResult = for {
           input <- removeSurroundingKeyword(other, keywords.alloc)
           params = input.split(",")
-          if params.forall(isFV)
+          if params.forall(isFreeVariableString)
           fvs = (params map stringToFV).toSet
         } yield RunAllocationTracking(fvs)
 
@@ -151,16 +176,16 @@ object AutomatonTask {
           eqs = (params map parsePure).toSet
         } yield RunPureTracking(eqs)
 
-        def trackParsing(constructor : (Set[Var], Set[PureAtom]) => AutomatonTask, kw : String)(input : String) : Option[AutomatonTask] =
+        def trackParsing(constructor : (Set[Var], Set[PureAtom], Boolean) => AutomatonTask, kw : String)(input : String) : Option[AutomatonTask] =
           for {
             input <- removeSurroundingKeyword(other, kw)
             params : Array[String] = input.split(":")
             fvparams : Array[String] = params(0).trim.split(",")
             pureparams : Array[String] = if (params.size > 1) params(1).trim.split(",") else Array.empty
-            if fvparams.forall(isFV)
+            if fvparams.forall(isFreeVariableString)
             fvs = (fvparams map stringToFV).toSet
             eqs = (pureparams map parsePure).toSet
-          } yield constructor(fvs, eqs)
+          } yield constructor(fvs, eqs, false)
 
         val trackResult = trackParsing(RunExactTracking, keywords.track)(other)
         val relaxedTrackResult = trackParsing(RunRelaxedTracking, keywords.reltrack)(other)
@@ -183,7 +208,8 @@ object AutomatonTask {
       (input.split("\u2248"), true)
     } else (input.split("="), true)
 
-    (if (isEq) PtrEq else PtrNEq)(PtrExpr.fromFV(Var.stringToFV(params(0).trim)), PtrExpr.fromFV(Var.stringToFV(params(1).trim)))
+    val (l,r)= (Var.stringToFV(params(0).trim), Var.stringToFV(params(1).trim))
+    if (isEq) PtrEq(l,r) else PtrNEq(l,r)
   }
 
   private def removeSurroundingKeyword(input : String, kw : String) : Option[String] = {

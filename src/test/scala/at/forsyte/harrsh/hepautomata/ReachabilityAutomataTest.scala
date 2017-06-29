@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.hepautomata
 
-import at.forsyte.harrsh.TestValues
+import at.forsyte.harrsh.{AtomConstructorFunctions, TestValues}
 import at.forsyte.harrsh.pure.EqualityUtils.mkPure
 import at.forsyte.harrsh.heapautomata.instances.TrackingAutomata
 import at.forsyte.harrsh.heapautomata.utils.{ReachabilityInfo, ReachabilityMatrix, TrackingInfo}
@@ -12,7 +12,7 @@ import at.forsyte.harrsh.test.HarrshTableTest
 /**
   * Created by jkatelaa on 10/19/16.
   */
-class ReachabilityAutomataTest extends HarrshTableTest with TestValues {
+class ReachabilityAutomataTest extends HarrshTableTest with TestValues with AtomConstructorFunctions {
 
   def mx3(pairs : (Int,Int)*) : ReachabilityMatrix = ReachabilityMatrix.fromPairs(3, pairs)
 
@@ -37,9 +37,9 @@ class ReachabilityAutomataTest extends HarrshTableTest with TestValues {
     (Seq(), SymbolicHeap(Seq(ptrneq(x1, x1)), Seq(ptr(x1, nil)), Seq()), x1, x2, true),
 
     // - Non-R SHs
-    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), x1, x2, true),
-    (Seq(mk(mkAllVar(1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), x1, x2, true), // To test renaming of fresh var
-    (Seq(mk(mkAllVar(), mkPure((1,2,true)), mx3()), mk(mkAllVar(2,3), mkPure(), mx3(3 -> 2, 2 -> 1))), // 1st call : y=x1, 2nd call : x3 -> w -> y
+    (Seq(mk(Set(x1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), x1, x2, true),
+    (Seq(mk(Set(x1), mx3(1 -> 2))), SymbolicHeap(Seq(ptr(x1, y1)), Seq(call("sll", y1, x2))), x1, x2, true), // To test renaming of fresh var
+    (Seq(mk(Set(), mkPure((1,2,true)), mx3()), mk(Set(x2,x3), mkPure(), mx3(3 -> 2, 2 -> 1))), // 1st call : y=x1, 2nd call : x3 -> w -> y
       SymbolicHeap(Seq(ptr(x1, x2)), Seq(call("dummy", y1, x1, x3), call("dummy", y1, y2, x3))),
       x3, x2, true)
   )

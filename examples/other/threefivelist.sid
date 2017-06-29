@@ -1,0 +1,8 @@
+# Lists with 3 mod 5 pointers
+tfl(x1, x2) <= sll3(x1,x2) ;
+sll0(x1, x2) <= emp : {x1 = x2} ;
+sll0(x1, x2) <= x1 -> y1 * sll4(y1,x2) ;
+sll1(x1, x2) <= x1 -> y1 * sll0(y1,x2) ;
+sll2(x1, x2) <= x1 -> y1 * sll1(y1,x2) ;
+sll3(x1, x2) <= x1 -> y1 * sll2(y1,x2) ;
+sll4(x1, x2) <= x1 -> y1 * sll3(y1,x2)

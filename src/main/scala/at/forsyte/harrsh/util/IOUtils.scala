@@ -36,7 +36,12 @@ object IOUtils {
       val path = listOfDirs.head + "/" + filename
       if (new File(path).exists()) Some(path) else findFileIn(filename, listOfDirs.tail)
     }
+  }
 
+  def listOfFilesIn(listOfDirs : Seq[String]) : List[File] = {
+    listOfDirs.foldLeft(List.empty[File]){
+      (acc, dir) => acc ++ getListOfFiles(dir)
+    }
   }
 
   def readFile(filename : String) : String = {
@@ -62,7 +67,12 @@ object IOUtils {
     bw.close()
   }
 
-  def printLinesOf(symbol : Char, numLines : Int) = {
+  def mkDir(fileName : String) : Unit = {
+    val path = java.nio.file.Paths.get(fileName)
+    java.nio.file.Files.createDirectories(path)
+  }
+
+  def printLinesOf(symbol : Char, numLines : Int): Unit = {
     val s : String = symbol.toString
     for (_ <- 1 to numLines) println(s * 80)
   }
@@ -81,5 +91,7 @@ object IOUtils {
 
   private def inColumns(cols : Seq[(String,Int)]) : String = if (cols.isEmpty) "|" else "|" + " "*Math.max(0,cols.head._2 - cols.head._1.length) + cols.head._1 + inColumns(cols.tail)
   private def delimLine(cols : Seq[Int]) = "+" + "-"*(cols.sum+cols.size-1) + "+"
+
+  def printIf(condition : => Boolean)(a : Any) : Unit = if (condition) println(a)
 
 }

@@ -1,9 +1,14 @@
-1. Install sbt
+1. Install Java 8
+-----------------
+
+Java JDK 8 is needed to compile HARRSH.
+
+2. Install sbt
 --------------
 
 Install sbt; see http://www.scala-sbt.org/download.html for instructions.
 
-2. Get the source
+3. Get the source
 ----------
 
 Run
@@ -11,7 +16,7 @@ Run
 git clone https://bitbucket.org/jkatelaan/harrsh.git
 cd harrsh
 
-3. Compile & run
+4. Compile & run
 ------
 
 You can now run HARRSH via the provided shell script
@@ -20,7 +25,7 @@ You can now run HARRSH via the provided shell script
 
 The first time, this will fetch dependencies and compile the source code, which might take several minutes.
 
-4. Update
+5. Update
 ---------
 
 To update to a newer revision, simply run

@@ -7,7 +7,7 @@ import at.forsyte.harrsh.parsers.{ModelParser, SIDParsers}
 import at.forsyte.harrsh.util.IOUtils
 import at.forsyte.harrsh.util.IOUtils._
 import at.forsyte.harrsh.refinement.DecisionProcedures.{AnalysisResult, AnalysisStatistics}
-import at.forsyte.harrsh.entailment.Model
+import at.forsyte.harrsh.entailment.{Model}
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.refinement.AutomatonTask
 

@@ -9,11 +9,11 @@ import at.forsyte.harrsh.seplog.inductive.PureAtom
   */
 object TrackingAutomata extends HarrshLogging {
 
-  def singleTargetStateTracking(numFV : Int, alloc : Set[Var], pure : Set[PureAtom]) = new BaseTrackingAutomaton.TrackingAutomatonWithSingleFinalState(numFV, alloc, pure)
-  def subsetTracking(numFV : Int, alloc : Set[Var], pure : Set[PureAtom]) = new BaseTrackingAutomaton.SubsetTrackingAutomaton(numFV, alloc, pure)
+  def singleTargetStateTracking(numFV : Int, alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) = new BaseTrackingAutomaton.TrackingAutomatonWithSingleFinalState(numFV, alloc, pure, negate)
+  def subsetTracking(numFV : Int, alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) = new BaseTrackingAutomaton.SubsetTrackingAutomaton(numFV, alloc, pure, negate)
 
-  def allocTracking(numFV : Int, alloc : Set[Var]) = new BaseTrackingAutomaton.AllocationTrackingAutomaton(numFV, alloc)
-  def pureTracking(numFV : Int, pure : Set[PureAtom]) = new BaseTrackingAutomaton.PureTrackingAutomaton(numFV, pure)
+  def allocTracking(numFV : Int, alloc : Set[Var], negate : Boolean = false) = new BaseTrackingAutomaton.AllocationTrackingAutomaton(numFV, alloc, negate)
+  def pureTracking(numFV : Int, pure : Set[PureAtom], negate : Boolean = false) = new BaseTrackingAutomaton.PureTrackingAutomaton(numFV, pure, negate)
 
   def satAutomaton(numFV : Int) = new SatAutomaton(numFV, negate = false)
   def unsatAutomaton(numFV : Int) = new SatAutomaton(numFV, negate = true)
@@ -21,7 +21,7 @@ object TrackingAutomata extends HarrshLogging {
   def establishmentAutomaton(numFV : Int) = new EstablishmentAutomaton(numFV, true)
   def nonEstablishmentAutomaton(numFV : Int) = new EstablishmentAutomaton(numFV, false)
 
-  def reachabilityAutomaton(numFV : Int, from : Var, to : Var) = new ReachabilityAutomaton(numFV, from, to)
+  def reachabilityAutomaton(numFV : Int, from : Var, to : Var, negate : Boolean = false) = new ReachabilityAutomaton(numFV, from, to, negate)
 
   def garbageFreedomAutomaton(numFV : Int) = new GarbageAutomaton(numFV, negate = false)
   def mayHaveGarbageAutomaton(numFV : Int) = new GarbageAutomaton(numFV, negate = true)

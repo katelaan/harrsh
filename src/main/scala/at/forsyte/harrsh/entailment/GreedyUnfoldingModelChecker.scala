@@ -1,7 +1,9 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.pure.{ConsistencyCheck, Determinization, PureEntailment}
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.util.IOUtils
 
 import scala.annotation.tailrec
 
@@ -18,6 +20,21 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
   // TODO The linear structure of the set of model pointers is super inefficient, should use a map representation (keys = from vars) instead
   // TODO Heuristics for unfolding process, e.g. based on size, but also via checking which params are nullable in given rule sets
 
+//  sealed trait MatchingResult {
+//    def isModelCheckingSuccess : Boolean = this match {
+//      case MatchingSuccess() => true
+//      case _ => false
+//    }
+//
+//    def isReducedEntailmentSuccess : Boolean = this match {
+//      case MatchingFailure() => false
+//      case _ => false
+//    }
+//  }
+//  case class MatchingInconsistent() extends MatchingResult
+//  case class MatchingSuccess() extends MatchingResult
+//  case class MatchingFailure() extends MatchingResult
+
   val IsModel = true
   val NoModel = false
 
@@ -31,17 +48,23 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     new GreedyUnfolding(map, reportProgress).run(modelFormula, formula, MCHistory.emptyHistory)
   }
 
+  def isModel(model : Model, sid : SID, reportProgress: Boolean) : Boolean = isModel(model, sid.callToStartPred, sid, reportProgress = reportProgress)
+
   /**
-    * Solve the reduced entailment problem via greedy pointer matching. Sound for well-determined heaps?
-    * TODO Also sound for some other heaps?
+    * Solve the reduced entailment problem via greedy pointer matching;
+    * sound for satisfiable left-hand sides and SIDs without unsatisfiable unfoldings
     * @param lhs Reduced symbolic heap on the lhs of the entailment
     * @param rhs Arbitrary symbolic heap on the rhs of the entailment
     * @param sid Underlying SID
     * @return true iff lhs |= rhs
     */
   def reducedEntailmentAsModelChecking(lhs : SymbolicHeap, rhs : SymbolicHeap, sid : SID, reportProgress: Boolean = false): Boolean = {
+    assert(lhs.isReduced)
+    // Using the model checker for reduced entailment is only sound if the lhs is well-determined
+    assert(Determinization.isDetermined(lhs))
+
     val res = new GreedyUnfolding(sid.rulesAsHeadToBodyMap, reportProgress).run(lhs, rhs, MCHistory.emptyHistory)
-    if (reportProgress) println("    REDENT result: " + res)
+    IOUtils.printIf(reportProgress)("    REDENT result: " + res)
     res
   }
 
@@ -62,7 +85,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
       else if (partialUnfolding.hasPointer) {
         ModelAndUnfoldingHavePtr()
       }
-      else if (partialUnfolding.hasPredCalls) {
+      else if (partialUnfolding.nonReduced) {
         UnfoldingHasOnlyCalls()
       } else {
         NonEmptyModelAndEmptyUnfolding()
@@ -75,7 +98,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
         logger.debug("#" * 80)
         logger.debug("Iteration " + history.iteration + ": Greedy model checking of \n     " + formulaToMatch + "\n |?= " + partialUnfolding )
         logger.debug("Steps so far:\n" + history.stepLogger)
-        if (reportProgress) println("    MC #" + history.iteration + ": " + formulaToMatch + " |?= " + partialUnfolding)
+        IOUtils.printIf(reportProgress)("    MC #" + history.iteration + ": " + formulaToMatch + " |?= " + partialUnfolding)
 
         // The entailment/modelchecking result is trivially false if we have too few FVs on the left. View this as error on the caller's part
 //        if (formulaToMatch.numFV < partialUnfolding.numFV) {
@@ -91,11 +114,13 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
           case ModelAndUnfoldingHavePtr() =>
             // Match pair of pointers that are already there
             logger.debug("Unfolding has pointer, will try to match")
-            val unificationResult = PointerUnification.removeUnifiablePointerPair(formulaToMatch, partialUnfolding, disallowedFVs = history.alloc)
+            // TODO It would be better to avoid the conversion, but it would be incorrect to simply keep alloc as set, because we then wouldn't notice double allocation. Maybe optimize this later
+            val unificationResult = PointerUnification.removeUnifiablePointerPair(formulaToMatch, partialUnfolding, disallowedFVs = history.alloc.toSet)
             unificationResult match {
               case None => NoModel
-              case Some(PointerUnification.PointerMatch(lhsPtr, rhsPtr, newFVs, newFormulaToMatch, newPartialUnfolding)) =>
-                val newHistory = history.addAlloc(newFVs).logStep(MCHistory.PointerMatch(formulaToMatch, partialUnfolding, lhsPtr, rhsPtr))
+              case Some(PointerUnification.PointerMatch(lhsPtr, rhsPtr, newFV, newFormulaToMatch, newPartialUnfolding)) =>
+                //val newHistory = history.addAlloc(newFVs).logStep(MCHistory.PointerMatch(formulaToMatch, partialUnfolding, lhsPtr, rhsPtr))
+                val newHistory = history.addAlloc(newFV).logStep(MCHistory.PointerMatch(formulaToMatch, partialUnfolding, lhsPtr, rhsPtr))
                 run(newFormulaToMatch, newPartialUnfolding, newHistory)
             }
 
@@ -124,15 +149,27 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
         // Have matched everything in the model, but there is still a pointer left in the unfolding => not a model
         logger.debug("...but unfolding has pointer => no model, aborting branch")
         NoModel
-      } else if (partialUnfolding.hasPredCalls) {
+      } else if (partialUnfolding.nonReduced) {
         // Try to replace predicate calls with empty heaps if possible; if so, recurse; otherwise return false
         logger.debug("...but unfolding has calls => generating unfoldings with empty spatial part (if any)")
-        unfoldFirstCallAndRecurse(formulaToMatch, partialUnfolding, history, considerRulesSatisfying = sh => !sh.hasPointer && !sh.hasPredCalls)
+        unfoldFirstCallAndRecurse(formulaToMatch, partialUnfolding, history, considerRulesSatisfying = sh => !sh.hasPointer && sh.isReduced)
       } else {
         // Return true iff pure constraints of partial unfolding are met
-        val res = PureFormulaReasoning.pureFormulaEntailment(formulaToMatch.pure ++ history.toFormula, partialUnfolding.pure)
-        logger.debug("Pure entailment check: " + res + " => " + (if (res) " is model" else " no model, abort branch"))
-        res
+        val historyConstraints = history.toPureConstraints
+        val lhsWithImpliedInequalities = formulaToMatch.pure ++ historyConstraints
+        IOUtils.printIf(reportProgress)("    Implied LHS constraints " + historyConstraints + " derived from allocation " + history.alloc.mkString(","))
+        IOUtils.printIf(reportProgress)("    " + lhsWithImpliedInequalities.mkString("{",", ", "}") + " |?=_PURE " + partialUnfolding.pure.mkString("{",", ", "}"))
+
+        // FIXME Improve efficiency here? It's redundant to check entailment and consistency separately
+        if (!ConsistencyCheck.isConsistent(SymbolicHeap(lhsWithImpliedInequalities, Seq(), Seq()))) {
+          // Inconsistent history constraints => Not a model
+          IOUtils.printIf(reportProgress)("    Inconsistent constraints, not a model")
+          false
+        } else {
+          val res = PureEntailment.check(lhsWithImpliedInequalities, partialUnfolding.pure)
+          logger.debug("Pure entailment check: " + res + " => " + (if (res) " is model" else " no model, abort branch"))
+          res
+        }
       }
     }
 

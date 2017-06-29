@@ -22,14 +22,16 @@ sealed trait PureAtom extends SepLogAtom with HarrshLogging {
   }
 
   override def getVars : Set[Var] = this match {
-    case PtrEq(l, r) => l.getVar union r.getVar
-    case PtrNEq(l, r) => l.getVar union r.getVar
+    case PtrEq(l, r) => l.getNonNullVar union r.getNonNullVar
+    case PtrNEq(l, r) => l.getNonNullVar union r.getNonNullVar
   }
 
   def getVarsWithNull : Set[Var] = this match {
     case PtrEq(l, r) => Set(l.getVarOrZero, r.getVarOrZero)
     case PtrNEq(l, r) => Set(l.getVarOrZero, r.getVarOrZero)
   }
+
+  def comparesFree: Boolean = getVars.forall(_.isFree)
 
   def isPointerComparison = true
 
@@ -42,10 +44,18 @@ sealed trait PureAtom extends SepLogAtom with HarrshLogging {
 
 //sealed trait EqualityPureAtom extends PureAtom
 
-case class PtrEq(l : PtrExpr, r : PtrExpr) extends /*Equality*/PureAtom {
+case class PtrEq (l : PtrExpr, r : PtrExpr) extends /*Equality*/PureAtom {
   override def toStringWithVarNames(names: VarNaming) = l.toStringWithVarNames(names) + " \u2248 " + r.toStringWithVarNames(names)
 }
 
-case class PtrNEq(l : PtrExpr, r : PtrExpr) extends /*Equality*/PureAtom {
+object PtrEq {
+  def apply(l : Var, r : Var) : PtrEq = PtrEq(PtrExpr(l), PtrExpr(r))
+}
+
+case class PtrNEq (l : PtrExpr, r : PtrExpr) extends /*Equality*/PureAtom {
   override def toStringWithVarNames(names: VarNaming) = l.toStringWithVarNames(names) + " \u2249 " + r.toStringWithVarNames(names)
+}
+
+object PtrNEq {
+  def apply(l : Var, r : Var) : PtrNEq = PtrNEq(PtrExpr(l), PtrExpr(r))
 }

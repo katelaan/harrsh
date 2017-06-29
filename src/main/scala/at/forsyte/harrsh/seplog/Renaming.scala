@@ -31,15 +31,15 @@ trait Renaming {
     */
   def filter(p : ((Var,Var)) => Boolean) : Renaming
 
-  final def freshName(varid: Var): Var =
+  private final def freshName(varid: Var): Var =
     if (!codomain.contains(varid)) {
       varid
-    } else if (varid < 0) {
-      freshName(varid-1)
+    } else if (varid.toInt < 0) {
+      freshName(Var(varid.toInt-1))
       // TODO Is it possible to skip directly to the minimum? Want to avoid gaps
       //codomain.min - 1
     } else {
-      codomain.max + 1
+      Var(codomain.map(_.toInt).max + 1)
     }
 
   final def addBoundVarWithOptionalAlphaConversion(varid: Var) : Renaming = {
@@ -60,7 +60,7 @@ object Renaming {
     */
   def clashAvoidanceRenaming(varClashes : Iterable[Var]) : Renaming = {
     val entries = varClashes.zipWithIndex map {
-      case (v,i) => (Integer.MIN_VALUE + i, v)
+      case (v,i) => (Var(Integer.MIN_VALUE + i), v)
     }
     fromPairs(entries)
   }
@@ -77,7 +77,7 @@ object Renaming {
 
     override def extendWith(k: Var, v: Var): Renaming = MapBasedRenaming(map + (k -> v))
 
-    override def toString = "[" + map.map(p => Var.toDefaultString(p._1)+"->"+Var.toDefaultString(p._2)).mkString(",") + "]"
+    override def toString = "[" + map.map(p => p._1 + "->" + p._2).mkString(",") + "]"
 
     override def isDefinedAt(s: Var): Boolean = map.isDefinedAt(s)
 

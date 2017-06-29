@@ -1,0 +1,3 @@
+# Singly-linked lists
+list <= emp : {x1 = x2} ;
+list <= x1 -> y * list(y,x2)

@@ -37,8 +37,8 @@ object EqualityBasedSimplifications extends HarrshLogging {
 
   private def asEqualityWithBoundPart(atom : PureAtom) : Option[(Var,Var)] = atom match {
     case PtrEq(l, r) =>
-      val lFree = Var.isFV(l.getVarOrZero)
-      val rFree = Var.isFV(r.getVarOrZero)
+      val lFree = l.getVarOrZero.isFree
+      val rFree = r.getVarOrZero.isFree
       // If one of the vars is free, we replace the bound var by the free var...
       if (lFree && !rFree) Some(r.getVarOrZero, l.getVarOrZero)
       else if (rFree && !lFree) Some(l.getVarOrZero, r.getVarOrZero)

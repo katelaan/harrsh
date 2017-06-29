@@ -1,27 +1,36 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.pure.ConsistencyCheck
 import at.forsyte.harrsh.seplog.{NullPtr, PtrVar, _}
 import at.forsyte.harrsh.seplog.inductive._
 
-// TODO Track additional equalities imposed by matching free vars in pointer matching? (Already in the History data structure, but not set anywhere.)
-case class MCHistory(iteration: Int, alloc : Set[Var], pure : Set[PtrEq], stepLogger : MCHistory.StepLogger) extends HarrshLogging {
-  def addAlloc(vs : Set[Var]) = copy(alloc = alloc ++ vs)
-  def addPure(p : PtrEq) = copy(pure = pure + p)
-  def nextIteration = copy(iteration = iteration+1)
+/**
+  * Logs the history of the model checking computation, including which allocated variables have been dropped in matching
+  * @param iteration Current iteration of the model checker
+  * @param alloc Vars that have been allocated on the left-hand side, but have been removed in pointer matching; saved as sequence rather than set to guarantee that double allocation will lead to inconsistency
+  * @param stepLogger Logger for debugging
+  */
+case class MCHistory(iteration: Int, alloc : Seq[Var], stepLogger : MCHistory.StepLogger) extends HarrshLogging {
 
-  def toFormula = {
-    logger.debug("Generating formula from allocation set " + alloc + " and additional pure constraints " + pure)
-    val contradiction = pure.find(eq => alloc.contains(eq.l.getVarOrZero) && alloc.contains(eq.r.getVarOrZero))
-    val contradictoryConstraint = contradiction match {
-      case Some(eq@PtrEq(l,r)) =>
-        logger.debug("CONTRADICTORY CONSTRAINT: " + eq + ", but both allocated")
-        Seq(PtrNEq(l,r))
-      case None => Seq.empty
-    }
+  def addAlloc(v : Var): MCHistory = {
+    logger.debug("Adding allocation info to history: " + v)
+    copy(alloc = alloc :+ v)
+  }
 
-    val allocPure = alloc map (v => PtrNEq(PtrVar(v), NullPtr()))
-    allocPure ++ contradictoryConstraint
+  def nextIteration: MCHistory = copy(iteration = iteration+1)
+
+  def toPureConstraints : Iterable[PureAtom] = {
+    logger.debug("Generating formula from allocation set " + alloc.mkString("{",",","}")) // + " and additional pure constraints " + pure)
+    // TODO Is there any reason to log pure constraints as well? I don't think so, but let's keep the code for the time being
+//    val contradiction = pure.find(eq => alloc.contains(eq.l.getVarOrZero) && alloc.contains(eq.r.getVarOrZero))
+//    contradiction match {
+//      case Some(eq@PtrEq(l,r)) =>
+//        logger.debug("CONTRADICTORY CONSTRAINT: " + eq + ", but both allocated")
+//        Seq(PtrNEq(l,r))
+//      case None => ConsistencyCheck.allocationInfoToConsistencyConstraints(alloc)
+//    }
+    ConsistencyCheck.allocationInfoToConsistencyConstraints(alloc)
   }
 
   def logStep(step : MCHistory.ModelCheckingStep) = copy(stepLogger = stepLogger.logStep(step))
@@ -29,7 +38,7 @@ case class MCHistory(iteration: Int, alloc : Set[Var], pure : Set[PtrEq], stepLo
 
 object MCHistory {
 
-   val emptyHistory = MCHistory(0, Set.empty, Set.empty, DefaultStepLogger())
+  val emptyHistory = MCHistory(0, Seq.empty, DefaultStepLogger())
 
   sealed trait ModelCheckingStep
   case class PointerMatch(lhs : SymbolicHeap, rhs : SymbolicHeap, lhsPtr : PointsTo, rhsPtr : PointsTo) extends ModelCheckingStep {

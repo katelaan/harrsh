@@ -1,8 +1,7 @@
-package at.forsyte.harrsh.hepautomata
+package at.forsyte.harrsh.pure
 
-import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.pure.EqualityUtils.mkPure
-import at.forsyte.harrsh.pure.ClosureOfAtomSet
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 import at.forsyte.harrsh.test.HarrshTableTest
 
@@ -25,11 +24,11 @@ class ClosureTest extends HarrshTableTest {
 
     forAll(fveqs) {
       (eqs: Set[PureAtom], results: Seq[Boolean]) =>
-        val closure = new ClosureOfAtomSet(eqs)
+        val closure = Closure.ofSetOfAtoms(eqs)
 
         for (i <- 1 to 5) {
-          info(mkVar(i) + (if (results(i - 1)) " should be " else " should NOT be ") + "the minimal element in an equality class of " + eqs)
-          closure.isMinimumInItsClass(mkVar(i)) should be(results(i - 1))
+          info(Var(i) + (if (results(i - 1)) " should be " else " should NOT be ") + "the minimal element in an equality class of " + eqs)
+          closure.isRepresentative(Var(i)) should be(results(i - 1))
         }
     }
 

@@ -7,13 +7,14 @@ import at.forsyte.harrsh.seplog.{DefaultNaming, PtrExpr, PtrVar, Var}
   * System of inductive definitions
   * Created by jens on 10/15/16.
   */
-case class SID(startPred : String, rules : Seq[Rule], description : String = "Unnamed SID", numFV : Int) {
+case class SID(startPred : String, rules : Seq[Rule], description : String, numFV : Int) {
 
-  override def toString = {
+  override def toString: String = {
     description + " (start predicate '" + startPred + "'): " + rules.sortBy(_.head).mkString("\n    ", " ; \n    ", "")
   }
 
   // Note that we take the maximum here, because we allow that some of the rules do not mention all FVs (and in particular not the maxFV; see also DefaultSID parser
+  // TODO: Seems obsolete now that we have numFV as explicit parameter?
   lazy val arityOfStartPred : Int = {
     val startRules = rules.filter(_.head == startPred)
     if (startRules.isEmpty) 0 else startRules.map(rule => rule.freeVars.size).max
@@ -22,7 +23,7 @@ case class SID(startPred : String, rules : Seq[Rule], description : String = "Un
   lazy val maximumArity : Int = if (rules.isEmpty) 0 else rules.map(rule => rule.freeVars.size).max
 
   def callToStartPred: SymbolicHeap = {
-    val initialArgs: Seq[PtrExpr] = (1 to arityOfStartPred) map (i => PtrVar(Var.mkVar(i)).asInstanceOf[PtrExpr])
+    val initialArgs: Seq[PtrExpr] = (1 to arityOfStartPred) map (i => PtrVar(Var(i)).asInstanceOf[PtrExpr])
     val initial = SymbolicHeap(Seq.empty, Seq(PredCall(startPred, initialArgs)))
     initial
   }
@@ -52,9 +53,11 @@ object SID extends HarrshLogging {
 
   def empty(startPred : String) : SID = SID(startPred, "")
 
+  def empty : SID = SID("X", "")
+
   def fromTopLevelSH(sh: SymbolicHeap, sid: SID) : SID = {
     val startPred = "sh"
-    val newRule = Rule(startPred, Var.mkAllFVs(sh.numFV) map Var.toDefaultString, sh.boundVars.toSeq map Var.toDefaultString, sh)
+    val newRule = Rule(startPred, Var.mkAllVars(1 to sh.numFV) map (_.toString), sh.boundVars.toSeq map (_.toString), sh)
     sid.copy(startPred = startPred, rules = newRule +: sid.rules, description = "symbolic heap")
   }
 
