@@ -18,3 +18,9 @@ libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.1"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 
 libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.12"
+
+test in assembly := {}
+
+import sbtassembly.AssemblyPlugin.defaultShellScript
+assemblyOption in assembly := (assemblyOption in assembly).value.copy(prependShellScript = Some(defaultShellScript))
+assemblyJarName in assembly := s"${name.value}"
