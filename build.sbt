@@ -19,6 +19,8 @@ libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 
 libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.12"
 
+libraryDependencies += "org.antlr" % "antlr4-runtime" % "4.7"
+
 test in assembly := {}
 
 import sbtassembly.AssemblyPlugin.defaultShellScript

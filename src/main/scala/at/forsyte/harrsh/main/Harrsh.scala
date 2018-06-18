@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.modelchecking.GreedyUnfoldingModelChecker
+import at.forsyte.harrsh.parsers.slcomp
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
@@ -72,7 +73,7 @@ object Harrsh {
       _ <- tryParseMode("--unfold", "-u", Unfold())
       _ <- tryParseMode("--analyze", "-a", Analyze())
       _ <- tryParseMode("--spec", "-s", ModelChecking())
-      _ <- tryParseMode("--gen-aut", "-ga", GenerateEntailmentAutomaton())
+      _ <- tryParseMode("--parse", "--parse", ParseOnly())
       mode <- gets[Config,ExecutionMode](_.mode)
 
       /*
@@ -124,6 +125,13 @@ object Harrsh {
   private def run(config : Config) : Unit = config.mode match {
       case Help() =>
         printUsage()
+
+      case ParseOnly() =>
+        val tree = slcomp.parseFile(config.file)
+        tree match {
+          case Some(value) => println("OK")
+          case None => println("Parsing failed")
+        }
 
       case Decide() =>
         val task = TaskConfig(config.file, config.prop, None)
@@ -183,17 +191,6 @@ object Harrsh {
           val modelChecker = GreedyUnfoldingModelChecker
           val result = modelChecker.isModel(model, sid)
           println("Finished model checking. Result: " + result)
-
-      case GenerateEntailmentAutomaton() =>
-          val sid = MainIO.getSidFromFile(config.file)
-          val autNumfv = config.oNumFV.getOrElse{
-            IOUtils.printWarningToConsole("Number of free variables for entailment automaton not specified. Will default to number of free variables in start predicate (" + sid.numFV + ")")
-            sid.numFV
-          }
-          val depth = config.oUnfoldingDepth.map{
-            d => println("Will limit unfolding depth to " + d); d
-          }.getOrElse(Int.MaxValue)
-          println("Entailment learning not available on this branch.")
   }
 
 
