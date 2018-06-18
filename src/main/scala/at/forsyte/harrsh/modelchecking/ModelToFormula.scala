@@ -1,4 +1,4 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.modelchecking
 
 import at.forsyte.harrsh.seplog.{NullPtr, PtrExpr, PtrVar, Var}
 import at.forsyte.harrsh.seplog.inductive._

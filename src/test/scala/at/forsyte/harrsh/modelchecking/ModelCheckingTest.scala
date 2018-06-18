@@ -1,4 +1,4 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.modelchecking
 
 import at.forsyte.harrsh.Implicits._
 import at.forsyte.harrsh.test.HarrshTableTest

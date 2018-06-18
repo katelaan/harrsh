@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.pure
 
-import at.forsyte.harrsh.entailment.{GreedyUnfoldingModelChecker, ReducedEntailment}
+import at.forsyte.harrsh.modelchecking.{GreedyUnfoldingModelChecker, ReducedEntailment}
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 
 /**

@@ -1,8 +1,8 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.modelchecking
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.ConsistencyCheck
-import at.forsyte.harrsh.seplog.{NullPtr, PtrVar, _}
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive._
 
 /**

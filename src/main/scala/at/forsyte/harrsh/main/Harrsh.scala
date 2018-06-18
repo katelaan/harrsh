@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.main
 
-import at.forsyte.harrsh.entailment.GreedyUnfoldingModelChecker
+import at.forsyte.harrsh.modelchecking.GreedyUnfoldingModelChecker
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}

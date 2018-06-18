@@ -1,6 +1,6 @@
 package at.forsyte.harrsh
 
-import at.forsyte.harrsh.entailment.{GreedyUnfoldingModelChecker, Model, ReducedEntailment}
+import at.forsyte.harrsh.modelchecking.{GreedyUnfoldingModelChecker, Model, ReducedEntailment}
 import at.forsyte.harrsh.main.MainIO
 import at.forsyte.harrsh.parsers.SIDParsers
 import at.forsyte.harrsh.pure.EqualityBasedSimplifications

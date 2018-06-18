@@ -2,7 +2,7 @@ package at.forsyte.harrsh.seplog.inductive
 
 import java.util.NoSuchElementException
 
-import at.forsyte.harrsh.entailment.GreedyUnfoldingModelChecker._
+import at.forsyte.harrsh.modelchecking.GreedyUnfoldingModelChecker._
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.util.Combinators
 

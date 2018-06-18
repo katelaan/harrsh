@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.entailment.{Loc, Model}
+import at.forsyte.harrsh.modelchecking.{Loc, Model}
 import at.forsyte.harrsh.seplog.Var
 
 import scala.util.parsing.combinator.JavaTokenParsers

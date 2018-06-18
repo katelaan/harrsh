@@ -2,7 +2,7 @@ package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.Defaults
 import at.forsyte.harrsh.Implicits.{ParsableString, RichModel, RichSID, RichSymbolicHeap}
-import at.forsyte.harrsh.entailment.Model
+import at.forsyte.harrsh.modelchecking.Model
 import at.forsyte.harrsh.main.interactive.AnnotatedResultBuffer
 import at.forsyte.harrsh.refinement._
 import at.forsyte.harrsh.seplog.inductive.{Rule, SID, SymbolicHeap}

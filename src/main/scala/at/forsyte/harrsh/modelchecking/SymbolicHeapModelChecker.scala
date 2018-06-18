@@ -1,7 +1,6 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.modelchecking
 
-import at.forsyte.harrsh.seplog.PtrVar
-import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 
 /**
   * Created by jkatelaa on 3/3/17.
@@ -13,7 +12,5 @@ trait SymbolicHeapModelChecker {
   final def isModel(model : Model, sid : SID) : Boolean = {
     isModel(model, sid.callToStartPred, sid)
   }
-
-
 
 }
