@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.parsers
 
+import at.forsyte.harrsh.seplog.inductive.SID
 import org.antlr.v4.runtime.tree.Trees
 import org.antlr.v4.runtime.{CharStream, CharStreams, CommonTokenStream}
 
@@ -14,6 +15,11 @@ package object slcomp {
   def parseFile(filename: String): Option[SLComp18Parser.StartContext] = {
     val charStream = CharStreams.fromFileName(filename)
     parseStream(charStream)
+  }
+
+  def parseFileToSid(filename: String): Option[SID] = {
+    val translator = new SidTranslator
+    parseFile(filename) map translator.visit map (_.asInstanceOf[Script]) map (_.toSid)
   }
 
   private def parseStream(cs: CharStream) = {
