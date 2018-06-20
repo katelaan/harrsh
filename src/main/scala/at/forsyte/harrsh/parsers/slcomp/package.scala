@@ -29,7 +29,7 @@ package object slcomp {
     /* Implement listener and use parser */
     val tree = parser.start()
     if (parser.getNumberOfSyntaxErrors == 0) {
-      printTree(tree, parser)
+      //printTree(tree, parser)
       Some(tree)
     }
     else {

@@ -257,6 +257,10 @@ object SymbolicHeap extends HarrshLogging {
     SymbolicHeap(pure, spatial, calls, if (fvars.isEmpty) 0 else Var.maxOf(fvars).toInt, qvars)
   }
 
+  def apply(atoms: (Seq[PureAtom], Seq[PointsTo], Seq[PredCall])) : SymbolicHeap = {
+    apply(atoms._1, atoms._2, atoms._3)
+  }
+
   /**
     * Constructs symbolic heap without any pure constraints
     * @param spatial Pointers

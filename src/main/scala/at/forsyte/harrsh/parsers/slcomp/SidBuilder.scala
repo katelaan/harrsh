@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.parsers.slcomp
 
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 
 sealed trait SidBuilder {
@@ -50,8 +51,8 @@ case class Constant(c: SidBuilder) extends SidBuilder {
 }
 
 /* Symbols, identifiers, and attributes */
-case class Symbol(s: String) extends SidBuilder {
-  def isQuoted: Boolean = s.charAt(0) == '|'
+case class Symbol(str: String) extends SidBuilder {
+  def isQuoted: Boolean = str.charAt(0) == '|'
 }
 case class IndexedIdentifier(s: Symbol, ixs: List[SidBuilder]) extends SidBuilder {
   for (ix <- ixs)
@@ -73,20 +74,34 @@ case class SortDecl(name: Symbol, arity: Numeral) extends SidBuilder
 case class SortedVar(name: Symbol, sort: Sort) extends SidBuilder
 
 /* Datatypes */
-case class Sort(s: Symbol) extends SidBuilder
+case class Sort(symbol: Symbol) extends SidBuilder
 case class Selector(sel: Symbol, sort: Sort) extends SidBuilder
 case class ConstructorDecl(name: Symbol, sels: List[Selector], params: Option[List[Symbol]]) extends SidBuilder
 case class DataTypeDecl(sort: SortDecl, constructors: List[ConstructorDecl]) extends SidBuilder
-case class DataTypes(ds: List[DataTypeDecl]) extends SidBuilder
+case class DataTypes(ds: List[DataTypeDecl]) extends SidBuilder {
+
+  def get(typeName: String): Option[DataTypeDecl] = {
+    ds.find(_.sort.name.str == typeName)
+  }
+
+  def getConstructor(consName: String): ConstructorDecl = {
+    val cons : List[ConstructorDecl] = ds.flatMap(_.constructors.find(_.name.str == consName))
+    cons.head
+  }
+
+}
 
 /* Heap */
-case class HeapDecl(src: Sort, trg: Sort) extends SidBuilder
+case class HeapDecl(mapping: List[(Sort,Sort)]) extends SidBuilder
 
 /* Constants and Functions */
 case class ConstDecl(name: Symbol, sort: Sort) extends SidBuilder
 case class FunDecl(name: Symbol, args: List[SortedVar], ret: Sort) extends SidBuilder
 case class FunDef(decl: FunDecl, term: SidBuilder) extends SidBuilder
 case class FunDefs(defs: List[FunDef]) extends SidBuilder
+
+/* Terms */
+case class Exists(vars: List[SortedVar], term: SidBuilder) extends SidBuilder
 
 /* Solver commands */
 case class Assert(term: SidBuilder) extends SidBuilder
@@ -168,7 +183,7 @@ case class Script(sorts: List[SortDecl],
 
 }
 
-sealed trait CommandType {
+sealed trait CommandType extends HarrshLogging {
 
   def assembleCmd(args: List[SidBuilder]): SidBuilder
 
@@ -221,13 +236,13 @@ case object CmdDeclareDatatype extends CommandType {
 
 case object CmdDeclareDatatypes extends CommandType {
   override def assembleCmd(args: List[SidBuilder]): SidBuilder = {
-    println(s"Constructing data types from ${args}")
+    logger.debug(s"Constructing data types from ${args}")
 
     val (decls, terms) = args.span(_.isInstanceOf[SortDecl])
     assert(decls.length == terms.length)
     val defs = (decls, terms).zipped.map((d,t) => DataTypeDecl(d.asInstanceOf[SortDecl], List(t.asInstanceOf[ConstructorDecl])))
     val res = DataTypes(defs)
-    println(s"Built data types $res")
+    logger.debug(s"Built data types $res")
     res
     //DataTypes(List(DataTypeDecl(args.head.asInstanceOf[SortDecl], args.tail.map(_.asInstanceOf[ConstructorDecl]))))
   }
@@ -235,10 +250,11 @@ case object CmdDeclareDatatypes extends CommandType {
 
 case object CmdDeclareHeap extends CommandType {
   override def assembleCmd(args: List[SidBuilder]): SidBuilder = {
-    //println(s"Construing heap declaration from $args")
-    val argv = args.head.toList
-    assert(argv.length == 2)
-    HeapDecl(argv(0).asInstanceOf[Sort], argv(1).asInstanceOf[Sort])
+    logger.debug(s"Constructing heap declaration from $args")
+    val mapping = for {
+      Args(argv) <- args
+    } yield (argv(0).asInstanceOf[Sort], argv(1).asInstanceOf[Sort])
+    HeapDecl(mapping)
   }
 }
 
@@ -341,7 +357,6 @@ case object CmdResetAssertions extends CommandType with NotSupportedCommand {
 case object CmdSetLogic extends CommandType {
   override def assembleCmd(args: List[SidBuilder]): SidBuilder = {
     val res = Meta(Meta.Type.SetLogic, args)
-//    println(s"Set logic => $res")
     res
   }
 }
@@ -349,7 +364,6 @@ case object CmdSetLogic extends CommandType {
 case object CmdSetInfo extends CommandType {
   override def assembleCmd(args: List[SidBuilder]): SidBuilder = {
     val res = Meta(Meta.Type.SetInfo, args)
-//    println(s"Set info => $res")
     res
   }
 }

@@ -13,7 +13,8 @@ object ParseAllBenchmarks {
     for (bench <- allSatBenchs().sortBy(_.toString)) {
       println(s"Try parsing $bench...")
       try {
-        parseFileToSid(bench.toString)
+        val sid = parseFileToSid(bench.toString)
+        println(s"Constructed the following SID:\n$sid")
         parsed += 1
       } catch {
         case _:Throwable =>

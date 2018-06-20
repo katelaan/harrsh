@@ -299,7 +299,31 @@ class SidTranslator extends AbstractParseTreeVisitor[SidBuilder] with SLComp18Vi
     * @return the visitor result
     */
   override def visitTerm(ctx: SLComp18Parser.TermContext): SidBuilder = {
-    visitChildren(ctx)
+    //println(s"Matching term ${ctx.getText} w/ ${ctx.getChild(1)}")
+
+    val child = ctx.getChild(1)
+    if (child != null) {
+      child.getText match {
+        case "exists" =>
+          //println("EXISTS!!")
+          val Args(children) = visitChildren(ctx)
+          val vars = children.init.map(_.asInstanceOf[SortedVar])
+          val term = children.last
+          //println(s"EXISTS RES: $vars")
+          //println(s"EXISTS RES: $term")
+          Exists(vars, term)
+        case "forall" =>
+          ???
+        case "!" =>
+          ???
+        case "match" =>
+          ???
+        case other =>
+          visitChildren(ctx)
+      }
+    } else {
+      visitChildren(ctx)
+    }
   }
 
   /**
