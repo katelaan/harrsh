@@ -26,7 +26,7 @@ object Harrsh {
     //println(config)
 
     // Run in specified mode unless something is missing from the config
-    if (config.mode != Help() && config.oFile.isEmpty) {
+    if (config.mode != Help && config.oFile.isEmpty) {
       println("No file specified => Terminating")
     }
     else if (config.mode.requiresProp && config.oProp.isEmpty) {
@@ -65,15 +65,15 @@ object Harrsh {
       /*
        * Parse mode
        */
-      _ <- parseSwitch("--help", "-h", _.copy(mode = Help()))
-      _ <- tryParseMode("--batch", "-b", Batch())
-      _ <- tryParseMode("--refine", "-r", Refine())
-      _ <- tryParseMode("--decide", "-d", Decide())
-      _ <- tryParseMode("--show", "--show", Show())
-      _ <- tryParseMode("--unfold", "-u", Unfold())
-      _ <- tryParseMode("--analyze", "-a", Analyze())
-      _ <- tryParseMode("--spec", "-s", ModelChecking())
-      _ <- tryParseMode("--parse", "--parse", ParseOnly())
+      _ <- parseSwitch("--help", "-h", _.copy(mode = Help))
+      _ <- tryParseMode("--batch", "-b", Batch)
+      _ <- tryParseMode("--refine", "-r", Refine)
+      _ <- tryParseMode("--decide", "-d", Decide)
+      _ <- tryParseMode("--show", "--show", Show)
+      _ <- tryParseMode("--unfold", "-u", Unfold)
+      _ <- tryParseMode("--analyze", "-a", Analyze)
+      _ <- tryParseMode("--spec", "-s", ModelChecking)
+      _ <- tryParseMode("--parse", "--parse", ParseOnly)
       mode <- gets[Config,ExecutionMode](_.mode)
 
       /*
@@ -123,18 +123,18 @@ object Harrsh {
     * @param config Configuration specifying what to run and how to run it
     */
   private def run(config : Config) : Unit = config.mode match {
-      case Help() =>
+      case Help =>
         printUsage()
 
-      case ParseOnly() =>
+      case ParseOnly =>
         println(slcomp.parseFileToSatBenchmark(config.file))
 
-      case Decide() =>
+      case Decide =>
         val task = TaskConfig(config.file, config.prop, None)
         val result = DecisionProcedures.decideInstance(task, config.timeout, config.verbose, config.reportProgress)
         MainIO.printAnalysisResult(task, result)
 
-      case Refine() =>
+      case Refine =>
         println("Will refine SID definition in file " + config.file + " by " + config.prop)
         val (sid, ha) = MainIO.getSidAndAutomaton(config.file, config.prop)
         val result = RefinementAlgorithms.refineSID(sid, ha, config.timeout, reportProgress = config.reportProgress)
@@ -151,7 +151,7 @@ object Harrsh {
             IOUtils.printWarningToConsole("Refinement failed.")
         }
 
-      case Batch() =>
+      case Batch =>
           println("Will run all benchmarks in " + config.file)
           val tasks = MainIO.readTasksFromFile(config.file)
           val (results, stats) = DecisionProcedures.decideInstances(tasks, config.timeout, config.verbose, config.reportProgress)
@@ -168,20 +168,20 @@ object Harrsh {
             } IOUtils.printWarningToConsole(taskConfig.fileName + " " + taskConfig.decisionProblem + ": Expected " + taskConfig.expectedResult.get + ", actual " + !result.isEmpty)
           }
 
-      case Show() =>
+      case Show =>
           val sid = MainIO.getSidFromFile(config.file)
           println(sid)
           IOUtils.writeFile(PreviousSidFileName, sid.toHarrshFormat)
 
-      case Unfold() =>
+      case Unfold =>
           val sid = MainIO.getSidFromFile(config.file)
           println(SIDUnfolding.unfold(sid, config.unfoldingDepth, config.unfoldingsReduced).mkString("\n"))
 
-      case Analyze() =>
+      case Analyze =>
           val sid = MainIO.getSidFromFile(config.file)
           RefinementAlgorithms.performFullAnalysis(sid, sid.numFV, config.timeout, config.verbose)
 
-      case ModelChecking() =>
+      case ModelChecking =>
           val sid = MainIO.getSidFromFile(config.file)
           val model = MainIO.getModelFromFile(config.modelFile)
           val modelChecker = GreedyUnfoldingModelChecker

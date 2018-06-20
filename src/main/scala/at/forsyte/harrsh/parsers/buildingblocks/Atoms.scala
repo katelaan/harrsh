@@ -15,7 +15,7 @@ trait Atoms {
 
   def parseSpatialAtom : Parser[StringSpatialAtom] = parsePointsTo | parseCall | parseEmp
 
-  def parseEmp : Parser[StringEmp] = "emp" ^^ { _ => StringEmp() }
+  def parseEmp : Parser[StringSpatialAtom] = "emp" ^^ { _ => StringEmp }
 
   def parseCall : Parser[StringPredCall] = ident ~ parsePtrSeqInParens ^^ {
     case name ~ args => StringPredCall(name, args)
@@ -31,7 +31,7 @@ trait Atoms {
     case l ~ r => StringPointsTo(l, Seq(r))
   }
 
-  def parsePureAtom : Parser[StringPureAtom] = parseEq | parseNEq | "true" ^^ {_ => StringTrue() }
+  def parsePureAtom : Parser[StringPureAtom] = parseEq | parseNEq | "true" ^^ {_ => StringTrue }
 
   def parsePointsTo : Parser[StringPointsTo]
 

@@ -81,7 +81,7 @@ object SlCompMode {
     val timeout = Duration(timeoutInSecs, SECONDS)
     val res: DecisionProcedures.AnalysisResult = DecisionProcedures.decideInstance(
       sid,
-      RunSat().getAutomaton(sid.numFV),
+      RunSat.getAutomaton(sid.numFV),
       timeout,
       verbose = verbose,
       reportProgress = verbose)

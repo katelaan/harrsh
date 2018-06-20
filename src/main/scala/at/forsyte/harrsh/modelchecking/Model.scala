@@ -32,7 +32,7 @@ object Model {
       println("Can't convert non-reduced symbolic heap to model")
       None
     } else {
-      val allocAtoms = sh.pointers.map(_.from).map(expr => PtrNEq(expr, NullPtr()))
+      val allocAtoms = sh.pointers.map(_.from).map(expr => PtrNEq(expr, NullPtr))
       val diffAtoms = {
         for {
           i <- 0 until sh.pointers.size - 1
@@ -53,7 +53,7 @@ object Model {
         def varToLoc(v: Var): Loc = memLayout(cl.getEquivalenceClass(v))
 
         def exprToLoc(v: PtrExpr): Loc = v match {
-          case NullPtr() => 0
+          case NullPtr => 0
           case PtrVar(id) => varToLoc(id)
         }
 

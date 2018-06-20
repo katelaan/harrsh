@@ -21,15 +21,15 @@ sealed trait AutomatonTask {
     case RunRelaxedTracking(alloc, pure, negate) => TrackingAutomata.subsetTracking(numFV, alloc, pure, negate)
     case RunAllocationTracking(alloc, negate) => TrackingAutomata.allocTracking(numFV, alloc, negate)
     case RunPureTracking(pure, negate) => TrackingAutomata.pureTracking(numFV, pure, negate)
-    case RunSat() => TrackingAutomata.satAutomaton(numFV)
-    case RunUnsat() => TrackingAutomata.unsatAutomaton(numFV)
-    case RunEstablishment() => TrackingAutomata.establishmentAutomaton(numFV)
-    case RunNonEstablishment() => TrackingAutomata.nonEstablishmentAutomaton(numFV)
+    case RunSat => TrackingAutomata.satAutomaton(numFV)
+    case RunUnsat => TrackingAutomata.unsatAutomaton(numFV)
+    case RunEstablishment => TrackingAutomata.establishmentAutomaton(numFV)
+    case RunNonEstablishment => TrackingAutomata.nonEstablishmentAutomaton(numFV)
     case RunReachability(from, to, negate) => TrackingAutomata.reachabilityAutomaton(numFV, from, to, negate)
-    case RunGarbageFreedom() => TrackingAutomata.garbageFreedomAutomaton(numFV)
-    case RunWeakAcyclicity() => TrackingAutomata.weakAcyclicityAutomaton(numFV)
-    case RunMayHaveGarbage() => TrackingAutomata.mayHaveGarbageAutomaton(numFV)
-    case RunStrongCyclicity() => TrackingAutomata.strongCyclicityAutomaton(numFV)
+    case RunGarbageFreedom => TrackingAutomata.garbageFreedomAutomaton(numFV)
+    case RunWeakAcyclicity => TrackingAutomata.weakAcyclicityAutomaton(numFV)
+    case RunMayHaveGarbage => TrackingAutomata.mayHaveGarbageAutomaton(numFV)
+    case RunStrongCyclicity => TrackingAutomata.strongCyclicityAutomaton(numFV)
   }
 
   // TODO Finish complementation
@@ -41,15 +41,15 @@ sealed trait AutomatonTask {
     case RunPureTracking(pure, negate) => RunPureTracking(pure, !negate)
     case RunExactTracking(alloc, pure, negate) => RunExactTracking(alloc, pure, !negate)
     case RunRelaxedTracking(alloc, pure, negate) => RunRelaxedTracking(alloc, pure, !negate)
-    case RunSat() => RunUnsat()
-    case RunUnsat() => RunSat()
-    case RunEstablishment() => RunNonEstablishment()
-    case RunNonEstablishment() => RunEstablishment()
+    case RunSat => RunUnsat
+    case RunUnsat => RunSat
+    case RunEstablishment => RunNonEstablishment
+    case RunNonEstablishment => RunEstablishment
     case RunReachability(from, to, negate) => RunReachability(from, to, !negate)
-    case RunGarbageFreedom() => RunMayHaveGarbage()
-    case RunWeakAcyclicity() => RunStrongCyclicity()
-    case RunMayHaveGarbage() => RunGarbageFreedom()
-    case RunStrongCyclicity() => RunWeakAcyclicity()
+    case RunGarbageFreedom => RunMayHaveGarbage
+    case RunWeakAcyclicity => RunStrongCyclicity
+    case RunMayHaveGarbage => RunGarbageFreedom
+    case RunStrongCyclicity => RunWeakAcyclicity
   }
 
   private def negationPrefix(negate : Boolean) = if (negate) "~" else ""
@@ -61,14 +61,14 @@ sealed trait AutomatonTask {
       case (0, 2, false) => AutomatonTask.keywords.even
       case _ => negationPrefix(negate) + AutomatonTask.keywords.mod + "[" + remainder + "," + divisor + "]"
     }
-    case RunSat() => AutomatonTask.keywords.sat
-    case RunUnsat() => AutomatonTask.keywords.unsat
-    case RunEstablishment() => AutomatonTask.keywords.est
-    case RunNonEstablishment() => AutomatonTask.keywords.nonest
-    case RunGarbageFreedom() => AutomatonTask.keywords.gf
-    case RunWeakAcyclicity() => AutomatonTask.keywords.acyc
-    case RunMayHaveGarbage() => AutomatonTask.keywords.garb
-    case RunStrongCyclicity() => AutomatonTask.keywords.cyc
+    case RunSat => AutomatonTask.keywords.sat
+    case RunUnsat => AutomatonTask.keywords.unsat
+    case RunEstablishment => AutomatonTask.keywords.est
+    case RunNonEstablishment => AutomatonTask.keywords.nonest
+    case RunGarbageFreedom => AutomatonTask.keywords.gf
+    case RunWeakAcyclicity => AutomatonTask.keywords.acyc
+    case RunMayHaveGarbage => AutomatonTask.keywords.garb
+    case RunStrongCyclicity => AutomatonTask.keywords.cyc
     case RunReachability(from, to, negate) => negationPrefix(negate) + AutomatonTask.keywords.reach + "[" + from + "," + to + "]"
     case RunExactTracking(alloc, pure, negate) => negationPrefix(negate) + AutomatonTask.keywords.track + "[" + alloc.mkString(",") + (if (pure.nonEmpty) " : " + pure.mkString(",") else "") + "]"
     case RunRelaxedTracking(alloc, pure, negate) => negationPrefix(negate) + AutomatonTask.keywords.reltrack + "[" + alloc.mkString(",") + (if (pure.nonEmpty) " : " + pure.mkString(",") else "") + "]"
@@ -84,15 +84,15 @@ sealed trait AutomatonTask {
     case RunRelaxedTracking(alloc, pure, negate) => if (isEmpty) "no superset unf." else "ex. superset unf."
     case RunAllocationTracking(alloc, negate) => if (isEmpty) "no superset unf." else "ex. superset unf."
     case RunPureTracking(pure, negate) => if (isEmpty) "no superset unf." else "ex. superset unf."
-    case RunSat() => if (isEmpty) "all unsat" else "ex. sat"
-    case RunUnsat() => if (isEmpty) "all sat" else "ex. unsat"
-    case RunEstablishment() => if (isEmpty) "all non-est." else "ex. est."
-    case RunNonEstablishment() => if (isEmpty) "all est." else "ex. non-est"
+    case RunSat => if (isEmpty) "all unsat" else "ex. sat"
+    case RunUnsat => if (isEmpty) "all sat" else "ex. unsat"
+    case RunEstablishment => if (isEmpty) "all non-est." else "ex. est."
+    case RunNonEstablishment => if (isEmpty) "all est." else "ex. non-est"
     case RunReachability(from, to, negate) => if (isEmpty != negate) "all unreach" else "ex. reach"
-    case RunGarbageFreedom() => if (isEmpty) "all garbage" else "ex. garbage free"
-    case RunWeakAcyclicity() => if (isEmpty) "all cyclic" else "ex. weak. acyc."
-    case RunMayHaveGarbage() => if (isEmpty) "all garb. free" else "may ex. garb."
-    case RunStrongCyclicity() => if (isEmpty) "all weak. acyc" else "ex. strong. cyc."
+    case RunGarbageFreedom => if (isEmpty) "all garbage" else "ex. garbage free"
+    case RunWeakAcyclicity => if (isEmpty) "all cyclic" else "ex. weak. acyc."
+    case RunMayHaveGarbage => if (isEmpty) "all garb. free" else "may ex. garb."
+    case RunStrongCyclicity => if (isEmpty) "all weak. acyc" else "ex. strong. cyc."
   }
 
 }
@@ -111,40 +111,40 @@ case class RunExactTracking(alloc : Set[Var], pure : Set[PureAtom], negate : Boo
 
 case class RunRelaxedTracking(alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) extends AutomatonTask
 
-case class RunSat() extends AutomatonTask
+case object RunSat extends AutomatonTask
 
-case class RunUnsat() extends AutomatonTask
+case object RunUnsat extends AutomatonTask
 
-case class RunEstablishment() extends AutomatonTask
+case object RunEstablishment extends AutomatonTask
 
-case class RunNonEstablishment() extends AutomatonTask
+case object RunNonEstablishment extends AutomatonTask
 
 case class RunReachability(from : Var, to : Var, negate : Boolean = false) extends AutomatonTask
 
-case class RunGarbageFreedom() extends AutomatonTask
+case object RunGarbageFreedom extends AutomatonTask
 
-case class RunWeakAcyclicity() extends AutomatonTask
+case object RunWeakAcyclicity extends AutomatonTask
 
-case class RunMayHaveGarbage() extends AutomatonTask
+case object RunMayHaveGarbage extends AutomatonTask
 
-case class RunStrongCyclicity() extends AutomatonTask
+case object RunStrongCyclicity extends AutomatonTask
 
 object AutomatonTask {
 
   // TODO Clean this up a little bit. Is getting very long + somewhat repetitive
   def fromString(s : String) : Option[AutomatonTask] = s match {
     case "" => None
-    case keywords.sat => Some(RunSat())
-    case keywords.unsat => Some(RunUnsat())
+    case keywords.sat => Some(RunSat)
+    case keywords.unsat => Some(RunUnsat)
     case keywords.hasptr => Some(RunHasPointer())
     case keywords.even => Some(RunModulo(0,2))
     case keywords.odd => Some(RunModulo(1,2))
-    case keywords.est => Some(RunEstablishment())
-    case keywords.nonest => Some(RunNonEstablishment())
-    case keywords.acyc => Some(RunWeakAcyclicity())
-    case keywords.cyc => Some(RunStrongCyclicity())
-    case keywords.gf => Some(RunGarbageFreedom())
-    case keywords.garb => Some(RunMayHaveGarbage())
+    case keywords.est => Some(RunEstablishment)
+    case keywords.nonest => Some(RunNonEstablishment)
+    case keywords.acyc => Some(RunWeakAcyclicity)
+    case keywords.cyc => Some(RunStrongCyclicity)
+    case keywords.gf => Some(RunGarbageFreedom)
+    case keywords.garb => Some(RunMayHaveGarbage)
     case other =>
       val res = Combinators.exceptionToNone("An exception occurred during parsing of " + other) {
 

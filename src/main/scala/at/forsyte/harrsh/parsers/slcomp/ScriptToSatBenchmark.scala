@@ -53,7 +53,7 @@ object ScriptToSatBenchmark extends HarrshLogging {
   case class Env(preds: Set[String], types: DataTypes, selToIx: Map[String, Int]) {
 
     def mkPtrTrg(sels: List[(PtrExpr,String)]): Seq[PtrExpr] = {
-      val trg: Array[PtrExpr] = Array.fill(selToIx.size)(NullPtr())
+      val trg: Array[PtrExpr] = Array.fill(selToIx.size)(NullPtr)
       for {
         (ptr,sel) <- sels
       } trg(selToIx(sel)) = ptr
@@ -175,7 +175,7 @@ object ScriptToSatBenchmark extends HarrshLogging {
     case Symbol(str) => PtrVar(varMap(str))
     case QualifiedIdentifier(Symbol(str), _) =>
       // We don't care about the type info
-      if (str == "nil") NullPtr() else throw new Exception(s"Unexpected qualified identifier $str")
+      if (str == "nil") NullPtr else throw new Exception(s"Unexpected qualified identifier $str")
     case other =>
       throw new Exception(s"Can't interpret $sid as qualified identifier")
   }

@@ -342,7 +342,7 @@ object SymbolicHeap extends HarrshLogging {
       "\u21a6" -> "->",
       "\u2248"-> "=",
       "\u2249" -> "\\neq ",
-      NullPtr().toString -> "\\nil"
+      NullPtr.toString -> "\\nil"
     ), defaultSting)
     indexifyNumbers(withMacros)
   }

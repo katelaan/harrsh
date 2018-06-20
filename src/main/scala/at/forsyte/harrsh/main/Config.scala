@@ -52,7 +52,7 @@ object Config {
   /**
     * Default configuration prior to parsing command-line args
     */
-  val DefaultConfig = Config(Help(), None, None, None, None, None, None, None, reportProgress = false, verbose = false, debug = false)
+  val DefaultConfig = Config(Help, None, None, None, None, None, None, None, reportProgress = false, verbose = false, debug = false)
 
   /**
     * Default unfolding depth in unfolding mode

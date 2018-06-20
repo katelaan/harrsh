@@ -26,7 +26,7 @@ object ModelToFormula {
 
     // Add equalities to null
     val nullVars = model.stack.filter(pair => pair._2 == 0).keySet.toSeq
-    val nullEqualities : Seq[PureAtom] = nullVars map (v => PtrEq(PtrVar(v), NullPtr()).asInstanceOf[PureAtom])
+    val nullEqualities : Seq[PureAtom] = nullVars map (v => PtrEq(PtrVar(v), NullPtr).asInstanceOf[PureAtom])
 
     SymbolicHeap.fromFullDescription(varEqualities ++ nullEqualities, pointers, List.empty, model.stack.size, boundVars)
   }
@@ -53,7 +53,7 @@ object ModelToFormula {
   }
 
   private def locToPtrExpr(locToVar : Map[Loc,Var])(loc : Loc) : PtrExpr = {
-    if (loc == 0) NullPtr() else PtrVar(locToVar(loc))
+    if (loc == 0) NullPtr else PtrVar(locToVar(loc))
   }
 
   /**

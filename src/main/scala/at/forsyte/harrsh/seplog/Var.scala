@@ -14,7 +14,7 @@ case class Var(private val underlying : Int) extends AnyVal {
   def isNull : Boolean = underlying == 0
 
   override def toString : String = underlying match {
-    case 0 => NullPtr().toString
+    case 0 => NullPtr.toString
     case i if i > 0 => Var.FreeVarString + i
     case i => Var.BoundVarString + (-i)
   }

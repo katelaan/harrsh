@@ -32,7 +32,7 @@ object ConsistencyCheck {
   }
 
   def allocationInfoToConsistencyConstraints(alloc : Seq[Var]) : Iterable[PureAtom] = {
-    val allocNotNull : Seq[PureAtom] = alloc map (v => PtrNEq(PtrExpr(v), NullPtr()))
+    val allocNotNull : Seq[PureAtom] = alloc map (v => PtrNEq(PtrExpr(v), NullPtr))
     val allocNotEqual : Seq[PureAtom] = for {
       i <- 0 until alloc.size - 1
       j <- i+1 until alloc.size

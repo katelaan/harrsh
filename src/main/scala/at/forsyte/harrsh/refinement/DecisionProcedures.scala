@@ -129,7 +129,7 @@ object DecisionProcedures extends HarrshLogging {
 
   private def generateInstances() =
     for {
-      automaton <- Seq(RunHasPointer(), RunAllocationTracking(Set(Var(1))), RunPureTracking(Set(PtrEq(Var(1), Var(0)))), RunPureTracking(Set(PtrNEq(Var(1), Var(0)))), RunRelaxedTracking(Set(Var(1)), Set(PtrNEq(Var(1), Var(0)))), RunExactTracking(Set(Var(1)), Set()), RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunReachability(Var(1), Var(0)), RunGarbageFreedom(), RunMayHaveGarbage(), RunWeakAcyclicity(), RunStrongCyclicity(), RunModulo(0,2), RunModulo(5,11), RunModulo(126,128), RunModulo(127,128))
+      automaton <- Seq(RunHasPointer(), RunAllocationTracking(Set(Var(1))), RunPureTracking(Set(PtrEq(Var(1), Var(0)))), RunPureTracking(Set(PtrNEq(Var(1), Var(0)))), RunRelaxedTracking(Set(Var(1)), Set(PtrNEq(Var(1), Var(0)))), RunExactTracking(Set(Var(1)), Set()), RunSat, RunUnsat, RunEstablishment, RunNonEstablishment, RunReachability(Var(1), Var(0)), RunGarbageFreedom, RunMayHaveGarbage, RunWeakAcyclicity, RunStrongCyclicity, RunModulo(0,2), RunModulo(5,11), RunModulo(126,128), RunModulo(127,128))
       file <- IOUtils.getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) //++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
     } yield TaskConfig(file.getAbsolutePath, automaton, None)
 

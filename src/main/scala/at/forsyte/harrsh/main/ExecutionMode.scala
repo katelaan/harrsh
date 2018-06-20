@@ -7,34 +7,34 @@ import scala.concurrent.duration.{Duration, SECONDS}
   */
 sealed trait ExecutionMode {
   def requiresProp : Boolean = this match {
-    case Help() => false
-    case Decide() => true
-    case Refine() => true
-    case Batch() => false
-    case Show() => false
-    case Unfold() => false
-    case Analyze() => false
-    case ModelChecking() => false
-    case ParseOnly() => false
+    case Help => false
+    case Decide => true
+    case Refine => true
+    case Batch => false
+    case Show => false
+    case Unfold => false
+    case Analyze => false
+    case ModelChecking => false
+    case ParseOnly => false
   }
 
 
   def defaultTimeout : Duration = this match {
-    case Decide() => Duration(120, SECONDS)
-    case Batch() => Duration(120, SECONDS)
-    case Analyze() => Duration(5, SECONDS)
-    case ModelChecking() => Duration(120, SECONDS)
-    case ParseOnly() => Duration(10, SECONDS)
+    case Decide => Duration(120, SECONDS)
+    case Batch => Duration(120, SECONDS)
+    case Analyze => Duration(5, SECONDS)
+    case ModelChecking => Duration(120, SECONDS)
+    case ParseOnly => Duration(10, SECONDS)
     case _ => Duration(0, SECONDS)
   }
 }
 
-case class Help() extends ExecutionMode
-case class Decide() extends ExecutionMode
-case class Refine() extends ExecutionMode
-case class Batch() extends ExecutionMode
-case class Show() extends ExecutionMode
-case class Unfold() extends ExecutionMode
-case class Analyze() extends ExecutionMode
-case class ModelChecking() extends ExecutionMode
-case class ParseOnly() extends ExecutionMode
+case object Help extends ExecutionMode
+case object Decide extends ExecutionMode
+case object Refine extends ExecutionMode
+case object Batch extends ExecutionMode
+case object Show extends ExecutionMode
+case object Unfold extends ExecutionMode
+case object Analyze extends ExecutionMode
+case object ModelChecking extends ExecutionMode
+case object ParseOnly extends ExecutionMode

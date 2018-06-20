@@ -176,11 +176,11 @@ object Implicits {
       toSid.forall(task)
     }
 
-    def isSat(sid : SID) : Boolean = exists(sid, RunSat())
-    def isSat : Boolean = exists(RunSat())
+    def isSat(sid : SID) : Boolean = exists(sid, RunSat)
+    def isSat : Boolean = exists(RunSat)
 
     def getModel(sid : SID) : Option[Model] = {
-      val (satSid, isEmpty) = SID.fromTopLevelSH(sh, sid).refineAndCheckEmptiness(RunSat())
+      val (satSid, isEmpty) = SID.fromTopLevelSH(sh, sid).refineAndCheckEmptiness(RunSat)
       if (isEmpty) {
         println("Symbolic heap is unsatisfiable w.r.t. the given SID")
         None

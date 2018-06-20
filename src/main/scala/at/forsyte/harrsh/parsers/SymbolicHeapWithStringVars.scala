@@ -43,19 +43,19 @@ trait StringSepLogAtom {
 
 sealed trait StringPureAtom extends StringSepLogAtom {
   override def getVars: Set[String] = this match {
-    case StringTrue() => Set.empty
+    case StringTrue => Set.empty
     case StringPtrEq(l, r) => l.getVars union r.getVars
     case StringPtrNEq(l, r) => l.getVars union r.getVars
   }
 
   override def replaceStringsByIds(naming: VarUnNaming) : Option[PureAtom] = this match {
-    case StringTrue() => None
+    case StringTrue => None
     case StringPtrEq(l, r) => Some(PtrEq(l.replaceStringsByIds(naming), r.replaceStringsByIds(naming)))
     case StringPtrNEq(l, r) => Some(PtrNEq(l.replaceStringsByIds(naming), r.replaceStringsByIds(naming)))
   }
 }
 
-case class StringTrue() extends StringPureAtom
+case object StringTrue extends StringPureAtom
 
 case class StringPtrEq(l : StringPtrExpr, r : StringPtrExpr) extends StringPureAtom
 
@@ -63,19 +63,19 @@ case class StringPtrNEq(l : StringPtrExpr, r : StringPtrExpr) extends StringPure
 
 sealed trait StringSpatialAtom extends StringSepLogAtom {
   override def getVars: Set[String] = this match {
-    case StringEmp() => Set.empty
+    case StringEmp => Set.empty
     case StringPointsTo(from, to) => from.getVars ++ to.flatMap(_.getVars)
     case StringPredCall(name, args) => Set.empty ++ args.flatMap(_.getVars)
   }
 
   override def replaceStringsByIds(naming: VarUnNaming) : Option[SepLogAtom] = this match {
-    case StringEmp() => None
+    case StringEmp => None
     case StringPointsTo(from, to) => Some(PointsTo(from.replaceStringsByIds(naming), to.map(_.replaceStringsByIds(naming))))
     case StringPredCall(name, args) => Some(PredCall(name, args.map(_.replaceStringsByIds(naming))))
   }
 }
 
-case class StringEmp() extends StringSpatialAtom
+case object StringEmp extends StringSpatialAtom
 
 case class StringPointsTo(from : StringPtrExpr, to : Seq[StringPtrExpr]) extends StringSpatialAtom
 
@@ -88,7 +88,7 @@ sealed trait StringPtrExpr {
   }
 
   def replaceStringsByIds(naming: VarUnNaming) : PtrExpr = this match {
-    case StringNullPtr() => NullPtr()
+    case StringNullPtr() => NullPtr
     case StringPtrVar(id) => PtrVar(naming(id))
   }
 }

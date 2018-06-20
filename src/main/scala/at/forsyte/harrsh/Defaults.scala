@@ -5,8 +5,6 @@ package at.forsyte.harrsh
   */
 object Defaults {
 
-  val PathToZ3 = System.getenv().get("HOME") + "/z3"
-
   val PathsToExamples = Seq("examples/datastructures", "examples/symbolicheaps", "examples/models/", "examples/cyclist")
 
   var reportProgress = false

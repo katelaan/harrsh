@@ -61,7 +61,7 @@ object RefinementAlgorithms {
 
   def performFullAnalysis(sid: SID, numFV : Int, timeout: Duration, verbose : Boolean): Unit = {
 
-    val tasks : Seq[AutomatonTask] = Seq(RunSat(), RunUnsat(), RunEstablishment(), RunNonEstablishment(), RunMayHaveGarbage(), RunGarbageFreedom(), RunWeakAcyclicity(), RunStrongCyclicity())
+    val tasks : Seq[AutomatonTask] = Seq(RunSat, RunUnsat, RunEstablishment, RunNonEstablishment, RunMayHaveGarbage, RunGarbageFreedom, RunWeakAcyclicity, RunStrongCyclicity)
 
     println("Beginning analysis...")
     val results : Seq[AnalysisResult] = for (task <- tasks) yield {
@@ -74,11 +74,11 @@ object RefinementAlgorithms {
       }
     }
     println("Finished analysis.")
-    println()
+    println
 
     // TODO Abstract printing result tables into its own function? (Compare Benchmarking.printBenchmarkResults)
     println("Analysis results for: " + sid)
-    println()
+    println
 
     val shCol : Int = Math.max(40, results.map(_.witness.toString.length).max - 5)
     val cols = Seq(20,20,shCol)
@@ -139,7 +139,7 @@ object RefinementAlgorithms {
 
       // Assign suffixes to each state
       val states : Set[ha.State] = (for ((states, _, _, headState) <- reach) yield states :+ headState).flatten
-      val stateToIndex : Map[ha.State, Int] = Map() ++ states.toSeq.zipWithIndex
+      val stateToIndex : Map[ha.State, Int] = states.toSeq.zipWithIndex.toMap
 
       val innerRules = for {
         (states,body,head,headState) <- reach.toSeq
@@ -268,7 +268,7 @@ object RefinementAlgorithms {
         }
 
         logger.debug("Refinement iteration: #" + iteration + " " + (if (newPairs.isEmpty) "--" else newPairs.mkString(", ")))
-        if (reportProgress) println(dateFormat.format(new java.util.Date()) + " -- Refinement iteration: #" + iteration + " Discovered " + newPairs.size + " targets; total w/o duplicates: " + union.size)
+        if (reportProgress) println(dateFormat.format(new java.util.Date) + " -- Refinement iteration: #" + iteration + " Discovered " + newPairs.size + " targets; total w/o duplicates: " + union.size)
 
         if (union.size == r.size) {
           // Fixed point reached without reaching a pred--final-state pair

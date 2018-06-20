@@ -33,7 +33,7 @@ object PointerUnification extends HarrshLogging {
     }
     logger.debug("Will match pointer " + rhsPtr)
 
-    if (EqualityUtils.varsEqualModuloPureSameSide(rhsFormula.pure, rhsPtr.from.getVarOrZero, NullPtr().getVarOrZero)) {
+    if (EqualityUtils.varsEqualModuloPureSameSide(rhsFormula.pure, rhsPtr.from.getVarOrZero, NullPtr.getVarOrZero)) {
       logger.debug("Null pointer on the left side of pointer => Unsatisfiable unfolding => abort branch")
       None
     } else {

@@ -61,14 +61,14 @@ object Interactive {
     def odd = RunModulo(1,2)
     def even = RunModulo(0,2)
     def mod(n : Int, d : Int) = RunModulo(n, d)
-    val sat = RunSat()
-    val unsat = RunUnsat()
-    val establishment = RunEstablishment()
-    val nonEstablishment = RunNonEstablishment()
-    val acyclic = RunWeakAcyclicity()
-    val cyclic = RunStrongCyclicity()
-    val garbageFree = RunGarbageFreedom()
-    val hasGarbage = RunMayHaveGarbage()
+    val sat = RunSat
+    val unsat = RunUnsat
+    val establishment = RunEstablishment
+    val nonEstablishment = RunNonEstablishment
+    val acyclic = RunWeakAcyclicity
+    val cyclic = RunStrongCyclicity
+    val garbageFree = RunGarbageFreedom
+    val hasGarbage = RunMayHaveGarbage
   }
 
   case class BufferingParsableString(override val s : String) extends ParsableString(s) {
