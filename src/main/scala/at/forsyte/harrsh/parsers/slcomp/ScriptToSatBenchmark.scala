@@ -8,7 +8,7 @@ import scala.collection.mutable.ListBuffer
 
 object ScriptToSatBenchmark extends HarrshLogging {
 
-  def DefaultSel = "_def"
+  def DEFAULT_SELECTOR = "_def"
 
   def apply(s: Script, description: String): SatBenchmark = {
     if (s.asserts.length != 1) {
@@ -160,7 +160,7 @@ object ScriptToSatBenchmark extends HarrshLogging {
   def constructorToPtrExprs(sid : SidBuilder, env: Env, varMap: Map[String, Var]): Seq[PtrExpr] = sid match {
     case Args((s@Symbol(hd)) :: tl) =>
       if (tl.isEmpty) {
-        env.mkPtrTrg(List((qualIdentToPtrExpr(s, varMap), DefaultSel)))
+        env.mkPtrTrg(List((qualIdentToPtrExpr(s, varMap), DEFAULT_SELECTOR)))
       } else {
         val args = tl map (arg => qualIdentToPtrExpr(arg, varMap))
         val c = env.types.getConstructor(hd)
@@ -190,7 +190,7 @@ object ScriptToSatBenchmark extends HarrshLogging {
       maybeDt match {
         case None =>
           // The target is a built-in type => anonymous selector field
-          res += DefaultSel
+          res += DEFAULT_SELECTOR
         case Some(dt) =>
           for {
             c <- dt.constructors

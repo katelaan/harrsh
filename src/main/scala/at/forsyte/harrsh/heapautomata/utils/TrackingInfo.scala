@@ -28,7 +28,7 @@ case class TrackingInfo private (alloc: Set[Var], pure: Set[PureAtom]) extends K
       // Find inequality with two identical arguments
       case PtrNEq(l, r) if l == r => true
       case _ => false
-    }
+    } && !alloc.contains(Var.nil)
 
   def projectionToFreeVars : TrackingInfo = TrackingInfo(alloc.filter(_.isFree), pure.filter(_.comparesFree))
 

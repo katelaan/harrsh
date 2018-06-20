@@ -41,7 +41,7 @@ object DecisionProcedures extends HarrshLogging {
     decideInstance(sid, ha, timeout, verbose, reportProgress)
   }
 
-  def decideInstance(sid : SID, ha : HeapAutomaton, timeout : Duration, verbose : Boolean, reportProgress : Boolean): AnalysisResult = {
+  def decideInstance(sid : SID, ha : HeapAutomaton, timeout : Duration, verbose : Boolean = false, reportProgress : Boolean = false): AnalysisResult = {
     val startTime = System.currentTimeMillis()
 
     val f: Future[Boolean] = Future {
@@ -51,11 +51,11 @@ object DecisionProcedures extends HarrshLogging {
     val result = try {
       val isEmpty = Await.result(f, timeout)
       val endTime = System.currentTimeMillis()
-      println("Finished in " + (endTime - startTime) + "ms")
+      if (verbose) println("Finished in " + (endTime - startTime) + "ms")
       AnalysisResult(isEmpty, endTime - startTime, timedOut = false)
     } catch {
       case e : TimeoutException =>
-        println("reached timeout (" + timeout + ")")
+        if (verbose) println("reached timeout (" + timeout + ")")
         AnalysisResult(isEmpty = true, timeout.toMillis, timedOut = true)
     }
 

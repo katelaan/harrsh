@@ -33,7 +33,13 @@ case class SatBenchmark(preds: SID, consts: List[String], query: SymbolicHeap, s
 
 object SatBenchmark {
 
-  sealed trait Status
+  sealed trait Status {
+    override def toString: String = this match {
+      case Sat => "sat"
+      case Unsat => "unsat"
+      case Unknown => "unknown"
+    }
+  }
   case object Sat extends Status
   case object Unsat extends Status
   case object Unknown extends Status

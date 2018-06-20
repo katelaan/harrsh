@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.seplog.SatBenchmark
-import at.forsyte.harrsh.seplog.inductive.SID
 import org.antlr.v4.runtime.tree.Trees
 import org.antlr.v4.runtime.{CharStream, CharStreams, CommonTokenStream}
 
