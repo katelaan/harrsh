@@ -1,22 +1,22 @@
 package at.forsyte.harrsh.parsers.slcomp
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{NullPtr, PtrExpr, PtrVar, Var}
+import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.inductive._
 
 import scala.collection.mutable.ListBuffer
 
-object ScriptToSid extends HarrshLogging {
+object ScriptToSatBenchmark extends HarrshLogging {
 
   def DefaultSel = "_def"
-  def StartPred = "ASSERT"
 
-  def apply(s: Script): SID = {
+  def apply(s: Script, description: String): SatBenchmark = {
     if (s.asserts.length != 1) {
       throw new Exception(s"Can only build top-level symbolic heap from 1 assert, but received ${s.asserts.length}")
     }
 
     logger.debug(s"Will translate the following script:\n$s")
+    //println(s"Will translate the following script:\n$s")
 
     val sorts: Set[Sort] = s.sorts.map(decl => Sort(decl.name)).toSet
 
@@ -38,16 +38,16 @@ object ScriptToSid extends HarrshLogging {
     val env = Env(preds, types, selToIx)
 
     val sh = collectAtoms(s.asserts.head.term, env, constsToFvs).head.toSymbolicHeap
-    val startRule = Rule(StartPred, consts, Nil, sh)
     val rules: Seq[Rule] = s.funs flatMap (fun => funDefToRules(fun, env))
-    val allRules = startRule +: rules
 
     logger.debug(s"Top-level assertion: $sh")
     logger.debug(s"Predicate definitions:\n${rules.mkString("\n")}")
 
     // TODO: Avoid blowing up numFV to consts.length by dedicated support for top-level queries
-    val numFV = allRules.map(_.body.numFV).max
-    SID(StartPred, allRules, "Parse Result", numFV)
+    val numFV = rules.map(_.body.numFV).max
+    val sid = SID("undefined", rules, description, numFV)
+    val status = s.status.getOrElse(SatBenchmark.Unknown)
+    SatBenchmark(sid, consts, sh, status)
   }
 
   case class Env(preds: Set[String], types: DataTypes, selToIx: Map[String, Int]) {

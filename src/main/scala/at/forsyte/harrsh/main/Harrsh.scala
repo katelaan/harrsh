@@ -127,12 +127,7 @@ object Harrsh {
         printUsage()
 
       case ParseOnly() =>
-//        val tree = slcomp.parseFile(config.file)
-//        tree match {
-//          case Some(value) => println("OK")
-//          case None => println("Parsing failed")
-//        }
-        slcomp.parseFileToSid(config.file)
+        println(slcomp.parseFileToSatBenchmark(config.file))
 
       case Decide() =>
         val task = TaskConfig(config.file, config.prop, None)

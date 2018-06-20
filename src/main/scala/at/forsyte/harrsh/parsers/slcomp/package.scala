@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.parsers
 
+import at.forsyte.harrsh.seplog.SatBenchmark
 import at.forsyte.harrsh.seplog.inductive.SID
 import org.antlr.v4.runtime.tree.Trees
 import org.antlr.v4.runtime.{CharStream, CharStreams, CommonTokenStream}
@@ -17,9 +18,9 @@ package object slcomp {
     parseStream(charStream)
   }
 
-  def parseFileToSid(filename: String): Option[SID] = {
+  def parseFileToSatBenchmark(filename: String): Option[SatBenchmark] = {
     val translator = new SidTranslator
-    parseFile(filename) map translator.visit map (_.asInstanceOf[Script]) map (_.toSid)
+    parseFile(filename) map translator.visit map (_.asInstanceOf[Script]) map (_.toSatBenchmark(s"Benchmark($filename)"))
   }
 
   private def parseStream(cs: CharStream) = {

@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.parsers.slcomp
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.seplog.SatBenchmark
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 
 sealed trait SidBuilder {
@@ -115,7 +116,13 @@ object Task {
 }
 
 /* Meta data */
-case class Meta(metaType: String, content: List[SidBuilder]) extends SidBuilder
+// TODO: Split into set-logic and set-info classes with properly typed content (Symbol vs Attribute)
+case class Meta(metaType: String, content: List[SidBuilder]) extends SidBuilder {
+
+  def keyword: String = content.head.asInstanceOf[Attribute].kw.s
+  def attributeValue: SidBuilder = content.head.asInstanceOf[Attribute].av.v
+
+}
 
 object Meta {
 
@@ -135,7 +142,12 @@ case class Script(sorts: List[SortDecl],
                   meta: List[Meta],
                   tasks: List[Task]) extends SidBuilder {
 
-  def toSid : SID = ScriptToSid(this)
+  def toSatBenchmark(description: String) : SatBenchmark = ScriptToSatBenchmark(this, description)
+
+  lazy val status: Option[SatBenchmark.Status] = {
+    val statusMeta = meta.find(m => m.metaType == "set-info" && m.keyword == ":status")
+    statusMeta.map(_.attributeValue.asInstanceOf[Symbol].str).map(SatBenchmark.Status.fromString)
+  }
 
   override def toString: String = {
     val sb = new StringBuilder()
