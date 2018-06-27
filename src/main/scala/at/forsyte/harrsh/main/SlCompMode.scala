@@ -12,6 +12,7 @@ import scala.collection.mutable.ListBuffer
 object SlCompMode {
 
   val DIRS = List("bench/qf_shls_sat", "bench/qf_shid_sat")
+  //val DIRS = List("bench/test")
   val DEFAULT_TIMEOUT_IN_SECS = 60
   val BATCH_TIMEOUT_IN_SECS = 10
   val SKIP_WORSTCASE_INSTANCES = true
@@ -22,6 +23,8 @@ object SlCompMode {
     }
 
     args(0) match {
+      case "say" =>
+        println(args(1) + '!')
       case "parse" =>
         if (args(1) == "all")
           parseAllBenchmarks()
@@ -32,10 +35,16 @@ object SlCompMode {
       case "run" =>
         run(args(1))
       case "check" =>
+        val verbose = try {
+          args(2) == "verbose"
+        } catch {
+          case _: Throwable => false
+        }
+
         if (args(1) == "all")
-          checkAll()
-        else
-          check(args(1))
+          checkAll(verbose = verbose)
+       else
+          check(args(1), verbose = verbose)
     }
   }
 
@@ -45,12 +54,21 @@ object SlCompMode {
     println(res._1)
   }
 
-  def checkAll(timeoutInSecs: Int = BATCH_TIMEOUT_IN_SECS): Unit = {
+  def checkAll(timeoutInSecs: Int = BATCH_TIMEOUT_IN_SECS - 8, verbose: Boolean = false, printBm: Boolean = false): Unit = {
+    // TODO: Reduce code duplication wrt check
     val stats:ListBuffer[(String,SatBenchmark.Status,SatBenchmark.Status,Long)] = new ListBuffer
     for (bench <- allSatBenchs().sortBy(_.toString)) {
       val bm = parseBenchmark(bench.toString)
-      val (res,time) = execute(bm, timeoutInSecs)
+      if (verbose || printBm) {
+        println(s"Benchmark: $bm")
+        println(s"Input for refinement: ${bm.toIntegratedSid}")
+        println(s"Expected result: ${bm.status}")
+      }
+      val (res,time) = execute(bm, timeoutInSecs, verbose = verbose)
       println(s"${bench.toString}: Expected ${bm.status}, got $res, used ${time}ms")
+      if (bm.status != SatBenchmark.Unknown && bm.status != SatBenchmark.Unknown && bm.status != res) {
+        println("UNEXPECTED RESULT")
+      }
       stats.append((bench.toString, bm.status, res, time))
     }
 
@@ -77,7 +95,7 @@ object SlCompMode {
 
   def execute(bm: SatBenchmark, timeoutInSecs: Int = DEFAULT_TIMEOUT_IN_SECS, verbose: Boolean = false): (SatBenchmark.Status, Long) = {
     val sid = bm.toIntegratedSid
-    //println(s"Num FVs in origingal & integrated SID: ${bm.preds.numFV} / ${sid.numFV}")
+    println(s"Num FVs in origingal & integrated SID: ${bm.preds.numFV} / ${sid.numFV}")
     val timeout = Duration(timeoutInSecs, SECONDS)
     val res: DecisionProcedures.AnalysisResult = DecisionProcedures.decideInstance(
       sid,

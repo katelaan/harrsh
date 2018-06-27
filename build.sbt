@@ -26,3 +26,4 @@ test in assembly := {}
 import sbtassembly.AssemblyPlugin.defaultShellScript
 assemblyOption in assembly := (assemblyOption in assembly).value.copy(prependShellScript = Some(defaultShellScript))
 assemblyJarName in assembly := s"${name.value}"
+mainClass in assembly := Some("at.forsyte.harrsh.main.SlCompMode")
