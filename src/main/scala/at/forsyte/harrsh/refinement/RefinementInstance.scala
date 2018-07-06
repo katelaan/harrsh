@@ -24,15 +24,58 @@ case class RefinementInstance(sid: SID,
 
   val pred: String = sid.startPred
 
+  type TransitionTargetCombination = (Seq[ha.State], SymbolicHeap, String)
+  type IterationResult = Seq[((String, ha.State), TransitionTargetCombination)]
+
+  case class ReachedStates(pairs: Set[(String, ha.State)], cachedFinalStates: Option[Set[ha.State]] = None) {
+    // TODO: These are just the final states for the start predicate. Need to modify this when we pass a top-level query
+    val finalStates : Set[ha.State] = cachedFinalStates.getOrElse{
+      ReachedStates.finalStates(pairs)
+    }
+
+    def reachedStatesForPred(pred : String) : Set[ha.State] = pairs filter (_._1 == pred) map (_._2)
+
+    def containsFinalState: Boolean = finalStates.nonEmpty
+
+    def size: Int = pairs.size
+
+    def ++(otherPairs: Iterable[(String, ha.State)]): ReachedStates = {
+      ReachedStates(pairs ++ otherPairs, Some(finalStates ++ ReachedStates.finalStates(otherPairs)))
+    }
+  }
+  object ReachedStates {
+    def empty = ReachedStates(Set.empty)
+    def isFinal(pair : (String,ha.State)) : Boolean = pair._1 == pred && ha.isFinal(pair._2)
+    def finalStates(pairs: Iterable[(String, ha.State)]): Set[ha.State] = pairs.filter(isFinal).map(_._2).toSet
+  }
+
+  case class TransitionInstance(srcStates: Seq[ha.State], body: SymbolicHeap, headPredicate: String, headState: ha.State)
+
   /**
     * Mapping from src, label and head predicate to target state for reconstructing the full assignment
     * (Only used in computation of full refinement, not in on-the-fly refinement.)
     */
-  private var combinationsToTargets : Map[(Seq[ha.State],SymbolicHeap,String), Set[ha.State]] = Map.empty
+  case class TransitionsToTrgStateMap(map: Map[TransitionTargetCombination, Set[ha.State]] = Map.empty) {
 
-  type TransitionTargetCombination = (Seq[ha.State], SymbolicHeap, String)
-  case class TransitionInstance(srcStates: Seq[ha.State], body: SymbolicHeap, headPredicate: String, headState: ha.State)
-  case class RefinementState(empty: Boolean, reachedStates: ReachedStates, reachedTransitions: Set[TransitionInstance]) {
+    def apply(k: TransitionTargetCombination) = map(k)
+
+    def extendWith(kvPairs: Seq[((Seq[ha.State], SymbolicHeap, String), ha.State)]): TransitionsToTrgStateMap = {
+      // TODO: Stateless solution
+      var newMap = map
+      for ((k,v) <- kvPairs) {
+        if (newMap.isDefinedAt(k)) {
+          newMap = newMap + (k -> (newMap(k) + v))
+        } else {
+          newMap = newMap + (k -> Set(v))
+        }
+      }
+      TransitionsToTrgStateMap(newMap)
+    }
+  }
+
+  case class RefinementState(empty: Boolean,
+                             reachedStates: ReachedStates,
+                             reachedTransitions: Set[TransitionInstance]) {
 
     /**
       * Convert refinement state to SID
@@ -79,12 +122,7 @@ case class RefinementInstance(sid: SID,
     * @return True iff there is no RSH in the refinement of sid by ha
     */
   def run : RefinementState = {
-    if (mode == FullRefinement) {
-      // Reset state
-      combinationsToTargets = Map.empty
-    }
-
-    computeRefinementFixedPoint(ReachedStates.empty, Set(), 1)
+    computeRefinementFixedPoint(ReachedStates.empty, Set(), TransitionsToTrgStateMap(), iteration = 1)
   }
 
   private def allDefinedSources(reached : ReachedStates, calls : Seq[String]) : Set[Seq[ha.State]] = {
@@ -98,7 +136,8 @@ case class RefinementInstance(sid: SID,
     }
   }
 
-  private def performSingleIteration(reached : ReachedStates, previousCombinations : Set[TransitionTargetCombination]): Seq[((String, ha.State), (Seq[ha.State],SymbolicHeap,String))] = {
+  private def performSingleIteration(reached : ReachedStates,
+                                     previousCombinations : Set[TransitionTargetCombination]): IterationResult = {
     if (ha.implementsTargetComputation) {
       for {
         Rule(head, _, _, body) <- sid.rules
@@ -131,31 +170,37 @@ case class RefinementInstance(sid: SID,
     }
   }
 
-  case class ReachedStates(pairs: Set[(String, ha.State)], cachedFinalStates: Option[Set[ha.State]] = None) {
-    // TODO: These are just the final states for the start predicate. Need to modify this when we pass a top-level query
-    val finalStates : Set[ha.State] = cachedFinalStates.getOrElse{
-      ReachedStates.finalStates(pairs)
-    }
-
-    def reachedStatesForPred(pred : String) : Set[ha.State] = pairs filter (_._1 == pred) map (_._2)
-
-    def containsFinalState: Boolean = finalStates.nonEmpty
-
-    def size: Int = pairs.size
-
-    def ++(otherPairs: Iterable[(String, ha.State)]): ReachedStates = {
-      ReachedStates(pairs ++ otherPairs, Some(finalStates ++ ReachedStates.finalStates(otherPairs)))
+  private def extendTransitionsToTrgMap(combinationsToTargets: TransitionsToTrgStateMap, iterationResult: IterationResult): TransitionsToTrgStateMap = {
+    if (mode == FullRefinement) {
+      // In the computation of the full refinement, we must remember the targets of each of the combinations we tried
+      val kvPairs = iterationResult map {
+        case ((_,trg),comb) => (comb,trg)
+      }
+      combinationsToTargets.extendWith(kvPairs)
+    } else {
+      combinationsToTargets
     }
   }
-  object ReachedStates {
-    def empty = ReachedStates(Set.empty)
-    def isFinal(pair : (String,ha.State)) : Boolean = pair._1 == pred && ha.isFinal(pair._2)
-    def finalStates(pairs: Iterable[(String, ha.State)]): Set[ha.State] = pairs.filter(isFinal).map(_._2).toSet
+
+  private def toTransitionInstances(previousCombinations: Set[TransitionTargetCombination],
+                                    newCombinations: Seq[TransitionTargetCombination],
+                                    transitionsToTrgStateMap: TransitionsToTrgStateMap) : Set[TransitionInstance] = {
+    if (mode == FullRefinement) {
+      // Only compute the new combinations + mapping to targets if desired (i.e., if full refinement was asked for)
+      // (to save some computation time in the cases where we're only interested in a yes/no-answer)
+      for {
+        comb <- previousCombinations ++ newCombinations
+        trg <- transitionsToTrgStateMap(comb)
+      } yield TransitionInstance(comb._1,comb._2,comb._3,trg)
+    } else {
+      Set.empty
+    }
   }
 
   @tailrec
   private def computeRefinementFixedPoint(reached : ReachedStates,
                                           previousCombinations : Set[TransitionTargetCombination],
+                                          transitionsToTrgStates: TransitionsToTrgStateMap,
                                           iteration : Int) : RefinementState = {
 
     if (reached.containsFinalState && mode == OnTheFly) {
@@ -168,46 +213,24 @@ case class RefinementInstance(sid: SID,
       val iterationResult = performSingleIteration(reached, previousCombinations)
       val (newPairs, newCombs) = iterationResult.unzip
       val union = reached ++ newPairs
-
-      if (mode == FullRefinement) {
-        // In the computation of the full refinement, we must remember the targets of each of the combinations we tried
-        val kvPairs = iterationResult map {
-          case ((_,trg),comb) => (comb,trg)
-        }
-        for ((k,v) <- kvPairs) {
-          if (combinationsToTargets.isDefinedAt(k)) {
-            combinationsToTargets = combinationsToTargets + (k -> (combinationsToTargets(k) + v))
-          } else {
-            combinationsToTargets = combinationsToTargets + (k -> Set(v))
-          }
-        }
-      }
+      val updatedTransitionsToTrgStates = extendTransitionsToTrgMap(transitionsToTrgStates, iterationResult)
 
       logger.debug("Refinement iteration: #" + iteration + " " + (if (newPairs.isEmpty) "--" else newPairs.mkString(", ")))
       if (reportProgress) println(dateFormat.format(new java.util.Date) + " -- Refinement iteration: #" + iteration + " Discovered " + newPairs.size + " targets; total w/o duplicates: " + union.size)
 
       if (union.size == reached.size) {
-        // Fixed point reached without reaching a pred--final-state pair
+        // Fixed point reached
         logger.debug("Fixed point: " + union.pairs.mkString(", "))
         if (!reached.containsFinalState) {
           logger.debug("=> Language is empty")
         }
-        // Only compute the new combinations + mapping to targets if desired (i.e., if full refinement was asked for)
-        // (to save some computation time in the cases where we're only interested in a yes/no-answer)
-        val newCombinations: Set[TransitionInstance] = if (mode == FullRefinement) {
-          for {
-            comb <- previousCombinations ++ newCombs
-            trg <- combinationsToTargets(comb)
-          } yield TransitionInstance(comb._1,comb._2,comb._3,trg)
-        } else {
-          Set.empty
-        }
+        val transitions = toTransitionInstances(previousCombinations, newCombs, transitionsToTrgStates)
 
-        RefinementState(empty = true, reached, newCombinations)
+        RefinementState(empty = true, reached, transitions)
       } else {
         // Fixed point not yet reached, recurse
         val unionOfPrevs = previousCombinations ++ newCombs
-        computeRefinementFixedPoint(union, unionOfPrevs, iteration + 1)
+        computeRefinementFixedPoint(union, unionOfPrevs, updatedTransitionsToTrgStates, iteration + 1)
       }
     }
   }
