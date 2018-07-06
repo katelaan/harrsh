@@ -223,6 +223,7 @@ class SidTranslator extends AbstractParseTreeVisitor[SidBuilder] with SLComp18Vi
     * @return the visitor result
     */
   override def visitAttribute(ctx: SLComp18Parser.AttributeContext): SidBuilder = {
+    // TODO: Construct Attribute directly here instead of in aggregation!
     visitChildren(ctx)
   }
 
@@ -469,7 +470,7 @@ class SidTranslator extends AbstractParseTreeVisitor[SidBuilder] with SLComp18Vi
     var params: List[SortedVar] = Nil
     var resultType: Option[Sort] = None
     var term: Option[SidBuilder] = None
-
+    // TODO: Just compute slices
     for (arg <- args)
       arg match {
         case s:Symbol => name = Some(s)

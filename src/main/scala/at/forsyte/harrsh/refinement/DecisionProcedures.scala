@@ -5,7 +5,7 @@ import java.io.File
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.main.{HarrshLogging, MainIO, TaskConfig}
 import at.forsyte.harrsh.seplog.{PtrVar, Var}
-import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, SID}
+import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, SID, SymbolicHeap}
 import at.forsyte.harrsh.util.IOUtils
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -38,14 +38,14 @@ object DecisionProcedures extends HarrshLogging {
       print("Running " + task.decisionProblem + " on " + task.fileName + "...")
     }
 
-    decideInstance(sid, ha, timeout, verbose, reportProgress)
+    decideInstance(sid, ha, timeout, None, verbose, reportProgress)
   }
 
-  def decideInstance(sid : SID, ha : HeapAutomaton, timeout : Duration, verbose : Boolean = false, reportProgress : Boolean = false): AnalysisResult = {
+  def decideInstance(sid : SID, ha : HeapAutomaton, timeout : Duration, topLevelQuery: Option[SymbolicHeap] = None, verbose : Boolean = false, reportProgress : Boolean = false): AnalysisResult = {
     val startTime = System.currentTimeMillis()
 
     val f: Future[Boolean] = Future {
-      RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, reportProgress = reportProgress)
+      RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, topLevelQuery, reportProgress = reportProgress)
     }
 
     val result = try {
