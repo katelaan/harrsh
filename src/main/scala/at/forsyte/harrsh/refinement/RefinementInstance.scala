@@ -22,7 +22,11 @@ case class RefinementInstance(sid: SID,
                               mode: RefinementMode = OnTheFly,
                               reportProgress: Boolean = false) extends HarrshLogging {
 
+  // TODO: Take top level query into account
+  assert(topLevelQuery.isEmpty)
+
   val pred: String = sid.startPred
+  logger.debug("Will run refinement with goal predicate " + pred)
 
   type TransitionTargetCombination = (Seq[ha.State], SymbolicHeap, String)
   type IterationResult = Seq[((String, ha.State), TransitionTargetCombination)]

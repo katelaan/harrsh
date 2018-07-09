@@ -25,8 +25,9 @@ case class SatBenchmark(preds: SID, consts: List[String], query: SymbolicHeap, s
   def toIntegratedSid: SID = {
     val startRule = Rule(StartPred, consts, Nil, query)
     val allRules = startRule +: preds.rules
-    val numFV = Math.max(startRule.body.numFV, preds.numFV)
-    SID(StartPred, allRules, preds.description, numFV)
+    // Note: The number of free variables of the top-level query does not matter for the arity of the automaton!
+    // TODO: Check that all automata deal correctly with top-level formulas
+    SID(StartPred, allRules, preds.description, preds.numFV)
   }
 
 }

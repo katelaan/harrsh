@@ -14,13 +14,10 @@ case class SID(startPred : String, rules : Seq[Rule], description : String, numF
   }
 
   // Note that we take the maximum here, because we allow that some of the rules do not mention all FVs (and in particular not the maxFV; see also DefaultSID parser
-  // TODO: Seems obsolete now that we have numFV as explicit parameter?
   lazy val arityOfStartPred : Int = {
     val startRules = rules.filter(_.head == startPred)
     if (startRules.isEmpty) 0 else startRules.map(rule => rule.freeVars.size).max
   }
-
-  lazy val maximumArity : Int = if (rules.isEmpty) 0 else rules.map(rule => rule.freeVars.size).max
 
   def callToStartPred: SymbolicHeap = {
     val initialArgs: Seq[PtrExpr] = (1 to arityOfStartPred) map (i => PtrVar(Var(i)).asInstanceOf[PtrExpr])

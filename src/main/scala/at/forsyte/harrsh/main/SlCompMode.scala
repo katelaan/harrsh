@@ -13,9 +13,9 @@ object SlCompMode {
 
   val DIRS = List("bench/qf_shls_sat", "bench/qf_shid_sat")
   //val DIRS = List("bench/test")
-  val DEFAULT_TIMEOUT_IN_SECS = 60
-  val BATCH_TIMEOUT_IN_SECS = 10
-  val SKIP_WORSTCASE_INSTANCES = true
+  val DEFAULT_TIMEOUT_IN_SECS = 120
+  val BATCH_TIMEOUT_IN_SECS = 120
+  val SKIP_WORSTCASE_INSTANCES = false
 
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
@@ -54,7 +54,7 @@ object SlCompMode {
     println(res._1)
   }
 
-  def checkAll(timeoutInSecs: Int = BATCH_TIMEOUT_IN_SECS - 8, verbose: Boolean = false, printBm: Boolean = false): Unit = {
+  def checkAll(timeoutInSecs: Int = BATCH_TIMEOUT_IN_SECS, verbose: Boolean = false, printBm: Boolean = false): Unit = {
     // TODO: Reduce code duplication wrt check
     val stats:ListBuffer[(String,SatBenchmark.Status,SatBenchmark.Status,Long)] = new ListBuffer
     for (bench <- allSatBenchs().sortBy(_.toString)) {
@@ -66,7 +66,7 @@ object SlCompMode {
       }
       val (res,time) = execute(bm, timeoutInSecs, verbose = verbose)
       println(s"${bench.toString}: Expected ${bm.status}, got $res, used ${time}ms")
-      if (bm.status != SatBenchmark.Unknown && bm.status != SatBenchmark.Unknown && bm.status != res) {
+      if (bm.status != SatBenchmark.Unknown && res != SatBenchmark.Unknown && bm.status != res) {
         println("UNEXPECTED RESULT")
       }
       stats.append((bench.toString, bm.status, res, time))
@@ -94,10 +94,10 @@ object SlCompMode {
   }
 
   def execute(bm: SatBenchmark, timeoutInSecs: Int = DEFAULT_TIMEOUT_IN_SECS, verbose: Boolean = false): (SatBenchmark.Status, Long) = {
-    val sid = bm.preds
-    if (verbose) {
-      println(s"Num FVs in origingal & integrated SID: ${bm.preds.numFV} / ${sid.numFV}")
-    }
+    val sid = bm.toIntegratedSid //bm.preds
+//    if (verbose) {
+//      println(s"Num FVs in origingal & integrated SID: ${bm.preds.numFV} / ${sid.numFV}")
+//    }
     val timeout = Duration(timeoutInSecs, SECONDS)
     val res: DecisionProcedures.AnalysisResult = DecisionProcedures.decideInstance(
       sid,
