@@ -18,6 +18,8 @@ trait HeapAutomaton extends HarrshLogging {
 
   def isFinal(s : State) :  Boolean
 
+  def isNonSink(s : State) : Boolean = true
+
   /**
     * Is the given SH in the alphabet of this HA?
     */

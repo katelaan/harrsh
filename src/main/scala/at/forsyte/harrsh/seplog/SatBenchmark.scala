@@ -39,14 +39,22 @@ case class SatBenchmark(preds: SID, consts: List[String], query: SymbolicHeap, s
   }
 
   private def startRule: Option[Rule] = {
-    if (isSingleCall(query))
+    if (isRedundantSingleCall(query))
       None
     else
       Some(Rule(StartPred, consts, Nil, query))
   }
 
-  private def isSingleCall(heap: SymbolicHeap) = {
-    heap.pointers.isEmpty && heap.equalities.isEmpty && heap.predCalls.size == 1
+  private def isRedundantSingleCall(heap: SymbolicHeap) = {
+    if (heap.pointers.nonEmpty || heap.pure.nonEmpty || heap.predCalls.size != 1) {
+      // Query isn't even a single call
+      false
+    } else {
+      // It's a single call => Check if it's redundant...
+      val call = heap.predCalls.head
+      // ...i.e. if the call does *not* contain null + its args are pairwise different
+      call.args.find(_.isNullPtr).isEmpty && call.args.toSet.size == call.args.size
+    }
   }
 
 }

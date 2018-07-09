@@ -38,14 +38,14 @@ object DecisionProcedures extends HarrshLogging {
       print("Running " + task.decisionProblem + " on " + task.fileName + "...")
     }
 
-    decideInstance(sid, ha, timeout, None, verbose, reportProgress)
+    decideInstance(sid, ha, timeout, None, false, verbose, reportProgress)
   }
 
-  def decideInstance(sid : SID, ha : HeapAutomaton, timeout : Duration, topLevelQuery: Option[SymbolicHeap] = None, verbose : Boolean = false, reportProgress : Boolean = false): AnalysisResult = {
+  def decideInstance(sid : SID, ha : HeapAutomaton, timeout : Duration, topLevelQuery: Option[SymbolicHeap] = None, skipSinksAsSources : Boolean = false, verbose : Boolean = false, reportProgress : Boolean = false): AnalysisResult = {
     val startTime = System.currentTimeMillis()
 
     val f: Future[Boolean] = Future {
-      RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, topLevelQuery, reportProgress = reportProgress)
+      RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, topLevelQuery, skipSinksAsSources = skipSinksAsSources, reportProgress = reportProgress)
     }
 
     val result = try {

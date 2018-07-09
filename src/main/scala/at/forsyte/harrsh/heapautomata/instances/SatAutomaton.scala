@@ -11,4 +11,8 @@ class SatAutomaton(numFV : Int, negate : Boolean) extends BaseTrackingAutomaton(
 
   override def isFinal(s : State) : Boolean = negate != s.isConsistent
 
+  override def isNonSink(s : State) : Boolean = s.isConsistent || negate
+
+  //override val canRecoverFromInconsistentState = false
+
 }

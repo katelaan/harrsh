@@ -22,8 +22,8 @@ object RefinementAlgorithms {
     * @param reportProgress Periodically report the number of iterations
     * @return true iff empty
     */
-  def onTheFlyRefinementWithEmptinessCheck(sid : SID, ha : HeapAutomaton, query: Option[SymbolicHeap] = None, reportProgress : Boolean = false) : Boolean = {
-    RefinementInstance(sid, ha, query, mode = RefinementInstance.OnTheFly, reportProgress = reportProgress).run.empty
+  def onTheFlyRefinementWithEmptinessCheck(sid : SID, ha : HeapAutomaton, query: Option[SymbolicHeap] = None, skipSinksAsSources: Boolean = false, reportProgress : Boolean = false) : Boolean = {
+    RefinementInstance(sid, ha, query, mode = RefinementInstance.OnTheFly, skipSinksAsSources = skipSinksAsSources, reportProgress = reportProgress).run.empty
   }
 
   /**

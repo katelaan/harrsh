@@ -14,7 +14,7 @@ object SlCompMode {
   val DIRS = List("bench/qf_shls_sat", "bench/qf_shid_sat")
   //val DIRS = List("bench/test")
   val DEFAULT_TIMEOUT_IN_SECS = 120
-  val BATCH_TIMEOUT_IN_SECS = 120
+  val BATCH_TIMEOUT_IN_SECS = 5
   val SKIP_WORSTCASE_INSTANCES = false
 
   def main(args: Array[String]): Unit = {
@@ -94,35 +94,13 @@ object SlCompMode {
   }
 
   def execute(bm: SatBenchmark, timeoutInSecs: Int = DEFAULT_TIMEOUT_IN_SECS, verbose: Boolean = false): (SatBenchmark.Status, Long) = {
-    val sid = bm.toIntegratedSid //bm.preds
-//    if (verbose) {
-//      println(s"Num FVs in origingal & integrated SID: ${bm.preds.numFV} / ${sid.numFV}")
-//    }
-    val timeout = Duration(timeoutInSecs, SECONDS)
-    val res: DecisionProcedures.AnalysisResult = DecisionProcedures.decideInstance(
-      sid,
-      RunSat.getAutomaton(sid.numFV),
-      timeout,
-      verbose = verbose,
-      reportProgress = verbose)
-    val resStatus = if (res.timedOut) {
-      SatBenchmark.Unknown
-    } else {
-      if (res.isEmpty) SatBenchmark.Unsat else SatBenchmark.Sat
-    }
-    (resStatus, res.analysisTime)
-  }
-
-  def executeIntegrated(bm: SatBenchmark, timeoutInSecs: Int = DEFAULT_TIMEOUT_IN_SECS, verbose: Boolean = false): (SatBenchmark.Status, Long) = {
     val sid = bm.toIntegratedSid
-    if (verbose) {
-      println(s"Num FVs in origingal & integrated SID: ${bm.preds.numFV} / ${sid.numFV}")
-    }
     val timeout = Duration(timeoutInSecs, SECONDS)
     val res: DecisionProcedures.AnalysisResult = DecisionProcedures.decideInstance(
       sid,
       RunSat.getAutomaton(sid.numFV),
       timeout,
+      skipSinksAsSources = true,
       verbose = verbose,
       reportProgress = verbose)
     val resStatus = if (res.timedOut) {

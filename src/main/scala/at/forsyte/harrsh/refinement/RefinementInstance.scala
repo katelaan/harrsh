@@ -20,6 +20,7 @@ case class RefinementInstance(sid: SID,
                               ha: HeapAutomaton,
                               topLevelQuery: Option[SymbolicHeap] = None,
                               mode: RefinementMode = OnTheFly,
+                              skipSinksAsSources: Boolean = false,
                               reportProgress: Boolean = false) extends HarrshLogging {
 
   // TODO: Take top level query into account
@@ -37,7 +38,9 @@ case class RefinementInstance(sid: SID,
       ReachedStates.finalStates(pairs)
     }
 
-    def reachedStatesForPred(pred : String) : Set[ha.State] = pairs filter (_._1 == pred) map (_._2)
+    def reachedStatesForPred(pred : String) : Set[ha.State] = {
+      pairs filter (_._1 == pred) map (_._2)
+    }
 
     def containsFinalState: Boolean = finalStates.nonEmpty
 
@@ -169,7 +172,7 @@ case class RefinementInstance(sid: SID,
     } else {
       for {
         tail <- allDefinedSources(reached, calls.tail)
-        head <- reached.reachedStatesForPred(calls.head)
+        head <- reached.reachedStatesForPred(calls.head) filter (s => (!skipSinksAsSources) || ha.isNonSink(s))
       } yield head +: tail
     }
   }
