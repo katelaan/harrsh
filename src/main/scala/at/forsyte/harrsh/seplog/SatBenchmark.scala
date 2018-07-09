@@ -23,11 +23,30 @@ case class SatBenchmark(preds: SID, consts: List[String], query: SymbolicHeap, s
     * @return Combined SID
     */
   def toIntegratedSid: SID = {
-    val startRule = Rule(StartPred, consts, Nil, query)
-    val allRules = startRule +: preds.rules
-    // Note: The number of free variables of the top-level query does not matter for the arity of the automaton!
-    // TODO: Check that all automata deal correctly with top-level formulas
-    SID(StartPred, allRules, preds.description, preds.numFV)
+    // TODO: Make sure that all automata deal correctly with top-level formulas
+    startRule match {
+      case None =>
+        // The query is a single predicate call => Extract start predicate from that
+        val startPred = query.predCalls.head.name
+        SID(startPred, preds.rules, preds.description, preds.numFV)
+      case Some(rule) =>
+        // Need an additional rule to represent query => Derive integrated SID from that
+        val allRules = rule +: preds.rules
+        // Note: The number of free variables of the top-level query does not matter for the arity of the automaton!
+        SID(StartPred, allRules, preds.description, preds.numFV)
+    }
+
+  }
+
+  private def startRule: Option[Rule] = {
+    if (isSingleCall(query))
+      None
+    else
+      Some(Rule(StartPred, consts, Nil, query))
+  }
+
+  private def isSingleCall(heap: SymbolicHeap) = {
+    heap.pointers.isEmpty && heap.equalities.isEmpty && heap.predCalls.size == 1
   }
 
 }
