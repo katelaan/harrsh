@@ -166,9 +166,9 @@ case class RefinementInstance(sid: SID,
     computeRefinementFixedPoint(ReachedStates.empty, Transitions.empty, iteration = 1)
   }
 
-  private def allDefinedSources(reached : ReachedStates, calls : Seq[String]) : Set[Seq[ha.State]] = {
+  private def allDefinedSources(reached : ReachedStates, calls : Seq[String]) : Stream[Seq[ha.State]] = {
     if (calls.isEmpty) {
-      Set(Seq())
+      Stream(Seq())
     } else {
       for {
         tail <- allDefinedSources(reached, calls.tail)
@@ -181,13 +181,16 @@ case class RefinementInstance(sid: SID,
                                      previousTransitions : Transitions): IterationResult = {
     val previousCombinations = previousTransitions.combinations
     if (ha.implementsTargetComputation) {
+      var break = false
       for {
-        Rule(head, _, _, body) <- sid.rules
-        src <- {
-          val srcs  = allDefinedSources(reached, body.identsOfCalledPreds)
-          logger.debug("Looking at defined sources for " + head + " <= " + body + "; found " + srcs.size)
-          srcs
+        Rule(head, _, _, body) <- sid.rules.toStream
+        isGoal = {
+          logger.debug("Looking at defined sources for " + head + " <= " + body)
+          // In on-the-fly refinement, short-circuit when a final state for the target pred is reached
+          head == pred && mode == OnTheFly
         }
+        src <- allDefinedSources(reached, body.identsOfCalledPreds)
+        if !break
         // Only go on if we haven't tried this combination in a previous iteration
         if {
           logger.debug("Computing targets for " + head + " <= " + body + " from source " + src + " ?")
@@ -195,7 +198,12 @@ case class RefinementInstance(sid: SID,
         }
         trg <- {
           logger.debug("Yes, targets not computed previously, get targets for " + body)
-          ha.getTargetsFor(src, body)
+          val trg = ha.getTargetsFor(src, body)
+          if (isGoal && trg.find(ha.isFinal).nonEmpty) {
+            //println("Found target")
+            break = true
+          }
+          trg
         }
       } yield ((head, trg), (src,body,head))
     } else {
