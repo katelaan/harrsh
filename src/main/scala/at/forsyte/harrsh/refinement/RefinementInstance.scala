@@ -177,36 +177,91 @@ case class RefinementInstance(sid: SID,
     }
   }
 
+  private def incrementalInstantiation(head: String,
+                                       body: SymbolicHeap,
+                                       reached : ReachedStates,
+                                       break: FlagWrapper,
+                                       callsToInstantiate : Seq[String],
+                                       picked: Seq[ha.State] = Seq.empty,
+                                       target: Option[ha.State] = None) : Stream[(Seq[ha.State],ha.State)] = {
+    val isGoal = mode == OnTheFly && head == pred
+    if (callsToInstantiate.isEmpty) {
+      val trg = target.get
+      if (isGoal && ha.isFinal(trg)) {
+        break.flag = true
+      }
+      Stream((picked, target.get))
+    } else {
+      for {
+        next <- (reached.reachedStatesForPred(callsToInstantiate.head) filter (s => (!skipSinksAsSources) || ha.isNonSink(s))).toStream
+        if !break.flag
+        extended = picked :+ next
+        partialTarget <- ha.getPartialTargetsFor(extended, body)
+        if ha.isNonSink(partialTarget)
+//        if {
+//          val nonSink = ha.isNonSink(partialTarget)
+//          //if (!nonSink) println(s"Short circuiting for partial target $partialTarget derived from $extended")
+//          nonSink
+//        }
+        completed <- incrementalInstantiation(head, body, reached, break, callsToInstantiate.tail, extended, Some(partialTarget))
+      } yield completed
+    }
+  }
+
+  private def considerAllSourceCombinations(head: String,
+                                            body: SymbolicHeap,
+                                            reached : ReachedStates,
+                                            previousTransitions : Transitions,
+                                            break: FlagWrapper): Stream[(Seq[ha.State],ha.State)] = {
+    val previousCombinations = previousTransitions.combinations
+    // In on-the-fly refinement, short-circuit when a final state for the target pred is reached
+    val isGoal = mode == OnTheFly && head == pred
+    for {
+      src <- allDefinedSources(reached, body.identsOfCalledPreds)
+      if !break.flag
+      // Only go on if we haven't tried this combination in a previous iteration
+      if {
+        logger.debug("Computing targets for " + head + " <= " + body + " from source " + src + " ?")
+        !previousCombinations.contains((src, body, head))
+      }
+      trg <- {
+        logger.debug("Yes, targets not computed previously, get targets for " + body)
+        val trg = ha.getTargetsFor(src, body)
+        if (isGoal && trg.exists(ha.isFinal)) {
+          //println("Found target")
+          break.flag = true
+        }
+        trg
+      }
+    } yield (src, trg)
+  }
+
+  private def shouldTryAllSources(sh: SymbolicHeap) = {
+    // We'll try all combinations if the number of pred calls is small
+    !ha.implementsPartialTargets || sh.predCalls.size < IncrementalFromNumCalls
+  }
+
+  case class FlagWrapper(var flag: Boolean)
+
   private def performSingleIteration(reached : ReachedStates,
                                      previousTransitions : Transitions): IterationResult = {
-    val previousCombinations = previousTransitions.combinations
     if (ha.implementsTargetComputation) {
-      var break = false
+      var break = FlagWrapper(false)
       for {
         Rule(head, _, _, body) <- sid.rules.toStream
-        isGoal = {
+        if !break.flag
+        _ = {
           logger.debug("Looking at defined sources for " + head + " <= " + body)
-          // In on-the-fly refinement, short-circuit when a final state for the target pred is reached
-          head == pred && mode == OnTheFly
         }
-        src <- allDefinedSources(reached, body.identsOfCalledPreds)
-        if !break
-        // Only go on if we haven't tried this combination in a previous iteration
-        if {
-          logger.debug("Computing targets for " + head + " <= " + body + " from source " + src + " ?")
-          !previousCombinations.contains((src, body, head))
-        }
-        trg <- {
-          logger.debug("Yes, targets not computed previously, get targets for " + body)
-          val trg = ha.getTargetsFor(src, body)
-          if (isGoal && trg.find(ha.isFinal).nonEmpty) {
-            //println("Found target")
-            break = true
-          }
-          trg
+        (src,trg) <- if (!skipSinksAsSources || shouldTryAllSources(body)) {
+          considerAllSourceCombinations(head, body, reached, previousTransitions, break)
+        } else {
+          logger.debug(s"${body.predCalls.size} calls => Will perform incremental instantiation")
+          incrementalInstantiation(head, body, reached, break, body.identsOfCalledPreds)
         }
       } yield ((head, trg), (src,body,head))
     } else {
+      val previousCombinations = previousTransitions.combinations
       // No dedicated target computation, need to brute-force
       for {
         Rule(head, _, _, body) <- sid.rules
@@ -271,5 +326,6 @@ object RefinementInstance {
   type RefinementMode = Boolean
   val OnTheFly = false
   val FullRefinement = true
+  var IncrementalFromNumCalls: Int = 4
 
 }

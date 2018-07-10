@@ -18,4 +18,10 @@ object Kernelizable {
     sh.replaceCalls(newHeaps)
   }
 
+  def compressByPartialKernelization(sh : SymbolicHeap, qs : Seq[Kernelizable]) : SymbolicHeap = {
+    val newHeaps = qs map (_.kernel)
+    val padding = List.fill(sh.predCalls.length - newHeaps.length)(SymbolicHeap.empty)
+    sh.replaceCalls(newHeaps ++ padding)
+  }
+
 }

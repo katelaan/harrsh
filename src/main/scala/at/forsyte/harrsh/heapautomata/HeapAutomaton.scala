@@ -58,7 +58,17 @@ trait HeapAutomaton extends HarrshLogging {
     */
   def implementsTargetComputation: Boolean = false
 
+  /**
+    * Direct target computation
+    */
   def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = throw new NotImplementedError("No smart target computation for this heap automaton")
+
+  def implementsPartialTargets: Boolean = false
+
+  /**
+    * Replace the first src.length calls by src, the remainder by an empty heap, followed by target computation.
+    */
+  def getPartialTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State]  = throw new NotImplementedError("No partial target computation for this heap automaton")
 
   override def toString = description
 

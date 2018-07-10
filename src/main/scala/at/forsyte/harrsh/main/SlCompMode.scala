@@ -4,7 +4,7 @@ import java.io.File
 
 import scala.concurrent.duration.{Duration, SECONDS}
 import at.forsyte.harrsh.parsers.slcomp
-import at.forsyte.harrsh.refinement.{DecisionProcedures, RunSat}
+import at.forsyte.harrsh.refinement.{DecisionProcedures, RefinementInstance, RunSat}
 import at.forsyte.harrsh.seplog.SatBenchmark
 
 import scala.collection.mutable.ListBuffer
@@ -33,7 +33,13 @@ object SlCompMode {
           println(s"Constructed the following benchmark:\n$bm")
         }
       case "run" =>
-        run(args(1))
+        val incrementalFromNumCalls = try {
+          args.lift(2).map(Integer.parseInt)
+        } catch {
+          case _:Throwable => None
+        }
+        //println(incrementalFromNumCalls)
+        run(args(1), incrementalFromNumCalls)
       case "check" =>
         val verbose = try {
           args(2) == "verbose"
@@ -48,7 +54,7 @@ object SlCompMode {
     }
   }
 
-  def run(file: String, timeoutInSecs: Int = DEFAULT_TIMEOUT_IN_SECS) = {
+  def run(file: String, incrementalFromNumCalls: Option[Int] = None, timeoutInSecs: Int = DEFAULT_TIMEOUT_IN_SECS) = {
     val bm = parseBenchmark(file)
     val res = execute(bm, timeoutInSecs)
     println(res._1)
@@ -93,9 +99,13 @@ object SlCompMode {
     }
   }
 
-  def execute(bm: SatBenchmark, timeoutInSecs: Int = DEFAULT_TIMEOUT_IN_SECS, verbose: Boolean = false): (SatBenchmark.Status, Long) = {
+  def execute(bm: SatBenchmark, timeoutInSecs: Int = DEFAULT_TIMEOUT_IN_SECS, verbose: Boolean = false, incrementalFromNumCalls: Option[Int] = None): (SatBenchmark.Status, Long) = {
     val sid = bm.toIntegratedSid
     val timeout = Duration(timeoutInSecs, SECONDS)
+    incrementalFromNumCalls match {
+      case Some(value) => RefinementInstance.IncrementalFromNumCalls = value
+      case None => // Nothing to do
+    }
     val res: DecisionProcedures.AnalysisResult = DecisionProcedures.decideInstance(
       sid,
       RunSat.getAutomaton(sid.numFV),

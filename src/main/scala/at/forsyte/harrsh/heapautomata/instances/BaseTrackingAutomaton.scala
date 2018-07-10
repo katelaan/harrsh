@@ -53,6 +53,36 @@ abstract class BaseTrackingAutomaton(val numFV : Int) extends HeapAutomaton with
     if (stateWithClosure.isConsistent) stateWithClosure else inconsistentState
   }
 
+  override def implementsPartialTargets: Boolean = true
+
+  // TODO: Reduce code duplication
+  override def getPartialTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
+    logger.debug("Computing possible partial targets " + src.mkString(", ") + " --[" + lab + "]--> ???")
+
+    // Perform compression + subsequent equality/allocation propagation
+    val consistencyCheckedState = compressAndPropagatePartialTracking(src, lab)
+    // Break state down to only the free variables; the other information is not kept in the state space
+    val trg = consistencyCheckedState.dropNonFreeVariables
+
+    if (logger.underlying.isDebugEnabled && consistencyCheckedState != trg)
+      logger.debug("After dropping bound variables: " + trg)
+
+    // There is a unique target state because we always compute the congruence closure
+    Set(trg)
+  }
+
+  // TODO: Reduce code duplication
+  private def compressAndPropagatePartialTracking(src : Seq[TrackingInfo], lab : SymbolicHeap) : TrackingInfo = {
+    val compressed = Kernelizable.compressByPartialKernelization(lab, src)
+    logger.debug("Partially compressed " + lab + " into " + compressed)
+
+    val stateWithClosure = TrackingInfo.fromSymbolicHeap(compressed)
+    logger.debug("State for compressed SH: " + stateWithClosure)
+
+    // If the state is inconsistent, return the unique inconsistent state; otherwise return state as is
+    if (stateWithClosure.isConsistent) stateWithClosure else inconsistentState
+  }
+
 }
 
 object BaseTrackingAutomaton extends HarrshLogging {
