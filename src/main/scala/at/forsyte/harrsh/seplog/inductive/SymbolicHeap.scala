@@ -50,7 +50,7 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
 
   lazy val identsOfCalledPreds: Seq[String] = predCalls map (_.name)
 
-  lazy val equalities : Seq[PtrEq] = pure filter (_.isInstanceOf[PtrEq]) map (_.asInstanceOf[PtrEq])
+  lazy val equalities : Seq[PureAtom] = pure filter (_.isEquality)
 
   lazy val ptrComparisons : Seq[PureAtom] = pure filter (_.isPointerComparison)
 

@@ -32,7 +32,7 @@ object ModelToFormula {
   }
 
   private def equalities(vs : List[Var]) : Seq[PureAtom] = vs match {
-    case fst :: snd :: tl => PtrEq(PtrVar(fst), PtrVar(snd)) +: equalities(snd :: tl)
+    case fst :: snd :: tl => PtrEq(fst, snd) +: equalities(snd :: tl)
     case _ => Seq.empty
   }
 

@@ -73,8 +73,7 @@ object Determinization extends HarrshLogging {
   private def orderedPair(fst : Var, snd : Var) = if (fst < snd) (fst, snd) else (snd, fst)
 
   private def isInequalityBetween(fst : Var, snd: Var)(atom : PureAtom) : Boolean = atom match {
-    case PtrEq(l, r) => false
-    case PtrNEq(l, r) => (l.getVarOrZero == fst && r.getVarOrZero == snd) || (l.getVarOrZero == snd && r.getVarOrZero == fst)
+    case PureAtom(l, r, isEquality) => !isEquality && (l.getVarOrZero == fst && r.getVarOrZero == snd) || (l.getVarOrZero == snd && r.getVarOrZero == fst)
   }
 
 }

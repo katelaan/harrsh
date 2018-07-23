@@ -25,14 +25,12 @@ object EqualityUtils extends HarrshLogging {
   })
 
   def unwrapAtom(atom : PureAtom) : (Var, Var, Boolean) = atom match {
-    case PtrEq(l, r) => (l.getVarOrZero, r.getVarOrZero, true)
-    case PtrNEq(l, r) => (l.getVarOrZero, r.getVarOrZero, false)
-    case _ => throw new IllegalStateException("Heap automata are not defined on arithmetical expressions")
+    case PureAtom(l, r, isEquality) => (l.getVarOrZero, r.getVarOrZero, isEquality)
   }
 
   def orderedAtom(left : Var, right : Var, isEqual : Boolean): PureAtom = {
     val (small, large) = if (left < right) (left, right) else (right, left)
-    if (isEqual) PtrEq(small, large) else PtrNEq(small, large)
+    PureAtom(PtrExpr(small), PtrExpr(large), isEqual)
   }
 
   def orderedAtom(atom : PureAtom): PureAtom = {

@@ -57,11 +57,11 @@ object ConstraintPropagation {
   }
 
   def propagateEqualitiesToAlloc(explicit: Set[Var], allPure: Set[PureAtom]): Set[Var] = {
-    propagateEqualitiesToAllocAux(explicit, allPure.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq]).toSeq, explicit)
+    propagateEqualitiesToAllocAux(explicit, allPure.filter(_.isEquality).toSeq, explicit)
   }
 
   @tailrec
-  private def propagateEqualitiesToAllocAux(explicit: Set[Var], allPure: Seq[PtrEq], acc : Set[Var]): Set[Var] = {
+  private def propagateEqualitiesToAllocAux(explicit: Set[Var], allPure: Seq[PureAtom], acc : Set[Var]): Set[Var] = {
     if (allPure.isEmpty) acc else {
       val hd = allPure.head
       val (l, r) = (hd.l, hd.r)

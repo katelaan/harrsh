@@ -5,7 +5,7 @@ import at.forsyte.harrsh.heapautomata.utils.{StateTag, TrackingInfo}
 import at.forsyte.harrsh.refinement.AutomatonTask
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var._
-import at.forsyte.harrsh.seplog.inductive.{PtrEq, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{PtrEq, PureAtom, SymbolicHeap}
 import com.typesafe.scalalogging.LazyLogging
 
 /**
@@ -51,8 +51,7 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends T
     v.isFree || s.alloc.contains(v) || s.pure.exists({
       // Return true iff the pure atom witnesses that v is equal to a free variable
       // This is enough to show establishment, because we assume that s is congruence closed
-      case PtrEq(l, r) => (l.getVarOrZero == v && r.getVarOrZero.isFree) || (r.getVarOrZero == v && l.getVarOrZero.isFree)
-      case _ => false
+      case PureAtom(l, r, isEquality) => isEquality && ((l.getVarOrZero == v && r.getVarOrZero.isFree) || (r.getVarOrZero == v && l.getVarOrZero.isFree))
     })
   }
 

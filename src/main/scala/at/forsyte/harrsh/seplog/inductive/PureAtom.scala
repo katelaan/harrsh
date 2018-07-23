@@ -6,7 +6,7 @@ import at.forsyte.harrsh.seplog.{PtrExpr, Renaming, Var, VarNaming}
 /**
   * Created by jkatelaa on 10/3/16.
   */
-sealed trait PureAtom extends SepLogAtom with HarrshLogging {
+case class PureAtom(l: PtrExpr, r: PtrExpr, isEquality: Boolean) extends SepLogAtom with HarrshLogging {
 
   override def isSpatial = false
 
@@ -16,49 +16,31 @@ sealed trait PureAtom extends SepLogAtom with HarrshLogging {
 
   override def toSymbolicHeap = Some(SymbolicHeap(Seq(this), Seq.empty, Seq.empty))
 
-  override def renameVars(f: Renaming): PureAtom = this match {
-    case PtrEq(l, r) => PtrEq(l.renameVars(f), r.renameVars(f))
-    case PtrNEq(l, r) => PtrNEq(l.renameVars(f), r.renameVars(f))
-  }
+  override def renameVars(f: Renaming): PureAtom = PureAtom(l.renameVars(f), r.renameVars(f), isEquality)
 
-  override def getVars : Set[Var] = this match {
-    case PtrEq(l, r) => l.getNonNullVar union r.getNonNullVar
-    case PtrNEq(l, r) => l.getNonNullVar union r.getNonNullVar
-  }
+  override def getVars : Set[Var] = l.getNonNullVar union r.getNonNullVar
 
-  def getVarsWithNull : Set[Var] = this match {
-    case PtrEq(l, r) => Set(l.getVarOrZero, r.getVarOrZero)
-    case PtrNEq(l, r) => Set(l.getVarOrZero, r.getVarOrZero)
-  }
+  def getVarsWithNull : Set[Var] = Set(l.getVarOrZero, r.getVarOrZero)
 
   def comparesFree: Boolean = getVars.forall(_.isFree)
 
   def isPointerComparison = true
 
-  def ordered : PureAtom = this match {
-    case eq@PtrEq(l, r) => if (l < r) eq else PtrEq(r,l)
-    case neq@PtrNEq(l, r) => if (l < r) neq else PtrNEq(r,l)
+  def ordered : PureAtom = if (l < r) this else PureAtom(r, l, isEquality)
+
+  override def toStringWithVarNames(names: VarNaming): String = {
+    val op = if (isEquality) " \u2248 " else " \u2249 "
+    l.toStringWithVarNames(names) + op + r.toStringWithVarNames(names)
   }
 
-  val l: PtrExpr
-  val r: PtrExpr
-
-}
-
-//sealed trait EqualityPureAtom extends PureAtom
-
-case class PtrEq (override val l : PtrExpr, override val r : PtrExpr) extends /*Equality*/PureAtom {
-  override def toStringWithVarNames(names: VarNaming) = l.toStringWithVarNames(names) + " \u2248 " + r.toStringWithVarNames(names)
 }
 
 object PtrEq {
-  def apply(l : Var, r : Var) : PtrEq = PtrEq(PtrExpr(l), PtrExpr(r))
-}
-
-case class PtrNEq (override val l : PtrExpr, override val r : PtrExpr) extends /*Equality*/PureAtom {
-  override def toStringWithVarNames(names: VarNaming) = l.toStringWithVarNames(names) + " \u2249 " + r.toStringWithVarNames(names)
+  def apply(l : Var, r : Var) : PureAtom = PureAtom(PtrExpr(l), PtrExpr(r), true)
+  def apply(l : PtrExpr, r : PtrExpr) : PureAtom = PureAtom(l, r, true)
 }
 
 object PtrNEq {
-  def apply(l : Var, r : Var) : PtrNEq = PtrNEq(PtrExpr(l), PtrExpr(r))
+  def apply(l : Var, r : Var) : PureAtom = PureAtom(PtrExpr(l), PtrExpr(r), false)
+  def apply(l : PtrExpr, r : PtrExpr) : PureAtom = PureAtom(l, r, false)
 }

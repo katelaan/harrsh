@@ -34,7 +34,7 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
 
   it should "return all equalities" in {
     
-    def getEqSet(s : String) : Set[PtrEq] = s.parse.equalities.toSet
+    def getEqSet(s : String) : Set[PureAtom] = s.parse.equalities.toSet
 
     assert(getEqSet("emp * P(x1,y1) * x1 -> y1 * Q(x1, y1)") == Set.empty)
     assert(getEqSet("emp * P(x1,y1) * x1 -> y1 * Q(x1, y1) : {x1 != y1}") == Set.empty)

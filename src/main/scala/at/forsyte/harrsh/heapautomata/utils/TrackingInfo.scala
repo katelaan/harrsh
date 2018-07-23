@@ -12,7 +12,7 @@ import at.forsyte.harrsh.util.Combinators
   */
 case class TrackingInfo private (alloc: Set[Var], pure: Set[PureAtom]) extends Kernelizable with HarrshLogging {
 
-  def equalities : Set[PtrEq] = pure.filter(_.isInstanceOf[PtrEq]).map(_.asInstanceOf[PtrEq])
+  def equalities : Set[PureAtom] = pure.filter(_.isEquality)
 
   def dropNonFreeVariables : TrackingInfo = {
     TrackingInfo(alloc.filter(_.isFree),
@@ -26,7 +26,7 @@ case class TrackingInfo private (alloc: Set[Var], pure: Set[PureAtom]) extends K
   lazy val isConsistent : Boolean =
     !pure.exists {
       // Find inequality with two identical arguments
-      case PtrNEq(l, r) if l == r => true
+      case PureAtom(l, r, false) if l == r => true
       case _ => false
     } && !alloc.contains(Var.nil)
 
@@ -69,6 +69,6 @@ object TrackingInfo {
 
   def fromPair = TrackingInfo
 
-  def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = TrackingInfo(Set(), Set() ++ mkAllVars(0 to numFV) map (fv => PtrNEq(PtrExpr(fv),PtrExpr(fv))))
+  def inconsistentTrackingInfo(numFV : Int) : TrackingInfo = TrackingInfo(Set(), Set() ++ mkAllVars(0 to numFV) map (fv => PtrNEq(fv,fv)))
 
 }

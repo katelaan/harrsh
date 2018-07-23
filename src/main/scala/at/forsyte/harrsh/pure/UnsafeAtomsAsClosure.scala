@@ -50,6 +50,6 @@ private[pure] case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends C
     */
   override def isConsistent: Boolean = {
     // TODO Code duplication with ClosureOfAtomSet
-    !asSetOfAtoms.exists(atom => atom.isInstanceOf[PtrEq] && atom.getVarsWithNull.size == 1)
+    !asSetOfAtoms.exists(atom => !atom.isEquality && atom.getVarsWithNull.size == 1)
   }
 }

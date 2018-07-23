@@ -119,7 +119,7 @@ object Model {
       }
       val cl: Closure = Closure.ofSetOfAtoms(sh.pure.toSet ++ allocAtoms ++ diffAtoms)
 
-      if (cl.asSetOfAtoms.exists(atom => atom.isInstanceOf[PtrNEq] && atom.getVarsWithNull.size == 1)) {
+      if (cl.asSetOfAtoms.exists(atom => !atom.isEquality && atom.getVarsWithNull.size == 1)) {
         println("Can't get model for unsatisfiable heap")
         None
       } else {
@@ -148,16 +148,11 @@ object Model {
   }
 
   def evalInStack(stack: Map[Var, Loc], pure: PureAtom): Boolean = {
-    val isEquality = pure match {
-      case PtrEq(l, r) => true
-      case PtrNEq(l, r) => false
-    }
-
     val leftVar = pure.l.getVarOrZero
     val leftLoc = if (leftVar.isNull) NullLoc else stack(leftVar)
     val rightVar = pure.r.getVarOrZero
     val rightLoc = if (rightVar.isNull) NullLoc else stack(rightVar)
-    (leftLoc == rightLoc) == isEquality
+    (leftLoc == rightLoc) == pure.isEquality
   }
 
   def evalInStack(stack: Map[Var, Loc], pure: Seq[PureAtom]): Boolean = pure.forall(evalInStack(stack, _))

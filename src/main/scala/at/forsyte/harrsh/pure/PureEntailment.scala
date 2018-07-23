@@ -21,7 +21,7 @@ object PureEntailment extends HarrshLogging {
 
       // TODO Actually there is no need to compute the closure explicitly, should improve this at some point
       // Every equality and disequality in the rhs should be respected by the lhs, apart from explicit equalities of the kind x == x
-      def notTautology(atom: PureAtom) = atom.isInstanceOf[PtrNEq] || atom.getVarsWithNull.size == 2
+      def notTautology(atom: PureAtom) = !atom.isEquality || atom.getVarsWithNull.size == 2
 
       // TODO The following is not robust, since I rely on the implementation-specific detail that the closure returns ordered atoms (in each atom, smaller var on the left)
       val lhsClosureSet = lhsClosure.asSetOfAtoms filter notTautology

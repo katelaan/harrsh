@@ -36,7 +36,7 @@ object EqualityBasedSimplifications extends HarrshLogging {
   }
 
   private def asEqualityWithBoundPart(atom : PureAtom) : Option[(Var,Var)] = atom match {
-    case PtrEq(l, r) =>
+    case PureAtom(l, r, true) =>
       val lFree = l.getVarOrZero.isFree
       val rFree = r.getVarOrZero.isFree
       // If one of the vars is free, we replace the bound var by the free var...
@@ -46,7 +46,7 @@ object EqualityBasedSimplifications extends HarrshLogging {
       else if (!lFree && !rFree) Some(l.getVarOrZero, r.getVarOrZero)
       // ...but if both are free, we cannot do anything, because we do not want to influence the arity of the heap
       else None
-    case PtrNEq(l, r) => None
+    case _ => None
   }
 
   /**
@@ -60,8 +60,7 @@ object EqualityBasedSimplifications extends HarrshLogging {
   }
 
   private def isTautology(atom : PureAtom) : Boolean = atom match {
-    case PtrEq(l, r) => l == r
-    case PtrNEq(l, r) => false
+    case PureAtom(l, r, isEquality) => isEquality && l == r
   }
 
 }
