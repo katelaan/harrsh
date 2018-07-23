@@ -361,7 +361,7 @@ object SymbolicHeap extends HarrshLogging {
     }._1
   }
 
-  def renameFVs(sh: SymbolicHeap, newVarNames: Seq[Var]) = {
+  def renameFVs(sh: SymbolicHeap, newVarNames: Seq[Var]): SymbolicHeap = {
     assert(sh.numFV == newVarNames.length)
     assert(newVarNames forall (_.isFree))
     val renamingMap = Map.empty ++ newVarNames.zipWithIndex.map{pair => (Var(pair._2 + 1), pair._1)}

@@ -12,7 +12,7 @@ import at.forsyte.harrsh.util.Combinators
 /**
   * Created by jkatelaa on 10/18/16.
   */
-abstract class BaseTrackingAutomaton(val numFV : Int) extends HeapAutomaton with FVBound with InconsistentState with TaggedTargetComputation[TrackingInfo] {
+abstract class BaseTrackingAutomaton(override val numFV : Int) extends HeapAutomaton with FVBound with InconsistentState with TaggedTargetComputation[TrackingInfo] {
 
   override type State = TrackingInfo
 

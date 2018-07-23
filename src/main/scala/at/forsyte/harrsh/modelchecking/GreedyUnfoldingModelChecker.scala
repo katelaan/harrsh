@@ -43,7 +43,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
   def isModel(model: Model, formula : SymbolicHeap, sid: SID, reportProgress: Boolean): Boolean = {
 
     val modelFormula = ModelToFormula(model)
-    val map = sid.rulesAsHeadToBodyMap
+    val map = sid.predToRuleBodies
 
     new GreedyUnfolding(map, reportProgress).run(modelFormula, formula, MCHistory.emptyHistory)
   }
@@ -63,7 +63,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     // Using the model checker for reduced entailment is only sound if the lhs is well-determined
     assert(Determinization.isDetermined(lhs))
 
-    val res = new GreedyUnfolding(sid.rulesAsHeadToBodyMap, reportProgress).run(lhs, rhs, MCHistory.emptyHistory)
+    val res = new GreedyUnfolding(sid.predToRuleBodies, reportProgress).run(lhs, rhs, MCHistory.emptyHistory)
     IOUtils.printIf(reportProgress)("    REDENT result: " + res)
     res
   }

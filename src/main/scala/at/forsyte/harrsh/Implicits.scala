@@ -88,7 +88,7 @@ object Implicits {
     def exists(task : AutomatonTask) : Boolean = !hasEmptyIntersectionWithLanguageOf(task)
 
     def witness : Option[SymbolicHeap] = {
-      if (sid.rulesAsHeadToBodyMap.keySet.contains(sid.startPred)) {
+      if (sid.predToRuleBodies.keySet.contains(sid.startPred)) {
         // There is a rule for the start predicate. Assume this means non-emptiness (also this is not necessarily true)
         // TODO: Perform an actual emptiness test here?
         Some(SIDUnfolding.firstReducedUnfolding(sid))

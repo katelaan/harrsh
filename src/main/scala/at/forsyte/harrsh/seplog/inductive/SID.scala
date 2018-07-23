@@ -13,19 +13,28 @@ case class SID(startPred : String, rules : Seq[Rule], description : String, numF
     description + " (start predicate '" + startPred + "'): " + rules.sortBy(_.head).mkString("\n    ", " ; \n    ", "")
   }
 
-  // Note that we take the maximum here, because we allow that some of the rules do not mention all FVs (and in particular not the maxFV; see also DefaultSID parser
-  lazy val arityOfStartPred : Int = {
-    val startRules = rules.filter(_.head == startPred)
-    if (startRules.isEmpty) 0 else startRules.map(rule => rule.freeVars.size).max
+  lazy val predicates: Set[String] = rules.map(_.head).toSet
+
+  lazy val arityOfStartPred : Int = arity(startPred)
+
+  def arity(pred: String): Int = {
+    val predRules = rules.filter(_.head == pred)
+    // Note that we take the maximum here, because we allow that some of the rules do not mention all FVs
+    // (and in particular not the maxFV; see also DefaultSID parser)
+    if (predRules.isEmpty) 0 else predRules.map(_.freeVars.size).max
   }
 
   def callToStartPred: SymbolicHeap = {
     val initialArgs: Seq[PtrExpr] = (1 to arityOfStartPred) map (i => PtrVar(Var(i)).asInstanceOf[PtrExpr])
-    val initial = SymbolicHeap(Seq.empty, Seq(PredCall(startPred, initialArgs)))
-    initial
+    SymbolicHeap(Seq.empty, Seq(PredCall(startPred, initialArgs)))
   }
 
-  lazy val rulesAsHeadToBodyMap: Map[String, Set[SymbolicHeap]] = {
+  def callToPred(pred: String): SymbolicHeap = {
+    val initialArgs: Seq[PtrExpr] = (1 to arity(pred)) map (i => PtrVar(Var(i)).asInstanceOf[PtrExpr])
+    SymbolicHeap(Seq.empty, Seq(PredCall(startPred, initialArgs)))
+  }
+
+  lazy val predToRuleBodies: Map[String, Set[SymbolicHeap]] = {
     def extractBodies(group: (String, Seq[Rule])) = {
       (group._1, group._2.map(_.body).toSet)
     }

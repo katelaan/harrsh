@@ -14,14 +14,14 @@ object SIDUnfolding extends HarrshLogging {
   def unfoldSingleCall(sh : SymbolicHeap, call : PredCall, sid : SID) : Seq[SymbolicHeap] = {
     logger.debug("Unfolding " + call + " in " + sh)
 
-    (for (body <- sid.rulesAsHeadToBodyMap(call.name)) yield sh.replaceCall(call, body)).toSeq
+    (for (body <- sid.predToRuleBodies(call.name)) yield sh.replaceCall(call, body)).toSeq
   }
 
   def unfold(sid : SID, depth: Int, reducedOnly : Boolean = false): Seq[SymbolicHeap] = {
 
     logger.debug("Unfolding sid " + sid)
 
-    val predsToBodies: Map[String, Set[SymbolicHeap]] = sid.rulesAsHeadToBodyMap
+    val predsToBodies: Map[String, Set[SymbolicHeap]] = sid.predToRuleBodies
 
     val initial: SymbolicHeap = sid.callToStartPred
 
@@ -50,7 +50,7 @@ object SIDUnfolding extends HarrshLogging {
     * @param heaps Heaps to unfold
     * @return Unfolded heaps
     */
-  def unfoldOnce(sid : SID, heaps : Seq[SymbolicHeap]) : Seq[SymbolicHeap] = unfoldStep(sid.rulesAsHeadToBodyMap, Seq.empty, heaps, 1, doAccumulateSteps = false)
+  def unfoldOnce(sid : SID, heaps : Seq[SymbolicHeap]) : Seq[SymbolicHeap] = unfoldStep(sid.predToRuleBodies, Seq.empty, heaps, 1, doAccumulateSteps = false)
 
   private def unfoldStep(predsToBodies: Map[String, Set[SymbolicHeap]], acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int, doAccumulateSteps: Boolean = true): Seq[SymbolicHeap] = {
     logger.debug("Currently active instances: " + curr.mkString(", "))
