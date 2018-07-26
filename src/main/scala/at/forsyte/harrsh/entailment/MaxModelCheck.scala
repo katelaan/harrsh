@@ -8,7 +8,7 @@ object MaxModelCheck {
   type MaxMCRes = (Model, UnfoldingTree)
 
   def apply(model: Model, pred: String, sid: SID): MaxMCRes = {
-    assert(sid.predicates.contains(pred))
+    assert(sid.predIdents.contains(pred))
     val ut = UnfoldingTree.fromPredicate(pred, sid)
     apply(model, ut, sid)
   }

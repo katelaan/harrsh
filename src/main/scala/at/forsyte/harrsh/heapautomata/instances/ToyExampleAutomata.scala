@@ -19,26 +19,14 @@ object ToyExampleAutomata {
 
     override type State = Boolean
 
-    override val states: Set[State] = Set(true, false)
-
     override def isFinal(s: State): Boolean = s != negate
 
-    // No restrictions regarding the SH
-    override def doesAlphabetContain(lab: SymbolicHeap): Boolean = true
-
-    override def isTransitionDefined(src: Seq[State], trg: State, lab: SymbolicHeap): Boolean = {
-      val res = trg match {
-        case false =>
-          // Trg false only if all sources are false and the given SH does not contain a pointer
-          !src.exists(b => b) && !lab.hasPointer
-        case true =>
-          // The converse
-          src.exists(b => b) || lab.hasPointer
-      }
-      logger.debug("Transition " + src.mkString(", ") + "--[" + lab + "]-->" + trg + " : " + res)
-      res
+    /**
+      * Direct target computation
+      */
+    override def getTargetsFor(src: Seq[State], lab: SymbolicHeap): Set[State] = {
+      Set(lab.hasPointer || src.exists(b => b))
     }
-
   }
 
   lazy val EvenAutomaton = moduloAutomaton(0,2)
@@ -49,12 +37,7 @@ object ToyExampleAutomata {
 
     override type State = Int
 
-    override val states: Set[State] = Set() ++ (0 until divisor)
-
     override def isFinal(s: State): Boolean = (s == remainder) != negate
-
-    // No restrictions regarding the SH
-    override def doesAlphabetContain(lab: SymbolicHeap): Boolean = true
 
     override def isTransitionDefined(src: Seq[State], trg: State, lab: SymbolicHeap): Boolean = {
       val sum = (src.sum + lab.pointers.size) % divisor
@@ -62,8 +45,6 @@ object ToyExampleAutomata {
       logger.debug("Transition " + src.mkString(", ") + "--[" + lab + "]-->" + trg + " : " + res)
       res
     }
-
-    override def implementsTargetComputation: Boolean = true
 
     override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
       Set((src.sum + lab.pointers.size) % divisor)

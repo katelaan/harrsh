@@ -108,7 +108,7 @@ object SlCompMode {
     }
     val res: DecisionProcedures.AnalysisResult = DecisionProcedures.decideInstance(
       sid,
-      RunSat.getAutomaton(sid.numFV),
+      RunSat.getAutomaton,
       timeout,
       skipSinksAsSources = true,
       verbose = verbose,

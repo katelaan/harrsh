@@ -29,17 +29,15 @@ trait Renaming {
     * @param p
     * @return Renaming with !p pairs removed
     */
-  def filter(p : ((Var,Var)) => Boolean) : Renaming
+  def filter(p : (Var,Var) => Boolean) : Renaming
 
-  private final def freshName(varid: Var): Var =
-    if (!codomain.contains(varid)) {
-      varid
-    } else if (varid.toInt < 0) {
-      freshName(Var(varid.toInt-1))
-      // TODO Is it possible to skip directly to the minimum? Want to avoid gaps
-      //codomain.min - 1
+  private final def freshName(v: Var): Var =
+    if (!codomain.contains(v)) {
+      v
+    } else if (v.isBound) {
+      freshName(BoundVar(v.asInstanceOf[BoundVar].index + 1))
     } else {
-      Var(codomain.map(_.toInt).max + 1)
+      Var.freshFreeVar(codomain)
     }
 
   final def addBoundVarWithOptionalAlphaConversion(varid: Var) : Renaming = {
@@ -60,7 +58,7 @@ object Renaming {
     */
   def clashAvoidanceRenaming(varClashes : Iterable[Var]) : Renaming = {
     val entries = varClashes.zipWithIndex map {
-      case (v,i) => (Var(Integer.MIN_VALUE + i), v)
+      case (v,i) => (BoundVar(Integer.MIN_VALUE + i), v)
     }
     fromPairs(entries)
   }
@@ -75,13 +73,13 @@ object Renaming {
 
     override def apply(x: Var): Var = map.getOrElse(x, x)
 
-    override def extendWith(k: Var, v: Var): Renaming = MapBasedRenaming(map + (k -> v))
+    override def extendWith(k: Var, v: Var): Renaming = MapBasedRenaming(map.updated(k, v))
 
     override def toString = "[" + map.map(p => p._1 + "->" + p._2).mkString(",") + "]"
 
     override def isDefinedAt(s: Var): Boolean = map.isDefinedAt(s)
 
-    override def filter(p: ((Var, Var)) => Boolean): Renaming = MapBasedRenaming(map.filter(p))
+    override def filter(p: (Var, Var) => Boolean): Renaming = MapBasedRenaming(map.filter(p.tupled))
   }
 
 }

@@ -2,8 +2,6 @@ package at.forsyte.harrsh.hepautomata
 
 import at.forsyte.harrsh.{ExampleSIDs, TestValues}
 import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
-import at.forsyte.harrsh.pure.EqualityUtils.mkPure
-import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.heapautomata.instances.{ToyExampleAutomata, TrackingAutomata}
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.test.HarrshTableTest
@@ -14,7 +12,7 @@ import at.forsyte.harrsh.Implicits._
   */
 class HeapAutomataTest extends HarrshTableTest with TestValues {
 
-  val inconsistent2 = TrackingInfo.inconsistentTrackingInfo(2)
+  val inconsistentX1X2 = TrackingInfo.inconsistentTrackingInfo(Seq(x1,x2))
 
   val Empty = true
   val NonEmpty = false
@@ -37,116 +35,116 @@ class HeapAutomataTest extends HarrshTableTest with TestValues {
      * Tracking automata
       */
     // - Normal tests
-    (TrackingAutomata.singleTargetStateTracking(3, Set(x1), mkPure()), ExampleSIDs.Sll, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(2, Set(x1), mkPure((1, 2, NonEmpty))), ExampleSIDs.Sll, Empty),
-    (TrackingAutomata.singleTargetStateTracking(2, Set(x1), mkPure()), ExampleSIDs.EmptyLinearPermuter, Empty),
-    (TrackingAutomata.singleTargetStateTracking(2, Set(), mkPure((1, 2, Empty))), ExampleSIDs.EmptyLinearPermuter, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(4, Set(x1,x4), mkPure()), ExampleSIDs.Dll, Empty),
-    (TrackingAutomata.singleTargetStateTracking(1, Set(x1), mkPure()), ExampleSIDs.Tree, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(3, Set(x1,x2), mkPure((1,2,NonEmpty))), ExampleSIDs.Tll, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(Set(x1), Set()), ExampleSIDs.Sll, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(Set(x1), Set(x1 =/= x2)), ExampleSIDs.Sll, Empty),
+    (TrackingAutomata.singleTargetStateTracking(Set(x1), Set()), ExampleSIDs.EmptyLinearPermuter, Empty),
+    (TrackingAutomata.singleTargetStateTracking(Set(), Set(x1 =:= x2)), ExampleSIDs.EmptyLinearPermuter, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(Set(x1,x4), Set()), ExampleSIDs.Dll, Empty),
+    (TrackingAutomata.singleTargetStateTracking(Set(x1), Set()), ExampleSIDs.Tree, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(Set(x1,x2), Set(x1 =/= x2)), ExampleSIDs.Tll, NonEmpty),
     // - Inconsistency checks for tracking
-    (TrackingAutomata.singleTargetStateTracking(2, inconsistent2.alloc, inconsistent2.pure), ExampleSIDs.NonEmptyBinaryPermuter, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(2, inconsistent2.alloc, inconsistent2.pure), ExampleSIDs.NonEmptyBinaryPermuter2, NonEmpty),
-    (TrackingAutomata.singleTargetStateTracking(2, inconsistent2.alloc, inconsistent2.pure), ExampleSIDs.NonEmptyBinaryPermuter3, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(inconsistentX1X2.alloc, inconsistentX1X2.pure), ExampleSIDs.NonEmptyBinaryPermuter, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(inconsistentX1X2.alloc, inconsistentX1X2.pure), ExampleSIDs.NonEmptyBinaryPermuter2, NonEmpty),
+    (TrackingAutomata.singleTargetStateTracking(inconsistentX1X2.alloc, inconsistentX1X2.pure), ExampleSIDs.NonEmptyBinaryPermuter3, NonEmpty),
 
     /*
      * SAT automata
      */
     // - on SIDs that produce at least one satisfiable heap
-    (TrackingAutomata.satAutomaton(2), ExampleSIDs.Sll, NonEmpty),
-    (TrackingAutomata.satAutomaton(4), ExampleSIDs.Dll, NonEmpty),
-    (TrackingAutomata.satAutomaton(1), ExampleSIDs.Tree, NonEmpty),
-    (TrackingAutomata.satAutomaton(3), ExampleSIDs.Tll, NonEmpty),
-    (TrackingAutomata.satAutomaton(2), ExampleSIDs.EmptyLinearPermuter, NonEmpty),
-    (TrackingAutomata.satAutomaton(2), ExampleSIDs.NonEmptyLinearPermuter, NonEmpty),
-    (TrackingAutomata.satAutomaton(2), ExampleSIDs.NonEmptyBinaryPermuter, NonEmpty),
+    (TrackingAutomata.satAutomaton, ExampleSIDs.Sll, NonEmpty),
+    (TrackingAutomata.satAutomaton, ExampleSIDs.Dll, NonEmpty),
+    (TrackingAutomata.satAutomaton, ExampleSIDs.Tree, NonEmpty),
+    (TrackingAutomata.satAutomaton, ExampleSIDs.Tll, NonEmpty),
+    (TrackingAutomata.satAutomaton, ExampleSIDs.EmptyLinearPermuter, NonEmpty),
+    (TrackingAutomata.satAutomaton, ExampleSIDs.NonEmptyLinearPermuter, NonEmpty),
+    (TrackingAutomata.satAutomaton, ExampleSIDs.NonEmptyBinaryPermuter, NonEmpty),
 
     /*
      * UNSAT automata
      */
-    (TrackingAutomata.satAutomaton(2), ExampleSIDs.UnsatSID, Empty),
+    (TrackingAutomata.satAutomaton, ExampleSIDs.UnsatSID, Empty),
     // - with consistent SIDs that do not produce unsatisfiable heaps
-    (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.Sll, Empty),
-    (TrackingAutomata.unsatAutomaton(4), ExampleSIDs.Dll, Empty),
-    (TrackingAutomata.unsatAutomaton(1), ExampleSIDs.Tree, Empty),
-    (TrackingAutomata.unsatAutomaton(3), ExampleSIDs.Tll, Empty),
-    (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.EmptyLinearPermuter, Empty),
-    (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.NonEmptyLinearPermuter, Empty),
+    (TrackingAutomata.unsatAutomaton, ExampleSIDs.Sll, Empty),
+    (TrackingAutomata.unsatAutomaton, ExampleSIDs.Dll, Empty),
+    (TrackingAutomata.unsatAutomaton, ExampleSIDs.Tree, Empty),
+    (TrackingAutomata.unsatAutomaton, ExampleSIDs.Tll, Empty),
+    (TrackingAutomata.unsatAutomaton, ExampleSIDs.EmptyLinearPermuter, Empty),
+    (TrackingAutomata.unsatAutomaton, ExampleSIDs.NonEmptyLinearPermuter, Empty),
     // - with inconsistent SIDs that do produce unsatisfiable heaps
-    (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.NonEmptyBinaryPermuter, NonEmpty),
-    (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.NonEmptyBinaryPermuter2, NonEmpty),
-    (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.NonEmptyBinaryPermuter3, NonEmpty),
+    (TrackingAutomata.unsatAutomaton, ExampleSIDs.NonEmptyBinaryPermuter, NonEmpty),
+    (TrackingAutomata.unsatAutomaton, ExampleSIDs.NonEmptyBinaryPermuter2, NonEmpty),
+    (TrackingAutomata.unsatAutomaton, ExampleSIDs.NonEmptyBinaryPermuter3, NonEmpty),
     //- with unsatisfiable SIDs
-    (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.UnsatSID, NonEmpty),
-    (TrackingAutomata.unsatAutomaton(2), ExampleSIDs.UnsatSID2, NonEmpty),
+    (TrackingAutomata.unsatAutomaton, ExampleSIDs.UnsatSID, NonEmpty),
+    (TrackingAutomata.unsatAutomaton, ExampleSIDs.UnsatSID2, NonEmpty),
 
     /*
      * Establishment automata
      */
     // - with established data structure SIDs
-    (TrackingAutomata.establishmentAutomaton(2), ExampleSIDs.Sll, NonEmpty),
-    (TrackingAutomata.establishmentAutomaton(4), ExampleSIDs.Dll, NonEmpty),
-    (TrackingAutomata.establishmentAutomaton(1), ExampleSIDs.Tree, NonEmpty),
-    (TrackingAutomata.establishmentAutomaton(3), ExampleSIDs.Tll, NonEmpty),
+    (TrackingAutomata.establishmentAutomaton, ExampleSIDs.Sll, NonEmpty),
+    (TrackingAutomata.establishmentAutomaton, ExampleSIDs.Dll, NonEmpty),
+    (TrackingAutomata.establishmentAutomaton, ExampleSIDs.Tree, NonEmpty),
+    (TrackingAutomata.establishmentAutomaton, ExampleSIDs.Tll, NonEmpty),
     // - with unsat SIDs (Inconsistent heaps are established in our current interpretation)
-    (TrackingAutomata.establishmentAutomaton(2), ExampleSIDs.UnsatSID, NonEmpty),
-    (TrackingAutomata.establishmentAutomaton(2), ExampleSIDs.UnsatSID2, NonEmpty),
+    (TrackingAutomata.establishmentAutomaton, ExampleSIDs.UnsatSID, NonEmpty),
+    (TrackingAutomata.establishmentAutomaton, ExampleSIDs.UnsatSID2, NonEmpty),
     // - with partially-established SIDs
-    (TrackingAutomata.establishmentAutomaton(2), ExampleSIDs.OptionallyEstablishedSID, NonEmpty),
-    (TrackingAutomata.establishmentAutomaton(2), ExampleSIDs.OptionallyEstablishedSID2, NonEmpty),
-    (TrackingAutomata.establishmentAutomaton(2), ExampleSIDs.OptionallyEstablishedSID3, NonEmpty),
-    (TrackingAutomata.establishmentAutomaton(2), ExampleSIDs.OptionallyEstablishedSID4, NonEmpty),
+    (TrackingAutomata.establishmentAutomaton, ExampleSIDs.OptionallyEstablishedSID, NonEmpty),
+    (TrackingAutomata.establishmentAutomaton, ExampleSIDs.OptionallyEstablishedSID2, NonEmpty),
+    (TrackingAutomata.establishmentAutomaton, ExampleSIDs.OptionallyEstablishedSID3, NonEmpty),
+    (TrackingAutomata.establishmentAutomaton, ExampleSIDs.OptionallyEstablishedSID4, NonEmpty),
     // - non-established SIDs
-    (TrackingAutomata.establishmentAutomaton(2), ExampleSIDs.NonEstablishedSID, Empty),
-    (TrackingAutomata.establishmentAutomaton(2), ExampleSIDs.NonEstablishedSID2, Empty),
+    (TrackingAutomata.establishmentAutomaton, ExampleSIDs.NonEstablishedSID, Empty),
+    (TrackingAutomata.establishmentAutomaton, ExampleSIDs.NonEstablishedSID2, Empty),
 
     /*
      * Non-Establishment automata
      */
     // - with established data structure SIDs
-    (TrackingAutomata.nonEstablishmentAutomaton(2), ExampleSIDs.Sll, Empty),
-    (TrackingAutomata.nonEstablishmentAutomaton(4), ExampleSIDs.Dll, Empty),
-    (TrackingAutomata.nonEstablishmentAutomaton(1), ExampleSIDs.Tree, Empty),
-    (TrackingAutomata.nonEstablishmentAutomaton(3), ExampleSIDs.Tll, Empty),
+    (TrackingAutomata.nonEstablishmentAutomaton, ExampleSIDs.Sll, Empty),
+    (TrackingAutomata.nonEstablishmentAutomaton, ExampleSIDs.Dll, Empty),
+    (TrackingAutomata.nonEstablishmentAutomaton, ExampleSIDs.Tree, Empty),
+    (TrackingAutomata.nonEstablishmentAutomaton, ExampleSIDs.Tll, Empty),
     // - with partially-established SIDs
-    (TrackingAutomata.nonEstablishmentAutomaton(2), ExampleSIDs.OptionallyEstablishedSID, NonEmpty),
-    (TrackingAutomata.nonEstablishmentAutomaton(2), ExampleSIDs.OptionallyEstablishedSID2, NonEmpty),
-    (TrackingAutomata.nonEstablishmentAutomaton(2), ExampleSIDs.OptionallyEstablishedSID3, NonEmpty),
-    (TrackingAutomata.nonEstablishmentAutomaton(2), ExampleSIDs.OptionallyEstablishedSID4, NonEmpty),
+    (TrackingAutomata.nonEstablishmentAutomaton, ExampleSIDs.OptionallyEstablishedSID, NonEmpty),
+    (TrackingAutomata.nonEstablishmentAutomaton, ExampleSIDs.OptionallyEstablishedSID2, NonEmpty),
+    (TrackingAutomata.nonEstablishmentAutomaton, ExampleSIDs.OptionallyEstablishedSID3, NonEmpty),
+    (TrackingAutomata.nonEstablishmentAutomaton, ExampleSIDs.OptionallyEstablishedSID4, NonEmpty),
 
     /*
      * Reachability automata
      */
-    (TrackingAutomata.reachabilityAutomaton(2, x1, x2), ExampleSIDs.Sll, NonEmpty),
-    (TrackingAutomata.reachabilityAutomaton(4, x1, x4), ExampleSIDs.Dll, NonEmpty),
-    (TrackingAutomata.reachabilityAutomaton(1, x1, nil), ExampleSIDs.Tree, NonEmpty),
-    (TrackingAutomata.reachabilityAutomaton(3, x1, x2), ExampleSIDs.Tll, NonEmpty),
+    (TrackingAutomata.reachabilityAutomaton(x1, x2), ExampleSIDs.Sll, NonEmpty),
+    (TrackingAutomata.reachabilityAutomaton(x1, x4), ExampleSIDs.Dll, NonEmpty),
+    (TrackingAutomata.reachabilityAutomaton(x1, nil), ExampleSIDs.Tree, NonEmpty),
+    (TrackingAutomata.reachabilityAutomaton(x1, x2), ExampleSIDs.Tll, NonEmpty),
 
     /*
      * Garbage-freedom automata
      */
-    (TrackingAutomata.garbageFreedomAutomaton(2), ExampleSIDs.Sll, NonEmpty),
-    (TrackingAutomata.garbageFreedomAutomaton(4), ExampleSIDs.Dll, NonEmpty),
-    (TrackingAutomata.garbageFreedomAutomaton(1), ExampleSIDs.Tree, NonEmpty),
-    (TrackingAutomata.garbageFreedomAutomaton(3), ExampleSIDs.Tll, NonEmpty),
-    (TrackingAutomata.garbageFreedomAutomaton(3), ExampleSIDs.GarbageSll, Empty),
+    (TrackingAutomata.garbageFreedomAutomaton, ExampleSIDs.Sll, NonEmpty),
+    (TrackingAutomata.garbageFreedomAutomaton, ExampleSIDs.Dll, NonEmpty),
+    (TrackingAutomata.garbageFreedomAutomaton, ExampleSIDs.Tree, NonEmpty),
+    (TrackingAutomata.garbageFreedomAutomaton, ExampleSIDs.Tll, NonEmpty),
+    (TrackingAutomata.garbageFreedomAutomaton, ExampleSIDs.GarbageSll, Empty),
 
     /*
      * Acyclicity automata
      */
-    (TrackingAutomata.weakAcyclicityAutomaton(2), ExampleSIDs.Sll, NonEmpty),
-    (TrackingAutomata.weakAcyclicityAutomaton(4), ExampleSIDs.Dll, NonEmpty),
-    (TrackingAutomata.weakAcyclicityAutomaton(1), ExampleSIDs.Tree, NonEmpty),
-    (TrackingAutomata.weakAcyclicityAutomaton(3), ExampleSIDs.Tll, NonEmpty),
-    (TrackingAutomata.weakAcyclicityAutomaton(2), ExampleSIDs.CyclicSll, Empty),
+    (TrackingAutomata.weakAcyclicityAutomaton, ExampleSIDs.Sll, NonEmpty),
+    (TrackingAutomata.weakAcyclicityAutomaton, ExampleSIDs.Dll, NonEmpty),
+    (TrackingAutomata.weakAcyclicityAutomaton, ExampleSIDs.Tree, NonEmpty),
+    (TrackingAutomata.weakAcyclicityAutomaton, ExampleSIDs.Tll, NonEmpty),
+    (TrackingAutomata.weakAcyclicityAutomaton, ExampleSIDs.CyclicSll, Empty),
 
     /*
      * Small circuit examples
      */
-    (TrackingAutomata.satAutomaton(3), "succ-circuit02.defs".load(), NonEmpty),
-    (TrackingAutomata.satAutomaton(3), "succ-rec02.defs".load(), NonEmpty),
-    (TrackingAutomata.unsatAutomaton(3), "succ-circuit02.defs".load(), NonEmpty),
-    (TrackingAutomata.unsatAutomaton(3), "succ-rec02.defs".load(), NonEmpty)
+    (TrackingAutomata.satAutomaton, "succ-circuit02.defs".load(), NonEmpty),
+    (TrackingAutomata.satAutomaton, "succ-rec02.defs".load(), NonEmpty),
+    (TrackingAutomata.unsatAutomaton, "succ-circuit02.defs".load(), NonEmpty),
+    (TrackingAutomata.unsatAutomaton, "succ-rec02.defs".load(), NonEmpty)
 
   )
 
@@ -164,10 +162,11 @@ class HeapAutomataTest extends HarrshTableTest with TestValues {
 
   }
 
-  // Note: To try a single test case, comment out the following
-//  val (extraAUT, extraSID, extraRes) = (TrackingAutomata.reachabilityAutomaton(2, x1, x2), ExampleSIDs.Sll, NonEmpty)
+//  // Note: To try a single test case, uncomment the following
+//  val (extraAUT, extraSID, extraRes) = (TrackingAutomata.establishmentAutomaton, ExampleSIDs.NonEstablishedSID, Empty)
 //
 //  println("Testing emptiness for refinement of " + extraSID + "\n with the automaton '" + extraAUT.description + "'; expected result: " + extraRes)
 //  RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(extraSID, extraAUT, reportProgress = true) should be(extraRes)
+//  println("########")
 
 }

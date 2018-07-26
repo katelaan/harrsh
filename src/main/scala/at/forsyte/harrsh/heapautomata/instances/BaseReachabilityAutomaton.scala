@@ -1,15 +1,15 @@
 package at.forsyte.harrsh.heapautomata.instances
 
 import at.forsyte.harrsh.heapautomata.utils.{Kernelizable, ReachabilityInfo, ReachabilityMatrix, TrackingInfo}
-import at.forsyte.harrsh.heapautomata.{FVBound, HeapAutomaton, InconsistentState, TaggedTargetComputation}
+import at.forsyte.harrsh.heapautomata.{HeapAutomaton, InconsistentState, TaggedTargetComputation}
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
   * Created by jens on 3/29/17.
   */
-class BaseReachabilityAutomaton(val numFV : Int) extends HeapAutomaton with FVBound with InconsistentState with TaggedTargetComputation[BaseReachabilityAutomaton.UncleanedTrackingInfo] {
+class BaseReachabilityAutomaton() extends HeapAutomaton with InconsistentState with TaggedTargetComputation[BaseReachabilityAutomaton.UncleanedTrackingInfo] {
 
   import BaseReachabilityAutomaton.UncleanedTrackingInfo
 
@@ -17,12 +17,7 @@ class BaseReachabilityAutomaton(val numFV : Int) extends HeapAutomaton with FVBo
 
   override type State = ReachabilityInfo
 
-  override lazy val inconsistentState : State = ReachabilityInfo.inconsistentReachabilityInfo(numFV)
-
-  override lazy val states: Set[State] = for {
-    track <- BaseTrackingAutomaton.defaultTrackingAutomaton(numFV).states
-    reach <- ReachabilityMatrix.allMatrices(numFV)
-  } yield ReachabilityInfo(track, reach)
+  override def inconsistentState(fvs: Seq[FreeVar]): State = ReachabilityInfo.inconsistentReachabilityInfo(fvs)
 
   override def isFinal(s: State): Boolean = throw new IllegalStateException("Base reachability automaton used without providing final states")
 
@@ -33,7 +28,7 @@ class BaseReachabilityAutomaton(val numFV : Int) extends HeapAutomaton with FVBo
     // Perform compression + subsequent equality/allocation propagation
     val (consistencyCheckedState,extraInfo) = compressAndPropagateReachability(src, lab)
     // Break state down to only the free variables; the other information is not kept in the state space
-    val trg = consistencyCheckedState.dropNonFreeVaraibles
+    val trg = consistencyCheckedState.projectionToFreeVars
 
     logger.debug("Target state: " + trg)
 
@@ -50,11 +45,11 @@ class BaseReachabilityAutomaton(val numFV : Int) extends HeapAutomaton with FVBo
 
     // If the state is inconsistent, return the unique inconsistent state; otherwise compute reachability info
     if (trackingsStateWithClosure.isConsistent) {
-      val newMatrix = ReachabilityMatrix.fromSymbolicHeapAndTrackingInfo(numFV, compressed, trackingsStateWithClosure)
+      val newMatrix = ReachabilityMatrix.fromSymbolicHeapAndTrackingInfo(compressed, trackingsStateWithClosure)
       val extraInfo = UncleanedTrackingInfo(trackingsStateWithClosure, compressed.allVars)
       (ReachabilityInfo(trackingsStateWithClosure, newMatrix), extraInfo)
     } else {
-      (inconsistentState,UncleanedTrackingInfo(trackingsStateWithClosure, compressed.allVars))
+      (inconsistentState(lab.freeVars),UncleanedTrackingInfo(trackingsStateWithClosure, compressed.allVars))
     }
   }
 

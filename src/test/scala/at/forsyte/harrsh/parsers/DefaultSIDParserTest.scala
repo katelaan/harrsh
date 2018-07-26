@@ -21,7 +21,7 @@ class DefaultSIDParserTest extends HarrshTableTest {
     (fullExample2, Success)
   )
 
-  property("The Cyclist SID parser should work") {
+  property("The Default Harrsh SID parser should work") {
     forAll(inputs) {
       (input, expectedResult) =>
         val parseResult = DefaultSIDParser.runOnSID(input)

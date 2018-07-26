@@ -1,6 +1,5 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.seplog.Var.{isFreeVariableString, stringToFV}
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.inductive._
 
@@ -9,27 +8,13 @@ import at.forsyte.harrsh.seplog.inductive._
   */
 case class StringSymbolicHeap(pure : Seq[StringPureAtom], spatial : Seq[StringSpatialAtom]) {
 
-  /**
-    * Replaces the string variable identifiers by the internal [[at.forsyte.harrsh.seplog.Var]] representation
-    * @return Instantiated symbolic heaps + the sequences of free variable and bound variable identifiers that were replaced
-    */
-  def toSymbolicHeap : (SymbolicHeap, Seq[String], Seq[String]) = {
-    val (freeVarsUnsorted,boundVarsUnsorted) = getVars.toSeq.partition(isFreeVariableString)
-    val (freeVars,boundVars) = (freeVarsUnsorted.sorted, boundVarsUnsorted.sorted)
-    val filledFreeVars : Seq[String] = if (freeVars.isEmpty) Seq.empty else (1 to Var.maxOf(freeVars.map(stringToFV)).toInt) map (Var(_).toString)
-
-    val naming : VarUnNaming = mkUnNaming(filledFreeVars,boundVars) //mkUnNamingFromIncompleteDefaultNames(freeVars, boundVars)
-    val renamedHeap = replaceStringsByIds(naming)
-    (renamedHeap, filledFreeVars, boundVars)
-  }
-
-
   def replaceStringsByIds(naming: VarUnNaming): SymbolicHeap = {
     val allUnnamedSpatial : Seq[SepLogAtom] = spatial map (_.replaceStringsByIds(naming)) filter (_.isDefined) map (_.get)
     val (predCalls, nonCalls) = allUnnamedSpatial.partition(_.isInstanceOf[PredCall])
 
     val unnamedPure = pure map (_.replaceStringsByIds(naming)) filter (_.isDefined) map (_.get)
-    SymbolicHeap(unnamedPure, nonCalls map (_.asInstanceOf[PointsTo]), predCalls map (_.asInstanceOf[PredCall]))
+    val atoms = AtomContainer(unnamedPure, nonCalls map (_.asInstanceOf[PointsTo]), predCalls map (_.asInstanceOf[PredCall]))
+    SymbolicHeap(atoms, atoms.freeVarSeq)
   }
 
   def getVars : Set[String] = Set.empty ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars)
@@ -87,9 +72,9 @@ sealed trait StringPtrExpr {
     case StringPtrVar(id) => Set(id)
   }
 
-  def replaceStringsByIds(naming: VarUnNaming) : PtrExpr = this match {
-    case StringNullPtr() => NullPtr
-    case StringPtrVar(id) => PtrVar(naming(id))
+  def replaceStringsByIds(naming: VarUnNaming) : Var = this match {
+    case StringNullPtr() => NullConst
+    case StringPtrVar(id) => naming(id)
   }
 }
 

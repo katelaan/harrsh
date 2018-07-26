@@ -20,7 +20,6 @@ class CombinedParserTest extends HarrshTableTest {
     ("x1 -> y1", Success),
     ("x1 -> y2", Success),
     ("x1 -> z", Success),
-    ("x1 = y1", Success),
     ("{x1 = y1}", Failure),
     ("emp : {x1 = y1}", Success),
     ("emp : {x1 = y1,x2 = y3}", Success),
@@ -28,12 +27,12 @@ class CombinedParserTest extends HarrshTableTest {
     ("emp * emp * emp * x1 -> x2 * emp * emp : {x1 = y1,x2 = y3}", Success),
     ("emp * P(x1,x2,x3) * emp * x1 -> x2 * Q(a,b,c) * emp", Success),
     ("emp * P(x1,x2,x3) * emp * x1 -> x2 * Q(a,b,c) * emp : { a = b, c != d, e != f}", Success),
-    // Cyclist format
-    ("x1 = y1 * x1 -> y1", Success),
-    ("x1 = y1 * x1 -> y1", Success),
-    ("x1 != y1 * x1 -> y1", Success),
-    ("x1 = y1 * x1 -> y1 * x2 = z", Success),
-    ("emp * P(x1,y1) * y2 = y3 * * x1 -> y1 * P(x1, y1) * R(y1)", Failure),
+//    // Cyclist format
+//    ("x1 = y1 * x1 -> y1", Success),
+//    ("x1 = y1 * x1 -> y1", Success),
+//    ("x1 != y1 * x1 -> y1", Success),
+//    ("x1 = y1 * x1 -> y1 * x2 = z", Success),
+//    ("emp * P(x1,y1) * y2 = y3 * * x1 -> y1 * P(x1, y1) * R(y1)", Failure),
     // Unicode parsing
     ("x1 ↦ y1 : {x1 = y1, x2 = y2}", Failure), // Mixed unicode / ascii
     (". x1 ↦ y1 : {x1 ≈ y1, x2 ≈ y2}", Success),
@@ -46,7 +45,7 @@ class CombinedParserTest extends HarrshTableTest {
 
   import at.forsyte.harrsh.Implicits._
 
-  private def isSuccess(sh : SymbolicHeap) = (sh != SymbolicHeap.empty)
+  private def isSuccess(sh : SymbolicHeap) = sh != SymbolicHeap.empty
 
   property ("Correctness of combined parser") {
     forAll(inputs) {

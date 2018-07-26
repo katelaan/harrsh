@@ -35,8 +35,8 @@ object ConstraintPropagation {
 
   private def transitiveConstraint(fvA : PureAtom, fvB : PureAtom) : Option[PureAtom] = {
 
-    val (leftA, rightA, isEqualA) = EqualityUtils.unwrapAtom(fvA)
-    val (leftB, rightB, isEqualB) = EqualityUtils.unwrapAtom(fvB)
+    val PureAtom(leftA, rightA, isEqualA) = fvA
+    val PureAtom(leftB, rightB, isEqualB) = fvB
 
     if (isEqualA || isEqualB) {
       // If at least one is an equality, and one end of the eqs coincides, we can propagate
@@ -65,7 +65,7 @@ object ConstraintPropagation {
     if (allPure.isEmpty) acc else {
       val hd = allPure.head
       val (l, r) = (hd.l, hd.r)
-      val newAcc = if (explicit.contains(l.getVarOrZero)) acc + r.getVarOrZero else if(explicit.contains(r.getVarOrZero)) acc + l.getVarOrZero else acc
+      val newAcc = if (explicit.contains(l)) acc + r else if(explicit.contains(r)) acc + l else acc
       propagateEqualitiesToAllocAux(explicit, allPure.tail, newAcc)
     }
   }

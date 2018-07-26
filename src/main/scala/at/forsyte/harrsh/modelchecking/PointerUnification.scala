@@ -2,7 +2,7 @@ package at.forsyte.harrsh.modelchecking
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.EqualityUtils
-import at.forsyte.harrsh.seplog.{NullPtr, PtrVar, Var, _}
+import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.{PointsTo, SymbolicHeap}
 
 import scala.annotation.tailrec
@@ -25,7 +25,7 @@ object PointerUnification extends HarrshLogging {
     */
   def removeUnifiablePointerPair(lhsFormula: SymbolicHeap, rhsFormula: SymbolicHeap, disallowedFVs : Set[Var]): Option[PointerMatch] = {
     val rhsPtr = try {
-      rhsFormula.pointers.find(p => p.from.getVarOrZero.isFree).get
+      rhsFormula.pointers.find(p => p.from.isFree).get
     } catch {
       case _: NoSuchElementException =>
         logger.warn("Pointer unification for garbage-free heaps was fed heap with garbage: " + rhsFormula)
@@ -33,7 +33,7 @@ object PointerUnification extends HarrshLogging {
     }
     logger.debug("Will match pointer " + rhsPtr)
 
-    if (EqualityUtils.varsEqualModuloPureSameSide(rhsFormula.pure, rhsPtr.from.getVarOrZero, NullPtr.getVarOrZero)) {
+    if (EqualityUtils.varsEqualModuloPureSameSide(rhsFormula.pure, rhsPtr.from, NullConst)) {
       logger.debug("Null pointer on the left side of pointer => Unsatisfiable unfolding => abort branch")
       None
     } else {
@@ -55,7 +55,7 @@ object PointerUnification extends HarrshLogging {
   private def findPointerWithMatchingLeftSide(lhsFormula : SymbolicHeap, rhsFormula : SymbolicHeap, rhsPtr : PointsTo ): Option[PointsTo] = {
     // Take equalities into account while looking for a matching pointer
     //val oMatchingLhsPtr = lhs.pointers.find(ptr => areEqualModuloPure(lhs.pure, lhsPtr.from.getVarOrZero, ptr.fromAsVar))
-    val oMatchingLhsPtr = lhsFormula.pointers.find(lhsPtr => EqualityUtils.varsEqualModuloPureDifferentSides(lhsFormula.pure, lhsPtr.from.getVarOrZero, rhsFormula.pure, rhsPtr.fromAsVar))
+    val oMatchingLhsPtr = lhsFormula.pointers.find(lhsPtr => EqualityUtils.varsEqualModuloPureDifferentSides(lhsFormula.pure, lhsPtr.from, rhsFormula.pure, rhsPtr.from))
     oMatchingLhsPtr match {
       case None =>
         logger.debug("No matching pointer => no model => abort branch")
@@ -87,18 +87,18 @@ object PointerUnification extends HarrshLogging {
   private def applyParamMatchingToHeaps(lhs: SymbolicHeap, rhs: SymbolicHeap, lhsPtr: PointsTo, rhsPtr: PointsTo, disallowedFVs : Set[Var]): Option[PointerMatch] = {
 
     // Because the pointer is allocated, its left side must not be introduced as fresh free variable later
-    val rhsVarToAllocate = rhsPtr.fromAsVar
+    val rhsVarToAllocate = rhsPtr.from
 
     // Instantiate existentially quantified variables on both sides as necessary
-    logger.trace("Will match parameter lists " + rhsPtr.toAsVarOrZero.mkString(",") + " and " + lhsPtr.toAsVarOrZero.mkString(","))
-    matchParametersViaVariableIntroduction(lhs, lhsPtr.toAsVarOrZero, rhs, rhsPtr.toAsVarOrZero, disallowedFVs, Set(rhsVarToAllocate), Seq.empty) match {
+    logger.trace("Will match parameter lists " + rhsPtr.to.mkString(",") + " and " + lhsPtr.to.mkString(","))
+    matchParametersViaVariableIntroduction(lhs, lhsPtr.to, rhs, rhsPtr.to, disallowedFVs, Set(rhsVarToAllocate), Seq.empty) match {
       case Some((renamedLhs, renamedRhs)) =>
 
         logger.debug("New lhs: " + renamedLhs)
         logger.debug("New rhs: " + renamedRhs)
 
         // Check if we now have null pointers on the lhs in the model; if so, abort
-        if (renamedLhs.pointers.exists(_.from.getVarOrZero == Var(0))) {
+        if (renamedLhs.pointers.exists(_.from == NullConst)) {
           logger.debug("Introduced null pointer allocation into model " + renamedLhs + " => no model => abort branch")
           None
         } else {
@@ -134,12 +134,12 @@ object PointerUnification extends HarrshLogging {
     */
   def matchParameterPair(lhs : SymbolicHeap, rhs : SymbolicHeap, lvar : Var, rvar : Var, allDisallowedFVs : Set[Var]) : Option[(SymbolicHeap, SymbolicHeap, Var, Option[Var])] = {
 
-    def unbindBoundVariable(lvar: Var, rvar: Var): (SymbolicHeap, SymbolicHeap, Var, Option[Var]) = {
+    def unbindBoundVariable(lvar: BoundVar, rvar: BoundVar): (SymbolicHeap, SymbolicHeap, Var, Option[Var]) = {
       // The new FV will be one larger than any of the FVs in either argument SH and the history
       // Note that if the arguments SHs have different numbers of FVs, this will introduce a "gap" in the FVs in the SH with the smaller number
-      val usedFVIdents = Seq(Var.maxOf(allDisallowedFVs).toInt, lhs.numFV, rhs.numFV)
-      val newFV = Var(usedFVIdents.max + 1)
-      logger.trace("Introducing new free variable " + PtrVar(newFV) + " replacing " + lvar + " (model formula) and " + rvar + " (unfolding)")
+      val usedFVIdents = allDisallowedFVs ++ lhs.freeVars ++ rhs.freeVars
+      val newFV = Var.freshFreeVar(usedFVIdents)
+      logger.trace("Introducing new free variable " + newFV + " replacing " + lvar + " (model formula) and " + rvar + " (unfolding)")
       val newLhs = lhs.instantiateBoundVars(Seq((lvar, newFV)), closeGaps = false)
       val newRhs = rhs.instantiateBoundVars(Seq((rvar, newFV)), closeGaps = false)
       (newLhs, newRhs, newFV, Some(newFV))
@@ -151,7 +151,7 @@ object PointerUnification extends HarrshLogging {
         Some(lhs, rhs, lvar, None)
       } else {
         // If both variables are quantified, we need to make sure they are interpreted the same on both sides by forcing instantiation with the same FV
-        Some(unbindBoundVariable(lvar, rvar))
+        Some(unbindBoundVariable(lvar.asInstanceOf[BoundVar], rvar.asInstanceOf[BoundVar]))
       }
     } else {
       (lvar.isFree, rvar.isFree) match {
@@ -167,16 +167,16 @@ object PointerUnification extends HarrshLogging {
         case (true, false) =>
           // Left is free, right is quantified => Instantiate right-hand side
           logger.trace("Renaming " + rvar + " to " + lvar + " in unfolding")
-          val newRhs = rhs.instantiateBoundVars(Seq((rvar, lvar)), closeGaps = false)
+          val newRhs = rhs.instantiateBoundVars(Seq((rvar.asInstanceOf[BoundVar], lvar)), closeGaps = false)
           Some(lhs, newRhs, lvar, None)
         case (false, true) =>
           // Left is quantified, right is free => Instantiate left-hand side
           logger.trace("Renaming " + lvar + " to " + rvar + " in model formula")
-          val newLhs = lhs.instantiateBoundVars(Seq((lvar, rvar)), closeGaps = false)
+          val newLhs = lhs.instantiateBoundVars(Seq((lvar.asInstanceOf[BoundVar], rvar)), closeGaps = false)
           Some(newLhs, rhs, rvar, None)
         case (false, false) =>
           // Both are bound; need to introduce new free var to continue matching
-          Some(unbindBoundVariable(lvar, rvar))
+          Some(unbindBoundVariable(lvar.asInstanceOf[BoundVar], rvar.asInstanceOf[BoundVar]))
       }
     }
   }

@@ -11,13 +11,7 @@ import scala.collection.SortedSet
 /**
   * Created by jkatelaa on 10/3/16.
   */
-case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls : Seq[PredCall], numFV : Int, boundVars : SortedSet[Var]) extends ToStringWithVarnames with HarrshLogging {
-
-  // Sanity check
-  if (Config.HeapAutomataSafeModeEnabled) {
-    val (free, bound) = (pure.flatMap(_.getVars) ++ pointers.flatMap(_.getVars)).partition(_.isFree)
-    if (free.nonEmpty && Var.maxOf(free).toInt > numFV) throw new IllegalStateException("NumFV = " + numFV + " but contained FVs are " + free.distinct)
-  }
+case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls : Seq[PredCall], freeVars : Seq[FreeVar]) extends ToStringWithVarnames with HarrshLogging {
 
   /**
     * Generates a string representation by mapping the (integer) variables to the given string representations
@@ -35,7 +29,11 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
     prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString //+ " [" + numFV + "/" + boundVars.size + "]"
   }
 
-  def isEmpty = pure.isEmpty && pointers.isEmpty && predCalls.isEmpty
+  lazy val atoms: AtomContainer = AtomContainer(pure, pointers, predCalls)
+
+  lazy val boundVars : SortedSet[BoundVar] = atoms.boundVars
+
+  def isEmpty: Boolean = pure.isEmpty && pointers.isEmpty && predCalls.isEmpty
 
   def hasPointer: Boolean = pointers.nonEmpty
 
@@ -43,10 +41,12 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
 
   def nonReduced: Boolean = predCalls.nonEmpty
 
+  val numFV: Int = freeVars.size
+
   // TODO This should probably not be a method here, but then I have to make sure to cache the value elsewhere to avoid multiple computation
   lazy val freeVariableTrackingInfo : TrackingInfo = TrackingInfo.fromSymbolicHeap(this).projectionToFreeVars
 
-  def alloc = freeVariableTrackingInfo.alloc
+  def alloc: Set[Var] = freeVariableTrackingInfo.alloc
 
   lazy val identsOfCalledPreds: Seq[String] = predCalls map (_.name)
 
@@ -56,104 +56,9 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
 
   lazy val allVars : Set[Var] = freeVars.toSet ++ boundVars
 
-  def hasVar(v : Var) : Boolean = (1 <= v.toInt && v.toInt <= numFV) || boundVars(v)
-
-  lazy val freeVars : Seq[Var] = Var.mkAllVars(1 to numFV)
-
-  /**
-    * Returns the subset of the free vars that is actually used in an atom
-    */
-  lazy val usedFreeVars : Set[Var] = {
-    val allUsedVars = pure.flatMap(_.getVars) ++ pointers.flatMap(_.getVars) ++ predCalls.flatMap(_.getVars)
-    Set.empty ++ allUsedVars.filter(_.isFree)
-  }
+  def hasVar(v : Var) : Boolean = allVars.contains(v)
 
   def withoutCalls : SymbolicHeap = copy(predCalls = Seq.empty)
-
-  /**
-    * Returns new symbolic heap whose variables have been renamed based on the given renaming.
-    * In unfolding, you will always want to avoid double capture, whereas certain transformations/rewritings might identify bound variables on purpose, e.g. to remove redundant variables (cf. [[at.forsyte.harrsh.pure.EqualityBasedSimplifications]])
-    * Note that this method does NOT close gaps in the sequence of bound variables that it might introduce. To avoid gaps, use [[instantiateBoundVarsWithFVs()]]
-    * @param f The renaming function applied to the symbolic heap
-    * @param avoidDoubleCapture If the codomain and f contains bound variables of this symbolic heap, they will renamed to avoid double capture iff this parameter is true.
-    * @return
-    */
-  def renameVars(f : Renaming, avoidDoubleCapture : Boolean = true) : SymbolicHeap = {
-    logger.info("Renaming vars in " + this)
-
-    // Rename bound variables if applicable
-    val extendedF : Renaming = if (avoidDoubleCapture) {
-      // Drop keys that never apply so as to avoid spurious renaming of bound Vars
-      // Note: In case a free variable does not occur in the heap but DOES occur in the set of free variables (i.e., if there are gaps in the used FVs), this fails
-      val tightF = f/*.filter{
-        case (k,v) => this.allVars.contains(k)
-      }*/
-
-      boundVars.foldLeft(tightF)({
-        case (intermediateF, v) =>
-          if (!f.isDefinedAt(v)) intermediateF.addBoundVarWithOptionalAlphaConversion(v) else intermediateF
-          //intermediateF.addBoundVarWithOptionalAlphaConversion(v)
-      })
-    } else f
-    logger.debug("Map for renaming " + f.toString + " extended to " + extendedF.toString)
-
-    val pureRenamed = pure map (_.renameVars(extendedF))
-    val ptrsRenamed = pointers map (_.renameVars(extendedF))
-    val callsRenamed = predCalls map (_.renameVars(extendedF))
-    // Have the constructor figure out the new number of FVs + the new set of qvars
-    val res = SymbolicHeap(pureRenamed, ptrsRenamed, callsRenamed)
-    logger.debug("After renaming: " + res)
-
-    // Detect gap in bound vars
-    // TODO Do we perhaps want to always close caps in bound vars? See also TODO in [[SymbolicHeapTest]]
-//    if (res.boundVars.nonEmpty && res.boundVars.size != -res.boundVars.min) {
-//      println("Gap in bound vars: Max bound var " + (-res.boundVars.min) + ", #bound vars " + res.boundVars.size + " (bound vars: " + res.boundVars.mkString(", ") + " in " + res + ")")
-//    }
-
-    res
-  }
-
-  /**
-    * Receives a sequence of bound variable--free variable pairs, replaces the bound variables with the free variables and if the second parameter is true removes any gaps in the bound var sequence of the resulting heap.
-    * @param instantiations Bound variable--free variable pairs
-    * @param closeGaps Close gaps introduced in sequence of free variables?
-    * @return Instantiated SH
-    */
-  def instantiateBoundVars(instantiations : Seq[(Var,Var)], closeGaps : Boolean): SymbolicHeap = {
-    for { (qvar,instance) <- instantiations } {
-      assert(qvar.isBound)
-      if (!instance.isFree) throw new IllegalArgumentException("Cannot instantiate bound variable " + qvar + " by different bound variable" + instance)
-    }
-
-    val renaming = Renaming.fromPairs(instantiations)
-    // Not necessary to avoid double capture, all instantiations are free vars
-    val instantiation = renameVars(renaming, avoidDoubleCapture = false)
-
-    logger.debug("After instantiation: " + instantiation)
-
-    // Detect gap in bound vars + remove it
-    if (closeGaps) instantiation.closeGapsInBoundVars else instantiation
-  }
-
-  /**
-    * Closes the gaps in the sequence of bound variables (if any) by renaming bound vars
-    * @return
-    */
-  def closeGapsInBoundVars(): SymbolicHeap = {
-    if (boundVars.nonEmpty && boundVars.size != -Var.minOf(boundVars).toInt) {
-      logger.trace("Gap in bound vars: Max bound var " + (-Var.minOf(boundVars).toInt) + ", #bound vars " + boundVars.size + " (bound vars: " + boundVars.mkString(", ") + " in " + this + ")")
-      val renamingPairs: Seq[(Var, Var)] = boundVars.toSeq.zipWithIndex.map {
-        pair => (pair._1, Var(-pair._2 - 1))
-      }
-      logger.trace("Will close gaps by renaming " + renamingPairs.mkString(", "))
-      val renaming = Renaming.fromPairs(renamingPairs)
-      val res = renameVars(renaming, avoidDoubleCapture = false)
-      logger.debug("Closed gaps in " + this + " yielding: " + res)
-      res
-    } else {
-      this
-    }
-  }
 
   /**
     * Replaces the predicates calls with the given symbolic heaps, renaming variables as necessary
@@ -165,13 +70,17 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
       throw new IllegalArgumentException("Trying to replace " + predCalls.length + " calls with " + shs.length + " symbolic heaps")
     }
 
+    logger.debug(s"My FVs: $freeVars; replacing FVs: ${shs.map(_.freeVars)}")
     logger.debug("Instantiating calls in " + this + " as follows:\n" + (predCalls zip shs).map{
       case (call,instance) => "  " + call + " => " + instance
     }.mkString("\n"))
 
     val stateHeapPairs = predCalls zip shs
     stateHeapPairs.foldLeft(this){
-      case (partiallyInstantiedHeap, (call,instance)) => partiallyInstantiedHeap.replaceCall(call, instance)
+      case (partiallyInstantiedHeap, (call,instance)) =>
+        val intermediate = partiallyInstantiedHeap.replaceCall(call, instance)
+        logger.debug(s"After replacing $call: $intermediate")
+        intermediate
     }
   }
 
@@ -182,29 +91,29 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
     */
   def replaceCall(call : PredCall, instance : SymbolicHeap): SymbolicHeap = {
     if (!predCalls.contains(call)) {
-      throw new IllegalArgumentException("Trying to replace call " + call + " which does not appear in " + this)
+      throw new IllegalArgumentException(s"Trying to replace call $call which does not appear in $this")
     }
-    logger.debug("Will replace call " + call + " with " + instance)
+    logger.debug(s"Will replace call $call with $instance")
 
-    val renamedInstance = instance.instantiateFVs(call.args)
+    val renamedAtoms = instance.atoms.instantiateFVs(instance.freeVars, call.args)
     val shFiltered = this.copy(predCalls = Combinators.dropFirstMatch[PredCall](predCalls, _ == call))
-    logger.debug("Renamed " + instance + " to " +renamedInstance + " which will be combined with " + shFiltered)
+    logger.debug(s"Renamed atoms in $instance to $renamedAtoms which will be combined with $shFiltered")
 
     // Shift non-shared variables of the renamed instance to avoid double capture
-    val nonShared = renamedInstance.boundVars.toSet -- call.args.map(_.getVarOrZero)
-    val shifted = if (nonShared.isEmpty) {
+    val nonShared : Set[BoundVar] = renamedAtoms.boundVars.toSet -- Var.boundVars(call.args.toSet)
+    val shiftedAtoms = if (nonShared.isEmpty) {
       logger.trace("No shifting necessary.")
-      renamedInstance
+      renamedAtoms
     } else {
-      val maxVar = if (boundVars.isEmpty) 0 else -Var.minOf(boundVars).toInt
+      val maxVar = if (boundVars.isEmpty) 0 else boundVars.maxBy(_.index).index
       logger.trace("Will shift " + nonShared.mkString(",") + " because they don't appear in " + call)
-      val shifted = renamedInstance.shiftBoundVars(nonShared, shiftTo = Var(maxVar + 1))
-      logger.debug(renamedInstance + " shifted to " + shifted)
+      val shifted = renamedAtoms.shiftBoundVars(nonShared, shiftTo = maxVar + 1)
+      logger.debug(s"Bound vars shifted to $shifted")
       shifted
     }
 
     // After the shift, there is no unintentional double capture between bound variables, so we can simply combine the two heaps
-    val res = SymbolicHeap(shFiltered.pure ++ shifted.pure, shFiltered.pointers ++ shifted.pointers, shFiltered.predCalls ++ shifted.predCalls)
+    val res = shFiltered ++ shiftedAtoms
     //val res = SymbolicHeap.mergeHeaps(renamedInstance, shFiltered, sharedVars = call.args.map(_.getVarOrZero).toSet)
     logger.debug("Result of combination: " + res)
     res
@@ -212,53 +121,87 @@ case class SymbolicHeap private (pure : Seq[PureAtom], pointers: Seq[PointsTo], 
   }
 
   /**
-    * Instantiates the free variables of this symbolic heap with the given argument expressions (e.g. to obtain a heap to replace a call)
-    * @param args
-    * @return
+    * Receives a sequence of bound variable--free variable pairs, replaces the bound variables with the free variables.
+    *
+    * Assumes the free variables are not yet used in the heap.
+    * If `closeGaps` is true, removes any gaps in the bound var sequence of the resulting heap.
+    *
+    * @param instantiations Bound variable--free variable pairs, where all free variables are fresh
+    * @param closeGaps Close gaps introduced in sequence of free variables?
+    * @return Instantiated SH
     */
-  private def instantiateFVs(args : Seq[PtrExpr]): SymbolicHeap = {
-    // Rename the free variables of SH to the actual arguments of the predicate calls,
-    // i.e. replace the i-th FV with the call argument at index i-1
-    val pairs: Seq[(Var, Var)] = (1 to args.length) map (Var(_)) zip (args map (_.getVarOrZero))
-    renameVars(Renaming.fromPairs(pairs))
+  def instantiateBoundVars(instantiations : Seq[(BoundVar,Var)], closeGaps : Boolean): SymbolicHeap = {
+    // Ensure that new names
+    val instantiatingFVs = instantiations.map(_._2)
+    assert(instantiatingFVs forall (_.isFree))
+    val newFVs = instantiatingFVs.filter(v => v.isFreeNonNull && !freeVars.contains(v)).map(_.asInstanceOf[FreeVar])
+
+    val renaming = Renaming.fromPairs(instantiations)
+    // Not necessary to avoid double capture, all instantiations are free vars
+    val instantiation = atoms.rename(renaming, avoidDoubleCapture = false)
+
+    logger.debug(s"After instantiation: $instantiation")
+    val closed = if (closeGaps) {
+      val closed = instantiation.closeGapsInBoundVars
+      logger.debug(s"After closing gaps: $closed")
+      closed
+    } else {
+      instantiation
+    }
+
+    SymbolicHeap(closed, freeVars ++ newFVs)
   }
 
-  private def shiftBoundVars(vars : Set[Var], shiftTo : Var) : SymbolicHeap = {
-    //assert(boundVars.size == -boundVars.min
-    val pairs = vars.zipWithIndex.map(pair => (pair._1, Var(-pair._2-shiftTo.toInt)))
-    logger.trace("Will execute shifting to " + shiftTo + " => using pairs " + pairs.mkString(", "))
-    renameVars(Renaming.fromPairs(pairs), avoidDoubleCapture = false)
+  /**
+    * Return new symbolic heap that additionally contains the given atoms
+    * @param other Atoms to add to this SH
+    * @return SH with the additional atoms
+    */
+  def ++(other: AtomContainer): SymbolicHeap = {
+    SymbolicHeap(pure ++ other.pure, pointers ++ other.pointers, predCalls ++ other.predCalls, freeVars)
   }
 
 }
 
 object SymbolicHeap extends HarrshLogging {
 
-  /**
-    * The ordering used for bound variable sets. Use reverse ordering, because bound vars "grow" towards minus infinity.
-    */
-  private val boundVarOrdering = Ordering.fromLessThan[Var](_ > _)
+  val empty = SymbolicHeap()
 
-  val empty = SymbolicHeap(Seq())
-
-  /**
-    * The standard constructor for symbolic heaps: Cosntructs heap from pointers, calls and pure constraints.
-    * @param pure Pure constraints
-    * @param spatial Pointers
-    * @param calls Predicate calls
-    * @return
-    */
-  def apply(pure : Seq[PureAtom], spatial: Seq[PointsTo], calls : Seq[PredCall]) : SymbolicHeap = {
-    val vars = SortedSet.empty(boundVarOrdering) ++ pure.flatMap(_.getVars) ++ spatial.flatMap(_.getVars) ++ calls.flatMap(_.getVars)
-    val fvars = vars.filter(_.isFreeNonNull)
-    val qvars = vars.filter(_.isBound)
-
-    // If nothing else is given, we assume the max index gives us the number of free vars
-    SymbolicHeap(pure, spatial, calls, if (fvars.isEmpty) 0 else Var.maxOf(fvars).toInt, qvars)
+  private def sortAtoms(atoms : Seq[SepLogAtom]): AtomContainer = {
+    atoms.foldLeft(AtomContainer(Seq.empty, Seq.empty, Seq.empty)){
+      case (atoms, atom) => atom match {
+        case p: PointsTo => atoms.copy(pointers = atoms.pointers :+ p)
+        case c: PredCall => atoms.copy(predCalls = atoms.predCalls :+ c)
+        case e: PureAtom => atoms.copy(pure = atoms.pure :+ e)
+        case _ => throw new Exception("Received unsupported atom type")
+      }
+    }
   }
 
-  def apply(atoms: (Seq[PureAtom], Seq[PointsTo], Seq[PredCall])) : SymbolicHeap = {
-    apply(atoms._1, atoms._2, atoms._3)
+  /**
+    * SH constructor for when the order of FVs doesn't matter and there are no extra FVs (i.e., no unused parameters).
+    * @param atoms
+    * @return
+    */
+  def apply(atoms : SepLogAtom*): SymbolicHeap = {
+    val sortedAtoms = sortAtoms(atoms)
+    apply(sortedAtoms, sortedAtoms.freeVarSeq)
+  }
+
+  /**
+    * Construct SH with given predefined sequence of free variables.
+    * Use this when the FV order is different from the default (lexicographical) FV order and when there are extra FVs that don't occur in the atoms (i.e., unused parameters)
+    * @param fvs
+    * @param atoms
+    * @return
+    */
+  def apply(fvs: Seq[FreeVar], atoms : SepLogAtom*): SymbolicHeap = {
+    val sortedAtoms = sortAtoms(atoms)
+    apply(sortedAtoms, fvs)
+  }
+
+  def apply(atoms: AtomContainer, freeVars: Seq[FreeVar]): SymbolicHeap = {
+    SymbolicHeap(atoms.pure, atoms.pointers, atoms.predCalls, freeVars)
   }
 
   /**
@@ -267,23 +210,14 @@ object SymbolicHeap extends HarrshLogging {
     * @param calls Predicate calls
     * @return
     */
-  def apply(spatial: Seq[PointsTo], calls: Seq[PredCall]) : SymbolicHeap = apply(Seq.empty, spatial, calls)
+  //def apply(spatial: Seq[PointsTo], calls: Seq[PredCall], freeVars: Seq[FreeVar]) : SymbolicHeap = apply(Seq.empty, spatial, calls, freeVars)
 
   /**
     * Constructs symbolic heap without calls or pure constraints.
     * @param spatial Pointers
     * @return
     */
-  def apply(spatial: Seq[PointsTo]) : SymbolicHeap = apply(Seq.empty, spatial, Seq.empty)
-
-  /**
-    * In the rare case that you want to override the automatic computation of free variables and bound variables as per
-    * the default constructor, this method allows you to construct a symbolic heap from explicit info about free/bound
-    * vars. Consider calling the three-parameter apply method instead.
-    */
-  def fromFullDescription(pure : Seq[PureAtom], spatial: Seq[PointsTo], calls : Seq[PredCall], numFV : Int, boundVars : Iterable[Var]): SymbolicHeap = {
-    SymbolicHeap(pure, spatial, calls, numFV, SortedSet.empty(boundVarOrdering) ++ boundVars)
-  }
+  //def apply(spatial: Seq[PointsTo], freeVars: Seq[FreeVar]) : SymbolicHeap = apply(Seq.empty, spatial, Seq.empty, freeVars)
 
   def addTagsToPredCalls(sh : SymbolicHeap, tags : Seq[String]) : SymbolicHeap = {
     if (tags.size != sh.predCalls.size) throw new IllegalArgumentException("Wrong number of tags passed")
@@ -291,33 +225,6 @@ object SymbolicHeap extends HarrshLogging {
       case (call,tag) => call.copy(name = call.name + tag)
     }
     sh.copy(predCalls = newCalls)
-  }
-
-  /**
-    * Combines the two given heaps into a single, larger heap, avoding name clashes of bound variables that are not in the sequence of shared variables
-    * @param phi First heap
-    * @param psi Second heap
-    * @param sharedVars Shared quantified variables that are not to be renamed by alpha conversion
-    * @return Merged heap
-    */
-  def mergeHeaps(phi : SymbolicHeap, psi : SymbolicHeap, sharedVars : Set[Var]) : SymbolicHeap = {
-
-    val SymbolicHeap(pure, spatial, calls, numfv, qvars) = phi
-
-    // Shift the quantified variables in the right SH to avoid name clashes
-    val psiRen@SymbolicHeap(pure2, spatial2, calls2, numfv2, qvars2) = psi.renameVars(Renaming.clashAvoidanceRenaming(qvars diff sharedVars))
-
-    logger.debug("Renaming " + psi + " to " + psiRen + " (avoiding name clashes with " + qvars +  " but ignoring clasehs with " + sharedVars + ")")
-
-    // Free variables remain the same, so we take the maximum
-    // Quantified variables are only partially renamed, but since we're using sets, duplicates are filtered out automatically
-    SymbolicHeap(pure ++ pure2, spatial ++ spatial2, calls ++ calls2, Math.max(numfv, numfv2), qvars ++ qvars2)
-  }
-
-  def dropQuantifiers(sh: SymbolicHeap): SymbolicHeap = {
-    val newFreeVars = Var.mkAllVars(sh.numFV + 1 until sh.numFV + 1 + sh.boundVars.size)
-    val instantiations = sh.boundVars.toSeq zip newFreeVars
-    sh.instantiateBoundVars(instantiations, closeGaps = false)
   }
 
   /**
@@ -334,7 +241,7 @@ object SymbolicHeap extends HarrshLogging {
     spatialString.replaceAll("\u21a6", "->") ++ pureString.replaceAll("\u2248", "=").replaceAll("\u2249", "!=")
   }
 
-  def toLatex(sh: SymbolicHeap, naming : VarNaming = DefaultNaming) = {
+  def toLatex(sh: SymbolicHeap, naming : VarNaming = DefaultNaming): String = {
     val defaultSting = sh.toStringWithVarNames(naming)
     val withMacros = literalReplacements(Seq(
       "\u2203" -> "\\exists ",
@@ -342,7 +249,7 @@ object SymbolicHeap extends HarrshLogging {
       "\u21a6" -> "->",
       "\u2248"-> "=",
       "\u2249" -> "\\neq ",
-      NullPtr.toString -> "\\nil"
+      NullConst.toString -> "\\nil"
     ), defaultSting)
     indexifyNumbers(withMacros)
   }
@@ -361,12 +268,12 @@ object SymbolicHeap extends HarrshLogging {
     }._1
   }
 
-  def renameFVs(sh: SymbolicHeap, newVarNames: Seq[Var]): SymbolicHeap = {
-    assert(sh.numFV == newVarNames.length)
-    assert(newVarNames forall (_.isFree))
-    val renamingMap = Map.empty ++ newVarNames.zipWithIndex.map{pair => (Var(pair._2 + 1), pair._1)}
-    val renaming = Renaming.fromMap(renamingMap)
-    sh.renameVars(renaming, avoidDoubleCapture = false)
-  }
+//  def renameFVs(sh: SymbolicHeap, newVarNames: Seq[Var]): SymbolicHeap = {
+//    assert(sh.numFV == newVarNames.length)
+//    assert(newVarNames forall (_.isFree))
+//    val renamingMap = Map.empty[Var,Var] ++ sh.freeVars.zip(newVarNames)
+//    val renaming = Renaming.fromMap(renamingMap)
+//    sh.renameVars(renaming, avoidDoubleCapture = false)
+//  }
 
 }

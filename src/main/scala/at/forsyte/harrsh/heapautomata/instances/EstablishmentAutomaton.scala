@@ -11,19 +11,20 @@ import com.typesafe.scalalogging.LazyLogging
 /**
   * Created by jkatelaa on 10/18/16.
   */
-class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends TaggedAutomaton[Boolean, TrackingInfo, BaseTrackingAutomaton] {
+class EstablishmentAutomaton(acceptEstablished : Boolean) extends TaggedAutomaton[Boolean, TrackingInfo, BaseTrackingAutomaton] {
 
-  override val baseAutomaton = BaseTrackingAutomaton.defaultTrackingAutomaton(numFV)
+  override val baseAutomaton = BaseTrackingAutomaton.defaultTrackingAutomaton
 
   override val tags = StateTag.instances.booleanTag
 
-  override val description = (if (acceptEstablished) AutomatonTask.keywords.est else AutomatonTask.keywords.nonest) + "_" + numFV
+  override val description = (if (acceptEstablished) AutomatonTask.keywords.est else AutomatonTask.keywords.nonest)
 
   override def isFinal(s: State) = tags.isFinalTag(s._2) == acceptEstablished
 
   override def tagComputation(srcTags : Seq[Boolean], lab : SymbolicHeap, baseTrg : baseAutomaton.State, trackingTargetWithoutCleanup : TrackingInfo) : Boolean = {
     if (!trackingTargetWithoutCleanup.isConsistent) {
       // Inconsistent heaps are regarded as established
+      logger.debug(s"Regarding inconsistent target $trackingTargetWithoutCleanup as established")
       true
     } else {
       val allSrcsEstablished = !(srcTags exists (!_))
@@ -31,14 +32,15 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends T
       // Unless we already know that one of the children is not established,
       // check whether everything in that heap is either allocated or equal to a free variable
       val establishmentBit =  if (!allSrcsEstablished) {
+        logger.debug(s"There is a non-established source among $srcTags")
         false
       } else {
         val allVars = lab.allVars
         logger.debug("Checking establishment of " + allVars.mkString(", "))
-        !allVars.exists(!isEstablished(trackingTargetWithoutCleanup, _))
+        allVars.forall(isEstablished(trackingTargetWithoutCleanup, _))
       }
 
-      logger.debug("Computed establishment bit: " + establishmentBit)
+      logger.debug(s"Computed establishment bit: $establishmentBit")
 
       establishmentBit
     }
@@ -51,7 +53,7 @@ class EstablishmentAutomaton(numFV : Int, acceptEstablished : Boolean) extends T
     v.isFree || s.alloc.contains(v) || s.pure.exists({
       // Return true iff the pure atom witnesses that v is equal to a free variable
       // This is enough to show establishment, because we assume that s is congruence closed
-      case PureAtom(l, r, isEquality) => isEquality && ((l.getVarOrZero == v && r.getVarOrZero.isFree) || (r.getVarOrZero == v && l.getVarOrZero.isFree))
+      case PureAtom(l, r, isEquality) => isEquality && ((l == v && r.isFree) || (r == v && l.isFree))
     })
   }
 

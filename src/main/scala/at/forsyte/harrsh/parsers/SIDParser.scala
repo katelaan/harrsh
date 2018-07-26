@@ -9,6 +9,9 @@ trait SIDParser {
 
   def runOnSID(input : String, printFailure : Boolean = true) : Option[SID]
 
-  def runOnSymbolicHeap(input : String, printFailure : Boolean = true) : Option[SymbolicHeap]
+  def runOnSymbolicHeap(input : String, printFailure : Boolean = true) : Option[SymbolicHeap] = {
+    // Parsing of single symbolic heaps not supported by default
+    None
+  }
 
 }

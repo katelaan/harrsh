@@ -54,14 +54,14 @@ object RefinementAlgorithms {
    */
   case class AnalysisResult(task : AutomatonTask, result : Option[Boolean], witness : Option[SymbolicHeap])
 
-  def performFullAnalysis(sid: SID, numFV : Int, timeout: Duration, verbose : Boolean): Unit = {
+  def performFullAnalysis(sid: SID, timeout: Duration, verbose : Boolean): Unit = {
 
     val tasks : Seq[AutomatonTask] = Seq(RunSat, RunUnsat, RunEstablishment, RunNonEstablishment, RunMayHaveGarbage, RunGarbageFreedom, RunWeakAcyclicity, RunStrongCyclicity)
 
     println("Beginning analysis...")
     val results : Seq[AnalysisResult] = for (task <- tasks) yield {
       try {
-        analyze(task, sid, numFV, timeout, verbose)
+        analyze(task, sid, timeout, verbose)
       } catch {
         case e : Exception =>
           println("An error occurred during analysis of " + task + ":\n" + e.toString)
@@ -85,8 +85,8 @@ object RefinementAlgorithms {
 
   }
 
-  private def analyze(task : AutomatonTask, sid : SID, numFV : Int, timeout : Duration, verbose : Boolean) : AnalysisResult = {
-    val refined = refineSID(sid, task.getAutomaton(numFV), timeout, reportProgress = false)
+  private def analyze(task : AutomatonTask, sid : SID, timeout : Duration, verbose : Boolean) : AnalysisResult = {
+    val refined = refineSID(sid, task.getAutomaton, timeout, reportProgress = false)
     refined match {
       case None =>
         println(task + " did not finish within timeout (" + timeout.toSeconds + "s)")

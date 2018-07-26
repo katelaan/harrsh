@@ -18,11 +18,7 @@ private[parsers] trait SIDCombinatorParser extends JavaTokenParsers with SIDPars
     runParser(parseSID)(input, printFailure)
   }
 
-  override final def runOnSymbolicHeap(input : String, printFailure : Boolean = true) : Option[SymbolicHeap] = catchNumberFormatException{
-    runParser(parseBody)(input, printFailure) map (_.toSymbolicHeap._1)
-  }
-
-  private def catchNumberFormatException[A](f : => Option[A]) : Option[A] = {
+  private[parsers] def catchNumberFormatException[A](f : => Option[A]) : Option[A] = {
     try {
       f
     } catch {

@@ -2,9 +2,8 @@ package at.forsyte.harrsh.refinement
 
 import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.heapautomata.instances.{ToyExampleAutomata, TrackingAutomata}
-import at.forsyte.harrsh.seplog.{PtrExpr, Var}
-import at.forsyte.harrsh.seplog.Var._
-import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, PureAtom}
+import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.inductive.PureAtom
 import at.forsyte.harrsh.util.Combinators
 
 /**
@@ -12,24 +11,25 @@ import at.forsyte.harrsh.util.Combinators
   */
 sealed trait AutomatonTask {
 
+  // FIXME Allow null as target in reachability
   // TODO Possibly give Boolean param to SAT, EST etc instead of having two separate case classes?
 
-  def getAutomaton(numFV : Int) : HeapAutomaton = this match {
+  def getAutomaton : HeapAutomaton = this match {
     case RunHasPointer(negate : Boolean) => ToyExampleAutomata.hasPointerAutomaton(negate)
     case RunModulo(remainder : Int, divisor : Int, negate : Boolean) => ToyExampleAutomata.moduloAutomaton(remainder, divisor, negate)
-    case RunExactTracking(alloc, pure, negate) => TrackingAutomata.singleTargetStateTracking(numFV, alloc, pure, negate)
-    case RunRelaxedTracking(alloc, pure, negate) => TrackingAutomata.subsetTracking(numFV, alloc, pure, negate)
-    case RunAllocationTracking(alloc, negate) => TrackingAutomata.allocTracking(numFV, alloc, negate)
-    case RunPureTracking(pure, negate) => TrackingAutomata.pureTracking(numFV, pure, negate)
-    case RunSat => TrackingAutomata.satAutomaton(numFV)
-    case RunUnsat => TrackingAutomata.unsatAutomaton(numFV)
-    case RunEstablishment => TrackingAutomata.establishmentAutomaton(numFV)
-    case RunNonEstablishment => TrackingAutomata.nonEstablishmentAutomaton(numFV)
-    case RunReachability(from, to, negate) => TrackingAutomata.reachabilityAutomaton(numFV, from, to, negate)
-    case RunGarbageFreedom => TrackingAutomata.garbageFreedomAutomaton(numFV)
-    case RunWeakAcyclicity => TrackingAutomata.weakAcyclicityAutomaton(numFV)
-    case RunMayHaveGarbage => TrackingAutomata.mayHaveGarbageAutomaton(numFV)
-    case RunStrongCyclicity => TrackingAutomata.strongCyclicityAutomaton(numFV)
+    case RunExactTracking(alloc, pure, negate) => TrackingAutomata.singleTargetStateTracking(alloc, pure, negate)
+    case RunRelaxedTracking(alloc, pure, negate) => TrackingAutomata.subsetTracking(alloc, pure, negate)
+    case RunAllocationTracking(alloc, negate) => TrackingAutomata.allocTracking(alloc, negate)
+    case RunPureTracking(pure, negate) => TrackingAutomata.pureTracking(pure, negate)
+    case RunSat => TrackingAutomata.satAutomaton
+    case RunUnsat => TrackingAutomata.unsatAutomaton
+    case RunEstablishment => TrackingAutomata.establishmentAutomaton
+    case RunNonEstablishment => TrackingAutomata.nonEstablishmentAutomaton
+    case RunReachability(from, to, negate) => TrackingAutomata.reachabilityAutomaton(from, to, negate)
+    case RunGarbageFreedom => TrackingAutomata.garbageFreedomAutomaton
+    case RunWeakAcyclicity => TrackingAutomata.weakAcyclicityAutomaton
+    case RunMayHaveGarbage => TrackingAutomata.mayHaveGarbageAutomaton
+    case RunStrongCyclicity => TrackingAutomata.strongCyclicityAutomaton
   }
 
   // TODO Finish complementation
@@ -159,15 +159,13 @@ object AutomatonTask {
         val reachResult = for {
           input <- removeSurroundingKeyword(other, keywords.reach)
           params = input.split(",")
-          // TODO Allow variable names as in unparsed SIDs?
-          if params.size == 2 && isFreeVariableString(params(0)) && isFreeVariableString(params(1))
-        } yield RunReachability(stringToFV(params(0)), stringToFV(params(1)))
+          if params.size == 2
+        } yield RunReachability(mkVar(params(0)), mkVar(params(1)))
 
         val allocResult = for {
           input <- removeSurroundingKeyword(other, keywords.alloc)
           params = input.split(",")
-          if params.forall(isFreeVariableString)
-          fvs = (params map stringToFV).toSet
+          fvs = (params map mkVar).toSet[Var]
         } yield RunAllocationTracking(fvs)
 
         val pureResult = for {
@@ -182,8 +180,7 @@ object AutomatonTask {
             params : Array[String] = input.split(":")
             fvparams : Array[String] = params(0).trim.split(",")
             pureparams : Array[String] = if (params.size > 1) params(1).trim.split(",") else Array.empty
-            if fvparams.forall(isFreeVariableString)
-            fvs = (fvparams map stringToFV).toSet
+            fvs : Set[Var] = (fvparams map mkVar).toSet
             eqs = (pureparams map parsePure).toSet
           } yield constructor(fvs, eqs, false)
 
@@ -208,8 +205,12 @@ object AutomatonTask {
       (input.split("\u2248"), true)
     } else (input.split("="), true)
 
-    val (l,r)= (Var.stringToFV(params(0).trim), Var.stringToFV(params(1).trim))
-    if (isEq) PtrEq(l,r) else PtrNEq(l,r)
+    val (l,r)= (mkVar(params(0)), mkVar(params(1)))
+    PureAtom(l,r,isEq)
+  }
+
+  private def mkVar(s: String) = {
+    Var.stringTofreeOrNullVar(s.trim)
   }
 
   private def removeSurroundingKeyword(input : String, kw : String) : Option[String] = {

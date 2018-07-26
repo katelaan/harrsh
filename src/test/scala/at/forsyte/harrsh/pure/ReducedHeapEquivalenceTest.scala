@@ -45,8 +45,8 @@ class ReducedHeapEquivalenceTest extends HarrshTableTest {
     ("x1 -> y1 * y1 -> x2".parse, "x1 -> y1 * y1 -> x2 : {y1 = x2}".parse, NotEquivalent),
 
     // Unsatisfiable heaps should be equivalent,
-    ("x1 != x1".parse, "x1 != x1".parse, AreEquivalent),
-    ("x2 != x2".parse, "x1 != x1".parse, AreEquivalent),
+    ("emp : {x1 != x1}".parse, "emp : {x1 != x1}".parse, AreEquivalent),
+    ("emp : {x2 != x2}".parse, "emp : {x1 != x1}".parse, AreEquivalent),
 
     // If only some determinizations imply each other, the overall equivalence should not hold
     ("∃y1 . y1 ↦ (null, null) * x1 ↦ (y1, x2) : {y1 ≉ x2}".parse, "∃y1 . y1 ↦ (null, null) * x1 ↦ (x2, y1) : {y1 ≉ x2}".parse, NotEquivalent),

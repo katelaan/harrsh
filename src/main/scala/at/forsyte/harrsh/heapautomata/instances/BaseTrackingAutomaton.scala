@@ -1,30 +1,24 @@
 package at.forsyte.harrsh.heapautomata.instances
 
 import at.forsyte.harrsh.heapautomata.utils.{Kernelizable, TrackingInfo}
-import at.forsyte.harrsh.heapautomata.{FVBound, HeapAutomaton, InconsistentState, TaggedTargetComputation}
+import at.forsyte.harrsh.heapautomata.{HeapAutomaton, InconsistentState, TaggedTargetComputation}
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.EqualityUtils
 import at.forsyte.harrsh.refinement.AutomatonTask
-import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.{PureAtom, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
 /**
   * Created by jkatelaa on 10/18/16.
   */
-abstract class BaseTrackingAutomaton(override val numFV : Int) extends HeapAutomaton with FVBound with InconsistentState with TaggedTargetComputation[TrackingInfo] {
+abstract class BaseTrackingAutomaton extends HeapAutomaton with InconsistentState with TaggedTargetComputation[TrackingInfo] {
 
   override type State = TrackingInfo
 
   override val description : String = "TRACK-BASE"
 
-  override lazy val inconsistentState : State = TrackingInfo.inconsistentTrackingInfo(numFV)
-
-  override lazy val states: Set[State] = for {
-    // This also computes plenty (but not all) inconsistent states, but we should actually not call this ever anyway
-    alloc <- Combinators.powerSet(Var.mkSetOfAllVars(1 to numFV))
-    pure <- Combinators.powerSet(EqualityUtils.allEqualitiesOverFVs(numFV))
-  } yield TrackingInfo.fromPair(alloc, pure)
+  override def inconsistentState(fvs: Seq[FreeVar]): State = TrackingInfo.inconsistentTrackingInfo(fvs)
 
   override def getTargetsWithTags(src : Seq[State], lab : SymbolicHeap) : Set[(State,TrackingInfo)] = {
     logger.debug("Computing possible targets " + src.mkString(", ") + " --[" + lab + "]--> ???")
@@ -33,7 +27,7 @@ abstract class BaseTrackingAutomaton(override val numFV : Int) extends HeapAutom
     // Perform compression + subsequent equality/allocation propagation
     val consistencyCheckedState = compressAndPropagateTracking(src, lab)
     // Break state down to only the free variables; the other information is not kept in the state space
-    val trg = consistencyCheckedState.dropNonFreeVariables
+    val trg = consistencyCheckedState.projectionToFreeVars
 
     if (logger.underlying.isDebugEnabled && consistencyCheckedState != trg)
       logger.debug("After dropping bound variables: " + trg)
@@ -50,7 +44,7 @@ abstract class BaseTrackingAutomaton(override val numFV : Int) extends HeapAutom
     logger.debug("State for compressed SH: " + stateWithClosure)
 
     // If the state is inconsistent, return the unique inconsistent state; otherwise return state as is
-    if (stateWithClosure.isConsistent) stateWithClosure else inconsistentState
+    if (stateWithClosure.isConsistent) stateWithClosure else inconsistentState(lab.freeVars)
   }
 
   override def implementsPartialTargets: Boolean = true
@@ -62,7 +56,7 @@ abstract class BaseTrackingAutomaton(override val numFV : Int) extends HeapAutom
     // Perform compression + subsequent equality/allocation propagation
     val consistencyCheckedState = compressAndPropagatePartialTracking(src, lab)
     // Break state down to only the free variables; the other information is not kept in the state space
-    val trg = consistencyCheckedState.dropNonFreeVariables
+    val trg = consistencyCheckedState.projectionToFreeVars
 
     if (logger.underlying.isDebugEnabled && consistencyCheckedState != trg)
       logger.debug("After dropping bound variables: " + trg)
@@ -80,14 +74,14 @@ abstract class BaseTrackingAutomaton(override val numFV : Int) extends HeapAutom
     logger.debug("State for compressed SH: " + stateWithClosure)
 
     // If the state is inconsistent, return the unique inconsistent state; otherwise return state as is
-    if (stateWithClosure.isConsistent) stateWithClosure else inconsistentState
+    if (stateWithClosure.isConsistent) stateWithClosure else inconsistentState(lab.freeVars)
   }
 
 }
 
 object BaseTrackingAutomaton extends HarrshLogging {
 
-  def defaultTrackingAutomaton(numFV : Int) : BaseTrackingAutomaton = new BaseTrackingAutomaton(numFV) {
+  def defaultTrackingAutomaton : BaseTrackingAutomaton = new BaseTrackingAutomaton {
     override def isFinal(s: TrackingInfo): Boolean = throw new IllegalStateException("Call to default implementation -- should have been overridden")
   }
 
@@ -96,9 +90,9 @@ object BaseTrackingAutomaton extends HarrshLogging {
   /**
     * Tracking automaton for the given number of free variables, whose final state is specified by alloc and pure.
     */
-  class TrackingAutomatonWithSingleFinalState(numFV: Int, alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) extends BaseTrackingAutomaton(numFV) {
+  class TrackingAutomatonWithSingleFinalState(alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) extends BaseTrackingAutomaton {
 
-    override val description = AutomatonTask.keywords.reltrack + "_" + numFV + "(" + alloc.mkString(",") + "; " + pure.mkString(",") + ")"
+    override val description = AutomatonTask.keywords.reltrack + "(" + alloc.mkString(",") + "; " + pure.mkString(",") + ")"
 
     override def isFinal(s: TrackingInfo) = (s.pure == pure && s.alloc == alloc) != negate
 
@@ -107,9 +101,9 @@ object BaseTrackingAutomaton extends HarrshLogging {
   /**
     * Tracking automaton which checks for subset inclusion rather than equality with parameters
     */
-  class SubsetTrackingAutomaton(numFV: Int, alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) extends BaseTrackingAutomaton(numFV) {
+  class SubsetTrackingAutomaton(alloc : Set[Var], pure : Set[PureAtom], negate : Boolean = false) extends BaseTrackingAutomaton {
 
-    override val description = AutomatonTask.keywords.track + "_" + numFV + "(" + alloc.mkString(",") + "; " + pure.mkString(",") + ")"
+    override val description = AutomatonTask.keywords.track + "(" + alloc.mkString(",") + "; " + pure.mkString(",") + ")"
 
     override def isFinal(s: TrackingInfo) = (pure.subsetOf(s.pure) && alloc.subsetOf(s.alloc)) != negate
 
@@ -118,9 +112,9 @@ object BaseTrackingAutomaton extends HarrshLogging {
   /**
     * Tracking automaton whose target states are defined only by (minimum) allocation (not by pure formulas)
     */
-  class AllocationTrackingAutomaton(numFV: Int, alloc : Set[Var], negate : Boolean = false) extends BaseTrackingAutomaton(numFV) {
+  class AllocationTrackingAutomaton(alloc : Set[Var], negate : Boolean = false) extends BaseTrackingAutomaton {
 
-    override val description = AutomatonTask.keywords.alloc + "_" + numFV + "(" + alloc.mkString(",") + ")"
+    override val description = AutomatonTask.keywords.alloc + "(" + alloc.mkString(",") + ")"
 
     override def isFinal(s: TrackingInfo) = (alloc subsetOf s.alloc) != negate
 
@@ -129,9 +123,9 @@ object BaseTrackingAutomaton extends HarrshLogging {
   /**
     * Tracking automaton whose target states are defined only by (minimum) pure formulas (not by allocation)
     */
-  class PureTrackingAutomaton(numFV: Int, pure : Set[PureAtom], negate : Boolean = false) extends BaseTrackingAutomaton(numFV) {
+  class PureTrackingAutomaton(pure : Set[PureAtom], negate : Boolean = false) extends BaseTrackingAutomaton {
 
-    override val description = AutomatonTask.keywords.pure + "_" + numFV + "(" + pure.mkString(",") + ")"
+    override val description = AutomatonTask.keywords.pure + "(" + pure.mkString(",") + ")"
 
     override def isFinal(s: TrackingInfo) = (pure subsetOf s.pure) != negate
 

@@ -5,7 +5,7 @@ import java.text.SimpleDateFormat
 import RefinementInstance._
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{PtrExpr, Var}
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PredCall, Rule, SID, SymbolicHeap}
 
 import scala.annotation.tailrec
@@ -131,17 +131,16 @@ case class RefinementInstance(sid: SID,
         TransitionInstance(states,body,head,headState) <- reachedTransitions.toSeq
       } yield Rule(
         head = head+stateToIndex(headState),
-        freeVars = body.freeVars map (_.toString),
-        qvars = body.boundVars.toSeq map (_.toString),
+        qvarNames = body.boundVars.toSeq map (_.toString),
         body = SymbolicHeap.addTagsToPredCalls(body, states map (s => ""+stateToIndex(s))))
       val finalRules = reachedStates.finalStates.toSeq.map{
         state =>
-          val call = PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map (i => PtrExpr(Var(i))))
+          val call = PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map Var.defaultFV)
+          val freeVars = (1 to sid.arityOfStartPred) map (Var.defaultFV(_))
           Rule(
             head = sid.startPred,
-            freeVars = (1 to sid.arityOfStartPred) map (Var(_).toString),
-            qvars = Seq(),
-            body = SymbolicHeap(Seq.empty, Seq(call))
+            qvarNames = Seq(),
+            body = SymbolicHeap(Seq.empty, Seq.empty, Seq(call), freeVars)
           )
       }
 
@@ -152,8 +151,7 @@ case class RefinementInstance(sid: SID,
       (SID(
         startPred = sid.startPred,
         rules = innerRules ++ finalRules,
-        description = "Refinement of " + sid.description + " with " + ha.description,
-        numFV = sid.numFV
+        description = "Refinement of " + sid.description + " with " + ha.description
       ), !reachedStates.containsFinalState)
     }
 
@@ -245,34 +243,20 @@ case class RefinementInstance(sid: SID,
 
   private def performSingleIteration(reached : ReachedStates,
                                      previousTransitions : Transitions): IterationResult = {
-    if (ha.implementsTargetComputation) {
-      var break = FlagWrapper(false)
-      for {
-        Rule(head, _, _, body) <- sid.rules.toStream
-        if !break.flag
-        _ = {
-          logger.debug("Looking at defined sources for " + head + " <= " + body)
-        }
-        (src,trg) <- if (!skipSinksAsSources || shouldTryAllSources(body)) {
-          considerAllSourceCombinations(head, body, reached, previousTransitions, break)
-        } else {
-          logger.debug(s"${body.predCalls.size} calls => Will perform incremental instantiation")
-          incrementalInstantiation(head, body, reached, break, body.identsOfCalledPreds)
-        }
-      } yield ((head, trg), (src,body,head))
-    } else {
-      val previousCombinations = previousTransitions.combinations
-      // No dedicated target computation, need to brute-force
-      for {
-        Rule(head, _, _, body) <- sid.rules
-        src <- allDefinedSources(reached, body.identsOfCalledPreds)
-        // Only go on if we haven't tried this combination in a previous iteration
-        if !previousCombinations.contains((src, body, head))
-        // No smart target computation, have to iterate over all possible targets
-        trg <- ha.states
-        if ha.isTransitionDefined(src, trg, body)
-      } yield ((head, trg), (src,body,head))
-    }
+    var break = FlagWrapper(false)
+    for {
+      Rule(head, _, body) <- sid.rules.toStream
+      if !break.flag
+      _ = {
+        logger.debug("Looking at defined sources for " + head + " <= " + body)
+      }
+      (src,trg) <- if (!skipSinksAsSources || shouldTryAllSources(body)) {
+        considerAllSourceCombinations(head, body, reached, previousTransitions, break)
+      } else {
+        logger.debug(s"${body.predCalls.size} calls => Will perform incremental instantiation")
+        incrementalInstantiation(head, body, reached, break, body.identsOfCalledPreds)
+      }
+    } yield ((head, trg), (src,body,head))
   }
 
   @tailrec

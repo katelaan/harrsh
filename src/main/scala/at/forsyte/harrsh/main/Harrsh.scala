@@ -179,7 +179,7 @@ object Harrsh {
 
       case Analyze =>
           val sid = MainIO.getSidFromFile(config.file)
-          RefinementAlgorithms.performFullAnalysis(sid, sid.numFV, config.timeout, config.verbose)
+          RefinementAlgorithms.performFullAnalysis(sid, config.timeout, config.verbose)
 
       case ModelChecking =>
           val sid = MainIO.getSidFromFile(config.file)

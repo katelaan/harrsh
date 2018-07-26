@@ -18,13 +18,14 @@ class HeapAutomataBenchmarkTest extends HarrshTest {
   they should "reproduce the benchmark suite" in {
 
     val tasks = MainIO.readTasksFromFile("examples/test-suite-benchmarks.bms")
-    val (results, stats) = DecisionProcedures.decideInstances(tasks, Duration(10, SECONDS), verbose = false, reportProgress = false)
-    val diffs = DecisionProcedures.deviationsFromExpectations(results)
-    for {
-      diff <- diffs
-    } {
-      info("Deviation in benchmark results: " + diff)
-      assert(false)
+
+    for (task <- tasks) {
+
+      withClue(s"For task $task:") {
+        val result = DecisionProcedures.decideInstance(task, Duration(10, SECONDS), verbose = false, reportProgress = false)
+        result.isEmpty shouldEqual !task.expectedResult.get
+      }
+
     }
 
   }

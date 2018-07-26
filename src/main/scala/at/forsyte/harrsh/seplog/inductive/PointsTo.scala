@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog._
 /**
   * Created by jens on 3/14/17.
   */
-case class PointsTo(from : PtrExpr, to : Seq[PtrExpr]) extends SepLogAtom {
+case class PointsTo(from : Var, to : Seq[Var]) extends SepLogAtom {
 
   override def isSpatial = true
 
@@ -13,23 +13,17 @@ case class PointsTo(from : PtrExpr, to : Seq[PtrExpr]) extends SepLogAtom {
 
   override def isSymbolicHeap = true
 
-  override def toSymbolicHeap = Some(SymbolicHeap(Seq(this)))
+  override def toSymbolicHeap = Some(SymbolicHeap(Seq.empty, Seq(this), Seq.empty, Var.freeNonNullVars(getNonNullVars).toSeq))
 
-  override def renameVars(f : Renaming) : PointsTo = PointsTo(from.renameVars(f), to map (_.renameVars(f)))
+  override def renameVars(f : Renaming) : PointsTo = PointsTo(from.rename(f), to map (_.rename(f)))
 
-  override def getVars : Set[Var] = (from +: to).toSet[PtrExpr] flatMap (_.getNonNullVar)
+  override def getNonNullVars : Set[Var] = (from +: to).toSet - NullConst
 
-  def fromAsVar : Var = from.getVarOrZero
-
-  def toAsVarOrZero : Seq[Var] = to map (_.getVarOrZero)
-
-  override def toStringWithVarNames(names: VarNaming): String = from.toStringWithVarNames(names) + " \u21a6 " + (if (to.tail.isEmpty) to.head.toStringWithVarNames(names).toString else to.map(_.toStringWithVarNames(names)).mkString("(", ", ", ")"))
+  override def toStringWithVarNames(names: VarNaming): String = names(from) + " \u21a6 " + (if (to.tail.isEmpty) names(to.head).toString else to.map(names).mkString("(", ", ", ")"))
 }
 
 object PointsTo {
 
-  def apply(from : Var, to : Var) : PointsTo = PointsTo(PtrExpr(from), Seq(PtrExpr(to)))
-
-  def apply(from : Var, to : Seq[Var]) : PointsTo = PointsTo(PtrExpr(from), to map (PtrExpr(_)))
+  def apply(from : Var, to : Var) : PointsTo = PointsTo(from, Seq(to))
 
 }

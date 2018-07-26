@@ -28,9 +28,7 @@ object ScriptToSatBenchmark extends HarrshLogging {
     logger.debug(s"Asscoiated with indices: $selToIx")
 
     val consts = s.consts.map(_.name.str)
-    val constsToFvs: Map[String, Var] = (for {
-      (c, i) <- consts.zipWithIndex
-    } yield (c, Var(i+1))).toMap
+    val constsToFvs: Map[String, Var] = Map() ++ consts.map(c => (c, FreeVar(c)))
     logger.debug(s"Mapping consts to FVs: $constsToFvs")
 
     val preds: Set[String] = s.funs.map(_.decl.name.str).toSet
@@ -43,17 +41,16 @@ object ScriptToSatBenchmark extends HarrshLogging {
     logger.debug(s"Top-level assertion: $sh")
     logger.debug(s"Predicate definitions:\n${rules.mkString("\n")}")
 
-    // TODO: Avoid blowing up numFV to consts.length by dedicated support for top-level queries
     val numFV = rules.map(_.body.numFV).max
-    val sid = SID("undefined", rules, description, numFV)
+    val sid = SID("undefined", rules, description)
     val status = s.status.getOrElse(SatBenchmark.Unknown)
-    SatBenchmark(sid, consts, sh, status)
+    SatBenchmark(sid, sh, status)
   }
 
   case class Env(preds: Set[String], types: DataTypes, selToIx: Map[String, Int]) {
 
-    def mkPtrTrg(sels: List[(PtrExpr,String)]): Seq[PtrExpr] = {
-      val trg: Array[PtrExpr] = Array.fill(selToIx.size)(NullPtr)
+    def mkPtrTrg(sels: List[(Var,String)]): Seq[Var] = {
+      val trg: Array[Var] = Array.fill(selToIx.size)(NullConst)
       for {
         (ptr,sel) <- sels
       } trg(selToIx(sel)) = ptr
@@ -67,16 +64,18 @@ object ScriptToSatBenchmark extends HarrshLogging {
     val varMap = (for {
       (arg, i) <- fun.decl.args.zipWithIndex
       argStr = arg.name.str
-    } yield (argStr, Var(i+1))).toMap
+    } yield (argStr, FreeVar(argStr))).toMap
     val atoms: Seq[Atoms] = collectAtoms(fun.term, env, varMap)
     for {
       atom <- atoms
-    } yield Rule(head, freeVars, atom.qvars, atom.toSymbolicHeap)
+    } yield Rule(head, atom.qvars, atom.toSymbolicHeap)
   }
 
   case class Atoms(pure: List[PureAtom], pointsTo: List[PointsTo], predCalls: List[PredCall], qvars: List[String]) {
     def toSymbolicHeap: SymbolicHeap = {
-      SymbolicHeap(pure, pointsTo, predCalls)
+      val atoms = AtomContainer(pure, pointsTo, predCalls)
+      logger.debug(s"Creating SH from $atoms with free vars ${atoms.freeVarSeq}, bound vars: $qvars")
+      SymbolicHeap(atoms, atoms.freeVarSeq)
     }
 
     def merge(other: Atoms) : Atoms = {
@@ -103,8 +102,8 @@ object ScriptToSatBenchmark extends HarrshLogging {
         case "pto" =>
           assert(args.length == 2)
           logger.debug(s"Ptr from src ${args.head} to targets ${args(1)}")
-          val src = qualIdentToPtrExpr(args.head, varMap)
-          val trgs = constructorToPtrExprs(args(1), env, varMap)
+          val src = qualIdentToVar(args.head, varMap)
+          val trgs = constructorToVars(args(1), env, varMap)
           val pto = PointsTo(src, trgs)
           List(Atoms(pto))
         case "and" =>
@@ -127,17 +126,17 @@ object ScriptToSatBenchmark extends HarrshLogging {
             (left, i) <- args.zipWithIndex
             (right, j) <- args.zipWithIndex
             if i < j
-          } yield PtrNEq(qualIdentToPtrExpr(left, varMap), qualIdentToPtrExpr(right, varMap))
+          } yield PtrNEq(qualIdentToVar(left, varMap), qualIdentToVar(right, varMap))
           List(Atoms(neqs, Nil, Nil, Nil))
         //case "emp" =>
         //  ???
         case "=" =>
           logger.debug(s"Applying = to $args")
           assert(args.length == 2)
-          val ops = args map (arg => qualIdentToPtrExpr(arg, varMap))
+          val ops = args map (arg => qualIdentToVar(arg, varMap))
           List(Atoms(PtrEq(ops(0), ops(1))))
         case pred if env.preds.contains(pred) =>
-          val callArgs = args map (arg => qualIdentToPtrExpr(arg, varMap))
+          val callArgs = args map (arg => qualIdentToVar(arg, varMap))
           List(Atoms(PredCall(pred, callArgs)))
         case other =>
           throw new Exception(s"Can't convert $other to symbolic heap")
@@ -145,9 +144,9 @@ object ScriptToSatBenchmark extends HarrshLogging {
     case IndexedIdentifier(Symbol("emp"),_) =>
       List(Atoms(Nil, Nil, Nil, Nil))
     case Exists(vars, term) =>
-      val qvars: List[String] = vars map (_.asInstanceOf[SortedVar].name.str)
+      val qvars: List[String] = vars map (_.name.str)
       val qvarMap = qvars.zipWithIndex.map {
-        case (str,ix) => (str,Var(-ix-1))
+        case (str,ix) => (str,BoundVar(ix+1))
       }
       val extendedMap = varMap ++ qvarMap
       val termAtoms = collectAtoms(term, env, extendedMap)
@@ -157,12 +156,12 @@ object ScriptToSatBenchmark extends HarrshLogging {
       throw new Exception(s"Can't convert $other to symbolic heap")
   }
 
-  def constructorToPtrExprs(sid : SidBuilder, env: Env, varMap: Map[String, Var]): Seq[PtrExpr] = sid match {
+  def constructorToVars(sid : SidBuilder, env: Env, varMap: Map[String,Var]): Seq[Var] = sid match {
     case Args((s@Symbol(hd)) :: tl) =>
       if (tl.isEmpty) {
-        env.mkPtrTrg(List((qualIdentToPtrExpr(s, varMap), DEFAULT_SELECTOR)))
+        env.mkPtrTrg(List((qualIdentToVar(s, varMap), DEFAULT_SELECTOR)))
       } else {
-        val args = tl map (arg => qualIdentToPtrExpr(arg, varMap))
+        val args = tl map (arg => qualIdentToVar(arg, varMap))
         val c = env.types.getConstructor(hd)
         val sels = c.sels.map(_.sel.str)
         env.mkPtrTrg(args zip sels)
@@ -171,11 +170,11 @@ object ScriptToSatBenchmark extends HarrshLogging {
       throw new Exception(s"Can't convert $other to constructor application")
   }
 
-  def qualIdentToPtrExpr(sid : SidBuilder, varMap: Map[String,Var]): PtrExpr = sid match {
-    case Symbol(str) => PtrVar(varMap(str))
+  def qualIdentToVar(sid : SidBuilder, varMap: Map[String,Var]): Var = sid match {
+    case Symbol(str) => varMap(str)
     case QualifiedIdentifier(Symbol(str), _) =>
       // We don't care about the type info
-      if (str == "nil") NullPtr else throw new Exception(s"Unexpected qualified identifier $str")
+      if (str == "nil") NullConst else throw new Exception(s"Unexpected qualified identifier $str")
     case other =>
       throw new Exception(s"Can't interpret $sid as qualified identifier")
   }

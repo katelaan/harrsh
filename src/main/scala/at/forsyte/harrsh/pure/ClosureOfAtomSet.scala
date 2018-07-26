@@ -12,8 +12,7 @@ private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure 
   var mapToClasses : Map[Var,Set[Var]] = Map()
 
   for {
-    atom <- pure
-    (left, right, isEqual) = EqualityUtils.unwrapAtom(atom)
+    PureAtom(left, right, isEqual) <- pure
     if isEqual
   } {
     extendEntry(left, right)

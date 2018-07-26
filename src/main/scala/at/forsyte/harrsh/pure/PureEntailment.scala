@@ -29,8 +29,8 @@ object PureEntailment extends HarrshLogging {
 
       // After we've computed the closure, we can throw away existentially quantified variables:
       // The (existentially!) quantified variables do not strengthen the constraints in any way.
-      val lhsFreeClosureSet = lhsClosureSet filterNot (atom => atom.getVars.exists(_.isBound))
-      val rhsFreeClosureSet = rhsClosureSet filterNot (atom => atom.getVars.exists(_.isBound))
+      val lhsFreeClosureSet = lhsClosureSet filterNot (atom => atom.getNonNullVars.exists(_.isBound))
+      val rhsFreeClosureSet = rhsClosureSet filterNot (atom => atom.getNonNullVars.exists(_.isBound))
 
       logger.debug(rhsFreeClosureSet + " subset of " + lhsFreeClosureSet + "?")
       val res = rhsFreeClosureSet subsetOf lhsFreeClosureSet

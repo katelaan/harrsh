@@ -1,22 +1,18 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.seplog.{PtrExpr, Renaming, Var, VarNaming}
+import at.forsyte.harrsh.seplog.{NullConst, Renaming, Var, VarNaming}
 
 /**
   * Created by jens on 2/28/17.
   */
-//trait PredicateCall extends SepLogAtom {
-//
-//}
 
 /**
   * Inductive spatial predicate, whose semantics is given by a SID
   * @param name Name of the predicate
   * @param args Nonempty sequence of arguments
   */
-//case class SpatialUserDefPredCall(name : String, args : Seq[PtrExpr]) extends PredicateCall {
-case class PredCall(name : String, args : Seq[PtrExpr]) extends SepLogAtom /*PredicateCall*/ {
-  override def toStringWithVarNames(names: VarNaming) = name + "(" + args.map(_.toStringWithVarNames(names)).mkString(",") + ")"
+case class PredCall(name : String, args : Seq[Var]) extends SepLogAtom {
+  override def toStringWithVarNames(names: VarNaming) = name + "(" + args.map(names).mkString(",") + ")"
 
   override def isSpatial: Boolean = true
 
@@ -24,9 +20,9 @@ case class PredCall(name : String, args : Seq[PtrExpr]) extends SepLogAtom /*Pre
 
   override def isSymbolicHeap: Boolean = true
 
-  override def toSymbolicHeap: Option[SymbolicHeap] = Some(SymbolicHeap(Seq.empty, Seq(this)))
+  override def toSymbolicHeap: Option[SymbolicHeap] = Some(SymbolicHeap(Seq.empty, Seq.empty, Seq(this), Var.freeNonNullVars(args)))
 
-  override def renameVars(f: Renaming): PredCall = copy(args = args map (_.renameVars(f)))
+  override def renameVars(f: Renaming): PredCall = copy(args = args map (_.rename(f)))
 
-  override def getVars : Set[Var] = (args flatMap (_.getNonNullVar)).toSet
+  override def getNonNullVars : Set[Var] = args.toSet - NullConst
 }

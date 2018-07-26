@@ -20,12 +20,12 @@ private[pure] case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends C
   override def getEquivalenceClass(v: Var): Set[Var] = {
     val otherMembers = closure.filter({
       atom =>
-        val (l, r, isEq) = unwrapAtom(atom)
+        val PureAtom(l, r, isEq) = atom
         // Find those equalities that mention v
         isEq && (l == v || r == v)
     }).map({
       atom =>
-        val (l, r, _) = unwrapAtom(atom)
+        val PureAtom(l, r, _) = atom
         // Return the argument that is different from v
         if (l == v) r else l
     })
@@ -35,7 +35,7 @@ private[pure] case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends C
   override def isRepresentative(v: Var): Boolean = !closure.exists({
     atom =>
       // Search for a smaller equal element
-      val (l, r, isEq) = unwrapAtom(atom)
+      val PureAtom(l, r, isEq) = atom
       isEq && r == v && l < r
   })
 

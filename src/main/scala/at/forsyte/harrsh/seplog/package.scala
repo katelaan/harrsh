@@ -9,22 +9,18 @@ package object seplog {
 
   type VarUnNaming = String => Var
 
-  lazy val DefaultNaming : VarNaming = {
-    case Var(0) => "null"
-    case Var(i) if i > 0 => Var.FreeVarString + i
-    case Var(i) => Var.BoundVarString + (-i)
-  }
+  lazy val DefaultNaming : VarNaming = v => v.toString
 
   def mkNaming(freeVars : Seq[String], boundVars : Seq[String]) : VarNaming = {
-    val freeVarNaming = freeVars.zipWithIndex map (p => (Var(p._2+1),p._1))
-    val boundVarNaming = boundVars.zipWithIndex map (p => (Var(-(p._2+1)),p._1))
-    Map.empty[Var,String] ++ freeVarNaming ++ boundVarNaming
+    val freeVarNaming = freeVars map (v => (FreeVar(v),v))
+    val boundVarNaming = boundVars.zipWithIndex map (p => (BoundVar(p._2+1),p._1))
+    Map.empty[Var,String] ++ freeVarNaming ++ boundVarNaming ++ Map(NullConst -> NullConst.toString)
   }
 
   def mkUnNaming(freeVars : Seq[String], boundVars : Seq[String]) : VarUnNaming = {
-    val freeVarNaming = freeVars.zipWithIndex map (p => (p._1,Var(p._2+1)))
-    val boundVarNaming = boundVars.zipWithIndex map (p => (p._1,Var(-(p._2+1))))
-    Map.empty[String, Var] ++ freeVarNaming ++ boundVarNaming
+    val freeVarNaming = freeVars map (v => (v,FreeVar(v)))
+    val boundVarNaming = boundVars.zipWithIndex map (p => (p._1,BoundVar(p._2+1)))
+    Map.empty[String, Var] ++ freeVarNaming ++ boundVarNaming ++ Map(NullConst.toString -> NullConst)
   }
 
 }

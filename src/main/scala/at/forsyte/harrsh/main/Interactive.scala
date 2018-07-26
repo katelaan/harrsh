@@ -102,7 +102,7 @@ object Interactive {
     override def witness : Option[SymbolicHeap] = super.witness map (record("witness", _))
 
     def analyze : Unit = {
-      RefinementAlgorithms.performFullAnalysis(sid, sid.numFV, InteractiveTimeout, verbose = false)
+      RefinementAlgorithms.performFullAnalysis(sid, InteractiveTimeout, verbose = false)
     }
   }
 

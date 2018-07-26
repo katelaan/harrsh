@@ -48,7 +48,7 @@ object MainIO extends HarrshLogging {
 
   def getSidAndAutomaton(sidFile : String, prop: AutomatonTask) : (SID, HeapAutomaton) = {
     val sid = MainIO.getSidFromFile(sidFile)
-    (sid, prop.getAutomaton(sid.numFV))
+    (sid, prop.getAutomaton)
   }
 
   def getModelFromFile(fileName : String) : Model = {

@@ -17,10 +17,11 @@
     <!---
     <logger name="at.forsyte.harrsh.entailment.EntailmentHeapAutomaton" level="DEBUG" />
     <logger name="at.forsyte.harrsh.refinement.RefinementAlgorithms" level="DEBUG" />
-
+    <logger name="at.forsyte.harrsh.refinement.RefinementInstance" level="DEBUG" />
 
     <logger name="at.forsyte.harrsh.seplog" level="INFO" />
     <logger name="at.forsyte.harrsh.seplog.inductive.SymbolicHeap" level="DEBUG" />
+    <logger name="at.forsyte.harrsh.seplog.inductive.AtomContainer" level="DEBUG" />
     <logger name="at.forsyte.harrsh.seplog.inductive.SIDUnfolding" level="DEBUG" />
 
     <logger name="at.forsyte.harrsh.entailment" level="DEBUG" />

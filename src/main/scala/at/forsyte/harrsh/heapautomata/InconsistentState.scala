@@ -1,5 +1,7 @@
 package at.forsyte.harrsh.heapautomata
 
+import at.forsyte.harrsh.seplog.FreeVar
+
 /**
   * Created by jens on 3/29/17.
   */
@@ -10,7 +12,7 @@ trait InconsistentState {
   /**
     * An inconsistent state representing all "sink" states
     */
-  val inconsistentState : State
+  def inconsistentState(fvs: Seq[FreeVar]) : State
 
   /**
     * Is it possible for a transition with one or more inconsistent source states to lead to a consistent state?

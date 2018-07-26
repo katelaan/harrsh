@@ -2,7 +2,7 @@ package at.forsyte.harrsh.modelchecking
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.Closure
-import at.forsyte.harrsh.seplog.{NullPtr, PtrExpr, PtrVar, Var}
+import at.forsyte.harrsh.seplog.{Var, NullConst}
 import at.forsyte.harrsh.seplog.inductive._
 
 /**
@@ -10,8 +10,9 @@ import at.forsyte.harrsh.seplog.inductive._
   */
 case class Model(stack : Map[Var, Loc], heap : Map[Loc,Seq[Loc]]) extends HarrshLogging {
 
-  assert(stack.keySet.isEmpty || Var.minOf(stack.keySet) > Var.nil) // Only non-null free variables are in the stack
-  assert(!heap.keySet.contains(Model.NullLoc)) // Null is not allocated
+  assert(stack.values.forall(_>=0))
+  assert(heap.keys.forall(_>0))
+  assert(heap.values.flatten.forall(_>=0))
   // The following assertion is violated if there are dangling pointers!
   //assert(stack.values.toSet subsetOf (heap.keySet ++ heap.values.flatten ++ Set(0)))
 
@@ -40,7 +41,7 @@ case class Model(stack : Map[Var, Loc], heap : Map[Loc,Seq[Loc]]) extends Harrsh
     if (pointersToProcess.isEmpty) {
       Some(extendedStack)
     } else {
-      val pto = pointersToProcess.find(pto => extendedStack.contains(pto.from.getVarOrZero)) match {
+      val pto = pointersToProcess.find(pto => extendedStack.contains(pto.from)) match {
         case Some(value) => value
         case None =>
           // If there are only pointers with unconstrained left-hand sides, we give up
@@ -55,9 +56,9 @@ case class Model(stack : Map[Var, Loc], heap : Map[Loc,Seq[Loc]]) extends Harrsh
 
   def addNamesFromPto(pto: PointsTo, extendedStack: Map[Var, Loc]) : Option[Map[Var, Loc]] = {
     for {
-      targetLocs <- heap.get(extendedStack(pto.from.getVarOrZero))
+      targetLocs <- heap.get(extendedStack(pto.from))
       if targetLocs.length == pto.to.length
-      varLocPairs = pto.to.map(_.getVarOrZero) zip targetLocs
+      varLocPairs = pto.to zip targetLocs
       extended <- extendStack(extendedStack, varLocPairs)
     } yield extended
   }
@@ -110,7 +111,7 @@ object Model {
       println("Can't convert non-reduced symbolic heap to model")
       None
     } else {
-      val allocAtoms = sh.pointers.map(_.from).map(expr => PtrNEq(expr, NullPtr))
+      val allocAtoms = sh.pointers.map(_.from).map(expr => PtrNEq(expr, NullConst))
       val diffAtoms = {
         for {
           i <- 0 until sh.pointers.size - 1
@@ -130,9 +131,9 @@ object Model {
 
         def varToLoc(v: Var): Loc = memLayout(cl.getEquivalenceClass(v))
 
-        def exprToLoc(v: PtrExpr): Loc = v match {
-          case NullPtr => 0
-          case PtrVar(id) => varToLoc(id)
+        def exprToLoc(v: Var): Loc = v match {
+          case NullConst => Model.NullLoc
+          case other => varToLoc(other)
         }
 
         val stack: Map[Var, Loc] = Map() ++ sh.freeVars.map {
@@ -148,9 +149,9 @@ object Model {
   }
 
   def evalInStack(stack: Map[Var, Loc], pure: PureAtom): Boolean = {
-    val leftVar = pure.l.getVarOrZero
+    val leftVar = pure.l
     val leftLoc = if (leftVar.isNull) NullLoc else stack(leftVar)
-    val rightVar = pure.r.getVarOrZero
+    val rightVar = pure.r
     val rightLoc = if (rightVar.isNull) NullLoc else stack(rightVar)
     (leftLoc == rightLoc) == pure.isEquality
   }

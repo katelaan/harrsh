@@ -1,44 +1,30 @@
 package at.forsyte.harrsh.pure
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, PureAtom, SymbolicHeap}
-import at.forsyte.harrsh.seplog.{PtrExpr, Var}
-import at.forsyte.harrsh.util.Combinators
-
-import scala.annotation.tailrec
+import at.forsyte.harrsh.seplog.inductive.PureAtom
+import at.forsyte.harrsh.seplog.Var
 
 /**
   * Created by jkatelaa on 10/17/16.
   */
 object EqualityUtils extends HarrshLogging {
 
-  def allEqualitiesOverFVs(numFV : Int) : Set[PureAtom] = {
+  def allEqualitiesOverVars(fvs : Seq[Var]) : Set[PureAtom] = {
     for {
-      i <- Set() ++ (0 to numFV-1)
-      j <- Set() ++ (i+1 to numFV)
+      i <- Set() ++ fvs.indices
+      j <- Set() ++ (i+1 until fvs.length)
       eq <- Set(true, false)
-    } yield orderedAtom(Var(i), Var(j), eq)
-  }
-
-  def mkPure(atoms : (Int, Int, Boolean)*) : Set[PureAtom] = Set() ++ (atoms.toSeq map {
-    case (l,r,isEq) => orderedAtom(Var(l),Var(r),isEq)
-  })
-
-  def unwrapAtom(atom : PureAtom) : (Var, Var, Boolean) = atom match {
-    case PureAtom(l, r, isEquality) => (l.getVarOrZero, r.getVarOrZero, isEquality)
+    } yield orderedAtom(fvs(i), fvs(j), eq)
   }
 
   def orderedAtom(left : Var, right : Var, isEqual : Boolean): PureAtom = {
     val (small, large) = if (left < right) (left, right) else (right, left)
-    PureAtom(PtrExpr(small), PtrExpr(large), isEqual)
+    PureAtom(small, large, isEqual)
   }
 
   def orderedAtom(atom : PureAtom): PureAtom = {
-    val (left, right, isEqual) = unwrapAtom(atom)
-    orderedAtom(left, right, isEqual)
+    orderedAtom(atom.l, atom.r, atom.isEquality)
   }
-
-
 
   def varsEqualModuloPureSameSide(pure: Seq[PureAtom], fst: Var, snd: Var): Boolean = {
     logger.debug("Will check equality " + fst + " = " + snd + " modulo "+ pure)

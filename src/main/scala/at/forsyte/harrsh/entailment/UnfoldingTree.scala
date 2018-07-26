@@ -29,7 +29,7 @@ case class UnfoldingTree(nodes: Set[UTNode], root: UTNode, abstractLeaves: Set[U
     val sh = leaf.lab
     assert(rule.head == sh.predCalls.head.name)
     val unfolded = sh.replaceCall(sh.predCalls.head, rule.body)
-    val childLabels = unfolded.predCalls map (call => SymbolicHeap(Seq.empty, Seq(call)))
+    val childLabels = unfolded.predCalls map (call => SymbolicHeap(Seq.empty, Seq.empty, Seq(call), sh.freeVars))
     val childNodes = childLabels map UTNode
     replace(leaf, UTNode(unfolded), childNodes)
   }

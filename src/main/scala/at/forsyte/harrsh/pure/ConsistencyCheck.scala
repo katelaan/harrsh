@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.pure
 
-import at.forsyte.harrsh.seplog.{NullPtr, PtrExpr, PtrVar, Var}
+import at.forsyte.harrsh.seplog.{NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.{PtrNEq, PureAtom, SymbolicHeap}
 
 /**
@@ -21,22 +21,22 @@ object ConsistencyCheck {
     */
   private def symbolicHeapToEqualityConstraints(sh : SymbolicHeap) : Set[PureAtom] = {
     // TODO Why drop the quantifiers? The closure computation should work just as well for bound variables
-    val qfree : SymbolicHeap = SymbolicHeap.dropQuantifiers(sh)
-    val alloc = qfree.pointers map (_.fromAsVar)
-    qfree.pure.toSet ++ allocationInfoToConsistencyConstraints(alloc)
+    //val qfree : SymbolicHeap = SymbolicHeap.dropQuantifiers(sh)
+    val alloc = sh.pointers map (_.from)
+    sh.pure.toSet ++ allocationInfoToConsistencyConstraints(alloc)
   }
 
   def symbolicHeapToEqualityConstraintsQuantified(sh : SymbolicHeap) : Set[PureAtom] = {
-    val alloc = sh.pointers map (_.fromAsVar)
+    val alloc = sh.pointers map (_.from)
     sh.pure.toSet ++ allocationInfoToConsistencyConstraints(alloc)
   }
 
   def allocationInfoToConsistencyConstraints(alloc : Seq[Var]) : Iterable[PureAtom] = {
-    val allocNotNull : Seq[PureAtom] = alloc map (v => PtrNEq(PtrExpr(v), NullPtr))
+    val allocNotNull : Seq[PureAtom] = alloc map (v => PtrNEq(v, NullConst))
     val allocNotEqual : Seq[PureAtom] = for {
       i <- 0 until alloc.size - 1
       j <- i+1 until alloc.size
-    } yield PtrNEq(PtrExpr(alloc(i)), PtrExpr(alloc(j)))
+    } yield PtrNEq(alloc(i), alloc(j))
     allocNotNull ++ allocNotEqual
   }
 

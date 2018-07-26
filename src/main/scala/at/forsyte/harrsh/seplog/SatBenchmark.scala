@@ -1,8 +1,8 @@
 package at.forsyte.harrsh.seplog
 
-import at.forsyte.harrsh.seplog.inductive.{Rule, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{Predicate, Rule, SID, SymbolicHeap}
 
-case class SatBenchmark(preds: SID, consts: List[String], query: SymbolicHeap, status: SatBenchmark.Status) {
+case class SatBenchmark(sid: SID, query: SymbolicHeap, status: SatBenchmark.Status) {
 
   def StartPred = "ASSERT"
 
@@ -10,7 +10,7 @@ case class SatBenchmark(preds: SID, consts: List[String], query: SymbolicHeap, s
     val sb = new StringBuilder()
     sb.append("SatBenchmark {\n")
     sb.append("  SID = {\n")
-    for (line <- preds.toString.lines) sb.append(s"    $line\n")
+    for (line <- sid.toString.lines) sb.append(s"    $line\n")
     sb.append("  }\n  Query = {\n")
     for (line <- query.toString.lines) sb.append(s"    $line\n")
     sb.append(s"  }\n  Status = $status\n")
@@ -28,12 +28,12 @@ case class SatBenchmark(preds: SID, consts: List[String], query: SymbolicHeap, s
       case None =>
         // The query is a single predicate call => Extract start predicate from that
         val startPred = query.predCalls.head.name
-        SID(startPred, preds.rules, preds.description, preds.numFV)
+        SID(startPred, sid.preds, sid.description)
       case Some(rule) =>
         // Need an additional rule to represent query => Derive integrated SID from that
-        val allRules = rule +: preds.rules
+        val allPreds = sid.preds.updated(rule.head,Predicate.fromRules(Seq(rule)))
         // Note: The number of free variables of the top-level query does not matter for the arity of the automaton!
-        SID(StartPred, allRules, preds.description, preds.numFV)
+        SID(StartPred, allPreds, sid.description)
     }
 
   }
@@ -42,7 +42,7 @@ case class SatBenchmark(preds: SID, consts: List[String], query: SymbolicHeap, s
     if (isRedundantSingleCall(query))
       None
     else
-      Some(Rule(StartPred, consts, Nil, query))
+      Some(Rule(StartPred, Nil, query))
   }
 
   private def isRedundantSingleCall(heap: SymbolicHeap) = {
@@ -53,7 +53,7 @@ case class SatBenchmark(preds: SID, consts: List[String], query: SymbolicHeap, s
       // It's a single call => Check if it's redundant...
       val call = heap.predCalls.head
       // ...i.e. if the call does *not* contain null + its args are pairwise different
-      call.args.find(_.isNullPtr).isEmpty && call.args.toSet.size == call.args.size
+      !call.args.exists(_.isNull) && call.args.toSet.size == call.args.size
     }
   }
 

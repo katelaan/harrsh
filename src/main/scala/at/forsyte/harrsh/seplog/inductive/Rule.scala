@@ -1,20 +1,22 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.seplog.{Var, VarNaming, mkNaming}
+import at.forsyte.harrsh.seplog.{VarNaming, mkNaming}
 
 /**
   * Created by jens on 11/2/16.
   */
-case class Rule(head : String, freeVars : Seq[String], qvars : Seq[String], body : SymbolicHeap) {
+case class Rule(head : String, qvarNames : Seq[String], body : SymbolicHeap) {
 
-  lazy val naming : VarNaming = mkNaming(freeVars, qvars)
+  private lazy val freeVarNames = body.freeVars.map(_.toString)
 
-  override def toString = head + freeVars.mkString("(",", ", ")" + " <= " + body.toStringWithVarNames(naming))
+  lazy val naming : VarNaming = mkNaming(freeVarNames, qvarNames)
+
+  override def toString = head + freeVarNames.mkString("(",", ", ")" + " <= " + body.toStringWithVarNames(naming))
 
 }
 
 object Rule {
 
-  def fromTuple(tuple : (String, Seq[String], SymbolicHeap)) = Rule(tuple._1, (1 to tuple._3.numFV) map (Var(_).toString), tuple._2, tuple._3)
+  def fromTuple(tuple : (String, Seq[String], SymbolicHeap)) = Rule(tuple._1, tuple._2, tuple._3)
 
 }

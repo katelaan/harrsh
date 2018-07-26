@@ -64,7 +64,7 @@ object Implicits {
     def refined(task : AutomatonTask) : SID = refineAndCheckEmptiness(task)._1
 
     def refineAndCheckEmptiness(task : AutomatonTask) : (SID,Boolean) = {
-      RefinementAlgorithms.refineSID(sid, task.getAutomaton(sid.numFV), InteractiveTimeout, reportProgress = Defaults.reportProgress) match {
+      RefinementAlgorithms.refineSID(sid, task.getAutomaton, InteractiveTimeout, reportProgress = Defaults.reportProgress) match {
         case Some(refinedSID) =>
           refinedSID
         case None =>
@@ -74,7 +74,7 @@ object Implicits {
     }
 
     def hasEmptyIntersectionWithLanguageOf(task : AutomatonTask) : Boolean = {
-      val AnalysisResult(isEmpty, analysisTime, timedOut) = DecisionProcedures.decideInstance(sid, task.getAutomaton(sid.numFV), InteractiveTimeout, verbose = Defaults.reportProgress, reportProgress = Defaults.reportProgress)
+      val AnalysisResult(isEmpty, analysisTime, timedOut) = DecisionProcedures.decideInstance(sid, task.getAutomaton, InteractiveTimeout, verbose = Defaults.reportProgress, reportProgress = Defaults.reportProgress)
 //      if (timedOut) {
 //        println("Reached timeout of " + InteractiveTimeout)
 //      } else {

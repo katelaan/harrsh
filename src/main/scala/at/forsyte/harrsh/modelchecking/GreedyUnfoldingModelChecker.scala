@@ -2,6 +2,7 @@ package at.forsyte.harrsh.modelchecking
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.{ConsistencyCheck, Determinization, PureEntailment}
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.IOUtils
 
@@ -161,7 +162,8 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
         IOUtils.printIf(reportProgress)("    " + lhsWithImpliedInequalities.mkString("{",", ", "}") + " |?=_PURE " + partialUnfolding.pure.mkString("{",", ", "}"))
 
         // FIXME Improve efficiency here? It's redundant to check entailment and consistency separately
-        if (!ConsistencyCheck.isConsistent(SymbolicHeap(lhsWithImpliedInequalities, Seq(), Seq()))) {
+        val freeVars = Var.freeNonNullVars(lhsWithImpliedInequalities.flatMap(_.getNonNullVars))
+        if (!ConsistencyCheck.isConsistent(SymbolicHeap(lhsWithImpliedInequalities, Seq(), Seq(), freeVars))) {
           // Inconsistent history constraints => Not a model
           IOUtils.printIf(reportProgress)("    Inconsistent constraints, not a model")
           false

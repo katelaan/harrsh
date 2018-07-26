@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.pure
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{PtrExpr, PtrVar, Var, inductive}
+import at.forsyte.harrsh.seplog.{NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, PureAtom, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
@@ -45,7 +45,7 @@ object Determinization extends HarrshLogging {
     val closure = Closure.ofSetOfAtoms(constraints)
     logger.debug("Closure: " + closure.asSetOfAtoms)
 
-    val vars = rsh.allVars + Var.nil
+    val vars = rsh.allVars + NullConst
     val relevantVars = closure.classRepresentativesOf(vars).toIndexedSeq
     logger.debug("One variable per equivalence class: " + relevantVars.mkString(", "))
     val numvars = relevantVars.size
@@ -73,7 +73,7 @@ object Determinization extends HarrshLogging {
   private def orderedPair(fst : Var, snd : Var) = if (fst < snd) (fst, snd) else (snd, fst)
 
   private def isInequalityBetween(fst : Var, snd: Var)(atom : PureAtom) : Boolean = atom match {
-    case PureAtom(l, r, isEquality) => !isEquality && (l.getVarOrZero == fst && r.getVarOrZero == snd) || (l.getVarOrZero == snd && r.getVarOrZero == fst)
+    case PureAtom(l, r, isEquality) => !isEquality && (l == fst && r == snd) || (l == snd && r == fst)
   }
 
 }

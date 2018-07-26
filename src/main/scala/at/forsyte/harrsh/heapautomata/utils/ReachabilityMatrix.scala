@@ -1,92 +1,75 @@
 package at.forsyte.harrsh.heapautomata.utils
 
-import at.forsyte.harrsh.main.{Config, HarrshLogging}
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.seplog.inductive.{PointsTo, SymbolicHeap}
-import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 
 /**
   * Created by jkatelaa on 10/19/16.
   */
-case class ReachabilityMatrix(numFV : Int, reach : Array[Boolean], underlyingPairs : Option[Set[(Var,Var)]]) extends HarrshLogging {
+class ReachabilityMatrix private (val underlyingPairs : Set[(Var,Var)]) extends HarrshLogging {
 
-  private val dim = numFV + 1
+  val reach : mutable.Map[Var,Set[Var]] = mutable.Map.empty.withDefaultValue(Set.empty)
 
-  if (Config.HeapAutomataSafeModeEnabled) {
-    if (reach.length != dim * dim) throw new IllegalStateException("Reachability info is not a " + dim + "*" + dim + " matrix")
+  override def toString = {
+    val res = new StringBuilder("MATRIX(\n")
+    reach.foreach { case (from, to) =>
+      res.appendAll("" + from + " -> " + to.mkString(",") + ",\n")
+    }
+    res.append(')')
+    res.toString
   }
 
-  override def toString = "MATRIX(\n" + (for (i <- 0 to numFV) yield getRowFor(Var(i)).map(if (_) '1' else '0').mkString(" ")).mkString("\n") + "\n)"
+  def isReachable(from : Var, to : Var) : Boolean = reach(from).contains(to)
 
-  def isReachable(from : Var, to : Var) : Boolean = isReachableIx(from.toInt, to.toInt)
-  def isReachableIx(from : Int, to : Int) : Boolean = {
-    val ix = minIndexForSrc(Var(from)) + to
-    val res = reach(minIndexForSrcIx(from) + to)
-    logger.trace("Looking up entry for " + (from, to) + " at index " + ix + " in " + reach.mkString(" ") + " yielding " + res)
-    res
+  def reachableFrom(from: Var): Set[Var] = reach(from)
+
+  def update(from : Var, to : Var, setReachable : Boolean) : Unit = {
+    if (setReachable) {
+      reach.update(from, reach(from) + to)
+    } else {
+      reach.update(from, reach(from) - to)
+    }
   }
 
-  def getRowFor(src: Var): Seq[Boolean] = getRowForIx(src.toInt)
-  def getRowForIx(src: Int): Seq[Boolean] = {
-    val start = minIndexForSrcIx(src)
-    reach.slice(start, start + dim)
+  override def equals(other : Any) ={
+    try {
+      val otherRM = other.asInstanceOf[ReachabilityMatrix]
+      reach == otherRM.reach
+    } catch {
+      case _:ClassCastException => false
+    }
   }
 
-  def update(from : Var, to : Var, setReachable : Boolean) : Unit = updateIx(from.toInt, to.toInt, setReachable)
-  def updateIx(from : Int, to : Int, setReachable : Boolean) : Unit = {
-    val start = minIndexForSrcIx(from)
-    reach.update(start + to, setReachable)
-    logger.debug("Updating matrix adding " + (from,to,setReachable) + " yielding " + this)
-  }
-
-  override def equals(other : Any) = other match {
-    case ReachabilityMatrix(_, oreach, _) => reach.deep == oreach.deep
-    case _ => false
-  }
-
-  override def hashCode(): Int = reach.deep.hashCode()
-
-  private def minIndexForSrcIx(src : Int) : Int = dim * src
-  private def minIndexForSrc(src : Var) : Int = minIndexForSrcIx(src.toInt)
-
-  private def maxIndexForSrcIx(src : Int) : Int = (dim+1) * src - 1
-  private def maxIndexForSrc(src : Var) : Int = maxIndexForSrcIx(src.toInt)
+  override def hashCode(): Int = reach.hashCode()
 
 }
 
 object ReachabilityMatrix extends HarrshLogging {
 
-  // In an inconsistent state, everything is reachable
-  def inconsistentReachabilityMatrix(numFV : Int) = ReachabilityMatrix(numFV, Array.fill((numFV+1)*(numFV+1))(true), Some(Set.empty))
-
-  def emptyMatrix(numFV : Int) : ReachabilityMatrix = {
-    ReachabilityMatrix(numFV, Array.fill((numFV+1)*(numFV+1))(false), None)
+  def emptyMatrix : ReachabilityMatrix = {
+    new ReachabilityMatrix(Set.empty)
   }
 
-  def allMatrices(numFV: Int) : Set[ReachabilityMatrix] = {
-    val entries = Combinators.allSeqsOfLength((numFV+1) * (numFV+1), Set(false,true))
-    entries map (e => ReachabilityMatrix(numFV, e.toArray, None))
+  def fromPairs(pairs : Seq[(Var,Var)]) : ReachabilityMatrix = {
+    val matrix = new ReachabilityMatrix(pairs.toSet)
+    for ((from, to) <- pairs) matrix.update(from, to, setReachable = true)
+    matrix
   }
 
-  def fromPairs(numFV : Int, pairs : Seq[(Int,Int)]) : ReachabilityMatrix = {
-    val matrix = emptyMatrix(numFV)
-    for ((from, to) <- pairs) matrix.update(Var(from), Var(to), setReachable = true)
-    matrix.copy(underlyingPairs = Some(pairs.map(p => (Var(p._1),Var(p._2))).toSet))
-  }
+  def fromSymbolicHeapAndTrackingInfo(compressedHeap : SymbolicHeap, tracking : TrackingInfo) : ReachabilityMatrix = {
 
-  def fromSymbolicHeapAndTrackingInfo(numFV : Int, compressedHeap : SymbolicHeap, tracking : TrackingInfo) : ReachabilityMatrix = {
-
-    def ptrToPairs(ptr : PointsTo) : Seq[(Var,Var)] = ptr.to map (to => (ptr.fromAsVar, to.getVarOrZero))
+    def ptrToPairs(ptr : PointsTo) : Seq[(Var,Var)] = ptr.to map (trg => (ptr.from, trg))
 
     val directReachability : Seq[(Var,Var)] = compressedHeap.pointers flatMap ptrToPairs
-    val equalities : Set[(Var,Var)] = tracking.equalities.map(atom => (atom.l.getVarOrZero, atom.r.getVarOrZero))
+    val equalities : Set[(Var,Var)] = tracking.equalities.map(atom => (atom.l, atom.r))
     val pairs = reachabilityFixedPoint(compressedHeap, equalities, directReachability.toSet)
     logger.trace("Reached fixed point " + pairs)
 
-    val reach = ReachabilityMatrix.emptyMatrix(numFV)
+    val reach = new ReachabilityMatrix(pairs)
     for {
       (from, to) <- pairs
       if from.isFree && to.isFree
@@ -94,8 +77,7 @@ object ReachabilityMatrix extends HarrshLogging {
       reach.update(from, to, setReachable = true)
     }
     logger.trace("Reachability matrix for compressed SH: " + reach)
-
-    reach.copy(underlyingPairs = Some(pairs))
+    reach
   }
 
   @tailrec
@@ -138,18 +120,15 @@ object ReachabilityMatrix extends HarrshLogging {
     * @param vars Variables to take into account; add nullptr explicitly to have it included
     * @return (variable-to-matrix-index map, matrix)
     */
-  def computeExtendedMatrix(ti : TrackingInfo, reachPairs : Set[(Var,Var)], vars : Set[Var]) : (Map[Var, Int], ReachabilityMatrix) = {
-    val ixs : Map[Var, Int] = Map() ++ vars.zipWithIndex
-
+  def computeExtendedMatrix(ti : TrackingInfo, reachPairs : Set[(Var,Var)], vars : Set[Var]) : ReachabilityMatrix = {
     // TODO Code duplication in matrix computation (plus, we're computing a second matrix on top of the FV-reachability matrix...)
     // Note: Subtract 1, because the null pointer is either explicitly in vars, or to be ignored
-    val reach = ReachabilityMatrix.emptyMatrix(vars.size - 1)
+    val reach = new ReachabilityMatrix(reachPairs)
     for ((from, to) <- reachPairs) {
-      reach.update(Var(ixs(from)), Var(ixs(to)), setReachable = true)
+      reach.update(from, to, setReachable = true)
     }
 
-    logger.debug("Extended matrix for variable numbering " + ixs.toSeq.sortBy(_._2).map(p => p._1 + " -> " + p._2).mkString(", ") + ": " + reach)
-
-    (ixs, reach)
+    logger.debug(s"Extended matrix: $reach")
+    reach
   }
 }

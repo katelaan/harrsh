@@ -4,7 +4,7 @@ import java.io.File
 
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.main.{HarrshLogging, MainIO, TaskConfig}
-import at.forsyte.harrsh.seplog.{PtrVar, Var}
+import at.forsyte.harrsh.seplog.{NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, SID, SymbolicHeap}
 import at.forsyte.harrsh.util.IOUtils
 
@@ -35,7 +35,7 @@ object DecisionProcedures extends HarrshLogging {
       IOUtils.printLinesOf('%', 1)
       println("Will run automaton " + ha + " on " + sid)
     } else {
-      print("Running " + task.decisionProblem + " on " + task.fileName + "...")
+      println("Running " + task.decisionProblem + " on " + task.fileName + "...")
     }
 
     decideInstance(sid, ha, timeout, None, false, verbose, reportProgress)
@@ -111,7 +111,7 @@ object DecisionProcedures extends HarrshLogging {
 
   def prepareInstanceForAnalysis(task : TaskConfig) : (SID, HeapAutomaton) = {
     val sid = MainIO.getSidFromFile(task.fileName)
-    (sid, task.decisionProblem.getAutomaton(sid.numFV))
+    (sid, task.decisionProblem.getAutomaton)
   }
 
   def deviationsFromExpectations(results: Seq[(TaskConfig, AnalysisResult)]): Seq[(TaskConfig, AnalysisResult)] = {
@@ -129,7 +129,25 @@ object DecisionProcedures extends HarrshLogging {
 
   private def generateInstances() =
     for {
-      automaton <- Seq(RunHasPointer(), RunAllocationTracking(Set(Var(1))), RunPureTracking(Set(PtrEq(Var(1), Var(0)))), RunPureTracking(Set(PtrNEq(Var(1), Var(0)))), RunRelaxedTracking(Set(Var(1)), Set(PtrNEq(Var(1), Var(0)))), RunExactTracking(Set(Var(1)), Set()), RunSat, RunUnsat, RunEstablishment, RunNonEstablishment, RunReachability(Var(1), Var(0)), RunGarbageFreedom, RunMayHaveGarbage, RunWeakAcyclicity, RunStrongCyclicity, RunModulo(0,2), RunModulo(5,11), RunModulo(126,128), RunModulo(127,128))
+      automaton <- Seq(RunHasPointer(),
+        RunAllocationTracking(Set(Var.defaultFV(1))),
+        RunPureTracking(Set(PtrEq(Var.defaultFV(1), NullConst))),
+        RunPureTracking(Set(PtrNEq(Var.defaultFV(1), NullConst))),
+        RunRelaxedTracking(Set(Var.defaultFV(1)), Set(PtrNEq(Var.defaultFV(1), NullConst))),
+        RunExactTracking(Set(Var.defaultFV(1)), Set()),
+        RunSat,
+        RunUnsat,
+        RunEstablishment,
+        RunNonEstablishment,
+        RunReachability(Var.defaultFV(1), NullConst),
+        RunGarbageFreedom,
+        RunMayHaveGarbage,
+        RunWeakAcyclicity,
+        RunStrongCyclicity,
+        RunModulo(0,2),
+        RunModulo(5,11),
+        RunModulo(126,128),
+        RunModulo(127,128))
       file <- IOUtils.getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) //++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
     } yield TaskConfig(file.getAbsolutePath, automaton, None)
 

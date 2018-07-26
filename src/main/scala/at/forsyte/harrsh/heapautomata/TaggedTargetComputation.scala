@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 /**
   * Created by jkatelaa on 10/19/16.
   */
-trait TaggedTargetComputation[A] extends TargetComputation {
+trait TaggedTargetComputation[A] {
 
   this : HeapAutomaton =>
 
