@@ -3,12 +3,18 @@ package at.forsyte.harrsh.seplog.inductive
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 
 case class Predicate(head: String, rules: Seq[Rule]) {
-
   // All rules of the predicate have the same number of parameters
   // Note that this is ensured when constructing predicate via Predicate.fromRules
   assert(rules.map(_.body.numFV).distinct.length == 1)
 
   def arity: Int = rules.head.body.numFV
+
+  def defaultCall: SymbolicHeap = {
+    val params = rules.head.body.freeVars
+    SymbolicHeap(Seq.empty, Seq.empty, Seq(PredCall(head, params)), params)
+  }
+
+  def ruleBodies: Seq[SymbolicHeap] = rules map (_.body)
 
 }
 

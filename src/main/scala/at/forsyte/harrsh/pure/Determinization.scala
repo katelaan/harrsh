@@ -32,8 +32,8 @@ object Determinization extends HarrshLogging {
   }
 
   private def determinizationChoices(undeterminedPairs : Seq[(Var,Var)]) : Seq[Seq[PureAtom]] = {
-    val determiningConstraints: Seq[Set[PureAtom]] = undeterminedPairs map {
-      case (fst, snd) => Set[PureAtom](PtrEq(fst, snd), PtrNEq(fst, snd))
+    val determiningConstraints: Seq[Seq[PureAtom]] = undeterminedPairs map {
+      case (fst, snd) => Seq(fst =:= snd, fst =/= snd)
     }
     Combinators.choices(determiningConstraints)
   }

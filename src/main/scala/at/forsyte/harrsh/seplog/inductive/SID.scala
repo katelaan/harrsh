@@ -13,29 +13,18 @@ case class SID(startPred : String, preds : Map[String,Predicate], description : 
     description + " (start predicate '" + startPred + "'): " + preds.toSeq.sortBy(_._1).mkString("\n    ", " ; \n    ", "")
   }
 
-  lazy val rules = preds.toSeq.sortBy(_._1).map(_._2).flatMap(_.rules)
+  lazy val rules: Seq[Rule] = preds.toSeq.sortBy(_._1).map(_._2).flatMap(_.rules)
 
   lazy val predIdents: Set[String] = preds.keySet
 
-  lazy val arityOfStartPred : Int = arity(startPred)
-
   def arity(pred: String): Int = preds.get(pred).map(_.arity).getOrElse(0)
 
-  def callToStartPred: SymbolicHeap = {
-    val initialArgs: Seq[FreeVar] = Var.getFvSeq(arityOfStartPred)
-    SymbolicHeap(Seq.empty, Seq.empty, Seq(PredCall(startPred, initialArgs)), initialArgs)
-  }
+  def callToPred(pred: String): SymbolicHeap = preds(pred).defaultCall
 
-  def callToPred(pred: String): SymbolicHeap = {
-    val initialArgs: Seq[FreeVar] = Var.getFvSeq(arity(pred))
-    SymbolicHeap(Seq.empty, Seq.empty, Seq(PredCall(startPred, initialArgs)), initialArgs)
-  }
+  lazy val callToStartPred: SymbolicHeap = callToPred(startPred)
 
-  lazy val predToRuleBodies: Map[String, Set[SymbolicHeap]] = {
-    def extractBodies(pair: (String, Predicate)) = {
-      (pair._1, pair._2.rules.map(_.body).toSet)
-    }
-    Map() ++ preds.map(extractBodies)
+  lazy val predToRuleBodies: Map[String, Seq[SymbolicHeap]] = {
+    preds.map(pred => (pred._1, pred._2.ruleBodies))
   }
 
   def toHarrshFormat : Seq[String] = {

@@ -135,8 +135,8 @@ case class RefinementInstance(sid: SID,
         body = SymbolicHeap.addTagsToPredCalls(body, states map (s => ""+stateToIndex(s))))
       val finalRules = reachedStates.finalStates.toSeq.map{
         state =>
-          val call = PredCall(sid.startPred+stateToIndex(state), (1 to sid.arityOfStartPred) map Var.defaultFV)
-          val freeVars = (1 to sid.arityOfStartPred) map (Var.defaultFV(_))
+          val freeVars = sid.callToStartPred.freeVars
+          val call = PredCall(sid.startPred+stateToIndex(state), freeVars)
           Rule(
             head = sid.startPred,
             qvarNames = Seq(),

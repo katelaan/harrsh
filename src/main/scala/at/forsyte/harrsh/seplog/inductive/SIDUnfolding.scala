@@ -21,7 +21,7 @@ object SIDUnfolding extends HarrshLogging {
 
     logger.debug("Unfolding sid " + sid)
 
-    val predsToBodies: Map[String, Set[SymbolicHeap]] = sid.predToRuleBodies
+    val predsToBodies: Map[String, Seq[SymbolicHeap]] = sid.predToRuleBodies
 
     val initial: SymbolicHeap = sid.callToStartPred
 
@@ -52,7 +52,7 @@ object SIDUnfolding extends HarrshLogging {
     */
   def unfoldOnce(sid : SID, heaps : Seq[SymbolicHeap]) : Seq[SymbolicHeap] = unfoldStep(sid.predToRuleBodies, Seq.empty, heaps, 1, doAccumulateSteps = false)
 
-  private def unfoldStep(predsToBodies: Map[String, Set[SymbolicHeap]], acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int, doAccumulateSteps: Boolean = true): Seq[SymbolicHeap] = {
+  private def unfoldStep(predsToBodies: Map[String, Seq[SymbolicHeap]], acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int, doAccumulateSteps: Boolean = true): Seq[SymbolicHeap] = {
     logger.debug("Currently active instances: " + curr.mkString(", "))
     if (depth == 0) if (doAccumulateSteps) acc ++ curr else curr
     else {
@@ -93,7 +93,7 @@ object SIDUnfolding extends HarrshLogging {
     * @param pBody Predicate indicating which rules are enabled
     * @return The given symbolic heap with the first call replaced by enabled bodies
     */
-  def unfoldFirstCallWithSatisfyingBodies(predsToBodies: Map[String, Set[SymbolicHeap]], sh: SymbolicHeap, pBody: SymbolicHeap => Boolean): Set[SymbolicHeap] = {
+  def unfoldFirstCallWithSatisfyingBodies(predsToBodies: Map[String, Seq[SymbolicHeap]], sh: SymbolicHeap, pBody: SymbolicHeap => Boolean): Seq[SymbolicHeap] = {
     val call = sh.predCalls.head
     val applicableBodies = predsToBodies(call.name) filter pBody
     logger.debug("Will unfold " + call + " by...\n" + applicableBodies.map("  - " + _).mkString("\n"))

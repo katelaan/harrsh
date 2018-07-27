@@ -5,7 +5,7 @@ import java.io.File
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.main.{HarrshLogging, MainIO, TaskConfig}
 import at.forsyte.harrsh.seplog.{NullConst, Var}
-import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 import at.forsyte.harrsh.util.IOUtils
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -131,9 +131,9 @@ object DecisionProcedures extends HarrshLogging {
     for {
       automaton <- Seq(RunHasPointer(),
         RunAllocationTracking(Set(Var.defaultFV(1))),
-        RunPureTracking(Set(PtrEq(Var.defaultFV(1), NullConst))),
-        RunPureTracking(Set(PtrNEq(Var.defaultFV(1), NullConst))),
-        RunRelaxedTracking(Set(Var.defaultFV(1)), Set(PtrNEq(Var.defaultFV(1), NullConst))),
+        RunPureTracking(Set(Var.defaultFV(1) =:= NullConst)),
+        RunPureTracking(Set(Var.defaultFV(1) =/= NullConst)),
+        RunRelaxedTracking(Set(Var.defaultFV(1)), Set(Var.defaultFV(1) =/= NullConst)),
         RunExactTracking(Set(Var.defaultFV(1)), Set()),
         RunSat,
         RunUnsat,

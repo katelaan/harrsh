@@ -204,21 +204,6 @@ object SymbolicHeap extends HarrshLogging {
     SymbolicHeap(atoms.pure, atoms.pointers, atoms.predCalls, freeVars)
   }
 
-  /**
-    * Constructs symbolic heap without any pure constraints
-    * @param spatial Pointers
-    * @param calls Predicate calls
-    * @return
-    */
-  //def apply(spatial: Seq[PointsTo], calls: Seq[PredCall], freeVars: Seq[FreeVar]) : SymbolicHeap = apply(Seq.empty, spatial, calls, freeVars)
-
-  /**
-    * Constructs symbolic heap without calls or pure constraints.
-    * @param spatial Pointers
-    * @return
-    */
-  //def apply(spatial: Seq[PointsTo], freeVars: Seq[FreeVar]) : SymbolicHeap = apply(Seq.empty, spatial, Seq.empty, freeVars)
-
   def addTagsToPredCalls(sh : SymbolicHeap, tags : Seq[String]) : SymbolicHeap = {
     if (tags.size != sh.predCalls.size) throw new IllegalArgumentException("Wrong number of tags passed")
     val newCalls = sh.predCalls zip tags map {

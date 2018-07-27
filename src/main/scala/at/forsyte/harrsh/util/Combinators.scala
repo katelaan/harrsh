@@ -154,9 +154,9 @@ object Combinators {
     * @param from Sequences of sets of choices; each element of the result will contain one element of each element of from
     * @return Sequence of all sequences that can be built by picking one option per element of from
     */
-  def choices[A](from: Seq[Set[A]]) : Seq[Seq[A]] = {
+  def choices[A](from: Seq[Seq[A]]) : Seq[Seq[A]] = {
 
-    def prependAll(prep : Set[A], seq : Seq[A]) : Seq[Seq[A]] = (prep map (x => x +: seq)).toSeq
+    def prependAll(prep : Seq[A], seq : Seq[A]) : Seq[Seq[A]] = prep map (x => x +: seq)
 
     if (from.isEmpty)
       Seq(Seq())

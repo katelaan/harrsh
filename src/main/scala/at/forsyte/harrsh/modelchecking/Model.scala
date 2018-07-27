@@ -111,12 +111,12 @@ object Model {
       println("Can't convert non-reduced symbolic heap to model")
       None
     } else {
-      val allocAtoms = sh.pointers.map(_.from).map(expr => PtrNEq(expr, NullConst))
+      val allocAtoms = sh.pointers.map(_.from).map(expr => expr =/= NullConst)
       val diffAtoms = {
         for {
           i <- 0 until sh.pointers.size - 1
           j <- i + 1 until sh.pointers.size
-        } yield PtrNEq(sh.pointers(i).from, sh.pointers(j).from)
+        } yield sh.pointers(i).from =/= sh.pointers(j).from
       }
       val cl: Closure = Closure.ofSetOfAtoms(sh.pure.toSet ++ allocAtoms ++ diffAtoms)
 

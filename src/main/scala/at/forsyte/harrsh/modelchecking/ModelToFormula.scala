@@ -28,14 +28,14 @@ object ModelToFormula extends HarrshLogging {
 
     // Add equalities to null
     val nullVars = model.stack.filter(pair => pair._2 == 0).keySet.toSeq
-    val nullEqualities : Seq[PureAtom] = nullVars map (v => PtrEq(v, NullConst))
+    val nullEqualities : Seq[PureAtom] = nullVars map (_ =:= NullConst)
 
     val freeVars = model.stack.keys.map(_.asInstanceOf[FreeVar]).toSeq
     SymbolicHeap(varEqualities ++ nullEqualities, pointers, Seq.empty, freeVars)
   }
 
   private def equalities(vs : List[Var]) : Seq[PureAtom] = vs match {
-    case fst :: snd :: tl => PtrEq(fst, snd) +: equalities(snd :: tl)
+    case fst :: snd :: tl => (fst =:= snd) +: equalities(snd :: tl)
     case _ => Seq.empty
   }
 

@@ -69,7 +69,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     res
   }
 
-  private class GreedyUnfolding(headsToBodies: Map[String, Set[SymbolicHeap]], reportProgress : Boolean) {
+  private class GreedyUnfolding(headsToBodies: Map[String, Seq[SymbolicHeap]], reportProgress : Boolean) {
 
     val IterationBound = Integer.MAX_VALUE
 

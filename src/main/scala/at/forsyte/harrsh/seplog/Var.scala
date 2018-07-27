@@ -15,7 +15,13 @@ sealed trait Var extends Ordered[Var] {
   def isBound : Boolean
   def isNull : Boolean
 
+  /**
+    * Construct atom that asserts the equality of `this` with `other`
+    */
   def =:=(other: Var): PureAtom = PureAtom(this, other, isEquality = true)
+  /**
+    * Construct atom that asserts the disequality of `this` with `other`
+    */
   def =/=(other: Var): PureAtom = PureAtom(this, other, isEquality = false)
 
   def ->(other: Var): PointsTo = PointsTo(this, other)

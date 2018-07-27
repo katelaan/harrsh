@@ -34,11 +34,3 @@ case class PureAtom(l: Var, r: Var, isEquality: Boolean) extends SepLogAtom with
   }
 
 }
-
-object PtrEq {
-  def apply(l : Var, r : Var) : PureAtom = PureAtom(l, r, isEquality = true)
-}
-
-object PtrNEq {
-  def apply(l : Var, r : Var) : PureAtom = PureAtom(l, r, isEquality = false)
-}

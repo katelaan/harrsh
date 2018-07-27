@@ -35,8 +35,8 @@ sealed trait StringPureAtom extends StringSepLogAtom {
 
   override def replaceStringsByIds(naming: VarUnNaming) : Option[PureAtom] = this match {
     case StringTrue => None
-    case StringPtrEq(l, r) => Some(PtrEq(l.replaceStringsByIds(naming), r.replaceStringsByIds(naming)))
-    case StringPtrNEq(l, r) => Some(PtrNEq(l.replaceStringsByIds(naming), r.replaceStringsByIds(naming)))
+    case StringPtrEq(l, r) => Some(l.replaceStringsByIds(naming) =:= r.replaceStringsByIds(naming))
+    case StringPtrNEq(l, r) => Some(l.replaceStringsByIds(naming) =/= r.replaceStringsByIds(naming))
   }
 }
 

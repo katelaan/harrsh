@@ -126,7 +126,7 @@ object ScriptToSatBenchmark extends HarrshLogging {
             (left, i) <- args.zipWithIndex
             (right, j) <- args.zipWithIndex
             if i < j
-          } yield PtrNEq(qualIdentToVar(left, varMap), qualIdentToVar(right, varMap))
+          } yield qualIdentToVar(left, varMap) =/= qualIdentToVar(right, varMap)
           List(Atoms(neqs, Nil, Nil, Nil))
         //case "emp" =>
         //  ???
@@ -134,7 +134,7 @@ object ScriptToSatBenchmark extends HarrshLogging {
           logger.debug(s"Applying = to $args")
           assert(args.length == 2)
           val ops = args map (arg => qualIdentToVar(arg, varMap))
-          List(Atoms(PtrEq(ops(0), ops(1))))
+          List(Atoms(ops(0) =:= ops(1)))
         case pred if env.preds.contains(pred) =>
           val callArgs = args map (arg => qualIdentToVar(arg, varMap))
           List(Atoms(PredCall(pred, callArgs)))
