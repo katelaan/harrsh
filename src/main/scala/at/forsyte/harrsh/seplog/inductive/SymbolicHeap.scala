@@ -2,10 +2,10 @@ package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.main._
+import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog._
-import at.forsyte.harrsh.util.Combinators
+import at.forsyte.harrsh.util.{Combinators, StringUtils, ToLatex}
 
-import scala.annotation.tailrec
 import scala.collection.SortedSet
 
 /**
@@ -18,7 +18,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     * @param naming Map from variables to string representations
     * @return String representation of this symbolic heap
     */
-  override def toStringWithVarNames(naming: VarNaming): String = {
+  override def toStringWithVarNames(naming: Naming): String = {
     val prefix = (boundVars map naming map ("\u2203"+_)).mkString(" ")
     val spatialString = if (pointers.isEmpty && predCalls.isEmpty) {
       "emp"
@@ -218,7 +218,7 @@ object SymbolicHeap extends HarrshLogging {
     * @param naming Naming of the variables in the serialization
     * @return
     */
-  def toHarrshFormat(sh : SymbolicHeap, naming : VarNaming) : String = {
+  def toHarrshFormat(sh : SymbolicHeap, naming : Naming) : String = {
     // TODO This is somewhat redundant wrt ordinary string conversion
     val spatial : Seq[ToStringWithVarnames] = sh.pointers ++ sh.predCalls
     val spatialString = if (spatial.isEmpty) "emp" else spatial.map(_.toStringWithVarNames(naming)).mkString(" * ")
@@ -226,39 +226,21 @@ object SymbolicHeap extends HarrshLogging {
     spatialString.replaceAll("\u21a6", "->") ++ pureString.replaceAll("\u2248", "=").replaceAll("\u2249", "!=")
   }
 
-  def toLatex(sh: SymbolicHeap, naming : VarNaming = DefaultNaming): String = {
-    val defaultSting = sh.toStringWithVarNames(naming)
-    val withMacros = literalReplacements(Seq(
-      "\u2203" -> "\\exists ",
-      "." -> "~.~",
-      "\u21a6" -> "->",
-      "\u2248"-> "=",
-      "\u2249" -> "\\neq ",
-      NullConst.toString -> "\\nil"
-    ), defaultSting)
-    indexifyNumbers(withMacros)
-  }
+  object ops {
 
-  @tailrec private def literalReplacements(reps : Seq[(String,String)], s : String) : String = {
-    if (reps.isEmpty) s else literalReplacements(reps.tail, s.replaceAllLiterally(reps.head._1, reps.head._2))
-  }
+    implicit val symbolicHeapToLatex: ToLatex[SymbolicHeap] = (sh: SymbolicHeap, naming: Naming) => {
+      val indexedNaming = Var.Naming.indexify(naming)
+      val defaultString = sh.toStringWithVarNames(indexedNaming)
+      StringUtils.literalReplacements(Seq(
+        "\u2203" -> "\\exists ",
+        "." -> "~.~",
+        "\u21a6" -> "\\rightarrow",
+        "\u2248" -> "=",
+        "\u2249" -> "\\neq ",
+        NullConst.toString -> "\\nil"
+      ), defaultString)
+    }
 
-  private def indexifyNumbers(s : String) : String = {
-    s.foldLeft[(String,Char)](("",'?')){
-      case ((s,prev), curr) => (prev.isDigit, curr.isDigit) match {
-        case (false, true) => (s + "_{" + curr, curr)
-        case (true, false) => (s + "}" + curr, curr)
-        case _ => (s + curr, curr)
-      }
-    }._1
   }
-
-//  def renameFVs(sh: SymbolicHeap, newVarNames: Seq[Var]): SymbolicHeap = {
-//    assert(sh.numFV == newVarNames.length)
-//    assert(newVarNames forall (_.isFree))
-//    val renamingMap = Map.empty[Var,Var] ++ sh.freeVars.zip(newVarNames)
-//    val renaming = Renaming.fromMap(renamingMap)
-//    sh.renameVars(renaming, avoidDoubleCapture = false)
-//  }
 
 }

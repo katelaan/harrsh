@@ -1,8 +1,9 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.seplog.{FreeVar, mkUnNaming}
+import at.forsyte.harrsh.seplog.FreeVar
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.parsers.buildingblocks.Atoms
+import at.forsyte.harrsh.seplog.Var.Naming
 
 /**
   * Created by jkatelaa on 10/20/16.
@@ -39,7 +40,7 @@ private[parsers] trait CyclistStyleSIDParser extends SIDCombinatorParser {
       val (headPred, freeVars) = head
       val boundVars = (body.getVars -- freeVars).toSeq
 
-      Rule(headPred, boundVars, body.replaceStringsByIds(mkUnNaming(freeVars, boundVars)).copy(freeVars = freeVars.map(FreeVar)))
+      Rule(headPred, boundVars, body.replaceStringsByIds(Naming.mkUnNaming(freeVars, boundVars)).copy(freeVars = freeVars.map(FreeVar)))
   }
 
   private def parseHead = parseHeadWithArgs | parseHeadWithoutArgs

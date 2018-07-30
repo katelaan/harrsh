@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.main._
-import at.forsyte.harrsh.seplog.{DefaultNaming, FreeVar, Var}
+import at.forsyte.harrsh.seplog.Var.Naming
 
 /**
   * System of inductive definitions
@@ -33,7 +33,9 @@ case class SID(startPred : String, preds : Map[String,Predicate], description : 
     val undelimitedLines = for {
       rule <- rulesWithStartFirst
       sh = rule.body
-    } yield rule.head + " <= " + SymbolicHeap.toHarrshFormat(sh, DefaultNaming)
+      // In Harrsh format, we have to use default names, ignoring the names in the rule object
+      namedBody = SymbolicHeap.toHarrshFormat(sh, Naming.DefaultNaming)
+    } yield rule.head + " <= " + namedBody
     undelimitedLines.init.map(_ + " ;") :+ undelimitedLines.last
   }
 

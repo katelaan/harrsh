@@ -6,8 +6,11 @@ import at.forsyte.harrsh.parsers.SIDParsers
 import at.forsyte.harrsh.pure.EqualityBasedSimplifications
 import at.forsyte.harrsh.refinement.DecisionProcedures.AnalysisResult
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms, RunSat}
+import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog.inductive.{Rule, SID, SIDUnfolding, SymbolicHeap}
-import at.forsyte.harrsh.util.{Combinators, IOUtils}
+import at.forsyte.harrsh.util.ToLatex._
+import at.forsyte.harrsh.seplog.inductive.SymbolicHeap.ops._
+import at.forsyte.harrsh.util.{Combinators, IOUtils, ToLatex}
 
 import scala.concurrent.duration
 import scala.concurrent.duration.Duration
@@ -111,7 +114,7 @@ object Implicits {
     def getModelAtDepth(depth : Int): Option[Model] = getSomeReducedUnfolding(depth).getModel(sid)
 
     def baseRule : Rule = {
-      val base = sid.rules.filter(!_.body.nonReduced)
+      val base = sid.rules.filter(!_.isBaseRule)
       if (base.size > 1) {
         IOUtils.printWarningToConsole("Warning: More than one base rule. Will pick arbitrary one")
       }
@@ -119,7 +122,7 @@ object Implicits {
     }
 
     def recursiveRule : Rule = {
-      val rec = sid.rules.filter(_.body.nonReduced)
+      val rec = sid.rules.filter(_.isRecRule)
       if (rec.size > 1) {
         IOUtils.printWarningToConsole("Warning: More than one recursive rule. Will pick arbitrary one")
       }
@@ -140,8 +143,6 @@ object Implicits {
     def reducedUnfoldings(sid : SID, depth : Int) : Iterable[SymbolicHeap] = SIDUnfolding.unfold(sid, depth, reducedOnly = true)
 
     def simplify : SymbolicHeap = EqualityBasedSimplifications.fullEqualitySimplification(sh)
-
-    def toLatex = SymbolicHeap.toLatex(sh)
 
     def isA(sid : SID) : Boolean = {
       ReducedEntailment.checkSatisfiableRSHAgainstSID(sh, sid.callToStartPred, sid, Defaults.reportProgress)
@@ -198,6 +199,8 @@ object Implicits {
       }
     }
   }
+
+  implicit val richSymbolicHeapToLatex: ToLatex[RichSymbolicHeap] = (a: RichSymbolicHeap, naming: Naming) => a.sh.toLatex(naming)
 
   class RichModel(model : Model) {
     def isModelOf(sh : SymbolicHeap) : Boolean = {

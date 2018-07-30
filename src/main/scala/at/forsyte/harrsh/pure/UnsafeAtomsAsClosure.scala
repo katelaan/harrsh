@@ -1,10 +1,8 @@
 package at.forsyte.harrsh.pure
 
 import at.forsyte.harrsh.main.Config
-import at.forsyte.harrsh.pure.EqualityUtils._
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.{PtrEq, PureAtom}
-import sun.reflect.generics.reflectiveObjects.NotImplementedException
+import at.forsyte.harrsh.seplog.inductive.PureAtom
 
 /**
   * Created by jkatelaa on 10/17/16.

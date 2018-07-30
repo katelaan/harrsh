@@ -4,7 +4,8 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.parsers.buildingblocks.{Atoms, QuantifierPrefix}
 import at.forsyte.harrsh.seplog
-import at.forsyte.harrsh.seplog.{FreeVar, Var, VarUnNaming}
+import at.forsyte.harrsh.seplog.Var.{Naming, UnNaming}
+import at.forsyte.harrsh.seplog.{FreeVar, Var}
 
 /**
   * Created by jkatelaa on 10/20/16.
@@ -74,7 +75,7 @@ object HarrshSIDParser {
     val filledFreeVars : Seq[Var] = if (freeVars.isEmpty) Seq.empty else mkAllVars(1 to numFV)
     val filledFreeVarString = filledFreeVars map (_.toString)
 
-    val naming : VarUnNaming = seplog.mkUnNaming(filledFreeVarString,boundVars) //mkUnNamingFromIncompleteDefaultNames(freeVars, boundVars)
+    val naming : UnNaming = Naming.mkUnNaming(filledFreeVarString,boundVars) //mkUnNamingFromIncompleteDefaultNames(freeVars, boundVars)
     val renamedHeap = ssh.replaceStringsByIds(naming)
     (renamedHeap, filledFreeVarString, boundVars)
   }

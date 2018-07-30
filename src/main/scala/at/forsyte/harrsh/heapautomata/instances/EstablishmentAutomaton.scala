@@ -4,9 +4,7 @@ import at.forsyte.harrsh.heapautomata.TaggedAutomaton
 import at.forsyte.harrsh.heapautomata.utils.{StateTag, TrackingInfo}
 import at.forsyte.harrsh.refinement.AutomatonTask
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.Var._
-import at.forsyte.harrsh.seplog.inductive.{PtrEq, PureAtom, SymbolicHeap}
-import com.typesafe.scalalogging.LazyLogging
+import at.forsyte.harrsh.seplog.inductive.{PureAtom, SymbolicHeap}
 
 /**
   * Created by jkatelaa on 10/18/16.

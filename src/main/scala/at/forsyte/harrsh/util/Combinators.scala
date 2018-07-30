@@ -170,9 +170,22 @@ object Combinators {
   }
 
   @tailrec def lazyAny[A](seq : Seq[A], f : A => Boolean) : Boolean = {
-    if (seq.isEmpty) false
+    if (seq.isEmpty) {
+      false
+    }
     else {
       if (f(seq.head)) true else lazyAny(seq.tail, f)
+    }
+  }
+
+  def sequence[A](seq : Seq[Option[A]]): Option[Seq[A]] = {
+    if (seq.isEmpty) {
+      Some(Seq.empty)
+    } else {
+      for {
+        head <- seq.head
+        tail <- sequence(seq.tail)
+      } yield head +: tail
     }
   }
 

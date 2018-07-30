@@ -2,16 +2,24 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.entailment.UnfoldingTree._
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
+import at.forsyte.harrsh.util.ToLatex._
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.seplog.inductive.SymbolicHeap.ops._
 
-
+// FIXME: Nodes need an ID to make it possible for the same node to occur multiple times in the same tree. (Granted, a strange corner case, but we can't avoid that, can we?)
 
 sealed trait UTNode {
+
   val labels: Labeling
 
   def isAbstractLeaf: Boolean = this match {
     case _:RuleNode => false
     case _:AbstractLeafNode => true
+  }
+
+  def symbolicHeapLabel: String = this match {
+    case RuleNode(rule, _) => '$' + rule.body.toLatex(rule.naming).replaceAllLiterally("α", """\alpha""") + '$'
+    case AbstractLeafNode(pred, _) => '$' + pred.defaultCall.toLatex.replaceAllLiterally("α", """\alpha""") + '$'
   }
 }
 
@@ -28,7 +36,7 @@ case class UnfoldingTree(sid: SID, nodes: Set[UTNode], root: UTNode, children: M
   val abstractLeaves: Set[AbstractLeafNode] = nodes.filter(_.isAbstractLeaf).map(_.asInstanceOf[AbstractLeafNode])
 
   assert(nodes.contains(root))
-  assert(nodes forall (n => children(n).nonEmpty || n.isAbstractLeaf))
+  assert(nodes forall (n => children(n).nonEmpty || n.isAbstractLeaf || (!n.isAbstractLeaf && n.asInstanceOf[RuleNode].rule.isBaseRule)))
   assert(abstractLeaves forall (children(_).isEmpty))
 
   lazy val parents: Map[UTNode, UTNode] = {

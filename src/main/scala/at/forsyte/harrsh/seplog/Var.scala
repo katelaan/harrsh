@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.seplog
 
 import at.forsyte.harrsh.seplog.inductive.{PointsTo, PureAtom}
+import at.forsyte.harrsh.util.StringUtils
 
 import scala.collection.mutable
 
@@ -144,5 +145,34 @@ object Var {
   @inline def maxOf(vars : Iterable[Var]) : Var = vars.max
 
   @inline def minOf(vars : Iterable[Var]) : Var = vars.min
+
+  type Naming = Var => String
+  type UnNaming = String => Var
+
+  object Naming {
+
+    lazy val DefaultNaming : Naming = v => v.toString
+
+    def mkNaming(freeVars : Seq[String], boundVars : Seq[String]) : Naming = {
+      val freeVarNaming = freeVars map (v => (FreeVar(v),v))
+      val boundVarNaming = boundVars.zipWithIndex map (p => (BoundVar(p._2+1),p._1))
+      Map.empty[Var,String] ++ freeVarNaming ++ boundVarNaming ++ Map(NullConst -> NullConst.toString)
+    }
+
+    def mkUnNaming(freeVars : Seq[String], boundVars : Seq[String]) : UnNaming = {
+      val freeVarNaming = freeVars map (v => (v,FreeVar(v)))
+      val boundVarNaming = boundVars.zipWithIndex map (p => (p._1,BoundVar(p._2+1)))
+      Map.empty[String, Var] ++ freeVarNaming ++ boundVarNaming ++ Map(NullConst.toString -> NullConst)
+    }
+
+    /**
+      * Return new naming where all integer suffixes are turned into LaTeX subscripts
+      * @param naming Original naming
+      * @return updated naming
+      */
+    def indexify(naming: Naming): Naming = {
+      v => StringUtils.indexifyNumbers(naming(v))
+    }
+  }
 
 }

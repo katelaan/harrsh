@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.main.interactive
 
-import at.forsyte.harrsh.util.IOUtils
+import at.forsyte.harrsh.util.{StringUtils}
 
 /**
   * Created by jens on 4/3/17.
@@ -37,7 +37,7 @@ case class AnnotatedResultBuffer[A](var maxSize : Int, var buffer : Seq[(String,
     } yield Seq((i+1).toString, s, a.toString.replace('\n', ' ').take(120))
     val cols = Seq(7, Math.max(11,buffer.map(_._1).map(_.size).max + 2), Math.min(120, buffer.map(_._2).map(_.toString.size).max + 2))
 
-    IOUtils.toTable(headings,cols,entries)
+    StringUtils.toTable(headings,cols,entries)
   }
 
 }

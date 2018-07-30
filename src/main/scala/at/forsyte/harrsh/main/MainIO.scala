@@ -4,10 +4,10 @@ import java.io.FileNotFoundException
 
 import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.parsers.{ModelParser, SIDParsers}
-import at.forsyte.harrsh.util.IOUtils
 import at.forsyte.harrsh.util.IOUtils._
+import at.forsyte.harrsh.util.StringUtils._
 import at.forsyte.harrsh.refinement.DecisionProcedures.{AnalysisResult, AnalysisStatistics}
-import at.forsyte.harrsh.modelchecking.{Model}
+import at.forsyte.harrsh.modelchecking.Model
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.refinement.AutomatonTask
 
@@ -41,7 +41,7 @@ object MainIO extends HarrshLogging {
       case Some(sid) =>
         sid
       case None =>
-        IOUtils.printWarningToConsole("Parsing the SID failed, exiting")
+        printWarningToConsole("Parsing the SID failed, exiting")
         throw new Exception("Parsing of file '" + fileName + "'failed")
     }
   }
@@ -58,7 +58,7 @@ object MainIO extends HarrshLogging {
       case Some(model) =>
         model
       case None =>
-        IOUtils.printWarningToConsole("Parsing the model failed, exiting")
+        printWarningToConsole("Parsing the model failed, exiting")
         throw new Exception("Parsing of file '" + fileName + "'failed")
     }
   }
@@ -68,7 +68,7 @@ object MainIO extends HarrshLogging {
       readFile(filename)
     } catch {
       case e : FileNotFoundException =>
-        IOUtils.printWarningToConsole("File '" + filename + "' does not exist.")
+        printWarningToConsole("File '" + filename + "' does not exist.")
         throw e
       case e : Throwable =>
         throw e

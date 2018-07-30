@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.pure
 
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.{PtrNEq, PureAtom}
+import at.forsyte.harrsh.seplog.inductive.{PureAtom}
 
 /**
   * Created by jkatelaa on 10/17/16.

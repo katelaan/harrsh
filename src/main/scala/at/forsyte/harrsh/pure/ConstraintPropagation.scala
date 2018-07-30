@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.pure
 
 import at.forsyte.harrsh.seplog._
-import at.forsyte.harrsh.seplog.inductive.{PtrEq, PureAtom}
+import at.forsyte.harrsh.seplog.inductive.{PureAtom}
 import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec

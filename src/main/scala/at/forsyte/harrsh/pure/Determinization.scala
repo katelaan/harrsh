@@ -2,7 +2,7 @@ package at.forsyte.harrsh.pure
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{NullConst, Var}
-import at.forsyte.harrsh.seplog.inductive.{PtrEq, PtrNEq, PureAtom, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{PureAtom, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
 /**

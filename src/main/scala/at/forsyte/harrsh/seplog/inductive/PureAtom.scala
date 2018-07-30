@@ -1,7 +1,8 @@
 package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{NullConst, Renaming, Var, VarNaming}
+import at.forsyte.harrsh.seplog.Var.Naming
+import at.forsyte.harrsh.seplog.{NullConst, Renaming, Var}
 
 /**
   * Created by jkatelaa on 10/3/16.
@@ -28,7 +29,7 @@ case class PureAtom(l: Var, r: Var, isEquality: Boolean) extends SepLogAtom with
 
   def ordered : PureAtom = if (l < r) this else PureAtom(r, l, isEquality)
 
-  override def toStringWithVarNames(names: VarNaming): String = {
+  override def toStringWithVarNames(names: Naming): String = {
     val op = if (isEquality) " \u2248 " else " \u2249 "
     names(l) + op + names(r)
   }

@@ -3,7 +3,7 @@ package at.forsyte.harrsh.heapautomata.utils
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.{Closure, ConstraintPropagation, EqualityUtils}
 import at.forsyte.harrsh.seplog.{FreeVar, NullConst, Var}
-import at.forsyte.harrsh.seplog.inductive.{PointsTo, PtrNEq, PureAtom, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{PointsTo, PureAtom, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
 /**

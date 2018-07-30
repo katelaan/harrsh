@@ -77,21 +77,6 @@ object IOUtils {
     for (_ <- 1 to numLines) println(s * 80)
   }
 
-  def computeColumnLength(entries : Seq[Any], minLength : Int) : Int = Math.max(minLength,entries.map(_.toString.size).max + 1)
-
-  def toTable(headings: Seq[String], cols: Seq[Int], entries: Seq[Seq[String]]) : String = {
-    val delimLine = IOUtils.delimLine(cols)
-
-    val lines = for {
-      entry <- entries
-    } yield IOUtils.inColumns(entry zip cols)
-
-    delimLine + "\n" + IOUtils.inColumns(headings zip cols) + "\n" + delimLine + "\n" + lines.mkString("\n")+"\n" + delimLine
-  }
-
-  private def inColumns(cols : Seq[(String,Int)]) : String = if (cols.isEmpty) "|" else "|" + " "*Math.max(0,cols.head._2 - cols.head._1.length) + cols.head._1 + inColumns(cols.tail)
-  private def delimLine(cols : Seq[Int]) = "+" + "-"*(cols.sum+cols.size-1) + "+"
-
   def printIf(condition : => Boolean)(a : Any) : Unit = if (condition) println(a)
 
 }

@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.parsers
 
+import at.forsyte.harrsh.seplog.Var.UnNaming
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.inductive._
 
@@ -8,7 +9,7 @@ import at.forsyte.harrsh.seplog.inductive._
   */
 case class StringSymbolicHeap(pure : Seq[StringPureAtom], spatial : Seq[StringSpatialAtom]) {
 
-  def replaceStringsByIds(naming: VarUnNaming): SymbolicHeap = {
+  def replaceStringsByIds(naming: UnNaming): SymbolicHeap = {
     val allUnnamedSpatial : Seq[SepLogAtom] = spatial map (_.replaceStringsByIds(naming)) filter (_.isDefined) map (_.get)
     val (predCalls, nonCalls) = allUnnamedSpatial.partition(_.isInstanceOf[PredCall])
 
@@ -23,7 +24,7 @@ case class StringSymbolicHeap(pure : Seq[StringPureAtom], spatial : Seq[StringSp
 trait StringSepLogAtom {
   def getVars : Set[String]
 
-  def replaceStringsByIds(naming: VarUnNaming) : Option[SepLogAtom]
+  def replaceStringsByIds(naming: UnNaming) : Option[SepLogAtom]
 }
 
 sealed trait StringPureAtom extends StringSepLogAtom {
@@ -33,7 +34,7 @@ sealed trait StringPureAtom extends StringSepLogAtom {
     case StringPtrNEq(l, r) => l.getVars union r.getVars
   }
 
-  override def replaceStringsByIds(naming: VarUnNaming) : Option[PureAtom] = this match {
+  override def replaceStringsByIds(naming: UnNaming) : Option[PureAtom] = this match {
     case StringTrue => None
     case StringPtrEq(l, r) => Some(l.replaceStringsByIds(naming) =:= r.replaceStringsByIds(naming))
     case StringPtrNEq(l, r) => Some(l.replaceStringsByIds(naming) =/= r.replaceStringsByIds(naming))
@@ -53,7 +54,7 @@ sealed trait StringSpatialAtom extends StringSepLogAtom {
     case StringPredCall(name, args) => Set.empty ++ args.flatMap(_.getVars)
   }
 
-  override def replaceStringsByIds(naming: VarUnNaming) : Option[SepLogAtom] = this match {
+  override def replaceStringsByIds(naming: UnNaming) : Option[SepLogAtom] = this match {
     case StringEmp => None
     case StringPointsTo(from, to) => Some(PointsTo(from.replaceStringsByIds(naming), to.map(_.replaceStringsByIds(naming))))
     case StringPredCall(name, args) => Some(PredCall(name, args.map(_.replaceStringsByIds(naming))))
@@ -72,7 +73,7 @@ sealed trait StringPtrExpr {
     case StringPtrVar(id) => Set(id)
   }
 
-  def replaceStringsByIds(naming: VarUnNaming) : Var = this match {
+  def replaceStringsByIds(naming: UnNaming) : Var = this match {
     case StringNullPtr() => NullConst
     case StringPtrVar(id) => naming(id)
   }

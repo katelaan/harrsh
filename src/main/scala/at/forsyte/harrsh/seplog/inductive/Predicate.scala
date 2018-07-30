@@ -9,8 +9,9 @@ case class Predicate(head: String, rules: Seq[Rule]) {
 
   def arity: Int = rules.head.body.numFV
 
+  def params: Seq[FreeVar] = rules.head.body.freeVars
+
   def defaultCall: SymbolicHeap = {
-    val params = rules.head.body.freeVars
     SymbolicHeap(Seq.empty, Seq.empty, Seq(PredCall(head, params)), params)
   }
 

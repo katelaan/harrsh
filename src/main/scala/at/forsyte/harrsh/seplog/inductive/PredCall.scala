@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.seplog.{NullConst, Renaming, Var, VarNaming}
+import at.forsyte.harrsh.seplog.Var.Naming
+import at.forsyte.harrsh.seplog.{NullConst, Renaming, Var}
 
 /**
   * Created by jens on 2/28/17.
@@ -12,7 +13,7 @@ import at.forsyte.harrsh.seplog.{NullConst, Renaming, Var, VarNaming}
   * @param args Nonempty sequence of arguments
   */
 case class PredCall(name : String, args : Seq[Var]) extends SepLogAtom {
-  override def toStringWithVarNames(names: VarNaming) = name + "(" + args.map(names).mkString(",") + ")"
+  override def toStringWithVarNames(names: Naming) = name + "(" + args.map(names).mkString(",") + ")"
 
   override def isSpatial: Boolean = true
 
