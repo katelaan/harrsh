@@ -43,31 +43,36 @@ object ManualTreeConstruction {
     val baseRule = rules.find(_.isBaseRule).get
     val recRule = rules.find(_.isRecRule).get
 
-    val t1 = Seq(
+    def mk(desc: (String,NodeDesc)*) = makeTree(sid, desc.toMap, "root")
+
+    val t1 = mk(
       ("root", NodeDesc(Seq("l", "r"), Right(recRule), (pred, Seq("x", "?", "?")))),
       ("l", NodeDesc(Seq.empty, Left(pred), (pred, Seq("y", "?", "?")))),
-      ("r", NodeDesc(Seq.empty, Left(pred), (pred, Seq("z", "?", "?"))))).toMap
+      ("r", NodeDesc(Seq.empty, Left(pred), (pred, Seq("z", "?", "?")))))
 
-    val t21 = Seq(
+    val t21 = mk(
       ("root", NodeDesc(Seq("l", "r"), Right(recRule), (pred, Seq("y", "a", "?")))),
       ("l", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("a", "a", "?")))),
-      ("r", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?", "?", "?"))))).toMap
+      ("r", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?", "?", "?")))))
 
-    val t22 = Seq(
+    val t22 = mk(
       ("root", NodeDesc(Seq("l", "r"), Right(recRule), (pred, Seq("z", "?", "b")))),
       ("l", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?", "?", "?")))),
-      ("r", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?", "?", "b"))))).toMap
+      ("r", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?", "?", "b")))))
 
     for {
-      t <- Seq(t1, t21, t22)
+      ut <- Seq(t1, t21, t22)
     } {
-      val ut = makeTree(sid, t, "root")
       println(ut.toLatex)
       println()
     }
 
-    val uf = UnfoldingForest(Set(t1, t21, t22) map (t => makeTree(sid, t, "root")))
+    val uf = UnfoldingForest(Set(t1, t21, t22))
     println(uf.toLatex)
+
+    println("\n\nAfter composition:\n\n")
+
+    println(t1.compose(t21).map(_._1).get.toLatex)
   }
 
 
