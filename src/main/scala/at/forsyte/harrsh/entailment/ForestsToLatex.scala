@@ -1,6 +1,5 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.entailment.UnfoldingTree.Labeling
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
@@ -80,7 +79,7 @@ object ForestsToLatex {
   private val varsToMath = Naming.indexify(Naming.DefaultNaming)
 
   private def labelingToNodePart(labels: Labeling) = {
-    val pairs = labels.map {
+    val pairs = labels.toMap.map {
       case (from, to) => varsToMath(from) + " \\rightarrow " + to.map(varsToMath).mkString(",")
     }
     '$' + pairs.mkString(";") + '$'

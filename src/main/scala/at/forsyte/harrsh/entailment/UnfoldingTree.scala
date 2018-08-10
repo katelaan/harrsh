@@ -2,39 +2,8 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.entailment.UnfoldingTree._
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
-import at.forsyte.harrsh.util.ToLatex._
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.seplog.inductive.SymbolicHeap.ops._
 
-// FIXME: Nodes need an ID to make it possible for the same node to occur multiple times in the same tree. (Granted, a strange corner case, but we can't avoid that, can we?)
-
-sealed trait UTNode {
-
-  val labels: Labeling
-
-  def isAbstractLeaf: Boolean = this match {
-    case _:RuleNode => false
-    case _:AbstractLeafNode => true
-  }
-
-  def symbolicHeapLabel: String = this match {
-    case RuleNode(rule, _) => '$' + rule.body.toLatex(rule.naming).replaceAllLiterally("α", """\alpha""") + '$'
-    case AbstractLeafNode(pred, _) => '$' + pred.defaultCall.toLatex.replaceAllLiterally("α", """\alpha""") + '$'
-  }
-
-  def freeVarSeq: Seq[FreeVar] = this match {
-    case RuleNode(rule, _) => rule.body.freeVars
-    case AbstractLeafNode(pred, _) => pred.params
-  }
-}
-
-case class RuleNode(rule: Rule, override val labels: Labeling) extends UTNode {
-  assert(labels.keySet == rule.body.freeVars.toSet)
-}
-
-case class AbstractLeafNode(pred: Predicate, override val labels: Labeling) extends UTNode {
-  assert(labels.keySet == pred.defaultCall.freeVars.toSet)
-}
 
 case class UnfoldingTree(sid: SID, nodes: Set[UTNode], root: UTNode, children: Map[UTNode, Seq[UTNode]]) {
 
@@ -58,7 +27,7 @@ case class UnfoldingTree(sid: SID, nodes: Set[UTNode], root: UTNode, children: M
     assert(rule.head == leaf.pred.head)
     val unfolded = RuleNode(rule, leaf.labels)
     val childCalls = rule.body.predCalls
-    val childLabels = childCalls map (propagateLabels(leaf.labels, _))
+    val childLabels = childCalls map leaf.labels.propagate
     val childNodes = (childCalls, childLabels).zipped.map {
       case (PredCall(head,_), labeling) => AbstractLeafNode(sid.preds(head), labeling)
     }
@@ -75,7 +44,7 @@ case class UnfoldingTree(sid: SID, nodes: Set[UTNode], root: UTNode, children: M
         case AbstractLeafNode(pred, labels) =>
           if (retainCalls) pred.defaultCall else SymbolicHeap.empty
       }
-      withoutLabeling.copy(pure = withoutLabeling.pure ++ labelingToAtoms(node.labels))
+      withoutLabeling.copy(pure = withoutLabeling.pure ++ node.labels.toAtoms)
     }
 
     projectNode(root)
@@ -137,15 +106,6 @@ case class UnfoldingTree(sid: SID, nodes: Set[UTNode], root: UTNode, children: M
 }
 
 object UnfoldingTree {
-
-  type Labeling = Map[FreeVar,Set[Var]]
-
-  def labelingToAtoms(l: Labeling) : Iterable[PureAtom] = for {
-    (k,vs) <- l
-    v <- vs
-  } yield k =:= v
-
-  def propagateLabels(labels: Labeling, call: PredCall): Labeling = ???
 
   def fromPredicate(sid: SID, pred: String, labeling: Labeling): UnfoldingTree = {
     val node = AbstractLeafNode(sid.preds(pred), labeling)

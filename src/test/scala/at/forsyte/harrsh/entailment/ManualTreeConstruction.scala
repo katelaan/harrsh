@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.ExampleSIDs
-import at.forsyte.harrsh.entailment.UnfoldingTree.Labeling
 import at.forsyte.harrsh.entailment.ForestsToLatex._
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.{Predicate, Rule, SID}
@@ -31,7 +30,8 @@ object ManualTreeConstruction {
 
   implicit def mkLabeling(tuple: (Predicate,Seq[String])): Labeling = {
     val (pred, subst) = tuple
-    (pred.params, subst.map(s => Set[Var](FreeVar(s)))).zipped.toMap
+    val labelingMap = (pred.params, subst.map(s => Set[Var](FreeVar(s)))).zipped.toMap
+    Labeling(labelingMap)
   }
 
   implicit def strToVar(s: String): FreeVar = FreeVar(s)
