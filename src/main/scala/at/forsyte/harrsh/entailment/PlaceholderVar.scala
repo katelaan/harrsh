@@ -27,7 +27,7 @@ object PlaceholderVar {
 
   def max(pvs: Iterable[PlaceholderVar]): PlaceholderVar = pvs.maxBy(_.index)
 
-  def renamePlaceholdersToAvoidClashesWith(ut: UnfoldingTree) : FreeVar => Set[FreeVar] = {
+  def placeholderClashAvoidanceUpdate(ut: UnfoldingTree) : FreeVar => Set[FreeVar] = {
     val maxPv = max(ut.placeholders)
     val shiftBy = maxPv.index
     fv => fromVar(fv) match {

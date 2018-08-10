@@ -5,6 +5,7 @@ import at.forsyte.harrsh.seplog.FreeVar
 import at.forsyte.harrsh.seplog.inductive._
 
 case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) extends HarrshLogging {
+
   // FIXME: Validate that the tree is "sufficiently" labeled: It has free variables for all root parameters of the interface nodes + possibly for some other nodes as well (e.g., parameter corresponding to a backpointer in a dll)
 
   import at.forsyte.harrsh.entailment.UnfoldingTree._
@@ -76,7 +77,17 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
     projectNode(root)
   }
 
-  def avoidIdClashWith(other: UnfoldingTree): UnfoldingTree = {
+  private def avoidClashesWith(other: UnfoldingTree): UnfoldingTree = {
+    val shifted = avoidIdClashWith(other)
+    shifted.avoidPlaceHolderClashWith(other)
+  }
+
+  private def avoidPlaceHolderClashWith(other: UnfoldingTree): UnfoldingTree = {
+    val clashAvoidanceUpdate = PlaceholderVar.placeholderClashAvoidanceUpdate(other)
+    updateSubst(clashAvoidanceUpdate)
+  }
+
+  private def avoidIdClashWith(other: UnfoldingTree): UnfoldingTree = {
     val nodes = other.nodes
     val fresh = NodeId.freshIds(usedIds = nodes, numIds = this.nodes.size)
     val renaming: Map[NodeId, NodeId] = (this.nodes.toSeq.sorted, fresh).zipped.toMap
@@ -96,7 +107,7 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
 
   def instantiate(abstractLeaf: NodeId, replacingTree: UnfoldingTree, unification: Unification): Option[UnfoldingTree] = {
     logger.debug(s"Replacing $abstractLeaf in $this with $replacingTree")
-    val shifted = replacingTree.avoidIdClashWith(this)
+    val shifted = replacingTree.avoidClashesWith(this)
     logger.debug(s"After shifting to avoid clasehs with $nodes: $shifted")
     val thisExtended = this.extendLabeling(unification)
     val otherExtended = shifted.extendLabeling(unification)
@@ -133,7 +144,7 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
 
   def placeholders: Set[PlaceholderVar] = nodeLabels.values.flatMap(_.placeholders).toSet
 
-  def update(f: FreeVar => Set[FreeVar]): UnfoldingTree = {
+  def updateSubst(f: FreeVar => Set[FreeVar]): UnfoldingTree = {
     val updatedLabels = nodeLabels.map {
       case (id,label) => (id, label.update(f))
     }
