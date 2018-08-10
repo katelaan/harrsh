@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.ExampleSIDs
 import at.forsyte.harrsh.entailment.ForestsToLatex._
-import at.forsyte.harrsh.seplog.{FreeVar, Var}
+import at.forsyte.harrsh.seplog.FreeVar
 import at.forsyte.harrsh.seplog.inductive.{Predicate, Rule, SID}
 import at.forsyte.harrsh.util.ToLatex._
 
@@ -10,28 +10,29 @@ import scala.language.implicitConversions
 
 object ManualTreeConstruction {
 
-  case class NodeDesc(succs: Seq[String], content: Either[Predicate, Rule], labels: Labeling)
+  case class NodeDesc(succs: Seq[String], content: Either[Predicate, Rule], labels: Substitution)
 
-  def makeTree(sid: SID, nodes: Map[String,NodeDesc], root: String): UnfoldingTree = {
-    val currNode = nodes(root)
-    val subTrees = currNode.succs map (makeTree(sid, nodes, _))
-    val rootNode = makeNode(currNode)
-    val rootChildren = currNode.succs.map(nodes).map(makeNode)
-    val rootChildMap = Map(rootNode -> rootChildren)
-    val allNodes = Set(rootNode) ++ subTrees.flatMap(_.nodes)
-    val fullChildMap = rootChildMap ++ subTrees.flatMap(_.children)
-    UnfoldingTree(sid, allNodes, rootNode, fullChildMap)
+  def makeTree(sid: SID, nodes: Map[String,NodeDesc], root: String, usedIds: Set[NodeId] = Set.empty): UnfoldingTree = {
+    val strToNodeId : Map[String,NodeId] = nodes.keys.zipWithIndex.toMap
+    val nodeLabels: Map[NodeId, NodeLabel] = nodes map {
+      case (s, desc) => (strToNodeId(s), makeNodeLabel(desc))
+    }
+    val rootId = strToNodeId(root)
+    val children = nodes map {
+      case (s, desc) => (strToNodeId(s), desc.succs map strToNodeId)
+    }
+    UnfoldingTree(sid, nodeLabels, rootId, children)
   }
 
-  def makeNode(nd: NodeDesc) : UTNode = nd match {
-    case NodeDesc(_, Left(pred), labels) => AbstractLeafNode(pred, labels)
-    case NodeDesc(_, Right(rule), labels) => RuleNode(rule, labels)
+  def makeNodeLabel(nd: NodeDesc) : NodeLabel = nd match {
+    case NodeDesc(_, Left(pred), labels) => AbstractLeafNodeLabel(pred, labels)
+    case NodeDesc(_, Right(rule), labels) => RuleNodeLabel(rule, labels)
   }
 
-  implicit def mkLabeling(tuple: (Predicate,Seq[String])): Labeling = {
+  implicit def makeSubst(tuple: (Predicate,Seq[String])): Substitution = {
     val (pred, subst) = tuple
-    val labelingMap = (pred.params, subst.map(s => Set[Var](FreeVar(s)))).zipped.toMap
-    Labeling(labelingMap)
+    val substMap = (pred.params, subst.map(s => Set(FreeVar(s)))).zipped.toMap
+    Substitution(substMap)
   }
 
   implicit def strToVar(s: String): FreeVar = FreeVar(s)
@@ -46,23 +47,24 @@ object ManualTreeConstruction {
     def mk(desc: (String,NodeDesc)*) = makeTree(sid, desc.toMap, "root")
 
     val t1 = mk(
-      ("root", NodeDesc(Seq("l", "r"), Right(recRule), (pred, Seq("x", "?", "?")))),
-      ("l", NodeDesc(Seq.empty, Left(pred), (pred, Seq("y", "?", "?")))),
-      ("r", NodeDesc(Seq.empty, Left(pred), (pred, Seq("z", "?", "?")))))
+      ("root", NodeDesc(Seq("l", "r"), Right(recRule), (pred, Seq("x", "?1", "?2")))),
+      ("l", NodeDesc(Seq.empty, Left(pred), (pred, Seq("y", "?1", "?3")))),
+      ("r", NodeDesc(Seq.empty, Left(pred), (pred, Seq("z", "?3", "?2")))))
 
     val t21 = mk(
-      ("root", NodeDesc(Seq("l", "r"), Right(recRule), (pred, Seq("y", "a", "?")))),
-      ("l", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("a", "a", "?")))),
-      ("r", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?", "?", "?")))))
+      ("root", NodeDesc(Seq("l", "r"), Right(recRule), (pred, Seq("y", "a", "?1")))),
+      ("l", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("a", "a", "?2")))),
+      ("r", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?2", "?2", "?1")))))
 
     val t22 = mk(
-      ("root", NodeDesc(Seq("l", "r"), Right(recRule), (pred, Seq("z", "?", "b")))),
-      ("l", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?", "?", "?")))),
-      ("r", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?", "?", "b")))))
+      ("root", NodeDesc(Seq("l", "r"), Right(recRule), (pred, Seq("z", "z", "b")))),
+      ("l", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("z", "z", "?1")))),
+      ("r", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?1", "?1", "b")))))
 
     for {
       ut <- Seq(t1, t21, t22)
     } {
+      //println(ut)
       println(ut.toLatex)
       println()
     }
@@ -71,8 +73,14 @@ object ManualTreeConstruction {
     println(uf.toLatex)
 
     println("\n\nAfter composition:\n\n")
+    val composed = t1.compose(t21).map(_._1).get
+    //println(composed)
+    println(composed.toLatex)
 
-    println(t1.compose(t21).map(_._1).get.toLatex)
+    println("\n\nAfter second composition:\n\n")
+    val finished = composed.compose(t22).map(_._1).get
+    //println(finished)
+    println(finished.toLatex)
   }
 
 

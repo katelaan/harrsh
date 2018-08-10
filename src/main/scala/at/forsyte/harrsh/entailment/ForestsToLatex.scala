@@ -7,7 +7,7 @@ import at.forsyte.harrsh.util.ToLatex._
 object ForestsToLatex {
 
   implicit val treeToLatex : ToLatex[UnfoldingTree] = (ut:UnfoldingTree, _:Naming) => {
-    val lines = treeToLatexLines(ut, ut.root, TikzConfig(width = 12))
+    val lines = treeToLatexLines(ut, ut.root, TikzConfig(width = 24))
     wrapInTikzPic(lines)
   }
 
@@ -32,9 +32,9 @@ object ForestsToLatex {
 
   case class TikzConfig(width: Double, step: Double = -1.5, style: Option[String] = Some("utnode"), interfaceStyle: Option[String] = None)
 
-  private def mkStyle(ut: UnfoldingTree, node: UTNode, config: TikzConfig): String = {
-    val isRoot = ut.root == node
-    val isInterface = isRoot || node.isAbstractLeaf
+  private def mkStyle(ut: UnfoldingTree, nodeId: NodeId, config: TikzConfig): String = {
+    val isRoot = ut.root == nodeId
+    val isInterface = isRoot || ut.isAbstractLeaf(nodeId)
     val baseStyle = config.style.getOrElse("")
 
     (isInterface, config.interfaceStyle) match {
@@ -44,18 +44,19 @@ object ForestsToLatex {
     }
   }
 
-  private def treeToLatexLines(ut: UnfoldingTree, startFrom: UTNode, config: TikzConfig, level: Int = 0, index: Int = 0): Seq[String] = {
+  private def treeToLatexLines(ut: UnfoldingTree, startFrom: NodeId, config: TikzConfig, level: Int = 0, index: Int = 0): Seq[String] = {
 
     val numUnits = Math.pow(2, level+1)
     val rootUnits = 1 + 2*index
     val xPos = config.width * rootUnits / numUnits
     val yPos = level * config.step
-    val name = "id" + startFrom.hashCode
+    val name = "id" + startFrom
 
-    val nodeLabel = startFrom.symbolicHeapLabel
+    val nodeLabel = ut.nodeLabels(startFrom)
+    val tikzNodeLabel = nodeLabel.symbolicHeapLabel
     val style = mkStyle(ut, startFrom, config)
-    val substLatex = labelingToNodePart(startFrom.labels)
-    val lines = Seq(s"\\node[$style] at ($xPos,$yPos) ($name) {$nodeLabel \\nodepart{two} \\footnotesize $substLatex};")
+    val substLatex = labelingToNodePart(nodeLabel.subst)
+    val lines = Seq(s"\\node[$style] at ($xPos,$yPos) ($name) {$tikzNodeLabel \\nodepart{two} \\footnotesize $substLatex};")
 
     val succs = ut.children(startFrom)
     val leftTree: Seq[String] = succs.headOption match {
@@ -78,7 +79,7 @@ object ForestsToLatex {
 
   private val varsToMath = Naming.indexify(Naming.DefaultNaming)
 
-  private def labelingToNodePart(labels: Labeling) = {
+  private def labelingToNodePart(labels: Substitution) = {
     val pairs = labels.toMap.map {
       case (from, to) => varsToMath(from) + " \\rightarrow " + to.map(varsToMath).mkString(",")
     }
