@@ -3,6 +3,9 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.FreeVar
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.util.Combinators
+
+import scala.annotation.tailrec
 
 case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) extends HarrshLogging {
 
@@ -79,7 +82,9 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
 
   private def avoidClashesWith(other: UnfoldingTree): UnfoldingTree = {
     val shifted = avoidIdClashWith(other)
-    shifted.avoidPlaceHolderClashWith(other)
+    val res = shifted.avoidPlaceHolderClashWith(other)
+    assert(haveNoConflicts(this, res))
+    res
   }
 
   private def avoidPlaceHolderClashWith(other: UnfoldingTree): UnfoldingTree = {
@@ -100,17 +105,40 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
     UnfoldingTree(sid, renamedLabels, renaming(root), renamedChildren)
   }
 
+  private def dropRedundantPlaceholders: UnfoldingTree = {
+    def getRedundantVars(fvs: Set[FreeVar]): Set[FreeVar] = {
+      val (phs, nonPhs) = Combinators.splitBy(fvs, PlaceholderVar.isPlaceholder)
+      if (nonPhs.nonEmpty) {
+        // There is a proper free var in this equivalence class => discard all equivalent placeholders
+        phs
+      } else {
+        // Keep only the smalles placeholder among multiple placeholders
+        val typedPhs = phs map (ph => PlaceholderVar.fromVar(ph).get)
+        phs - PlaceholderVar.min(typedPhs).toFreeVar
+      }
+    }
+    val equivalenceClasses = varEquivClasses(nodeLabels.values)
+    val redundantVars = equivalenceClasses.flatMap(getRedundantVars)
+    logger.debug(s"Reundant vars: $redundantVars")
+
+    val updateF: FreeVar => Set[FreeVar] = {
+      v => if (redundantVars.contains(v)) Set.empty else Set(v)
+    }
+    updateSubst(updateF)
+  }
+
   def extendLabeling(unification: Unification): UnfoldingTree = {
-    // FIXME: Update the labeling based on the unification
-    this
+    val updateFn : FreeVar => Set[FreeVar] = {
+      v => unification.find(_.contains(v)).getOrElse(Set(v))
+    }
+    updateSubst(updateFn)
   }
 
   def instantiate(abstractLeaf: NodeId, replacingTree: UnfoldingTree, unification: Unification): Option[UnfoldingTree] = {
+    assert(haveNoConflicts(this, replacingTree))
     logger.debug(s"Replacing $abstractLeaf in $this with $replacingTree")
-    val shifted = replacingTree.avoidClashesWith(this)
-    logger.debug(s"After shifting to avoid clasehs with $nodes: $shifted")
     val thisExtended = this.extendLabeling(unification)
-    val otherExtended = shifted.extendLabeling(unification)
+    val otherExtended = replacingTree.extendLabeling(unification)
     // TODO: This instantiation 'leaks' the ID of abstractLeaf: It will not be used in the tree that we get after instantiation. I'm afraid this may complicate debugging.
     val combinedNodeLabels = (thisExtended.nodeLabels ++ otherExtended.nodeLabels) - abstractLeaf
 
@@ -124,13 +152,19 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
     val combinedChildren = (thisExtended.children.updated(parentOfReplacedLeaf, newParentsChildren) ++ otherExtended.children) - abstractLeaf
 
     val combinedTree = UnfoldingTree(sid, combinedNodeLabels, thisExtended.root, combinedChildren)
+    val reducedTree = combinedTree.dropRedundantPlaceholders
+
     // Discard trees with double allocation
-    Some(combinedTree).filterNot(_.hasDoubleAllocation)
+    Some(reducedTree).filterNot(_.hasDoubleAllocation)
   }
 
   def compose(other: UnfoldingTree): Option[(UnfoldingTree, Unification)] = {
+    logger.debug(s"Will try to compose $this with $other.")
+    val shifted = other.avoidClashesWith(this)
+    logger.debug(s"Other after shifting to avoid clashes with $nodes and $placeholders: $shifted")
+
     (for {
-      CompositionInterface(t1, t2, n2) <- compositionCandidates(this, other)
+      CompositionInterface(t1, t2, n2) <- compositionCandidates(this, shifted)
       unification <- tryUnify(t1.nodeLabels(t1.root), t2.nodeLabels(n2))
       // Compose using the unification. (This can fail in case the unification leads to double allocation)
       instantiation <- t2.instantiate(n2, t1, unification)
@@ -154,6 +188,35 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
 }
 
 object UnfoldingTree extends HarrshLogging {
+
+  def varEquivClasses(labels: Iterable[NodeLabel]) : Set[Set[FreeVar]] = {
+    // TODO: More efficient solution
+    var candidates: Set[Set[FreeVar]] = for {
+      label: NodeLabel <- labels.toSet
+      vs <- label.subst.toMap.values
+    } yield vs
+    mergeOverlapping(candidates)
+  }
+
+  @tailrec private def mergeOverlapping(candidates: Set[Set[FreeVar]]): Set[Set[FreeVar]] = getOverlapping(candidates) match {
+    case Some((set1, set2)) =>
+      val merged = candidates - set1 - set2 + (set1 union set2)
+      mergeOverlapping(merged)
+    case None => candidates
+  }
+
+  private def getOverlapping(sets: Set[Set[FreeVar]]): Option[(Set[FreeVar], Set[FreeVar])] = {
+    (for {
+      set1 <- sets
+      set2 <- sets
+      if set1 != set2
+      if (set1 intersect set2).nonEmpty
+    } yield (set1, set2)).headOption
+  }
+
+  def haveNoConflicts(ut1: UnfoldingTree, ut2: UnfoldingTree) : Boolean = {
+    (ut1.nodes intersect ut2.nodes).isEmpty && (ut1.placeholders intersect ut2.placeholders).isEmpty
+  }
 
   def fromPredicate(sid: SID, pred: String, labeling: Substitution): UnfoldingTree = {
     val node = AbstractLeafNodeLabel(sid.preds(pred), labeling)

@@ -189,4 +189,10 @@ object Combinators {
     }
   }
 
+  def splitBy[A](it: Set[A], p: A => Boolean): (Set[A], Set[A]) = {
+    it.foldLeft((Set.empty[A],Set.empty[A])){
+      case ((plus, minus), a) => if (p(a)) (plus + a, minus) else (plus, minus + a)
+    }
+  }
+
 }

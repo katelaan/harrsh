@@ -57,9 +57,9 @@ object ManualTreeConstruction {
       ("r", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?2", "?2", "?1")))))
 
     val t22 = mk(
-      ("root", NodeDesc(Seq("l", "r"), Right(recRule), (pred, Seq("z", "z", "b")))),
-      ("l", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("z", "z", "?1")))),
-      ("r", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?1", "?1", "b")))))
+      ("root", NodeDesc(Seq("l", "r"), Right(recRule), (pred, Seq("z", "?1", "b")))),
+      ("l", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?1", "?1", "?2")))),
+      ("r", NodeDesc(Seq.empty, Right(baseRule), (pred, Seq("?2", "?2", "b")))))
 
     for {
       ut <- Seq(t1, t21, t22)
