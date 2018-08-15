@@ -6,7 +6,7 @@ import RefinementInstance._
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.{PredCall, Rule, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{PredCall, RuleBody, SID, SymbolicHeap}
 
 import scala.annotation.tailrec
 
@@ -128,29 +128,27 @@ case class RefinementInstance(sid: SID,
       val stateToIndex : Map[ha.State, Int] = states.toSeq.zipWithIndex.toMap
 
       val innerRules = for {
-        TransitionInstance(states,body,head,headState) <- reachedTransitions.toSeq
-      } yield Rule(
-        head = head+stateToIndex(headState),
+        TransitionInstance(states, body, head, headState) <- reachedTransitions.toSeq
+      } yield (head+stateToIndex(headState), RuleBody(
         qvarNames = body.boundVars.toSeq map (_.toString),
-        body = SymbolicHeap.addTagsToPredCalls(body, states map (s => ""+stateToIndex(s))))
+        body = SymbolicHeap.addTagsToPredCalls(body, states map (s => ""+stateToIndex(s)))))
       val finalRules = reachedStates.finalStates.toSeq.map{
         state =>
           val freeVars = sid.callToStartPred.freeVars
           val call = PredCall(sid.startPred+stateToIndex(state), freeVars)
-          Rule(
-            head = sid.startPred,
+          (sid.startPred, RuleBody(
             qvarNames = Seq(),
             body = SymbolicHeap(Seq.empty, Seq.empty, Seq(call), freeVars)
-          )
+          ))
       }
 
       if (reachedStates.finalStates.isEmpty) {
         logger.info("Refined SID is empty")
       }
 
-      (SID(
-        startPred = sid.startPred,
-        rules = innerRules ++ finalRules,
+      (SID.fromTuples(
+        sid.startPred,
+        innerRules ++ finalRules,
         description = "Refinement of " + sid.description + " with " + ha.description
       ), !reachedStates.containsFinalState)
     }
@@ -245,7 +243,9 @@ case class RefinementInstance(sid: SID,
                                      previousTransitions : Transitions): IterationResult = {
     var break = FlagWrapper(false)
     for {
-      Rule(head, _, body) <- sid.rules.toStream
+      pred <- sid.preds.toStream
+      head = pred.head
+      RuleBody(_, body) <- pred.rules
       if !break.flag
       _ = {
         logger.debug("Looking at defined sources for " + head + " <= " + body)

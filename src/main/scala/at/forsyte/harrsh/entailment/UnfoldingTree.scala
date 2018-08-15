@@ -9,6 +9,8 @@ import scala.annotation.tailrec
 
 case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) extends HarrshLogging {
 
+  assert(sid.isRooted)
+
   // FIXME: Validate that the tree is "sufficiently" labeled: It has free variables for all root parameters of the interface nodes + possibly for some other nodes as well (e.g., parameter corresponding to a backpointer in a dll)
 
   import at.forsyte.harrsh.entailment.UnfoldingTree._
@@ -45,17 +47,17 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
     sb.toString
   }
 
-  def unfold(leaf: NodeId, rule: Rule): UnfoldingTree = {
+  def unfold(leaf: NodeId, pred: Predicate, rule: RuleBody): UnfoldingTree = {
     assert(abstractLeaves.contains(leaf))
-    assert(rule.head == nodeLabels(leaf).asInstanceOf[AbstractLeafNodeLabel].pred.head)
+    assert(pred.head == nodeLabels(leaf).asInstanceOf[AbstractLeafNodeLabel].pred.head)
     val subst = nodeLabels(leaf).subst
-    val unfolded = RuleNodeLabel(rule, subst)
+    val unfolded = RuleNodeLabel(pred, rule, subst)
     val childCalls = rule.body.predCalls
     val childIds = NodeId.freshIds(usedIds = nodes, numIds = childCalls.length)
     // TODO: Introduce unique placeholder vars in propagation...
     val childSubst = childCalls map subst.propagate
     val childNodes = (childIds, childCalls, childSubst).zipped.map {
-      case (nodeId, PredCall(head,_), childLabeling) => (nodeId, AbstractLeafNodeLabel(sid.preds(head), childLabeling))
+      case (nodeId, PredCall(head,_), childLabeling) => (nodeId, AbstractLeafNodeLabel(sid(head), childLabeling))
     }
 
     val newLabels = nodeLabels.updated(leaf, unfolded) ++ childNodes
@@ -68,7 +70,7 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
     def projectNode(node: NodeId): SymbolicHeap = {
       val label = nodeLabels(node)
       val withoutSubst = label match {
-        case RuleNodeLabel(rule, _) =>
+        case RuleNodeLabel(_, rule, _) =>
           val childProjections = children(node) map projectNode
           rule.body.replaceCalls(childProjections)
         case AbstractLeafNodeLabel(pred, _) =>
@@ -103,6 +105,24 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
       case (p, cs) => (renaming(p), cs map renaming)
     }
     UnfoldingTree(sid, renamedLabels, renaming(root), renamedChildren)
+  }
+
+  private def cleanUpPlaceholders: UnfoldingTree = {
+    val withoutRedundant = dropRedundantPlaceholders
+    withoutRedundant.closeGapsInPlaceholders
+  }
+
+  private def closeGapsInPlaceholders: UnfoldingTree = {
+    val currentPlaceholders = placeholders.toSeq.sortBy(_.index)
+    val newPlaceholders = (1 to currentPlaceholders.length) map (PlaceholderVar(_))
+    val replacement = (currentPlaceholders, newPlaceholders).zipped.toMap
+    val updateF: FreeVar => Set[FreeVar] = {
+      v => PlaceholderVar.fromVar(v) match {
+        case Some(pv) => Set(replacement(pv).toFreeVar)
+        case None => Set(v)
+      }
+    }
+    updateSubst(updateF)
   }
 
   private def dropRedundantPlaceholders: UnfoldingTree = {
@@ -152,7 +172,7 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
     val combinedChildren = (thisExtended.children.updated(parentOfReplacedLeaf, newParentsChildren) ++ otherExtended.children) - abstractLeaf
 
     val combinedTree = UnfoldingTree(sid, combinedNodeLabels, thisExtended.root, combinedChildren)
-    val reducedTree = combinedTree.dropRedundantPlaceholders
+    val reducedTree = combinedTree.cleanUpPlaceholders
 
     // Discard trees with double allocation
     Some(reducedTree).filterNot(_.hasDoubleAllocation)
@@ -219,7 +239,7 @@ object UnfoldingTree extends HarrshLogging {
   }
 
   def fromPredicate(sid: SID, pred: String, labeling: Substitution): UnfoldingTree = {
-    val node = AbstractLeafNodeLabel(sid.preds(pred), labeling)
+    val node = AbstractLeafNodeLabel(sid(pred), labeling)
     UnfoldingTree(sid, Map(NodeId.zero -> node), NodeId.zero, Map.empty)
   }
 

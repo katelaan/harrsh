@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.seplog.FreeVar
-import at.forsyte.harrsh.seplog.inductive.{Predicate, Rule}
+import at.forsyte.harrsh.seplog.inductive.{Predicate, RuleBody}
 import at.forsyte.harrsh.util.ToLatex._
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap.ops._
 
@@ -9,6 +9,7 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap.ops._
 
 sealed trait NodeLabel {
 
+  val pred: Predicate
   val subst: Substitution
 
   def isAbstractLeaf: Boolean = this match {
@@ -17,12 +18,12 @@ sealed trait NodeLabel {
   }
 
   def symbolicHeapLabel: String = this match {
-    case RuleNodeLabel(rule, _) => '$' + rule.body.toLatex(rule.naming).replaceAllLiterally("α", """\alpha""") + '$'
+    case RuleNodeLabel(_, rule, _) => '$' + rule.body.toLatex(rule.naming).replaceAllLiterally("α", """\alpha""") + '$'
     case AbstractLeafNodeLabel(pred, _) => '$' + pred.defaultCall.toLatex.replaceAllLiterally("α", """\alpha""") + '$'
   }
 
   def freeVarSeq: Seq[FreeVar] = this match {
-    case RuleNodeLabel(rule, _) => rule.body.freeVars
+    case RuleNodeLabel(_, rule, _) => rule.body.freeVars
     case AbstractLeafNodeLabel(pred, _) => pred.params
   }
 
@@ -34,10 +35,11 @@ sealed trait NodeLabel {
   }
 }
 
-case class RuleNodeLabel(rule: Rule, override val subst: Substitution) extends NodeLabel {
+// FIXME: Add predicate parameter to be able to associate the rule with the correct predicate
+case class RuleNodeLabel(override val pred: Predicate, rule: RuleBody, override val subst: Substitution) extends NodeLabel {
   assert(subst.toMap.keySet == rule.body.freeVars.toSet)
 }
 
-case class AbstractLeafNodeLabel(pred: Predicate, override val subst: Substitution) extends NodeLabel {
+case class AbstractLeafNodeLabel(override val pred: Predicate, override val subst: Substitution) extends NodeLabel {
   assert(subst.toMap.keySet == pred.defaultCall.freeVars.toSet)
 }

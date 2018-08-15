@@ -36,13 +36,12 @@ object ScriptToSatBenchmark extends HarrshLogging {
     val env = Env(preds, types, selToIx)
 
     val sh = collectAtoms(s.asserts.head.term, env, constsToFvs).head.toSymbolicHeap
-    val rules: Seq[Rule] = s.funs flatMap (fun => funDefToRules(fun, env))
+    val rules: Seq[(String,RuleBody)] = s.funs flatMap (fun => funDefToRules(fun, env))
 
     logger.debug(s"Top-level assertion: $sh")
     logger.debug(s"Predicate definitions:\n${rules.mkString("\n")}")
 
-    val numFV = rules.map(_.body.numFV).max
-    val sid = SID("undefined", rules, description)
+    val sid = SID.fromTuples("undefined", rules, description)
     val status = s.status.getOrElse(SatBenchmark.Unknown)
     SatBenchmark(sid, sh, status)
   }
@@ -58,7 +57,7 @@ object ScriptToSatBenchmark extends HarrshLogging {
     }
   }
 
-  def funDefToRules(fun: FunDef, env: Env): Seq[Rule] = {
+  def funDefToRules(fun: FunDef, env: Env): Seq[(String, RuleBody)] = {
     val head = fun.decl.name.str
     val freeVars = fun.decl.args.map(_.name.str)
     val varMap = (for {
@@ -68,7 +67,7 @@ object ScriptToSatBenchmark extends HarrshLogging {
     val atoms: Seq[Atoms] = collectAtoms(fun.term, env, varMap)
     for {
       atom <- atoms
-    } yield Rule(head, atom.qvars, atom.toSymbolicHeap)
+    } yield (head, RuleBody(atom.qvars, atom.toSymbolicHeap))
   }
 
   case class Atoms(pure: List[PureAtom], pointsTo: List[PointsTo], predCalls: List[PredCall], qvars: List[String]) {

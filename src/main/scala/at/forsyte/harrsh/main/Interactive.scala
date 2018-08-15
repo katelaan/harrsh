@@ -5,7 +5,7 @@ import at.forsyte.harrsh.Implicits.{ParsableString, RichModel, RichSID, RichSymb
 import at.forsyte.harrsh.modelchecking.Model
 import at.forsyte.harrsh.main.interactive.AnnotatedResultBuffer
 import at.forsyte.harrsh.refinement._
-import at.forsyte.harrsh.seplog.inductive.{Rule, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{RuleBody, SID, SymbolicHeap}
 import at.forsyte.harrsh.util.IOUtils
 
 import scala.concurrent.duration
@@ -120,7 +120,7 @@ object Interactive {
 
   }
 
-  implicit def ruleToHeap(rule : Rule) : SymbolicHeap = rule.body
+  implicit def ruleToHeap(rule : RuleBody) : SymbolicHeap = rule.body
 
   implicit def sidToRichSID(sid : SID) : BufferingRichSID = BufferingRichSID(sid)
 

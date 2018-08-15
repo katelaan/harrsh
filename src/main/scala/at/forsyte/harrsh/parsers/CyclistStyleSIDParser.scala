@@ -12,14 +12,14 @@ private[parsers] trait CyclistStyleSIDParser extends SIDCombinatorParser {
 
   self : Atoms =>
 
-  type PredSpec = (String, Seq[Rule])
+  type PredSpec = (String, Seq[RuleBody])
 
   override def parseSID : Parser[SID] = rep1sep(parsePredSpec, ";") ^^ {
-    preds =>
-      val startPred : String = preds.head._1
+    predSpecs =>
+      val startPred : String = predSpecs.head._1
       val desc : String = startPred + "-SID"
-      val allRules : Seq[Rule] = preds.flatMap(_._2)
-      SID(startPred, allRules, desc)
+      val preds = predSpecs.map(spec => Predicate(spec._1, spec._2))
+      SID(startPred, preds, desc)
   }
 
   override def parseBody : Parser[StringSymbolicHeap] = parseAtomSeq map {
@@ -33,14 +33,14 @@ private[parsers] trait CyclistStyleSIDParser extends SIDCombinatorParser {
     case name ~ rules => (name, rules)
   }
 
-  private def parseRuleSeq : Parser[Seq[Rule]] = rep1sep(parseRule, "|")
+  private def parseRuleSeq : Parser[Seq[RuleBody]] = rep1sep(parseRuleBody, "|")
 
-  private def parseRule : Parser[Rule] = parseBody ~ ("=>" ~> parseHead) ^^ {
+  private def parseRuleBody : Parser[RuleBody] = parseBody ~ ("=>" ~> parseHead) ^^ {
     case body ~ head =>
-      val (headPred, freeVars) = head
+      val (_, freeVars) = head // The head predicate is redundant info, so bind it to _
       val boundVars = (body.getVars -- freeVars).toSeq
 
-      Rule(headPred, boundVars, body.replaceStringsByIds(Naming.mkUnNaming(freeVars, boundVars)).copy(freeVars = freeVars.map(FreeVar)))
+      RuleBody(boundVars, body.replaceStringsByIds(Naming.mkUnNaming(freeVars, boundVars)).copy(freeVars = freeVars.map(FreeVar)))
   }
 
   private def parseHead = parseHeadWithArgs | parseHeadWithoutArgs

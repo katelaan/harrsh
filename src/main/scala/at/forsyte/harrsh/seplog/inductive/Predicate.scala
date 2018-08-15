@@ -2,50 +2,56 @@ package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 
-case class Predicate(head: String, rules: Seq[Rule]) {
-  // All rules of the predicate have the same number of parameters
-  // Note that this is ensured when constructing predicate via Predicate.fromRules
-  assert(rules.map(_.body.numFV).distinct.length == 1)
+case class Predicate(head: String, rules: Seq[RuleBody], rootParam: Option[FreeVar] = None) {
 
-  def arity: Int = rules.head.body.numFV
+  if (rules.isEmpty) {
+    throw new IllegalArgumentException("Can't construct predicate without rules.")
+  }
 
-  def params: Seq[FreeVar] = rules.head.body.freeVars
+  assert(rules.map(_.body.freeVars).toSet.size == 1,
+    s"Trying to construct predicate $head from rules with different free variables $rules. Preprocess with Predicate.alignFVSeqs?")
+
+  lazy val bodySHs: Seq[SymbolicHeap] = rules map (_.body)
+
+  lazy val arity: Int = rules.head.body.numFV
+
+  lazy val params: Seq[FreeVar] = rules.head.body.freeVars
 
   def defaultCall: SymbolicHeap = {
     SymbolicHeap(Seq.empty, Seq.empty, Seq(PredCall(head, params)), params)
   }
 
-  def ruleBodies: Seq[SymbolicHeap] = rules map (_.body)
+  override def toString: String = {
+    val ruleStrings = rules map {
+      rule => head + rule.freeVarNames.mkString("(",", ", ")") + " <= " + rule.toString
+    }
+    ruleStrings.mkString("\n")
+  }
 
 }
 
 object Predicate {
 
-  def fromRules(rules: Iterable[Rule]): Predicate = {
-    // The rules are all for the same predicate
-    assert(rules.toSeq.map(_.head).distinct.size == 1)
-
-    val numfv = arity(rules)
-    val paddedRules = rules map padToArity(numfv)
-
-    Predicate(rules.head.head, paddedRules.toSeq)
+  def apply(head: String, ruleBodies : (Seq[String], SymbolicHeap)*): Predicate = {
+    apply(head, None, ruleBodies:_*)
   }
 
-  private def padToArity(arity: Int)(rule: Rule) : Rule = {
-    if (rule.body.numFV < arity) {
-      // Don't reuse either string identifiers or "internal" FVs
-      val usedVars = rule.body.freeVars.toSet[Var]
-      val newVars = Var.freshFreeVars(usedVars, arity - rule.body.numFV)
-      rule.copy(body = rule.body.copy(freeVars = rule.body.freeVars ++ newVars))
-    } else {
-      rule
+  def alignFVSeqs(ruleBodies: Seq[RuleBody]): Seq[RuleBody] = {
+    val freeVars: Set[Seq[FreeVar]] = ruleBodies.map(_.body.freeVars).toSet
+    val maxFreeVars = freeVars.maxBy(_.size)
+    for {
+      RuleBody(_, body) <- ruleBodies
+      v <- body.freeVars
+    } {
+      if (!maxFreeVars.contains(v)) throw new IllegalArgumentException(s"Can't construct predicate from conflicting FV lists in $ruleBodies")
     }
+    ruleBodies map (b => b.copy(body = b.body.copy(freeVars = maxFreeVars)))
   }
 
-  private def arity(rules: Iterable[Rule]): Int = {
-    // Note that we take the maximum here, because we allow that some of the rules do not mention all FVs
-    // (and in particular not the maxFV; see also DefaultSID parser)
-    if (rules.isEmpty) 0 else rules.map(_.body.numFV).max
+  def apply(head: String, rootParam: Option[FreeVar], ruleBodies : (Seq[String], SymbolicHeap)*): Predicate = {
+    val rules = ruleBodies map RuleBody.tupled
+    val aligned = alignFVSeqs(rules)
+    Predicate(head, aligned, rootParam)
   }
 
 }

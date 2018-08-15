@@ -20,17 +20,18 @@ private[parsers] trait HarrshSIDParser extends SIDCombinatorParser with HarrshLo
 
   override def parseSID : Parser[SID] = rep1sep(parseRule, ";") <~ opt(";") ^^ {
     rules =>
-      val startPred : String = rules.head.head
+      // We assume the start predicate appears first in the file
+      val startPred : String = rules.head._1
       val desc : String = startPred + "-SID"
-      SID(startPred, rules, desc)
+      SID.fromTuples(startPred, rules, desc)
   }
 
   // TODO This is still somewhat brittle, in that the parser does not detect if the largest free variable of this rule is less than the max free var for other rules of the same predicate, thus erroneously assuming an arity that is too low
-  def parseRule : Parser[Rule] = parseHead ~ ("<=" ~> parseBody) ^^ {
+  def parseRule : Parser[(String,RuleBody)] = parseHead ~ ("<=" ~> parseBody) ^^ {
     case head ~ body =>
       val (renamedBody, filledFreeVars, boundVars) = HarrshSIDParser.stringSHwithHarrshNamingtoSH(body)
       logger.debug("Assembling rule out of head " + head + " and body " + body + " yielding modified body " + renamedBody)
-      Rule(head, boundVars, renamedBody.copy(freeVars = filledFreeVars.map(FreeVar)))
+      (head, RuleBody(boundVars, renamedBody.copy(freeVars = filledFreeVars.map(FreeVar))))
   }
 
   private def parseHead : Parser[String] = ident <~ opt(paramList)

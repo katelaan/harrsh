@@ -7,7 +7,7 @@ import at.forsyte.harrsh.pure.EqualityBasedSimplifications
 import at.forsyte.harrsh.refinement.DecisionProcedures.AnalysisResult
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms, RunSat}
 import at.forsyte.harrsh.seplog.Var.Naming
-import at.forsyte.harrsh.seplog.inductive.{Rule, SID, SIDUnfolding, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{RuleBody, SID, SIDUnfolding, SymbolicHeap}
 import at.forsyte.harrsh.util.ToLatex._
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap.ops._
 import at.forsyte.harrsh.util.{Combinators, IOUtils, ToLatex}
@@ -91,8 +91,8 @@ object Implicits {
     def exists(task : AutomatonTask) : Boolean = !hasEmptyIntersectionWithLanguageOf(task)
 
     def witness : Option[SymbolicHeap] = {
-      if (sid.predToRuleBodies.keySet.contains(sid.startPred)) {
-        // There is a rule for the start predicate. Assume this means non-emptiness (also this is not necessarily true)
+      if (sid.hasRuleForStartPred) {
+        // There is a rule for the start predicate. Assume this means non-emptiness (although this is only true for refinement results, not in general...)
         // TODO: Perform an actual emptiness test here?
         Some(SIDUnfolding.firstReducedUnfolding(sid))
       } else None
@@ -113,16 +113,16 @@ object Implicits {
     }
     def getModelAtDepth(depth : Int): Option[Model] = getSomeReducedUnfolding(depth).getModel(sid)
 
-    def baseRule : Rule = {
-      val base = sid.rules.filter(!_.isBaseRule)
+    def baseRule(pred: String) : RuleBody = {
+      val base = sid(pred).rules.filter(!_.isBaseRule)
       if (base.size > 1) {
         IOUtils.printWarningToConsole("Warning: More than one base rule. Will pick arbitrary one")
       }
       base.head
     }
 
-    def recursiveRule : Rule = {
-      val rec = sid.rules.filter(_.isRecRule)
+    def recursiveRule(pred: String) : RuleBody = {
+      val rec = sid(pred).rules.filter(_.isRecRule)
       if (rec.size > 1) {
         IOUtils.printWarningToConsole("Warning: More than one recursive rule. Will pick arbitrary one")
       }
@@ -211,7 +211,7 @@ object Implicits {
     def isModelOf(sid : SID) : Boolean = GreedyUnfoldingModelChecker.isModel(model, sid)
   }
 
-  implicit def ruleToHeap(rule : Rule) : SymbolicHeap = rule.body
+  implicit def ruleToHeap(rule : RuleBody) : SymbolicHeap = rule.body
 
   implicit def sidToRichSID(sid : SID) : RichSID = new RichSID(sid)
 

@@ -56,8 +56,8 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
 
     assert("emp * x6 -> null * Q(x3, x3)".parse.freeVars.toSet == Set(x3,x6))
 
-    assert(sll.baseRule.body.freeVars.toSet == Set(x1,x2))
-    assert(sll.recursiveRule.body.freeVars.toSet == Set(x1,x2))
+    assert(sll.baseRule("sll").body.freeVars.toSet == Set(x1,x2))
+    assert(sll.recursiveRule("sll").body.freeVars.toSet == Set(x1,x2))
 
     for (unf <- tll.callToStartPred.unfoldings(tll,3)) {
       assert(unf.freeVars.toSet == Set(x1,x2,x3))

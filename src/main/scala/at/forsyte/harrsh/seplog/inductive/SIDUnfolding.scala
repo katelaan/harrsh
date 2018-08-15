@@ -14,27 +14,27 @@ object SIDUnfolding extends HarrshLogging {
   def unfoldSingleCall(sh : SymbolicHeap, call : PredCall, sid : SID) : Seq[SymbolicHeap] = {
     logger.debug("Unfolding " + call + " in " + sh)
 
-    (for (body <- sid.predToRuleBodies(call.name)) yield sh.replaceCall(call, body)).toSeq
+    for (body <- sid(call.name).bodySHs) yield sh.replaceCall(call, body)
   }
 
   def unfold(sid : SID, depth: Int, reducedOnly : Boolean = false): Seq[SymbolicHeap] = {
 
     logger.debug("Unfolding sid " + sid)
 
-    val predsToBodies: Map[String, Seq[SymbolicHeap]] = sid.predToRuleBodies
-
     val initial: SymbolicHeap = sid.callToStartPred
 
     logger.debug("Will unfold using the following rules: ")
-    for ((k,vs) <- predsToBodies) {
-      logger.debug("Pred " + k + ":")
-      for (v <- vs) {
-        logger.debug(" * " + v)
+    for {
+      pred <- sid.preds
+    } {
+      logger.debug("Pred " + pred.head + ":")
+      for (body <- pred.bodySHs) {
+        logger.debug(" * " + body)
       }
     }
 
     val unfolded = try {
-      unfoldStep(predsToBodies, Seq(), Seq(initial), depth)
+      unfoldStep(sid, Seq(), Seq(initial), depth)
     } catch {
       case e : NoSuchElementException =>
         println("Aborting. The SID appears to contain undefined predicates: " + e.getMessage)
@@ -50,9 +50,9 @@ object SIDUnfolding extends HarrshLogging {
     * @param heaps Heaps to unfold
     * @return Unfolded heaps
     */
-  def unfoldOnce(sid : SID, heaps : Seq[SymbolicHeap]) : Seq[SymbolicHeap] = unfoldStep(sid.predToRuleBodies, Seq.empty, heaps, 1, doAccumulateSteps = false)
+  def unfoldOnce(sid : SID, heaps : Seq[SymbolicHeap]) : Seq[SymbolicHeap] = unfoldStep(sid, Seq.empty, heaps, 1, doAccumulateSteps = false)
 
-  private def unfoldStep(predsToBodies: Map[String, Seq[SymbolicHeap]], acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int, doAccumulateSteps: Boolean = true): Seq[SymbolicHeap] = {
+  private def unfoldStep(sid: SID, acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int, doAccumulateSteps: Boolean = true): Seq[SymbolicHeap] = {
     logger.debug("Currently active instances: " + curr.mkString(", "))
     if (depth == 0) if (doAccumulateSteps) acc ++ curr else curr
     else {
@@ -61,7 +61,7 @@ object SIDUnfolding extends HarrshLogging {
         if sh.nonReduced
         callReplacements = {
           logger.debug("Replacing calls in " + sh)
-          sh.predCalls.map(_.name) map predsToBodies
+          sh.predCalls.map(call => sid(call.name).bodySHs)
         }
         replacementChoices: Seq[Seq[SymbolicHeap]] = Combinators.choices(callReplacements)
         newInstances: Seq[SymbolicHeap] = {
@@ -70,7 +70,7 @@ object SIDUnfolding extends HarrshLogging {
         }
       } yield newInstances
 
-      unfoldStep(predsToBodies, acc ++ curr, allNewInstances.flatten, depth - 1, doAccumulateSteps)
+      unfoldStep(sid, acc ++ curr, allNewInstances.flatten, depth - 1, doAccumulateSteps)
     }
   }
 

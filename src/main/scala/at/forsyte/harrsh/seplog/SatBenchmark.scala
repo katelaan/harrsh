@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.seplog
 
-import at.forsyte.harrsh.seplog.inductive.{Predicate, Rule, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{Predicate, RuleBody, SID, SymbolicHeap}
 
 case class SatBenchmark(sid: SID, query: SymbolicHeap, status: SatBenchmark.Status) {
 
@@ -31,18 +31,17 @@ case class SatBenchmark(sid: SID, query: SymbolicHeap, status: SatBenchmark.Stat
         SID(startPred, sid.preds, sid.description)
       case Some(rule) =>
         // Need an additional rule to represent query => Derive integrated SID from that
-        val allPreds = sid.preds.updated(rule.head,Predicate.fromRules(Seq(rule)))
-        // Note: The number of free variables of the top-level query does not matter for the arity of the automaton!
+        val allPreds = Predicate(StartPred, Seq(rule)) +: sid.preds
         SID(StartPred, allPreds, sid.description)
     }
 
   }
 
-  private def startRule: Option[Rule] = {
+  private def startRule: Option[RuleBody] = {
     if (isRedundantSingleCall(query))
       None
     else
-      Some(Rule(StartPred, Nil, query))
+      Some(RuleBody(Nil, query))
   }
 
   private def isRedundantSingleCall(heap: SymbolicHeap) = {

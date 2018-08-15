@@ -9,6 +9,7 @@ object ExampleSIDs extends TestValues {
 
   lazy val Sll = SID("sll",
     "Singly-linked list",
+    Map("sll" -> x1),
     // sll <= emp : { a = b }
     ("sll", Seq.empty, SymbolicHeap(x1 =:= x2)),
     // sll <= ∃ y . a -> y * sll(y, b)
@@ -17,6 +18,7 @@ object ExampleSIDs extends TestValues {
 
   lazy val Tree = SID("tree",
     "Null-terminated tree",
+    Map("tree" -> x1),
     // tree <= x -> (nil, nil)
     ("tree", Seq.empty,  SymbolicHeap(x1 -> (nil, nil))),
     // tree <= ∃ y z . x -> (y, z) * tree(y) * tree(z)
@@ -25,6 +27,7 @@ object ExampleSIDs extends TestValues {
 
   lazy val Dll = SID("dll",
     "Doubly-linked list",
+    Map("dll" -> x1),
     // dll <= emp : { a = c, b = d }
     ("dll", Seq.empty, SymbolicHeap(x1 =:= x3, x2 =:= x4)),
     // dll <= ∃ u . a -> (u,b) * dll(u,a,c,d)
@@ -33,6 +36,7 @@ object ExampleSIDs extends TestValues {
 
   lazy val OddList = SID("odd",
     "Lists of odd length",
+    Map("odd" -> x1, "even" -> x2),
     ("odd", Seq("n"), SymbolicHeap(x1 -> y1, P("even")(y1, x2))),
     ("even", Seq("n"), SymbolicHeap(x1 -> y1, P("odd")(y1, x2))),
     ("even", Seq.empty, SymbolicHeap(x1 =:= x2))
@@ -40,6 +44,7 @@ object ExampleSIDs extends TestValues {
 
   lazy val Tll = SID("tll",
     "Tree with linked leaves",
+    Map("tll" -> x1),
     // tll <= a → (nil nil c) : { a = b }
     ("tll", Seq.empty, SymbolicHeap(x1 =:= x2, x1 -> (nil,nil,x3))),
     // tll <= ∃ l r z . a → (l r nil) ∗ tll(l b z) ∗ tll(r z c)
@@ -48,6 +53,7 @@ object ExampleSIDs extends TestValues {
 
   lazy val TllAcycExtraNeq = SID("tll",
     "Acyclic tree with linked leaves, overspecified",
+    Map("tll" -> x1),
     // tll <= a → (nil nil c) : { a = b }
     ("tll", Seq.empty, SymbolicHeap(x1 =:= x2, x1 =/= x3, x1 -> (nil,nil,x3))),
     // tll <= ∃ l r z . a → (l r nil) ∗ tll(l b z) ∗ tll(r z c)
@@ -56,6 +62,7 @@ object ExampleSIDs extends TestValues {
 
   lazy val TllAcyc = SID("tll",
     "Acyclic tree with linked leaves",
+    Map("tll" -> x1),
     // tll <= a → (nil nil c) : { a = b }
     ("tll", Seq.empty, SymbolicHeap(x1 =:= x2, x1 =/= x3, x1 -> (nil,nil,x3))),
     // tll <= ∃ l r z . a → (l r nil) ∗ tll(l b z) ∗ tll(r z c)
