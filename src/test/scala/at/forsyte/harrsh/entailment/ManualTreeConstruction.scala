@@ -89,6 +89,9 @@ object ManualTreeConstruction {
     println(direct)
 
     println(s"Results are the same: ${finished == direct.trees.head}")
+
+    println(UnfoldingForest(Seq(t1)).toExtensionType)
+    println(direct.toExtensionType)
   }
 
 

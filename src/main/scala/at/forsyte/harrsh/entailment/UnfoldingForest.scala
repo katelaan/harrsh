@@ -10,7 +10,13 @@ case class UnfoldingForest(trees: Seq[UnfoldingTree]) {
 
   def map[B](f: UnfoldingTree => B): Seq[B] = trees.map(f)
 
-  def compress: ExtensionType = ???
+  def isConcrete: Boolean = trees.size == 1 && trees.head.isConcrete
+
+  def toExtensionType: ExtensionType = ExtensionType(
+    trees map {
+      tree => TreeInterface(tree.nodeLabels(tree.root), tree.abstractLeaves.map(tree.nodeLabels).map(_.asInstanceOf[AbstractLeafNodeLabel]))
+    }
+  )
 
 }
 

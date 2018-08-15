@@ -47,6 +47,8 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
     sb.toString
   }
 
+  def isConcrete: Boolean = abstractLeaves.isEmpty
+
   def unfold(leaf: NodeId, pred: Predicate, rule: RuleBody): UnfoldingTree = {
     // TODO: Split method into smaller pieces
     assert(abstractLeaves.contains(leaf))
