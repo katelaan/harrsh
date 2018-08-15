@@ -1,15 +1,39 @@
 package at.forsyte.harrsh.entailment
 
-case class UnfoldingForest(trees: Set[UnfoldingTree]) {
+import scala.annotation.tailrec
+
+case class UnfoldingForest(trees: Seq[UnfoldingTree]) {
+
+  def compose(other: UnfoldingForest): UnfoldingForest = {
+    UnfoldingForest.merge(trees ++ other.trees)
+  }
+
+  def map[B](f: UnfoldingTree => B): Seq[B] = trees.map(f)
 
   def compress: ExtensionType = ???
-
-  def map[B](f: UnfoldingTree => B): Set[B] = trees map f
 
 }
 
 object UnfoldingForest {
 
-  def apply(trees: UnfoldingTree*): UnfoldingForest = UnfoldingForest(trees.toSet)
+  def merge(trees: Seq[UnfoldingTree]): UnfoldingForest = sweepingMerge(Seq.empty, trees)
+
+  @tailrec private def sweepingMerge(processed: Seq[UnfoldingTree], unprocessed: Seq[UnfoldingTree]): UnfoldingForest = {
+    if (unprocessed.isEmpty) {
+      UnfoldingForest(processed)
+    } else {
+      tryMerge(unprocessed.head, unprocessed.tail) match {
+        case Some((merged, other)) => sweepingMerge(processed, merged +: other)
+        case None => sweepingMerge(processed :+ unprocessed.head, unprocessed.tail)
+      }
+    }
+  }
+
+  private def tryMerge(tree: UnfoldingTree, other: Seq[UnfoldingTree]): Option[(UnfoldingTree, Seq[UnfoldingTree])] = {
+    (for {
+      candidate <- other.toStream
+      composed <- tree.compose(candidate)
+    } yield (composed._1, other.filter(_ != candidate))).headOption
+  }
 
 }
