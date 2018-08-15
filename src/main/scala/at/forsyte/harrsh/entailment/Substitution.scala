@@ -3,6 +3,7 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.seplog.inductive.{PredCall, PureAtom}
 import at.forsyte.harrsh.seplog.FreeVar
 
+// FIXME: Targets need to be arbitary vars, since we need to be able to map to null as well.
 case class Substitution(toMap: Map[FreeVar,Set[FreeVar]]) extends AnyVal {
 
   def placeholders: Set[PlaceholderVar] = {
@@ -30,4 +31,8 @@ case class Substitution(toMap: Map[FreeVar,Set[FreeVar]]) extends AnyVal {
     case (k,vs) => (k, vs.flatMap(f))
   })
 
+}
+
+object Substitution {
+  def identity(fvs: Seq[FreeVar]): Substitution = Substitution(fvs.map(fv => (fv,Set(fv))).toMap)
 }

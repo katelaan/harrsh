@@ -38,8 +38,12 @@ sealed trait NodeLabel {
 // FIXME: Add predicate parameter to be able to associate the rule with the correct predicate
 case class RuleNodeLabel(override val pred: Predicate, rule: RuleBody, override val subst: Substitution) extends NodeLabel {
   assert(subst.toMap.keySet == rule.body.freeVars.toSet)
+
+  override def toString: String = s"rule($rule, $subst)"
 }
 
 case class AbstractLeafNodeLabel(override val pred: Predicate, override val subst: Substitution) extends NodeLabel {
   assert(subst.toMap.keySet == pred.defaultCall.freeVars.toSet)
+
+  override def toString: String = s"leaf(${pred.head}, $subst)"
 }

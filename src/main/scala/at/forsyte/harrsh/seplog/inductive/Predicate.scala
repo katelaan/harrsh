@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.seplog.{FreeVar, Var}
+import at.forsyte.harrsh.seplog.FreeVar
 
 case class Predicate(head: String, rules: Seq[RuleBody], rootParam: Option[FreeVar] = None) {
 

@@ -9,7 +9,7 @@ package object entailment {
   object NodeId {
 
     def freshIds(usedIds: Set[NodeId], numIds: Int): Seq[NodeId] = {
-      val maxUsed = usedIds.max
+      val maxUsed = if (usedIds.nonEmpty) usedIds.max else -1
       maxUsed + 1 to maxUsed + numIds
     }
 

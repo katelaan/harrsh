@@ -25,16 +25,24 @@ object PlaceholderVar {
 
   def isPlaceholder(v : FreeVar): Boolean = fromVar(v).nonEmpty
 
-  def max(pvs: Iterable[PlaceholderVar]): PlaceholderVar = pvs.maxBy(_.index)
+  def max(pvs: Iterable[PlaceholderVar]): PlaceholderVar = try {
+    pvs.maxBy(_.index)
+  } catch {
+    case e: UnsupportedOperationException => PlaceholderVar(0)
+  }
 
-  def min(pvs: Iterable[PlaceholderVar]): PlaceholderVar = pvs.minBy(_.index)
+  def min(pvs: Iterable[PlaceholderVar]): PlaceholderVar = try {
+    pvs.minBy(_.index)
+  } catch {
+    case e: UnsupportedOperationException => PlaceholderVar(0)
+  }
 
   def placeholderClashAvoidanceUpdate(ut: UnfoldingTree) : FreeVar => Set[FreeVar] = {
     val maxPv = max(ut.placeholders)
     val shiftBy = maxPv.index
     fv => fromVar(fv) match {
       case Some(PlaceholderVar(value)) => Set(PlaceholderVar(value + shiftBy).toFreeVar)
-      case None => Set(fv)
+        case None => Set(fv)
     }
   }
 

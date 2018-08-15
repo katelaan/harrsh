@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.FreeVar
+import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
@@ -48,21 +48,48 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
   }
 
   def unfold(leaf: NodeId, pred: Predicate, rule: RuleBody): UnfoldingTree = {
+    // TODO: Split method into smaller pieces
     assert(abstractLeaves.contains(leaf))
-    assert(pred.head == nodeLabels(leaf).asInstanceOf[AbstractLeafNodeLabel].pred.head)
-    val subst = nodeLabels(leaf).subst
-    val unfolded = RuleNodeLabel(pred, rule, subst)
-    val childCalls = rule.body.predCalls
-    val childIds = NodeId.freshIds(usedIds = nodes, numIds = childCalls.length)
-    // TODO: Introduce unique placeholder vars in propagation...
-    val childSubst = childCalls map subst.propagate
-    val childNodes = (childIds, childCalls, childSubst).zipped.map {
-      case (nodeId, PredCall(head,_), childLabeling) => (nodeId, AbstractLeafNodeLabel(sid(head), childLabeling))
+    assert(pred.head == nodeLabels(leaf).pred.head)
+
+    val leafSubst = nodeLabels(leaf).subst
+    val rootLabel = RuleNodeLabel(pred, rule, leafSubst)
+    val boundVars = rule.body.boundVars
+    val allUnusedPlaceholders = for {
+      i <- Stream.from(0)
+      pv = PlaceholderVar(i)
+      if !leafSubst.placeholders.contains(pv)
+    } yield pv.toFreeVar
+    val boundVarsToPlaceholders = boundVars.zip(allUnusedPlaceholders).toMap
+
+    val mkSubst = {
+      args: Seq[Var] =>
+        val targets = args.map {
+          case fv: FreeVar => Set(fv)
+          case NullConst => throw new NotImplementedError
+          case bv:BoundVar => Set(boundVarsToPlaceholders(bv))
+        }
+        Substitution((pred.params, targets).zipped.toMap)
     }
 
-    val newLabels = nodeLabels.updated(leaf, unfolded) ++ childNodes
-    val newChildren = children + (leaf -> childIds)
-    UnfoldingTree(sid, newLabels, root, newChildren)
+    val childLabels = rule.body.predCalls map (call => AbstractLeafNodeLabel(sid(call.name), mkSubst(call.args)))
+    val ids = NodeId.freshIds(Set.empty, childLabels.size + 1)
+    val ruleTreeNodeLabels = (ids, rootLabel +: childLabels).zipped.toMap
+    val ruleTreeChildTuples = (ids.head -> ids.tail) +: ids.tail.zip(Stream.continually(Seq.empty))
+
+    val ruleTree = UnfoldingTree(
+      sid = sid,
+      nodeLabels = ruleTreeNodeLabels,
+      root = ids.head,
+      children = ruleTreeChildTuples.toMap
+    )
+    val shiftedRuleTree = ruleTree.avoidClashesWith(this)
+
+    // Shifting may have renamed placeholder vars at the root (if there are any), which we revert through unification
+    val rootSubst = shiftedRuleTree.nodeLabels(shiftedRuleTree.root).subst
+    val unification: Unification = pred.params map (fv => leafSubst(fv) union rootSubst(fv))
+
+    instantiate(leaf, shiftedRuleTree, unification)
   }
 
   def project(retainCalls: Boolean = false): SymbolicHeap = {
@@ -85,7 +112,8 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
   private def avoidClashesWith(other: UnfoldingTree): UnfoldingTree = {
     val shifted = avoidIdClashWith(other)
     val res = shifted.avoidPlaceHolderClashWith(other)
-    assert(haveNoConflicts(this, res))
+    assert(haveNoConflicts(other, res),
+      s"After shifting/renaming, still conflicts between $other and $res (with placeholders ${other.placeholders} and ${res.placeholders} and nodes ${other.nodes} and ${res.nodes})")
     res
   }
 
@@ -154,7 +182,7 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
     updateSubst(updateFn)
   }
 
-  def instantiate(abstractLeaf: NodeId, replacingTree: UnfoldingTree, unification: Unification): Option[UnfoldingTree] = {
+  def instantiate(abstractLeaf: NodeId, replacingTree: UnfoldingTree, unification: Unification): UnfoldingTree = {
     assert(haveNoConflicts(this, replacingTree))
     logger.debug(s"Replacing $abstractLeaf in $this with $replacingTree")
     val thisExtended = this.extendLabeling(unification)
@@ -163,19 +191,31 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
     val combinedNodeLabels = (thisExtended.nodeLabels ++ otherExtended.nodeLabels) - abstractLeaf
 
     // Connect the parent of the replaced leaf with the root of the replacing tree
-    val parentOfReplacedLeaf = thisExtended.parents(abstractLeaf)
-    val newParentsChildren = thisExtended.children(parentOfReplacedLeaf).map{
-      child => if (child == abstractLeaf) otherExtended.root else child
+    val maybeParent = thisExtended.parents.get(abstractLeaf)
+    val updatedChildren = maybeParent match {
+      case Some(parent) =>
+        val newParentsChildren = thisExtended.children(parent).map{
+          child => if (child == abstractLeaf) otherExtended.root else child
+        }
+        logger.debug(s"Updating children of $parent from ${thisExtended.children(parent)} to $newParentsChildren")
+        thisExtended.children.updated(parent, newParentsChildren)
+      case None =>
+        thisExtended.children
     }
-    logger.debug(s"Updating children of $parentOfReplacedLeaf from ${thisExtended.children(parentOfReplacedLeaf)} to $newParentsChildren")
+
     // TODO: Another position where the 'leak' manifests
-    val combinedChildren = (thisExtended.children.updated(parentOfReplacedLeaf, newParentsChildren) ++ otherExtended.children) - abstractLeaf
+    val combinedChildren = (updatedChildren ++ otherExtended.children) - abstractLeaf
 
-    val combinedTree = UnfoldingTree(sid, combinedNodeLabels, thisExtended.root, combinedChildren)
-    val reducedTree = combinedTree.cleanUpPlaceholders
+    val newRoot = if (maybeParent.nonEmpty) {
+      // The replaced leaf wasn't the root => The root remains unchanged
+      thisExtended.root
+    } else {
+      // The replace leaf was the root => The new root is the root of the replacing tree
+      otherExtended.root
+    }
 
-    // Discard trees with double allocation
-    Some(reducedTree).filterNot(_.hasDoubleAllocation)
+    val combinedTree = UnfoldingTree(sid, combinedNodeLabels, newRoot, combinedChildren)
+    combinedTree.cleanUpPlaceholders
   }
 
   def compose(other: UnfoldingTree): Option[(UnfoldingTree, Unification)] = {
@@ -187,7 +227,8 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
       CompositionInterface(t1, t2, n2) <- compositionCandidates(this, shifted)
       unification <- tryUnify(t1.nodeLabels(t1.root), t2.nodeLabels(n2))
       // Compose using the unification. (This can fail in case the unification leads to double allocation)
-      instantiation <- t2.instantiate(n2, t1, unification)
+      instantiation = t2.instantiate(n2, t1, unification)
+      if !instantiation.hasDoubleAllocation
     } yield (instantiation, unification)).headOption
   }
 
@@ -208,6 +249,19 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
 }
 
 object UnfoldingTree extends HarrshLogging {
+
+  def singleton(sid: SID, pred: Predicate): UnfoldingTree = {
+    singleton(sid, AbstractLeafNodeLabel(pred, Substitution.identity(pred.params)))
+  }
+
+  def singleton(sid: SID, pred: Predicate, rule: RuleBody): UnfoldingTree = {
+    singleton(sid, RuleNodeLabel(pred, rule, Substitution.identity(pred.params)))
+  }
+
+  def singleton(sid: SID, label: NodeLabel): UnfoldingTree = {
+    val id = NodeId.zero
+    UnfoldingTree(sid, Map(id -> label), id, Map(id -> Seq.empty))
+  }
 
   def varEquivClasses(labels: Iterable[NodeLabel]) : Set[Set[FreeVar]] = {
     // TODO: More efficient solution
