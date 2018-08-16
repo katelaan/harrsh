@@ -27,7 +27,7 @@ case class SID(startPred : String, preds : Seq[Predicate], description : String)
       pred <- preds
       rule <- pred.rules
       pointers = rule.body.pointers
-      if pointers.size > 1 || pointers.headOption.exists(_.from != pred.rootParam.get)
+      if pointers.size != 1 || pointers.head.from != pred.rootParam.get
     } yield (pred, rule)
 
     if (violatingRules.nonEmpty) {
@@ -87,11 +87,11 @@ object SID extends HarrshLogging {
 
   def empty : SID = SID("X", Seq.empty[Predicate], "")
 
-  def fromTopLevelSH(sh: SymbolicHeap, sid: SID) : SID = {
+  def fromSymbolicHeap(sh: SymbolicHeap, backgroundSID: SID = SID.empty) : SID = {
     val startPred = "sh"
     val newRule = RuleBody(sh.boundVars.toSeq map (_.toString), sh)
     val newPred = Predicate(startPred, Seq(newRule))
-    sid.copy(startPred = startPred, preds = newPred +: sid.preds, description = "symbolic heap")
+    backgroundSID.copy(startPred = startPred, preds = newPred +: backgroundSID.preds, description = "symbolic heap")
   }
 
 }

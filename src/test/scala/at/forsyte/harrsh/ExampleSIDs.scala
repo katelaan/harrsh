@@ -16,6 +16,15 @@ object ExampleSIDs extends TestValues {
     ("sll", Seq("y"), SymbolicHeap(x1 -> y1, P("sll")(y1, x2)))
   )
 
+  lazy val Nel = SID("nel",
+    "Nonempty list",
+    Map("nel" -> x1),
+    // nel <= emp : { a = b }
+    ("nel", Seq.empty, SymbolicHeap(x1 -> x2)),
+    // nel <= ∃ y . a -> y * nel(y, b)
+    ("nel", Seq("y"), SymbolicHeap(x1 -> y1, P("nel")(y1, x2)))
+  )
+
   lazy val Tree = SID("tree",
     "Null-terminated tree",
     Map("tree" -> x1),

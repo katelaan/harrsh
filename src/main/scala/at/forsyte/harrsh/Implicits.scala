@@ -148,11 +148,11 @@ object Implicits {
       ReducedEntailment.checkSatisfiableRSHAgainstSID(sh, sid.callToStartPred, sid, Defaults.reportProgress)
     }
 
-    def toSid(callIntepretation: SID) : SID = SID.fromTopLevelSH(sh, callIntepretation)
+    def toSid(callIntepretation: SID) : SID = SID.fromSymbolicHeap(sh, callIntepretation)
 
     def toSid : SID = {
       if (sh.nonReduced) throw new Throwable("Can't convert non-reduced heap to SID without SID for calls")
-      else SID.fromTopLevelSH(sh, SID.empty)
+      else SID.fromSymbolicHeap(sh)
     }
 
     def refineBy(sid: SID, task : AutomatonTask) : (SID,Boolean) = {
@@ -181,7 +181,7 @@ object Implicits {
     def isSat : Boolean = exists(RunSat)
 
     def getModel(sid : SID) : Option[Model] = {
-      val (satSid, isEmpty) = SID.fromTopLevelSH(sh, sid).refineAndCheckEmptiness(RunSat)
+      val (satSid, isEmpty) = SID.fromSymbolicHeap(sh, sid).refineAndCheckEmptiness(RunSat)
       if (isEmpty) {
         println("Symbolic heap is unsatisfiable w.r.t. the given SID")
         None
@@ -205,7 +205,7 @@ object Implicits {
   class RichModel(model : Model) {
     def isModelOf(sh : SymbolicHeap) : Boolean = {
       if (sh.nonReduced) throw new Throwable("Can't model-check non-reduced heaps without reference to an SID")
-      isModelOf(SID.fromTopLevelSH(sh, SID.empty))
+      isModelOf(SID.fromSymbolicHeap(sh))
     }
 
     def isModelOf(sid : SID) : Boolean = GreedyUnfoldingModelChecker.isModel(model, sid)

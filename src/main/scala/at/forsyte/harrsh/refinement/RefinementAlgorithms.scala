@@ -49,6 +49,10 @@ object RefinementAlgorithms {
     }
   }
 
+  def refineSID(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): (SID,Boolean) = {
+    RefinementInstance(sid, ha, mode = RefinementInstance.FullRefinement, reportProgress = reportProgress).run.toSID
+  }
+
   /**
     * (Task to perform, is refined SID empty (or None if timeout), witness if nonempty)
    */

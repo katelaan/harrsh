@@ -21,6 +21,8 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
   // TODO: Support for null
   assert(rhs.args forall (_.isFreeNonNull))
 
+  override val description: String = s"EntailmentAutomaton($rhs)"
+
   override type State = Set[ExtensionType]
 
   override def isFinal(s: State): Boolean = {
@@ -36,8 +38,10 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
 
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     val localETs = EntailmentAutomaton.shToExtensionTypes(lab, sid)
+    logger.debug(s"Extension types for $lab:\n${localETs.mkString("\n")}")
     val allETs: Seq[Set[ExtensionType]] = localETs +: src
     // Compose the extension types
+    // FIXME: [URGENT] Have to update the substitutions in the src extension types according to the actual args of the pred calls in lab
     val reachable = for {
       ets <- Combinators.choices(allETs map (_.toSeq))
     } yield ets.reduceLeft(_ compose _)
@@ -49,11 +53,13 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
 object EntailmentAutomaton extends HarrshLogging {
 
   def shToExtensionTypes(sh: SymbolicHeap, sid: SID) : Set[ExtensionType] = {
-    assert(sh.pointers.size <= 1)
+    // TODO: Deal with multi-pointer and zero-pointer SHs for the left-hand side? This is particularly important for top-level formulas. (We could do this either through rewriting or through explicit support.)
+    assert(sh.pointers.size == 1)
+    // FIXME: [Urgent] This way to compute the ET is broken: For recursive rules, we may need to label the abstract leaves with some of the free variables of sh, and introduce placeholders for some vars of the root. Neither is done yet!
     for {
       pred <- sid.preds.toSet[Predicate]
       // Only consider rules with the same number of free variables
-      // FIXME: Is that actually the correct semantics? What about the corner case that the sh contains unused free. (As is sometimes the case e.g. for base rules of predicates; consider the SLL-with-head-pointer example.)
+      // FIXME: Is that actually the correct semantics? What about the corner case that the sh contains unused free vars. (As is sometimes the case e.g. for base rules of predicates; consider the SLL-with-head-pointer example.)
       if pred.arity == sh.numFV
       rule <- pred.rules
       // Instantiate the rule body with the actual free vars of the left-hand side
@@ -70,21 +76,14 @@ object EntailmentAutomaton extends HarrshLogging {
     withRule.interface.asExtensionType
   }
 
-  private def compatiblePointers(maybeLeftPtr: Option[PointsTo], leftEqs: Closure, maybeRightPtr: Option[PointsTo]): Boolean = {
-    (maybeLeftPtr, maybeRightPtr) match {
-      case (Some(leftPtr), Some(rightPtr)) =>
-        // Pointers are compatible if all arguments coincide (modulo the equalities defined in the left heap)
-        val matchResults = for {
-          (xl, xr) <- (leftPtr.args, rightPtr.args).zipped
-        } yield leftEqs.getEquivalenceClass(xl).contains(xr)
-        matchResults.forall(b => b)
-      case (None, None) =>
-        // Neither heap allocates memory => Trivial compatibility
-        true
-      case _ =>
-        // Only one pointer is defined => Can't match
-        false
-    }
+  private def compatiblePointers(leftPtr: PointsTo, leftEqs: Closure, rightPtr: PointsTo): Boolean = {
+    // Pointers are compatible if all arguments coincide (modulo the equalities defined in the left heap)
+    //        val matchResults = for {
+    //          (xl, xr) <- (leftPtr.args, rightPtr.args).zipped
+    //        } yield leftEqs.getEquivalenceClass(xl).contains(xr)
+    //        matchResults.forall(b => b)
+    // TODO: Only the LHS has to coincide. I.e., the following test should be sufficient?
+    leftEqs.getEquivalenceClass(leftPtr.from).contains(rightPtr.from)
   }
 
   // TODO: Substitution should simply become a seq rather than a map, since the domain of the substitution is determined by the rule. We can then drop the ruleFVs param here
@@ -94,9 +93,11 @@ object EntailmentAutomaton extends HarrshLogging {
     val leftEqs = Closure.ofAtoms(leftHeap.pure)
     val rightEqs = Closure.ofAtoms(rightRuleInstance.pure)
 
+    // TODO: After debugging, this should be moved into the if for possible short-circuiting
+    val leftEqsEntailRightEqs = PureEntailment.check(leftEqs, rightEqs)
+    val pointersCompatible = compatiblePointers(leftHeap.pointers.head, leftEqs, rightRuleInstance.pointers.head)
     if (
-      PureEntailment.check(leftEqs, rightEqs)
-      && compatiblePointers(leftHeap.pointers.headOption, leftEqs, rightRuleInstance.pointers.headOption)
+      leftEqsEntailRightEqs && pointersCompatible
     ) {
       // FIXME: Generate all possible substiutions (involving all ways that vars are allowed to alias without contradicting the RHS closure) rather than just one default substitution
       val varsToArgs = (ruleFVs, rightRuleInstance.freeVars).zipped
@@ -107,6 +108,7 @@ object EntailmentAutomaton extends HarrshLogging {
       }
       Set(Substitution(varsToSubst.toMap))
     } else {
+      logger.debug(s"Couldn't match $leftHeap against $rightRuleInstance. Pure entailment holds: $leftEqsEntailRightEqs; Pointers compatible: $pointersCompatible")
       Set.empty
     }
   }
