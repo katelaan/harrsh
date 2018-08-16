@@ -8,7 +8,7 @@ import at.forsyte.harrsh.seplog.Var.Naming
   * System of inductive definitions
   * Created by jens on 10/15/16.
   */
-case class SID(startPred : String, preds : Seq[Predicate], description : String) {
+case class SID(startPred : String, preds : Seq[Predicate], description : String) extends HarrshLogging {
 
   override def toString: String = {
     description + " (start predicate '" + startPred + "'): " + preds.mkString("\n    ", " ; \n    ", "")
@@ -20,7 +20,22 @@ case class SID(startPred : String, preds : Seq[Predicate], description : String)
 
   def apply(predName: String): Predicate = predMap(predName)
 
-  def isRooted: Boolean = preds.forall(_.rootParam.nonEmpty)
+  lazy val isRooted: Boolean = preds.forall(_.rootParam.nonEmpty)
+
+  lazy val satisfiesProgress: Boolean = {
+    val violatingRules = for {
+      pred <- preds
+      rule <- pred.rules
+      pointers = rule.body.pointers
+      if pointers.size > 1 || pointers.headOption.exists(_.from != pred.rootParam.get)
+    } yield (pred, rule)
+
+    if (violatingRules.nonEmpty) {
+      logger.info(s"SID violates progress:\n${violatingRules.mkString("\n")}")
+    }
+
+    violatingRules.isEmpty
+  }
 
   def arity(pred: String): Int = predMap.get(pred).map(_.arity).getOrElse(0)
 

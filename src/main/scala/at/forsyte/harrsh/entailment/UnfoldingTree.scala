@@ -49,10 +49,16 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
 
   def isConcrete: Boolean = abstractLeaves.isEmpty
 
-  def unfold(leaf: NodeId, pred: Predicate, rule: RuleBody): UnfoldingTree = {
+  def interface: TreeInterface = {
+    TreeInterface(nodeLabels(root), abstractLeaves.map(nodeLabels).map(_.asInstanceOf[AbstractLeafNodeLabel]))
+  }
+
+  def unfold(leaf: NodeId, rule: RuleBody): UnfoldingTree = {
     // TODO: Split method into smaller pieces
     assert(abstractLeaves.contains(leaf))
-    assert(pred.head == nodeLabels(leaf).pred.head)
+
+    val pred = nodeLabels(leaf).pred
+    assert(pred.rules.contains(rule))
 
     val leafSubst = nodeLabels(leaf).subst
     val rootLabel = RuleNodeLabel(pred, rule, leafSubst)
@@ -252,15 +258,12 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
 
 object UnfoldingTree extends HarrshLogging {
 
-  def singleton(sid: SID, pred: Predicate): UnfoldingTree = {
-    singleton(sid, AbstractLeafNodeLabel(pred, Substitution.identity(pred.params)))
+  private def getSubstOrDefault(subst: Option[Substitution], pred: Predicate): Substitution = {
+    subst.getOrElse(Substitution.identity(pred.params))
   }
 
-  def singleton(sid: SID, pred: Predicate, rule: RuleBody): UnfoldingTree = {
-    singleton(sid, RuleNodeLabel(pred, rule, Substitution.identity(pred.params)))
-  }
-
-  def singleton(sid: SID, label: NodeLabel): UnfoldingTree = {
+  def singleton(sid: SID, pred: Predicate, subst: Option[Substitution] = None): UnfoldingTree = {
+    val label = AbstractLeafNodeLabel(pred, getSubstOrDefault(subst, pred))
     val id = NodeId.zero
     UnfoldingTree(sid, Map(id -> label), id, Map(id -> Seq.empty))
   }
