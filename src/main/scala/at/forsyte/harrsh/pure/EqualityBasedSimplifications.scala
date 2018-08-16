@@ -30,7 +30,7 @@ object EqualityBasedSimplifications extends HarrshLogging {
     * Note that this is not optimal, because of cases such as y2 = y3, y1 = y2. In that case, we could get rid of two variables,
     * but would only remove one here (depending on the order of the equalities). [[fullEqualitySimplification()]] also removes
     * such transitive equalities at the expense of higher runtime.
- *
+    *
     * @param atoms The atoms to simplify
     * @return The simplified symbolic heaps
     */

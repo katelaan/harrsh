@@ -3,13 +3,10 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
 
-case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) extends HarrshLogging {
-
-  assert(sid.isRooted)
+case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) extends HarrshLogging {
 
   // FIXME: Validate that the tree is "sufficiently" labeled: It has free variables for all root parameters of the interface nodes + possibly for some other nodes as well (e.g., parameter corresponding to a backpointer in a dll)
 
@@ -53,7 +50,7 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
     TreeInterface(nodeLabels(root), abstractLeaves.map(nodeLabels).map(_.asInstanceOf[AbstractLeafNodeLabel]))
   }
 
-  def unfold(leaf: NodeId, rule: RuleBody): UnfoldingTree = {
+  def unfold(leaf: NodeId, sid: SID, rule: RuleBody): UnfoldingTree = {
     // TODO: Split method into smaller pieces
     assert(abstractLeaves.contains(leaf))
 
@@ -86,7 +83,6 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
     val ruleTreeChildTuples = (ids.head -> ids.tail) +: ids.tail.zip(Stream.continually(Seq.empty))
 
     val ruleTree = UnfoldingTree(
-      sid = sid,
       nodeLabels = ruleTreeNodeLabels,
       root = ids.head,
       children = ruleTreeChildTuples.toMap
@@ -140,7 +136,7 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
     val renamedChildren = children map {
       case (p, cs) => (renaming(p), cs map renaming)
     }
-    UnfoldingTree(sid, renamedLabels, renaming(root), renamedChildren)
+    UnfoldingTree(renamedLabels, renaming(root), renamedChildren)
   }
 
   private def cleanUpPlaceholders: UnfoldingTree = {
@@ -163,7 +159,7 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
 
   private def dropRedundantPlaceholders: UnfoldingTree = {
     def getRedundantVars(fvs: Set[FreeVar]): Set[FreeVar] = {
-      val (phs, nonPhs) = Combinators.splitBy(fvs, PlaceholderVar.isPlaceholder)
+      val (phs, nonPhs) = fvs.partition(PlaceholderVar.isPlaceholder)
       if (nonPhs.nonEmpty) {
         // There is a proper free var in this equivalence class => discard all equivalent placeholders
         phs
@@ -222,7 +218,7 @@ case class UnfoldingTree(sid: SID, nodeLabels: Map[NodeId,NodeLabel], root: Node
       otherExtended.root
     }
 
-    val combinedTree = UnfoldingTree(sid, combinedNodeLabels, newRoot, combinedChildren)
+    val combinedTree = UnfoldingTree(combinedNodeLabels, newRoot, combinedChildren)
     combinedTree.cleanUpPlaceholders
   }
 
@@ -265,7 +261,7 @@ object UnfoldingTree extends HarrshLogging {
   def singleton(sid: SID, pred: Predicate, subst: Option[Substitution] = None): UnfoldingTree = {
     val label = AbstractLeafNodeLabel(pred, getSubstOrDefault(subst, pred))
     val id = NodeId.zero
-    UnfoldingTree(sid, Map(id -> label), id, Map(id -> Seq.empty))
+    UnfoldingTree(Map(id -> label), id, Map(id -> Seq.empty))
   }
 
   def varEquivClasses(labels: Iterable[NodeLabel]) : Set[Set[FreeVar]] = {
@@ -299,7 +295,7 @@ object UnfoldingTree extends HarrshLogging {
 
   def fromPredicate(sid: SID, pred: String, labeling: Substitution): UnfoldingTree = {
     val node = AbstractLeafNodeLabel(sid(pred), labeling)
-    UnfoldingTree(sid, Map(NodeId.zero -> node), NodeId.zero, Map.empty)
+    UnfoldingTree(Map(NodeId.zero -> node), NodeId.zero, Map.empty)
   }
 
   case class CompositionInterface(treeToEmbed: UnfoldingTree, embeddingTarget: UnfoldingTree, leafToReplaceInEmbedding: NodeId)
@@ -314,7 +310,7 @@ object UnfoldingTree extends HarrshLogging {
 
   private def tryUnify(n1: NodeLabel, n2: NodeLabel): Option[Unification] = {
     logger.debug(s"Will try to unify $n1 with $n2")
-    // FIXME: Proper unification for rooted SIDs. Do we have to take nodes other than the root parameter into account? (Maybe not, because we can check that we have sufficiently many free variables in the individual UTs instead?!)
+    // FIXME: Proper unification
     assert(n1.freeVarSeq == n2.freeVarSeq)
     val fvars = n1.freeVarSeq
     if (n1.subst(fvars.head).intersect(n2.subst(fvars.head)).nonEmpty) {

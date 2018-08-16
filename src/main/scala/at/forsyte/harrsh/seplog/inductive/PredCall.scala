@@ -13,15 +13,13 @@ import at.forsyte.harrsh.seplog.{NullConst, Renaming, Var}
   * @param args Nonempty sequence of arguments
   */
 case class PredCall(name : String, args : Seq[Var]) extends SepLogAtom {
-  override def toStringWithVarNames(names: Naming) = name + "(" + args.map(names).mkString(",") + ")"
+  override def toStringWithVarNames(names: Naming): String = name + "(" + args.map(names).mkString(",") + ")"
 
   override def isSpatial: Boolean = true
 
   override def isPure: Boolean = false
 
-  override def isSymbolicHeap: Boolean = true
-
-  override def toSymbolicHeap: Option[SymbolicHeap] = Some(SymbolicHeap(Seq.empty, Seq.empty, Seq(this), Var.freeNonNullVars(args)))
+  override def toSymbolicHeap: SymbolicHeap = SymbolicHeap(Seq.empty, Seq.empty, Seq(this), Var.freeNonNullVars(args))
 
   override def renameVars(f: Renaming): PredCall = copy(args = args map (_.rename(f)))
 

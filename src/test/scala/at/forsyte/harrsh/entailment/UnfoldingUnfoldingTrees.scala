@@ -10,12 +10,12 @@ object UnfoldingUnfoldingTrees {
     val (base, rec) = (pred.rules(0), pred.rules(1))
     val ut = UnfoldingTree.singleton(sid, pred)
     println(ut)
-    println(ut.unfold(ut.root, base))
-    val recTree = ut.unfold(ut.root, rec)
+    println(ut.unfold(ut.root, sid, base))
+    val recTree = ut.unfold(ut.root, sid, rec)
     println(recTree)
-    val recBaseTree = recTree.unfold(recTree.children(recTree.root)(1), base)
+    val recBaseTree = recTree.unfold(recTree.children(recTree.root)(1), sid, base)
     println(recBaseTree)
-    val recBaseBaseTree = recBaseTree.unfold(recBaseTree.children(recTree.root)(0), base)
+    val recBaseBaseTree = recBaseTree.unfold(recBaseTree.children(recTree.root)(0), sid, base)
     println(recBaseBaseTree)
   }
 

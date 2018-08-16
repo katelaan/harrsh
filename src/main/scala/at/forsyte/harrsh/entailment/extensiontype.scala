@@ -7,6 +7,14 @@ case class TreeInterface(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]) {
   def isConcrete: Boolean = leaves.isEmpty
 
   def asExtensionType: ExtensionType = ExtensionType(Set(this))
+
+  def asDegenerateTree: UnfoldingTree = {
+    val ids = NodeId.freshIds(Set.empty, leaves.size + 1)
+    val rootId = ids.head
+    val nodeLabels = Map(rootId -> root) ++ (ids.tail, leaves).zipped
+    val children = Map(rootId -> ids.tail) ++ ids.tail.zip(Stream.continually(Seq.empty))
+    UnfoldingTree(nodeLabels, rootId, children)
+  }
 }
 
 /**
@@ -31,6 +39,14 @@ case class ExtensionType(parts: Set[TreeInterface]) {
         }
       ).forall(b => b)
     }
+  }
+
+  def asDegenerateForest = UnfoldingForest(parts map (_.asDegenerateTree))
+
+  def compose(other: ExtensionType): ExtensionType = {
+    val thisForest = asDegenerateForest
+    val otherForest = other.asDegenerateForest
+    (thisForest compose otherForest).toExtensionType
   }
 
 }

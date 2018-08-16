@@ -16,8 +16,6 @@ case class Substitution(toMap: Map[FreeVar,Set[FreeVar]]) extends AnyVal {
 
   def apply(key: FreeVar): Set[FreeVar] = toMap(key)
 
-  def propagate(predCall: PredCall) : Substitution = ???
-
   def toAtoms : Iterable[PureAtom] = for {
     (k,vs) <- toMap
     v <- vs

@@ -134,7 +134,9 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     // Ensure that new names
     val instantiatingFVs = instantiations.map(_._2)
     assert(instantiatingFVs forall (_.isFree))
-    val newFVs = instantiatingFVs.filter(v => v.isFreeNonNull && !freeVars.contains(v)).map(_.asInstanceOf[FreeVar])
+    val newFVs = instantiatingFVs.collect {
+      case v:FreeVar if !freeVars.contains(v) => v
+    }
 
     val renaming = Renaming.fromPairs(instantiations)
     // Not necessary to avoid double capture, all instantiations are free vars

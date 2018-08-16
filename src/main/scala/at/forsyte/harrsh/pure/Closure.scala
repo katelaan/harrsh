@@ -59,7 +59,7 @@ object Closure {
     * @param atoms Atoms whose closure should be computed
     * @return Closure of atoms
     */
-  def ofSetOfAtoms(atoms : Set[PureAtom]) : Closure = ClosureOfAtomSet(atoms)
+  def ofAtoms(atoms : Iterable[PureAtom]) : Closure = ClosureOfAtomSet(atoms.toSet)
 
   /**
     * Treats the given set of atoms as closure; warning: If it is not a closure, this will not be detected

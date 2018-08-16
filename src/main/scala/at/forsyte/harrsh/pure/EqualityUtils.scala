@@ -33,7 +33,7 @@ object EqualityUtils extends HarrshLogging {
       true
     } else {
       // Not the same var => Have to check equalities
-      val closure: Closure = Closure.ofSetOfAtoms(pure.toSet)
+      val closure: Closure = Closure.ofAtoms(pure)
       closure.getEquivalenceClass(fst).contains(snd)
     }
   }
@@ -45,8 +45,8 @@ object EqualityUtils extends HarrshLogging {
       true
     } else {
       // Not the same var => Have to check equalities
-      val closureLhs: Closure = Closure.ofSetOfAtoms(pureLhs.toSet)
-      val closureRhs: Closure = Closure.ofSetOfAtoms(pureRhs.toSet)
+      val closureLhs: Closure = Closure.ofAtoms(pureLhs)
+      val closureRhs: Closure = Closure.ofAtoms(pureRhs)
       val res = closureRhs.getEquivalenceClass(rhs).exists(closureLhs.getEquivalenceClass(lhs))
       if (res) {
         logger.debug(msg)

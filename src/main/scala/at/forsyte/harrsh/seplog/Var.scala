@@ -3,7 +3,8 @@ package at.forsyte.harrsh.seplog
 import at.forsyte.harrsh.seplog.inductive.{PointsTo, PureAtom}
 import at.forsyte.harrsh.util.StringUtils
 
-import scala.collection.mutable
+import scala.collection.generic.CanBuildFrom
+import scala.collection.{TraversableLike, mutable}
 
 /**
   * Created by jens on 11/2/16.
@@ -130,17 +131,23 @@ object Var {
     }
   }
 
+  // TODO: Remove code duplication. Generic solution?
   def boundVars(vars: Set[Var]): Set[BoundVar] = {
-    vars.filter(_.isBound).map(_.asInstanceOf[BoundVar])
-  }
-
-  // TODO: Generic implementation
-  def freeNonNullVars(vars: Seq[Var]): Seq[FreeVar] = {
-    vars.filter(_.isFreeNonNull).map(_.asInstanceOf[FreeVar])
+    vars.collect {
+      case v: BoundVar => v
+    }
   }
   def freeNonNullVars(vars: Set[Var]): Set[FreeVar] = {
-    vars.filter(_.isFreeNonNull).map(_.asInstanceOf[FreeVar])
+    vars.collect {
+      case v: FreeVar => v
+    }
   }
+  def freeNonNullVars(vars: Seq[Var]): Seq[FreeVar] = {
+    vars.collect {
+      case v: FreeVar => v
+    }
+  }
+
 
   @inline def maxOf(vars : Iterable[Var]) : Var = vars.max
 

@@ -22,10 +22,7 @@ sealed trait NodeLabel {
     case AbstractLeafNodeLabel(pred, _) => '$' + pred.defaultCall.toLatex.replaceAllLiterally("α", """\alpha""") + '$'
   }
 
-  def freeVarSeq: Seq[FreeVar] = this match {
-    case RuleNodeLabel(_, rule, _) => rule.body.freeVars
-    case AbstractLeafNodeLabel(pred, _) => pred.params
-  }
+  def freeVarSeq: Seq[FreeVar] = pred.params
 
   def placeholders: Set[PlaceholderVar] = subst.placeholders
 

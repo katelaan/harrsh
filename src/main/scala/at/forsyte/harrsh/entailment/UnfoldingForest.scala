@@ -2,13 +2,18 @@ package at.forsyte.harrsh.entailment
 
 import scala.annotation.tailrec
 
-case class UnfoldingForest(trees: Seq[UnfoldingTree]) {
+case class UnfoldingForest(trees: Set[UnfoldingTree]) {
 
   def compose(other: UnfoldingForest): UnfoldingForest = {
-    UnfoldingForest.merge(trees ++ other.trees)
+    UnfoldingForest.merge(trees.toSeq ++ other.trees)
   }
 
-  def map[B](f: UnfoldingTree => B): Seq[B] = trees.map(f)
+  def ordered: Seq[UnfoldingTree] = trees.toSeq.sortBy(tree => {
+    val rootLabel = tree.nodeLabels(tree.root)
+    rootLabel.subst(rootLabel.pred.rootParam.get).min
+  })
+
+  def map[B](f: UnfoldingTree => B): Set[B] = trees.map(f)
 
   def isConcrete: Boolean = trees.size == 1 && trees.head.isConcrete
 
@@ -22,7 +27,7 @@ object UnfoldingForest {
 
   @tailrec private def sweepingMerge(processed: Seq[UnfoldingTree], unprocessed: Seq[UnfoldingTree]): UnfoldingForest = {
     if (unprocessed.isEmpty) {
-      UnfoldingForest(processed)
+      UnfoldingForest(processed.toSet)
     } else {
       tryMerge(unprocessed.head, unprocessed.tail) match {
         case Some((merged, other)) => sweepingMerge(processed, merged +: other)

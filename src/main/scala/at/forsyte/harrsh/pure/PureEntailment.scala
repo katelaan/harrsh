@@ -9,14 +9,19 @@ import at.forsyte.harrsh.seplog.inductive.PureAtom
 object PureEntailment extends HarrshLogging {
 
   def check(lhs: Seq[PureAtom], rhs: Seq[PureAtom]): Boolean = {
+    // TODO Actually there is no need to compute the closures explicitly, should improve this at some point
+
     logger.debug("Checking pure entailment\n     " + lhs.mkString(", ") + "\n |?= " + rhs.mkString(", "))
 
-    val lhsClosure: Closure = Closure.ofSetOfAtoms(lhs.toSet)
+    val lhsClosure: Closure = Closure.ofAtoms(lhs)
     logger.trace("Closure of lhs: " + lhsClosure.asSetOfAtoms)
+    val rhsClosure: Closure = Closure.ofAtoms(rhs)
+    logger.trace("Closure of rhs: " + rhsClosure.asSetOfAtoms)
+    check(lhsClosure, rhsClosure)
+  }
 
+  def check(lhsClosure: Closure, rhsClosure: Closure): Boolean = {
     if (lhsClosure.isConsistent) {
-      val rhsClosure: Closure = Closure.ofSetOfAtoms(rhs.toSet)
-      logger.trace("Closure of rhs: " + rhsClosure.asSetOfAtoms)
 
       // TODO Actually there is no need to compute the closure explicitly, should improve this at some point
       // Every equality and disequality in the rhs should be respected by the lhs, apart from explicit equalities of the kind x == x
@@ -31,13 +36,13 @@ object PureEntailment extends HarrshLogging {
       val lhsFreeClosureSet = lhsClosureSet filterNot (atom => atom.getNonNullVars.exists(_.isBound))
       val rhsFreeClosureSet = rhsClosureSet filterNot (atom => atom.getNonNullVars.exists(_.isBound))
 
-      logger.debug(rhsFreeClosureSet + " subset of " + lhsFreeClosureSet + "?")
+      logger.debug(s"$rhsFreeClosureSet subset of $lhsFreeClosureSet?")
       val res = rhsFreeClosureSet subsetOf lhsFreeClosureSet
-      if (res) logger.trace("Result of subset test: " + res) else logger.debug("Not subset: LHS does not contain " + (rhsFreeClosureSet -- lhsFreeClosureSet))
+      if (res) logger.trace(s"Result of subset test: $res") else logger.debug("Not subset: LHS does not contain " + (rhsFreeClosureSet -- lhsFreeClosureSet))
       res
     } else {
       // If the LHS is inconsistent, it entails anything
-      logger.debug("LHS constraints " + lhs.mkString("{", ",", "}") + " are inconsistent, entailment holds vacuously")
+      logger.debug("LHS constraints are inconsistent, entailment holds vacuously")
       true
     }
   }

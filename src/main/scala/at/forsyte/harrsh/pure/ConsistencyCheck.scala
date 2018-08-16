@@ -9,7 +9,7 @@ import at.forsyte.harrsh.seplog.inductive.{PureAtom, SymbolicHeap}
 object ConsistencyCheck {
 
   def isConsistent(sh : SymbolicHeap) : Boolean = {
-    val closure = Closure.ofSetOfAtoms(symbolicHeapToEqualityConstraints(sh))
+    val closure = Closure.ofAtoms(symbolicHeapToEqualityConstraints(sh))
     closure.isConsistent
   }
 

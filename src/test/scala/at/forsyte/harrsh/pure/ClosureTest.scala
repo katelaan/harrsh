@@ -24,7 +24,7 @@ class ClosureTest extends HarrshTableTest with TestValues {
 
     forAll(fveqs) {
       (eqs: Set[PureAtom], results: Seq[Boolean]) =>
-        val closure = Closure.ofSetOfAtoms(eqs)
+        val closure = Closure.ofAtoms(eqs)
 
         for (i <- 1 to 5) {
           info(Var.defaultFV(i) + (if (results(i - 1)) " should be " else " should NOT be ") + "the minimal element in an equality class of " + eqs)

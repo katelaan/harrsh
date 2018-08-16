@@ -8,13 +8,13 @@ import at.forsyte.harrsh.seplog.Var.Naming
   */
 case class PointsTo(from : Var, to : Seq[Var]) extends SepLogAtom {
 
+  lazy val args: Seq[Var] = from +: to
+
   override def isSpatial = true
 
   override def isPure = false
 
-  override def isSymbolicHeap = true
-
-  override def toSymbolicHeap = Some(SymbolicHeap(Seq.empty, Seq(this), Seq.empty, Var.freeNonNullVars(getNonNullVars).toSeq))
+  override def toSymbolicHeap = SymbolicHeap(Seq.empty, Seq(this), Seq.empty, Var.freeNonNullVars(getNonNullVars).toSeq)
 
   override def renameVars(f : Renaming) : PointsTo = PointsTo(from.rename(f), to map (_.rename(f)))
 

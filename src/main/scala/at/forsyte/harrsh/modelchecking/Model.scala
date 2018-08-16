@@ -118,7 +118,7 @@ object Model {
           j <- i + 1 until sh.pointers.size
         } yield sh.pointers(i).from =/= sh.pointers(j).from
       }
-      val cl: Closure = Closure.ofSetOfAtoms(sh.pure.toSet ++ allocAtoms ++ diffAtoms)
+      val cl: Closure = Closure.ofAtoms(sh.pure.toSet ++ allocAtoms ++ diffAtoms)
 
       if (cl.asSetOfAtoms.exists(atom => !atom.isEquality && atom.getVarsWithNull.size == 1)) {
         println("Can't get model for unsatisfiable heap")

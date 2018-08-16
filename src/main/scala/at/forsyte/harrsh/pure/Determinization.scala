@@ -42,7 +42,7 @@ object Determinization extends HarrshLogging {
     val constraints = ConsistencyCheck.symbolicHeapToEqualityConstraintsQuantified(rsh)
     logger.debug("Full set of constraints: " + constraints.mkString("{",",","}"))
 
-    val closure = Closure.ofSetOfAtoms(constraints)
+    val closure = Closure.ofAtoms(constraints)
     logger.debug("Closure: " + closure.asSetOfAtoms)
 
     val vars = rsh.allVars + NullConst

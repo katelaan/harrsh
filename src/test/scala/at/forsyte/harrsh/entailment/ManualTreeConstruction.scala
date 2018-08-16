@@ -21,7 +21,7 @@ object ManualTreeConstruction {
     val children = nodes map {
       case (s, desc) => (strToNodeId(s), desc.succs map strToNodeId)
     }
-    UnfoldingTree(sid, nodeLabels, rootId, children)
+    UnfoldingTree(nodeLabels, rootId, children)
   }
 
   def makeNodeLabel(nd: NodeDesc) : NodeLabel = nd.rule match {
@@ -69,7 +69,7 @@ object ManualTreeConstruction {
       println()
     }
 
-    val uf = UnfoldingForest(Seq(t1, t21, t22))
+    val uf = UnfoldingForest(Set(t1, t21, t22))
     println(uf.toLatex)
 
     println("\n\nAfter composition:\n\n")
@@ -85,12 +85,12 @@ object ManualTreeConstruction {
     println("Manual result of second composition:\n")
     println(finished)
     println("Direct forest composition:\n\n")
-    val direct = UnfoldingForest(Seq(t1)).compose(UnfoldingForest(Seq(t21,t22)))
+    val direct = UnfoldingForest(Set(t1)).compose(UnfoldingForest(Set(t21,t22)))
     println(direct)
 
     println(s"Results are the same: ${finished == direct.trees.head}")
 
-    println(UnfoldingForest(Seq(t1)).toExtensionType)
+    println(UnfoldingForest(Set(t1)).toExtensionType)
     println(direct.toExtensionType)
   }
 
