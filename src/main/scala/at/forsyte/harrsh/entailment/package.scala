@@ -21,7 +21,7 @@ package object entailment {
 
   type SubstitutionUpdate = Var => Set[Var]
 
-  object Update {
+  object SubstitutionUpdate {
 
     def fromPairs(pairs: Seq[(Var,Var)]) : SubstitutionUpdate = {
       val map = pairs.toMap

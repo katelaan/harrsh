@@ -17,6 +17,8 @@ case class Substitution(toSeq: Seq[Set[Var]]) extends AnyVal {
     } yield p
   }
 
+  def freeNonNullVars: Set[FreeVar] = Var.freeNonNullVars(toSeq.flatten).toSet
+
   def toAtoms(params: Seq[FreeVar]) : Seq[PureAtom] = for {
     (k,vs) <- params.zip(toSeq)
     v <- vs

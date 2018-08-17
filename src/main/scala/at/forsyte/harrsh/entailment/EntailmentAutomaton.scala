@@ -24,34 +24,63 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
 
   override val description: String = s"EntailmentAutomaton($rhs)"
 
-  override type State = Set[ExtensionType]
+  override type State = EntailmentAutomaton.State
 
   override def isFinal(s: State): Boolean = {
     // A state represents all the possible ways to parse an RSH as a SID unfolding tree.
     // As long as one of those ways is a valid unfolding tree, we accept.
-    s.exists(_.isFinal(rhs))
+    s.ets.exists(_.isFinal(rhs))
   }
 
   /**
     * An inconsistent state representing all "sink" states
     */
-  override def inconsistentState(fvs: Seq[FreeVar]): State = Set.empty
+  override def inconsistentState(fvs: Seq[FreeVar]): State = EntailmentAutomaton.State(Set.empty, fvs)
 
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     val localETs = EntailmentAutomaton.shToExtensionTypes(lab, sid)
     logger.debug(s"Extension types for $lab:\n${localETs.mkString("\n")}")
-    val allETs: Seq[Set[ExtensionType]] = localETs +: src
+    val instantiatedETs = (src, lab.predCalls).zipped.map(instantiateETsForCall)
+    for {
+      (src, renamed, call) <- (src, instantiatedETs, lab.predCalls).zipped
+    } {
+      logger.debug(s"Process pred call $call: Instantiated source state $src to $renamed")
+    }
+    val allETs: Seq[Set[ExtensionType]] = localETs +: instantiatedETs
     // Compose the extension types
-    // FIXME: [URGENT] Have to update the substitutions in the src extension types according to the actual args of the pred calls in lab
     val reachable = for {
       ets <- Combinators.choices(allETs map (_.toSeq))
     } yield ets.reduceLeft(_ compose _)
-    // FIXME: Filter out garbage results?
-    Set(reachable.toSet)
+
+    // Drop the bound vars from the extension types, since they are no longer needed after the composition
+    val restrictedToFreeVars = reachable map (_.dropVars(lab.boundVars.toSeq))
+    // FIXME: Filter out garbage composition results?
+    Set(EntailmentAutomaton.State(restrictedToFreeVars.toSet, lab.freeVars))
   }
+
+  private def instantiateETsForCall(state: State, call: PredCall): Set[ExtensionType] = {
+    val EntailmentAutomaton.State(ets, params) = state
+    val callUpdate: SubstitutionUpdate = v => {
+      // If v is the i-th free variable of the predicate, replace it with the i-th argument of the call;
+      // otherwise, return the variable as is
+      val fvIx = params.indexOf(v)
+      if (fvIx >= 0) Set(call.args(fvIx)) else Set(v)
+    }
+    ets.map(_.updateSubst(callUpdate))
+  }
+
 }
 
 object EntailmentAutomaton extends HarrshLogging {
+
+  case class State(ets: Set[ExtensionType], orderedParams: Seq[FreeVar]) {
+
+    private val freeVarsInEts = ets.flatMap(_.nonPlaceholderFreeVars)
+    if (freeVarsInEts != orderedParams.toSet) {
+      throw new IllegalArgumentException(s"ETs contain FVs $freeVarsInEts, but constructing state for $orderedParams")
+    }
+
+  }
 
   def shToExtensionTypes(sh: SymbolicHeap, sid: SID) : Set[ExtensionType] = {
     // TODO: Deal with multi-pointer and zero-pointer SHs for the left-hand side? This is particularly important for top-level formulas. (We could do this either through rewriting or through explicit support.)

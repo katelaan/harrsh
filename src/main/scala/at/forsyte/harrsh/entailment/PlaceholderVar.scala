@@ -38,9 +38,13 @@ object PlaceholderVar {
   } catch {
     case e: UnsupportedOperationException => PlaceholderVar(0)
   }
-
+  
   def placeholderClashAvoidanceUpdate(ut: UnfoldingTree) : SubstitutionUpdate = {
-    val maxPv = max(ut.placeholders)
+    placeholderClashAvoidanceUpdate(ut.placeholders)
+  }
+
+  def placeholderClashAvoidanceUpdate(phs: Set[PlaceholderVar]) : SubstitutionUpdate = {
+    val maxPv = max(phs)
     val shiftBy = maxPv.index
     fv => fromVar(fv) match {
       case Some(PlaceholderVar(value)) => Set(PlaceholderVar(value + shiftBy).toFreeVar)

@@ -1,9 +1,10 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.seplog.FreeVar
+import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.PredCall
 
 case class TreeInterface(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]) {
+
   def isConcrete: Boolean = leaves.isEmpty
 
   def asExtensionType: ExtensionType = ExtensionType(Set(this))
@@ -16,9 +17,19 @@ case class TreeInterface(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]) {
     UnfoldingTree(nodeLabels, rootId, children)
   }
 
+  def nonPlaceholderFreeVars: Set[FreeVar] = {
+    substs.flatMap(_.freeNonNullVars).filterNot(PlaceholderVar.isPlaceholder)
+  }
+
+  def placeholderVarsInSubst: Set[PlaceholderVar] = {
+    substs.flatMap(_.placeholders)
+  }
+
   def updateSubst(f: SubstitutionUpdate): TreeInterface = {
     TreeInterface(root.update(f), leaves map (_.update(f)))
   }
+
+  private lazy val substs = leaves.map(_.subst) + root.subst
 }
 
 /**
@@ -43,6 +54,22 @@ case class ExtensionType(parts: Set[TreeInterface]) {
         }
       ).forall(b => b)
     }
+  }
+
+  def nonPlaceholderFreeVars: Set[FreeVar] = parts.flatMap(_.nonPlaceholderFreeVars)
+
+  def placeholdersInSubst: Set[PlaceholderVar] = parts.flatMap(_.placeholderVarsInSubst)
+
+  def dropVars(varsToDrop: Seq[Var]): ExtensionType = {
+    // FIXME: Don't introduce redundant placeholder vars, i.e., if there is a variable alias that we don't drop, we don't need a new placeholder name to avoid empty sets in the substitution
+    // Rename the vars to placeholder vars. To avoid clashes, shift the existing vars back.
+    val placeholders = (1 to varsToDrop.size) map (PlaceholderVar(_))
+    val pairs: Seq[(Var,Var)] = varsToDrop.zip(placeholders.map(_.toFreeVar))
+    val replaceByPlacheolders: SubstitutionUpdate = SubstitutionUpdate.fromPairs(pairs)
+
+    val shiftPlaceholders = PlaceholderVar.placeholderClashAvoidanceUpdate(placeholders.toSet)
+
+    updateSubst(shiftPlaceholders).updateSubst(replaceByPlacheolders)
   }
 
   def updateSubst(f: SubstitutionUpdate): ExtensionType = ExtensionType(parts map (_.updateSubst(f)))
