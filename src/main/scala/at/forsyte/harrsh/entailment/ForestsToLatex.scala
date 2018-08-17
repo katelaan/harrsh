@@ -55,7 +55,7 @@ object ForestsToLatex {
     val nodeLabel = ut.nodeLabels(startFrom)
     val tikzNodeLabel = nodeLabel.symbolicHeapLabel
     val style = mkStyle(ut, startFrom, config)
-    val substLatex = labelingToNodePart(nodeLabel.subst)
+    val substLatex = labelingToNodePart(nodeLabel)
     val lines = Seq(s"\\node[$style] at ($xPos,$yPos) ($name) {$tikzNodeLabel \\nodepart{two} \\footnotesize $substLatex};")
 
     val succs = ut.children(startFrom)
@@ -79,8 +79,9 @@ object ForestsToLatex {
 
   private val varsToMath = Naming.indexify(Naming.DefaultNaming)
 
-  private def labelingToNodePart(labels: Substitution) = {
-    val pairs = labels.toMap.map {
+  private def labelingToNodePart(nodeLabel: NodeLabel) = {
+    val (pred, subst) = (nodeLabel.pred, nodeLabel.subst)
+    val pairs = (pred.params, subst.toSeq).zipped.map {
       case (from, to) => varsToMath(from) + " \\rightarrow " + to.map(varsToMath).mkString(",")
     }
     '$' + pairs.mkString(";") + '$'

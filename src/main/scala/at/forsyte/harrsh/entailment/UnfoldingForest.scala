@@ -10,7 +10,7 @@ case class UnfoldingForest(trees: Set[UnfoldingTree]) {
 
   def ordered: Seq[UnfoldingTree] = trees.toSeq.sortBy(tree => {
     val rootLabel = tree.nodeLabels(tree.root)
-    rootLabel.subst(rootLabel.pred.rootParam.get).min
+    rootLabel.rootVarSubst.min
   })
 
   def map[B](f: UnfoldingTree => B): Set[B] = trees.map(f)

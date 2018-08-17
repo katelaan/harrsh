@@ -4,8 +4,6 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive._
 
-import scala.annotation.tailrec
-
 case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) extends HarrshLogging {
 
   // FIXME: Validate that the tree is "sufficiently" labeled: It has free variables for all root parameters of the interface nodes + possibly for some other nodes as well (e.g., parameter corresponding to a backpointer in a dll)
@@ -70,11 +68,11 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
     val mkSubst = {
       args: Seq[Var] =>
         val targets = args.map {
-          case fv: FreeVar => Set(fv)
+          case fv: FreeVar => Set[Var](fv)
           case NullConst => throw new NotImplementedError
-          case bv:BoundVar => Set(boundVarsToPlaceholders(bv))
+          case bv:BoundVar => Set[Var](boundVarsToPlaceholders(bv))
         }
-        Substitution((pred.params, targets).zipped.toMap)
+        Substitution(targets)
     }
 
     val childLabels = rule.body.predCalls map (call => AbstractLeafNodeLabel(sid(call.name), mkSubst(call.args)))
@@ -91,7 +89,7 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
 
     // Shifting may have renamed placeholder vars at the root (if there are any), which we revert through unification
     val rootSubst = shiftedRuleTree.nodeLabels(shiftedRuleTree.root).subst
-    val unification: Unification = pred.params map (fv => leafSubst(fv) union rootSubst(fv))
+    val unification: Unification = (leafSubst.toSeq, rootSubst.toSeq).zipped.map(_ union _)
 
     instantiate(leaf, shiftedRuleTree, unification)
   }
@@ -107,7 +105,7 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
         case AbstractLeafNodeLabel(pred, _) =>
           if (retainCalls) pred.defaultCall else SymbolicHeap.empty
       }
-      withoutSubst.copy(pure = withoutSubst.pure ++ label.subst.toAtoms)
+      withoutSubst.copy(pure = withoutSubst.pure ++ label.subst.toAtoms(label.pred.params))
     }
 
     projectNode(root)
@@ -148,7 +146,7 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
     val currentPlaceholders = placeholders.toSeq.sortBy(_.index)
     val newPlaceholders = (1 to currentPlaceholders.length) map (PlaceholderVar(_))
     val replacement = (currentPlaceholders, newPlaceholders).zipped.toMap
-    val updateF: FreeVar => Set[FreeVar] = {
+    val updateF: SubstitutionUpdate = {
       v => PlaceholderVar.fromVar(v) match {
         case Some(pv) => Set(replacement(pv).toFreeVar)
         case None => Set(v)
@@ -158,8 +156,8 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
   }
 
   private def dropRedundantPlaceholders: UnfoldingTree = {
-    def getRedundantVars(fvs: Set[FreeVar]): Set[FreeVar] = {
-      val (phs, nonPhs) = fvs.partition(PlaceholderVar.isPlaceholder)
+    def getRedundantVars(vs: Set[Var]): Set[Var] = {
+      val (phs, nonPhs) = vs.partition(PlaceholderVar.isPlaceholder)
       if (nonPhs.nonEmpty) {
         // There is a proper free var in this equivalence class => discard all equivalent placeholders
         phs
@@ -169,18 +167,18 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
         phs - PlaceholderVar.min(typedPhs).toFreeVar
       }
     }
-    val equivalenceClasses = varEquivClasses(nodeLabels.values)
+    val equivalenceClasses = extractVarEquivClasses(nodeLabels.values)
     val redundantVars = equivalenceClasses.flatMap(getRedundantVars)
     logger.debug(s"Reundant vars: $redundantVars")
 
-    val updateF: FreeVar => Set[FreeVar] = {
+    val updateF: SubstitutionUpdate = {
       v => if (redundantVars.contains(v)) Set.empty else Set(v)
     }
     updateSubst(updateF)
   }
 
   def extendLabeling(unification: Unification): UnfoldingTree = {
-    val updateFn : FreeVar => Set[FreeVar] = {
+    val updateFn : SubstitutionUpdate = {
       v => unification.find(_.contains(v)).getOrElse(Set(v))
     }
     updateSubst(updateFn)
@@ -243,7 +241,7 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
 
   def placeholders: Set[PlaceholderVar] = nodeLabels.values.flatMap(_.placeholders).toSet
 
-  def updateSubst(f: FreeVar => Set[FreeVar]): UnfoldingTree = {
+  def updateSubst(f: SubstitutionUpdate): UnfoldingTree = {
     val updatedLabels = nodeLabels.map {
       case (id,label) => (id, label.update(f))
     }
@@ -264,30 +262,7 @@ object UnfoldingTree extends HarrshLogging {
     UnfoldingTree(Map(id -> label), id, Map(id -> Seq.empty))
   }
 
-  def varEquivClasses(labels: Iterable[NodeLabel]) : Set[Set[FreeVar]] = {
-    // TODO: More efficient solution
-    var candidates: Set[Set[FreeVar]] = for {
-      label: NodeLabel <- labels.toSet
-      vs <- label.subst.toMap.values
-    } yield vs
-    mergeOverlapping(candidates)
-  }
-
-  @tailrec private def mergeOverlapping(candidates: Set[Set[FreeVar]]): Set[Set[FreeVar]] = getOverlapping(candidates) match {
-    case Some((set1, set2)) =>
-      val merged = candidates - set1 - set2 + (set1 union set2)
-      mergeOverlapping(merged)
-    case None => candidates
-  }
-
-  private def getOverlapping(sets: Set[Set[FreeVar]]): Option[(Set[FreeVar], Set[FreeVar])] = {
-    (for {
-      set1 <- sets
-      set2 <- sets
-      if set1 != set2
-      if (set1 intersect set2).nonEmpty
-    } yield (set1, set2)).headOption
-  }
+  def extractVarEquivClasses(labels: Iterable[NodeLabel]) : Set[Set[Var]] = Substitution.extractVarEquivClasses(labels map (_.subst))
 
   def haveNoConflicts(ut1: UnfoldingTree, ut2: UnfoldingTree) : Boolean = {
     (ut1.nodes intersect ut2.nodes).isEmpty && (ut1.placeholders intersect ut2.placeholders).isEmpty
@@ -313,9 +288,9 @@ object UnfoldingTree extends HarrshLogging {
     // FIXME: Proper unification
     assert(n1.freeVarSeq == n2.freeVarSeq)
     val fvars = n1.freeVarSeq
-    if (n1.subst(fvars.head).intersect(n2.subst(fvars.head)).nonEmpty) {
-      logger.debug(s"Can unify: Overlap between ${n1.subst(fvars.head)} and ${n2.subst(fvars.head)}")
-      Some(fvars map (fv => n1.subst(fv) union n2.subst(fv)))
+    if ((n1.rootVarSubst intersect n2.rootVarSubst).nonEmpty) {
+      logger.debug(s"Can unify: Overlap between labels of root vars, ${n1.rootVarSubst} and ${n2.rootVarSubst}")
+      Some((n1.subst.toSeq, n2.subst.toSeq).zipped.map(_ union _))
     } else {
       logger.debug("No unification possible")
       None

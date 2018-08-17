@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
+import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import PlaceholderVar._
 
 import scala.util.Try
@@ -15,15 +15,17 @@ object PlaceholderVar {
 
   val placeholderPrefix = "?"
 
-  def fromVar(v: FreeVar) : Option[PlaceholderVar] = {
-    if (v.name startsWith placeholderPrefix) {
-      Try { Integer.parseInt(v.name.drop(placeholderPrefix.length)) }.toOption.map(PlaceholderVar(_))
-    } else {
-      None
-    }
+  def fromVar(v: Var) : Option[PlaceholderVar] = v match {
+    case FreeVar(name) =>
+      if (name startsWith placeholderPrefix) {
+        Try { Integer.parseInt(name.drop(placeholderPrefix.length)) }.toOption.map(PlaceholderVar(_))
+      } else {
+        None
+      }
+    case _ => None
   }
 
-  def isPlaceholder(v : FreeVar): Boolean = fromVar(v).nonEmpty
+  def isPlaceholder(v : Var): Boolean = fromVar(v).nonEmpty
 
   def max(pvs: Iterable[PlaceholderVar]): PlaceholderVar = try {
     pvs.maxBy(_.index)
@@ -37,12 +39,12 @@ object PlaceholderVar {
     case e: UnsupportedOperationException => PlaceholderVar(0)
   }
 
-  def placeholderClashAvoidanceUpdate(ut: UnfoldingTree) : FreeVar => Set[FreeVar] = {
+  def placeholderClashAvoidanceUpdate(ut: UnfoldingTree) : SubstitutionUpdate = {
     val maxPv = max(ut.placeholders)
     val shiftBy = maxPv.index
     fv => fromVar(fv) match {
       case Some(PlaceholderVar(value)) => Set(PlaceholderVar(value + shiftBy).toFreeVar)
-        case None => Set(fv)
+      case None => Set(fv)
     }
   }
 

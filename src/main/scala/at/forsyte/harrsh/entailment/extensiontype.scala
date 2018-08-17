@@ -15,6 +15,10 @@ case class TreeInterface(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]) {
     val children = Map(rootId -> ids.tail) ++ ids.tail.zip(Stream.continually(Seq.empty))
     UnfoldingTree(nodeLabels, rootId, children)
   }
+
+  def updateSubst(f: SubstitutionUpdate): TreeInterface = {
+    TreeInterface(root.update(f), leaves map (_.update(f)))
+  }
 }
 
 /**
@@ -33,13 +37,15 @@ case class ExtensionType(parts: Set[TreeInterface]) {
       Stream(
         tif.isConcrete, // It represents a concrete tree...
         rootPred.head == call.name, // ...rooted in the correct predicate...
-        (rootPred.params, call.args).zipped.forall{
+        (call.args, tif.root.subst.toSeq).zipped.forall{
           // ...and with the correct vector of variables at the root (corresponding to the goal predicate call)
-          case (param, arg) => tif.root.subst(param).contains(arg.asInstanceOf[FreeVar])
+          case (arg, substVal) => substVal.contains(arg)
         }
       ).forall(b => b)
     }
   }
+
+  def updateSubst(f: SubstitutionUpdate): ExtensionType = ExtensionType(parts map (_.updateSubst(f)))
 
   def asDegenerateForest = UnfoldingForest(parts map (_.asDegenerateTree))
 

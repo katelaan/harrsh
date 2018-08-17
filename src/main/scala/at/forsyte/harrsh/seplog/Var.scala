@@ -3,9 +3,6 @@ package at.forsyte.harrsh.seplog
 import at.forsyte.harrsh.seplog.inductive.{PointsTo, PureAtom}
 import at.forsyte.harrsh.util.StringUtils
 
-import scala.collection.generic.CanBuildFrom
-import scala.collection.{TraversableLike, mutable}
-
 /**
   * Created by jens on 11/2/16.
   */

@@ -1,6 +1,6 @@
 package at.forsyte.harrsh
 
-import at.forsyte.harrsh.seplog.FreeVar
+import at.forsyte.harrsh.seplog.Var
 
 package object entailment {
 
@@ -17,6 +17,17 @@ package object entailment {
 
   }
 
-  type Unification = Seq[Set[FreeVar]]
+  type Unification = Seq[Set[Var]]
+
+  type SubstitutionUpdate = Var => Set[Var]
+
+  object Update {
+
+    def fromPairs(pairs: Seq[(Var,Var)]) : SubstitutionUpdate = {
+      val map = pairs.toMap
+      v => Set(map.getOrElse(v, v))
+    }
+
+  }
 
 }

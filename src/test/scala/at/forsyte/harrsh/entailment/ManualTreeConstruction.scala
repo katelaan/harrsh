@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.ExampleSIDs
 import at.forsyte.harrsh.entailment.ForestsToLatex._
-import at.forsyte.harrsh.seplog.FreeVar
+import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RuleBody, SID}
 import at.forsyte.harrsh.util.ToLatex._
 
@@ -29,10 +29,8 @@ object ManualTreeConstruction {
     case Some(rule) => RuleNodeLabel(nd.pred, rule, nd.labels)
   }
 
-  implicit def makeSubst(tuple: (Predicate,Seq[String])): Substitution = {
-    val (pred, subst) = tuple
-    val substMap = (pred.params, subst.map(s => Set(FreeVar(s)))).zipped.toMap
-    Substitution(substMap)
+  implicit def makeSubst(vars: Seq[String]): Substitution = {
+    Substitution(vars map (s => Set[Var](FreeVar(s))))
   }
 
   implicit def strToVar(s: String): FreeVar = FreeVar(s)
@@ -47,19 +45,19 @@ object ManualTreeConstruction {
     def mk(desc: (String,NodeDesc)*) = makeTree(sid, desc.toMap, "root")
 
     val t1 = mk(
-      ("root", NodeDesc(Seq("l", "r"), pred, Some(recRule), (pred, Seq("x", "?1", "?2")))),
-      ("l", NodeDesc(Seq.empty, pred, None, (pred, Seq("y", "?1", "?3")))),
-      ("r", NodeDesc(Seq.empty, pred, None, (pred, Seq("z", "?3", "?2")))))
+      ("root", NodeDesc(Seq("l", "r"), pred, Some(recRule), Seq("x", "?1", "?2"))),
+      ("l", NodeDesc(Seq.empty, pred, None, Seq("y", "?1", "?3"))),
+      ("r", NodeDesc(Seq.empty, pred, None, Seq("z", "?3", "?2"))))
 
     val t21 = mk(
-      ("root", NodeDesc(Seq("l", "r"), pred, Some(recRule), (pred, Seq("y", "a", "?1")))),
-      ("l", NodeDesc(Seq.empty, pred, Some(baseRule), (pred, Seq("a", "a", "?2")))),
-      ("r", NodeDesc(Seq.empty, pred, Some(baseRule), (pred, Seq("?2", "?2", "?1")))))
+      ("root", NodeDesc(Seq("l", "r"), pred, Some(recRule), Seq("y", "a", "?1"))),
+      ("l", NodeDesc(Seq.empty, pred, Some(baseRule), Seq("a", "a", "?2"))),
+      ("r", NodeDesc(Seq.empty, pred, Some(baseRule), Seq("?2", "?2", "?1"))))
 
     val t22 = mk(
-      ("root", NodeDesc(Seq("l", "r"), pred, Some(recRule), (pred, Seq("z", "?1", "b")))),
-      ("l", NodeDesc(Seq.empty, pred, Some(baseRule), (pred, Seq("?1", "?1", "?2")))),
-      ("r", NodeDesc(Seq.empty, pred, Some(baseRule), (pred, Seq("?2", "?2", "b")))))
+      ("root", NodeDesc(Seq("l", "r"), pred, Some(recRule), Seq("z", "?1", "b"))),
+      ("l", NodeDesc(Seq.empty, pred, Some(baseRule), Seq("?1", "?1", "?2"))),
+      ("r", NodeDesc(Seq.empty, pred, Some(baseRule), Seq("?2", "?2", "b"))))
 
     for {
       ut <- Seq(t1, t21, t22)

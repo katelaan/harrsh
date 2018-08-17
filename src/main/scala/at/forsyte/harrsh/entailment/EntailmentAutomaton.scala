@@ -3,7 +3,7 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.heapautomata.{HeapAutomaton, InconsistentState}
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.{Closure, PureEntailment}
-import at.forsyte.harrsh.seplog.FreeVar
+import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
@@ -14,12 +14,13 @@ import at.forsyte.harrsh.util.Combinators
   */
 class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with InconsistentState {
 
+  // TODO: Support for null param in rhs?
+
   // The entailment checker only works for rooted SIDs that satisfy progress
   assert(sid.isRooted)
   assert(sid.satisfiesProgress)
 
-  // TODO: Support for null
-  assert(rhs.args forall (_.isFreeNonNull))
+  assert(rhs.args forall (_.isFree))
 
   override val description: String = s"EntailmentAutomaton($rhs)"
 
@@ -100,13 +101,16 @@ object EntailmentAutomaton extends HarrshLogging {
       leftEqsEntailRightEqs && pointersCompatible
     ) {
       // FIXME: Generate all possible substiutions (involving all ways that vars are allowed to alias without contradicting the RHS closure) rather than just one default substitution
-      val varsToArgs = (ruleFVs, rightRuleInstance.freeVars).zipped
-      val varsToSubst = varsToArgs map {
-        case (v,a) => (v, leftEqs.getEquivalenceClass(v).collect{
-          case fv:FreeVar => fv
-        })
-      }
-      Set(Substitution(varsToSubst.toMap))
+//      val varsToArgs = (ruleFVs, rightRuleInstance.freeVars).zipped
+//      val varsToSubst = varsToArgs map {
+//        case (v,a) => (v, leftEqs.getEquivalenceClass(v).collect{
+//          case fv:FreeVar => fv
+//        })
+//      }
+//      Set(Substitution(varsToSubst.toMap))
+
+      val substSeq: Seq[Set[Var]] = ruleFVs map (leftEqs.getEquivalenceClass(_).filter(_.isFree))
+      Set(Substitution(substSeq))
     } else {
       logger.debug(s"Couldn't match $leftHeap against $rightRuleInstance. Pure entailment holds: $leftEqsEntailRightEqs; Pointers compatible: $pointersCompatible")
       Set.empty
