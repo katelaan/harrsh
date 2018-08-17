@@ -32,9 +32,6 @@ object EntailmentAutomatonTest extends TestValues {
     println(s"Checking ${lhs.callToStartPred} |= $rhs for SID '${sid.description}'")
     val aut = new EntailmentAutomaton(sid, rhs)
     val reachable: Set[(String, EntailmentAutomaton.State)] = RefinementAlgorithms.allReachableStates(lhs, aut, reportProgress = true)
-    for {
-      (str, state) <- reachable
-    } println(s"$str :: $state")
     val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
     println(serializeReach(reachable, isFinal))
     true
@@ -43,7 +40,7 @@ object EntailmentAutomatonTest extends TestValues {
 //    expectEmpty == refined._2
   }
 
-  def indent(s : String) = "  " + s
+  private def indent(s : String) = "  " + s
 
   def serializeReach(states: Set[(String, EntailmentAutomaton.State)], isFinal: EntailmentAutomaton.State => Boolean): String = {
     val statesByPred: Map[String, Set[EntailmentAutomaton.State]] = states.groupBy(_._1).mapValues(pairs => pairs.map(_._2))

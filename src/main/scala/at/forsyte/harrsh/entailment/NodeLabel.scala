@@ -5,6 +5,8 @@ import at.forsyte.harrsh.seplog.inductive.{Predicate, RuleBody}
 import at.forsyte.harrsh.util.ToLatex._
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap.ops._
 
+import scala.collection.mutable
+
 // FIXME: Nodes need an ID to make it possible for the same node to occur multiple times in the same tree. (Granted, a strange corner case, but we can't avoid that, can we?)
 
 sealed trait NodeLabel {
@@ -48,4 +50,26 @@ case class AbstractLeafNodeLabel(override val pred: Predicate, override val subs
   override def toString: String = s"leaf(${pred.head}, $subst)"
 
   override def update(f: SubstitutionUpdate): AbstractLeafNodeLabel = copy(subst = subst.update(f))
+}
+
+object NodeLabel {
+
+  def labelsToPlaceholderNormalForm(orderedNodeLabels: Seq[NodeLabel]): SubstitutionUpdate = {
+    val found = mutable.Set.empty[PlaceholderVar]
+    val order = new mutable.ListBuffer[PlaceholderVar]()
+    for {
+      nodeLabel <- orderedNodeLabels
+      vs <- nodeLabel.subst.toSeq
+      v <- vs
+      ph <- PlaceholderVar.fromVar(v)
+      if !found.contains(ph)
+    } {
+      order.append(ph)
+      found.add(ph)
+    }
+    val renameFrom = order map (_.toFreeVar)
+    val renameTo = (1 to order.size) map (PlaceholderVar(_).toFreeVar)
+    SubstitutionUpdate.fromPairs(renameFrom.zip(renameTo))
+  }
+
 }

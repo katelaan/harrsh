@@ -52,11 +52,17 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
     val reachable = for {
       ets <- Combinators.choices(allETs map (_.toSeq))
     } yield ets.reduceLeft(_ compose _)
+    logger.debug(s"Reachable extension types (including bound vars):\n${reachable.mkString("\n")}")
 
     // Drop the bound vars from the extension types, since they are no longer needed after the composition
     val restrictedToFreeVars = reachable map (_.dropVars(lab.boundVars.toSeq))
-    // FIXME: Filter out garbage composition results?
-    Set(EntailmentAutomaton.State(restrictedToFreeVars.toSet, lab.freeVars))
+    logger.debug(s"Target state:\n${restrictedToFreeVars.mkString("\n")}")
+
+    // Filter out extension types that don't have free vars in all root positions
+    // FIXME: Also filter out types that lack names for back pointers
+    val consistent = restrictedToFreeVars filter (_.hasNamesForRootParams)
+
+    Set(EntailmentAutomaton.State(consistent.toSet, lab.freeVars))
   }
 
   private def instantiateETsForCall(state: State, call: PredCall): Set[ExtensionType] = {

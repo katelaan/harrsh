@@ -4,9 +4,6 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive._
 
-import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
-
 case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) extends HarrshLogging {
 
   // FIXME: Validate that the tree is "sufficiently" labeled: It has free variables for all root parameters of the interface nodes + possibly for some other nodes as well (e.g., parameter corresponding to a backpointer in a dll)
@@ -51,10 +48,7 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
   def isConcrete: Boolean = abstractLeaves.isEmpty
 
   def interface: TreeInterface = {
-    val normalized = UnfoldingTree.placeholderNormalForm(this, Seq(nodeLabels(root)) ++ abstractLeaves.map(nodeLabels))
-    logger.debug(s"Normalized $this to $normalized")
-    TreeInterface(normalized.nodeLabels(root),
-      normalized.abstractLeaves.map(normalized.nodeLabels).map(_.asInstanceOf[AbstractLeafNodeLabel]))
+    TreeInterface(nodeLabels(root), abstractLeaves map (nodeLabels(_).asInstanceOf[AbstractLeafNodeLabel]))
   }
 
   def unfold(leaf: NodeId, sid: SID, rule: RuleBody): UnfoldingTree = {
@@ -283,21 +277,7 @@ object UnfoldingTree extends HarrshLogging {
   }
 
   def placeholderNormalForm(ut: UnfoldingTree, nodeLabelOrder: Seq[NodeLabel]): UnfoldingTree = {
-    val found = mutable.Set.empty[PlaceholderVar]
-    val order = new ListBuffer[PlaceholderVar]()
-    for {
-      nodeLabel <- nodeLabelOrder
-      vs <- nodeLabel.subst.toSeq
-      v <- vs
-      ph <- PlaceholderVar.fromVar(v)
-      if !found.contains(ph)
-    } {
-      order.append(ph)
-      found.add(ph)
-    }
-    val renameFrom = order map (_.toFreeVar)
-    val renameTo = (1 to order.size) map (PlaceholderVar(_).toFreeVar)
-    val updateF = SubstitutionUpdate.fromPairs(renameFrom.zip(renameTo))
+    val updateF = NodeLabel.labelsToPlaceholderNormalForm(nodeLabelOrder)
     ut.updateSubst(updateF)
   }
 

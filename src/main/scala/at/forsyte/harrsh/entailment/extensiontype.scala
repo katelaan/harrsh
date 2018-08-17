@@ -4,11 +4,22 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.PredCall
 
-case class TreeInterface(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]) {
+case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]) {
+
+  lazy val labels = Seq[NodeLabel](root) ++ leaves
 
   override def toString = s"TI(root = $root; leaves = ${leaves.mkString(",")})"
 
   def isConcrete: Boolean = leaves.isEmpty
+
+  def hasNamesForRootParams: Boolean = labels.forall{
+    label =>
+      // TODO: Get the index directly through the pred. (Change this in other places, too)
+      val rootParam = label.pred.rootParam.get
+      val rootParamIndex = label.pred.params.indexOf(rootParam)
+      val labelingVars: Set[Var] = label.subst.toSeq(rootParamIndex)
+      labelingVars.exists(v => v.isFree && !PlaceholderVar.isPlaceholder(v))
+  }
 
   def asExtensionType: ExtensionType = ExtensionType(Set(this))
 
@@ -21,18 +32,26 @@ case class TreeInterface(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]) {
   }
 
   def nonPlaceholderFreeVars: Set[FreeVar] = {
-    substs.flatMap(_.freeNonNullVars).filterNot(PlaceholderVar.isPlaceholder)
+    substs.flatMap(_.freeNonNullVars).filterNot(PlaceholderVar.isPlaceholder).toSet
   }
 
   def placeholderVarsInSubst: Set[PlaceholderVar] = {
-    substs.flatMap(_.placeholders)
+    substs.flatMap(_.placeholders).toSet
   }
 
   def updateSubst(f: SubstitutionUpdate): TreeInterface = {
     TreeInterface(root.update(f), leaves map (_.update(f)))
   }
 
-  private lazy val substs = leaves.map(_.subst) + root.subst
+  private lazy val substs = labels map (_.subst)
+}
+object TreeInterface {
+
+  def apply(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]): TreeInterface = {
+    val updateF = NodeLabel.labelsToPlaceholderNormalForm(Seq(root) ++ leaves)
+    new TreeInterface(root.update(updateF), leaves map (_.update(updateF)))
+  }
+
 }
 
 /**
@@ -42,6 +61,8 @@ case class TreeInterface(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]) {
 case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
 
   override def toString: String = parts.mkString("ET(", ",\n   ", ")")
+
+  def hasNamesForRootParams: Boolean = parts.forall(_.hasNamesForRootParams)
 
   def isFinal(call: PredCall): Boolean = {
     if (parts.size != 1) {
@@ -66,12 +87,14 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
   def placeholdersInSubst: Set[PlaceholderVar] = parts.flatMap(_.placeholderVarsInSubst)
 
   def dropVars(varsToDrop: Seq[Var]): ExtensionType = {
+    // TODO: More efficient variable dropping for extension types
     // FIXME: Don't introduce redundant placeholder vars, i.e., if there is a variable alias that we don't drop, we don't need a new placeholder name to avoid empty sets in the substitution
-    // Rename the vars to placeholder vars. To avoid clashes, shift the existing vars back.
+    // 1) Rename the vars to placeholder vars
     val placeholders = (1 to varsToDrop.size) map (PlaceholderVar(_))
     val pairs: Seq[(Var,Var)] = varsToDrop.zip(placeholders.map(_.toFreeVar))
     val replaceByPlacheolders: SubstitutionUpdate = SubstitutionUpdate.fromPairs(pairs)
 
+    // 0) To avoid clashes, shift the existing vars back
     val shiftPlaceholders = PlaceholderVar.placeholderClashAvoidanceUpdate(placeholders.toSet)
 
     updateSubst(shiftPlaceholders).updateSubst(replaceByPlacheolders)
