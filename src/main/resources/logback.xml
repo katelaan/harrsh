@@ -15,7 +15,12 @@
     </root>
 
     <!---
-    <logger name="at.forsyte.harrsh.entailment.EntailmentHeapAutomaton" level="DEBUG" />
+    <logger name="at.forsyte.harrsh.refinement.RefinementAlgorithms" level="DEBUG" />
+    <logger name="at.forsyte.harrsh.refinement.RefinementInstance" level="DEBUG" />
+
+    <logger name="at.forsyte.harrsh.entailment.UnfoldingTree" level="DEBUG" />
+    <logger name="at.forsyte.harrsh.entailment.ExtensionType" level="DEBUG" />
+    <logger name="at.forsyte.harrsh.entailment.EntailmentAutomaton" level="DEBUG" />
     <logger name="at.forsyte.harrsh.refinement.RefinementAlgorithms" level="DEBUG" />
     <logger name="at.forsyte.harrsh.refinement.RefinementInstance" level="DEBUG" />
 

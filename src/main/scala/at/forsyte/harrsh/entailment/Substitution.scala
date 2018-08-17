@@ -7,6 +7,8 @@ import scala.annotation.tailrec
 
 case class Substitution(toSeq: Seq[Set[Var]]) extends AnyVal {
 
+  override def toString: String = toSeq.map(_.mkString(",")).mkString("subst(", "; ", ")")
+
   def size: Int = toSeq.size
 
   def placeholders: Set[PlaceholderVar] = {

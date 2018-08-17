@@ -1,15 +1,18 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.PredCall
 
 case class TreeInterface(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]) {
 
+  override def toString = s"TI(root = $root; leaves = ${leaves.mkString(",")})"
+
   def isConcrete: Boolean = leaves.isEmpty
 
   def asExtensionType: ExtensionType = ExtensionType(Set(this))
 
-  def asDegenerateTree: UnfoldingTree = {
+  def asDegeneratecTree: UnfoldingTree = {
     val ids = NodeId.freshIds(Set.empty, leaves.size + 1)
     val rootId = ids.head
     val nodeLabels = Map(rootId -> root) ++ (ids.tail, leaves).zipped
@@ -36,7 +39,9 @@ case class TreeInterface(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]) {
   * A single abstracted forest, retaining only the tree interfaces rather than the full trees.
   * @param parts Abstracted trees
   */
-case class ExtensionType(parts: Set[TreeInterface]) {
+case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
+
+  override def toString: String = parts.mkString("ET(", ",\n   ", ")")
 
   def isFinal(call: PredCall): Boolean = {
     if (parts.size != 1) {
@@ -74,11 +79,14 @@ case class ExtensionType(parts: Set[TreeInterface]) {
 
   def updateSubst(f: SubstitutionUpdate): ExtensionType = ExtensionType(parts map (_.updateSubst(f)))
 
-  def asDegenerateForest = UnfoldingForest(parts map (_.asDegenerateTree))
+  def asDegeneratedForest: UnfoldingForest = {
+    //logger.debug(s"Will interpret $this as unfolding forest.")
+    UnfoldingForest(parts map (_.asDegeneratecTree))
+  }
 
   def compose(other: ExtensionType): ExtensionType = {
-    val thisForest = asDegenerateForest
-    val otherForest = other.asDegenerateForest
+    val thisForest = asDegeneratedForest
+    val otherForest = other.asDegeneratedForest
     (thisForest compose otherForest).toExtensionType
   }
 

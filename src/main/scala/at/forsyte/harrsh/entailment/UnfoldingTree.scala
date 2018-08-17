@@ -4,6 +4,9 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive._
 
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
+
 case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) extends HarrshLogging {
 
   // FIXME: Validate that the tree is "sufficiently" labeled: It has free variables for all root parameters of the interface nodes + possibly for some other nodes as well (e.g., parameter corresponding to a backpointer in a dll)
@@ -20,9 +23,12 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
   assert(children.keys forall nodes.contains)
   assert(children.values forall (_ forall nodes.contains))
   assert(abstractLeaves forall (children(_).isEmpty))
-  assert(nodes forall (n => children(n).nonEmpty
-    || isAbstractLeaf(n)
-    || (!isAbstractLeaf(n) && nodeLabels(n).asInstanceOf[RuleNodeLabel].rule.isBaseRule)))
+
+  // TODO: The following does not hold for "degenerated" trees as derived from extension types. (Because those don't contain concrete children, so nodes for recursive rules need not have children). Do we want to perform this check in "non-degenerated" cases
+//  assert(nodes forall (n => children(n).nonEmpty
+//    || isAbstractLeaf(n)
+//    || (!isAbstractLeaf(n) && nodeLabels(n).asInstanceOf[RuleNodeLabel].rule.isBaseRule)),
+//    s"Inconsistent unfolding tree $this")
 
   lazy val parents: Map[NodeId, NodeId] = {
     for {
@@ -38,14 +44,17 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
     } {
       sb.appendAll(s"  $id -> ${nodeLabels(id)} : ${children(id).mkString(", ")}\n")
     }
-    sb.appendAll(")\n")
+    sb.append(')')
     sb.toString
   }
 
   def isConcrete: Boolean = abstractLeaves.isEmpty
 
   def interface: TreeInterface = {
-    TreeInterface(nodeLabels(root), abstractLeaves.map(nodeLabels).map(_.asInstanceOf[AbstractLeafNodeLabel]))
+    val normalized = UnfoldingTree.placeholderNormalForm(this, Seq(nodeLabels(root)) ++ abstractLeaves.map(nodeLabels))
+    logger.debug(s"Normalized $this to $normalized")
+    TreeInterface(normalized.nodeLabels(root),
+      normalized.abstractLeaves.map(normalized.nodeLabels).map(_.asInstanceOf[AbstractLeafNodeLabel]))
   }
 
   def unfold(leaf: NodeId, sid: SID, rule: RuleBody): UnfoldingTree = {
@@ -271,6 +280,48 @@ object UnfoldingTree extends HarrshLogging {
   def fromPredicate(sid: SID, pred: String, labeling: Substitution): UnfoldingTree = {
     val node = AbstractLeafNodeLabel(sid(pred), labeling)
     UnfoldingTree(Map(NodeId.zero -> node), NodeId.zero, Map.empty)
+  }
+
+  def placeholderNormalForm(ut: UnfoldingTree, nodeLabelOrder: Seq[NodeLabel]): UnfoldingTree = {
+    val found = mutable.Set.empty[PlaceholderVar]
+    val order = new ListBuffer[PlaceholderVar]()
+    for {
+      nodeLabel <- nodeLabelOrder
+      vs <- nodeLabel.subst.toSeq
+      v <- vs
+      ph <- PlaceholderVar.fromVar(v)
+      if !found.contains(ph)
+    } {
+      order.append(ph)
+      found.add(ph)
+    }
+    val renameFrom = order map (_.toFreeVar)
+    val renameTo = (1 to order.size) map (PlaceholderVar(_).toFreeVar)
+    val updateF = SubstitutionUpdate.fromPairs(renameFrom.zip(renameTo))
+    ut.updateSubst(updateF)
+  }
+
+  /**
+    * Ensure that placeholder vars are named ?1, ?2... without gap and increasing with the distance to the root.
+    * This leads to a normal form for the node labels. (Not for the trees themselves, because the node IDs themselves may have gaps.)
+    * @param ut
+    * @return
+    */
+  def placeholderNormalForm(ut: UnfoldingTree): UnfoldingTree = {
+    placeholderNormalForm(ut, breadthFirstTraversal(ut))
+  }
+
+  def breadthFirstTraversal(tree: UnfoldingTree): Stream[NodeLabel] = {
+    def traverseByLayer(nodes: Seq[NodeId]): Stream[NodeLabel] = {
+      if (nodes.isEmpty) {
+        Stream.empty
+      }
+      else {
+        val childLayer = nodes.flatMap(n => tree.children(n))
+        nodes.toStream.map(tree.nodeLabels(_)) ++ traverseByLayer(childLayer)
+      }
+    }
+    traverseByLayer(Seq(tree.root))
   }
 
   case class CompositionInterface(treeToEmbed: UnfoldingTree, embeddingTarget: UnfoldingTree, leafToReplaceInEmbedding: NodeId)

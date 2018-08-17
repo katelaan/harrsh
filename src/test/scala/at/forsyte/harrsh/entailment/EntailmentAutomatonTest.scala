@@ -30,9 +30,14 @@ object EntailmentAutomatonTest extends TestValues {
   def check(sid: SID, rhs: PredCall, lhs: SID, expectEmpty: Boolean): Boolean = {
     println(s"Checking ${lhs.callToStartPred} |= $rhs for SID '${sid.description}'")
     val aut = new EntailmentAutomaton(sid, rhs)
-    val refined = RefinementAlgorithms.refineSID(lhs, aut, reportProgress = true)
-    println(refined._1)
-    expectEmpty == refined._2
+    val reachable = RefinementAlgorithms.allReachableStates(lhs, aut, reportProgress = true)
+    for {
+      (str, state) <- reachable
+    } println(s"$str :: $state")
+    true
+//    val refined = RefinementAlgorithms.refineSID(lhs, aut, reportProgress = true)
+//    println(refined._1)
+//    expectEmpty == refined._2
   }
 
 }

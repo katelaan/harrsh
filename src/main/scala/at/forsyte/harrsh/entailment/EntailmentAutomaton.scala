@@ -38,6 +38,7 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
   override def inconsistentState(fvs: Seq[FreeVar]): State = EntailmentAutomaton.State(Set.empty, fvs)
 
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
+    logger.debug(s"Computing target for $lab from $src")
     val localETs = EntailmentAutomaton.shToExtensionTypes(lab, sid)
     logger.debug(s"Extension types for $lab:\n${localETs.mkString("\n")}")
     val instantiatedETs = (src, lab.predCalls).zipped.map(instantiateETsForCall)
@@ -83,27 +84,46 @@ object EntailmentAutomaton extends HarrshLogging {
   }
 
   def shToExtensionTypes(sh: SymbolicHeap, sid: SID) : Set[ExtensionType] = {
-    // TODO: Deal with multi-pointer and zero-pointer SHs for the left-hand side? This is particularly important for top-level formulas. (We could do this either through rewriting or through explicit support.)
+    // TODO: Deal with multi-pointer and zero-pointer SHs for the left-hand side? This is particularly important for top-level formulas. (We could do this either through rewriting (converting the LHS into a rooted SID) or through explicit support (implementing partial model checking).)
     assert(sh.pointers.size == 1)
-    // FIXME: [Urgent] This way to compute the ET is broken: For recursive rules, we may need to label the abstract leaves with some of the free variables of sh, and introduce placeholders for some vars of the root. Neither is done yet!
+
     for {
       pred <- sid.preds.toSet[Predicate]
       // Only consider rules with the same number of free variables
-      // FIXME: Is that actually the correct semantics? What about the corner case that the sh contains unused free vars. (As is sometimes the case e.g. for base rules of predicates; consider the SLL-with-head-pointer example.)
       if pred.arity == sh.numFV
       rule <- pred.rules
       // Instantiate the rule body with the actual free vars of the left-hand side
       ruleInstance = PredCall(pred.head, sh.freeVars).toSymbolicHeap.replaceCalls(Seq(rule.body))
-      subst <- matchHeaps(sh, pred.params, ruleInstance)
-    } yield mkExtensionType(sid, pred, rule, subst)
+      varAssignment <- matchHeaps(sh, ruleInstance)
+    } yield mkExtensionType(sid, pred, rule, varAssignment)
   }
 
-  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, subst: Substitution): ExtensionType = {
-    logger.debug(s"Creating extension type from ${pred.head}, $rule, $subst")
-    val singleton = UnfoldingTree.singleton(sid, pred, Some(subst))
-    val withRule = singleton.unfold(singleton.root, sid, rule)
-    logger.debug(s"Unfolding tree before conversion: $withRule")
-    withRule.interface.asExtensionType
+  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, varAssignment: Map[Var,Var]): ExtensionType = {
+    logger.debug(s"Creating extension type from ${pred.head}, $rule, $varAssignment")
+
+    val body = rule.body
+    val varsNotInAlloc = (body.allVars -- varAssignment.keySet).toSeq.sorted
+    val placeholders = (1 to varsNotInAlloc.size) map (PlaceholderVar(_).toFreeVar)
+    val placeholderMap = (varsNotInAlloc, placeholders).zipped.toMap
+    val combinedMap = varAssignment ++ placeholderMap
+    val rename = (v: Var) => Set(combinedMap(v))
+
+    // Compute the substitutions for the root node and the abstract leaves
+    val rootSubst = Substitution(body.freeVars map rename)
+    val rootNodeLabel = RuleNodeLabel(pred, rule, rootSubst)
+    val childLabels = for {
+      PredCall(name, args) <- body.predCalls
+      pred = sid(name)
+      subst = args map rename
+    } yield AbstractLeafNodeLabel(pred, Substitution(subst))
+
+    val nodeIds = NodeId.freshIds(Set.empty, childLabels.size + 1)
+    val nodeLabelsMap = (nodeIds, rootNodeLabel +: childLabels).zipped.toMap
+    val childMap = Map(nodeIds.head -> nodeIds.tail) ++ nodeIds.tail.zip(Stream.continually(Seq.empty))
+    val ut = UnfoldingTree(nodeLabelsMap, nodeIds.head, childMap)
+
+    logger.debug(s"Unfolding tree before conversion to ET: $ut")
+    ut.interface.asExtensionType
   }
 
   private def compatiblePointers(leftPtr: PointsTo, leftEqs: Closure, rightPtr: PointsTo): Boolean = {
@@ -116,8 +136,8 @@ object EntailmentAutomaton extends HarrshLogging {
     leftEqs.getEquivalenceClass(leftPtr.from).contains(rightPtr.from)
   }
 
-  // TODO: Substitution should simply become a seq rather than a map, since the domain of the substitution is determined by the rule. We can then drop the ruleFVs param here
-  private def matchHeaps(leftHeap: SymbolicHeap, ruleFVs: Seq[FreeVar], rightRuleInstance: SymbolicHeap): Set[Substitution] = {
+  private def matchHeaps(leftHeap: SymbolicHeap, rightRuleInstance: SymbolicHeap): Set[Map[Var, Var]] = {
+    // FIXME: Generate all possible mappings (involving all ways that vars are allowed to alias without contradicting the RHS closure) rather than just one default substitution
     // TODO: This equality- and unification-based reasoning should have significant overlap with existing code. (Model checking, tracking etc.) Should clean all that up and provide a set of common core routines!
     // TODO: Explicitly include the != null constraints for allocation?
     val leftEqs = Closure.ofAtoms(leftHeap.pure)
@@ -126,20 +146,9 @@ object EntailmentAutomaton extends HarrshLogging {
     // TODO: After debugging, this should be moved into the if for possible short-circuiting
     val leftEqsEntailRightEqs = PureEntailment.check(leftEqs, rightEqs)
     val pointersCompatible = compatiblePointers(leftHeap.pointers.head, leftEqs, rightRuleInstance.pointers.head)
-    if (
-      leftEqsEntailRightEqs && pointersCompatible
-    ) {
-      // FIXME: Generate all possible substiutions (involving all ways that vars are allowed to alias without contradicting the RHS closure) rather than just one default substitution
-//      val varsToArgs = (ruleFVs, rightRuleInstance.freeVars).zipped
-//      val varsToSubst = varsToArgs map {
-//        case (v,a) => (v, leftEqs.getEquivalenceClass(v).collect{
-//          case fv:FreeVar => fv
-//        })
-//      }
-//      Set(Substitution(varsToSubst.toMap))
-
-      val substSeq: Seq[Set[Var]] = ruleFVs map (leftEqs.getEquivalenceClass(_).filter(_.isFree))
-      Set(Substitution(substSeq))
+    if (leftEqsEntailRightEqs && pointersCompatible) {
+      val map = (rightRuleInstance.pointers.head.args, leftHeap.pointers.head.args).zipped.toMap
+      Set(map)
     } else {
       logger.debug(s"Couldn't match $leftHeap against $rightRuleInstance. Pure entailment holds: $leftEqsEntailRightEqs; Pointers compatible: $pointersCompatible")
       Set.empty

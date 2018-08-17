@@ -49,6 +49,13 @@ object RefinementAlgorithms {
     }
   }
 
+  def allReachableStates(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): Set[(String, ha.State)] = {
+    val res = RefinementInstance(sid, ha, mode = RefinementInstance.FullRefinement, reportProgress = reportProgress).run
+    res.reachedStates.pairs.map {
+      case (str, state) => (str, state.asInstanceOf[ha.State])
+    }
+  }
+
   def refineSID(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): (SID,Boolean) = {
     RefinementInstance(sid, ha, mode = RefinementInstance.FullRefinement, reportProgress = reportProgress).run.toSID
   }
