@@ -11,7 +11,8 @@ import at.forsyte.harrsh.seplog.Var.Naming
 case class SID(startPred : String, preds : Seq[Predicate], description : String) extends HarrshLogging {
 
   override def toString: String = {
-    description + " (start predicate '" + startPred + "'): " + preds.mkString("\n    ", " ; \n    ", "")
+    val predStrings = preds.map(_.toString.lines.map(line => s"    $line").mkString("\n"))
+    description + " (start predicate '" + startPred + "'): " + predStrings.mkString("\n", " ; \n", "")
   }
 
   private lazy val predMap : Map[String,Predicate] = preds.map(p => p.head -> p).toMap

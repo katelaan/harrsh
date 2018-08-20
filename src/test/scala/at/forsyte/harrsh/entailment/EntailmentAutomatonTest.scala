@@ -13,7 +13,9 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
   property("List entailment") {
 
     val nel = ExampleSIDs.Nel
-    val rhs = P("nel")(x1,x2)
+    val odd = ExampleSIDs.OddNel
+    val even = ExampleSIDs.EvenNel
+    val anel = ExampleSIDs.AcycNel
     val sinlgePtrLhs = SID.fromSymbolicHeap(SymbolicHeap(x1 -> x2))
     val reversedSinlgePtrLhs = SID.fromSymbolicHeap(SymbolicHeap(x2 -> x1))
     val twoPtrLhs = SID("twoptrs",
@@ -35,19 +37,30 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
     val sllTable = Table(
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
       // x1 -> x2 |= nel(x1,x2)
-      //(sinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentHolds),
+      (sinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentHolds),
       // x1 -> x2 |/= nel(z1,z2)
-      //(sinlgePtrLhs, nel, P("nel")(FreeVar("z1"),FreeVar("z2")), EntailmentFails),
+      (sinlgePtrLhs, nel, P("nel")(FreeVar("z1"),FreeVar("z2")), EntailmentFails),
       // x2 -> x1 |/= nel(x1,x2)
-      //(reversedSinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentFails),
+      (reversedSinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentFails),
       // x2 -> x1 |= nel(x2,x1)
-      //(reversedSinlgePtrLhs, nel, P("nel")(x2,x1), EntailmentHolds)
+      (reversedSinlgePtrLhs, nel, P("nel")(x2,x1), EntailmentHolds),
       // ex. y . x1 -> y * y -> x2 |= nel(x1,x2)
-      //(twoPtrLhs, nel, P("nel")(x1,x2), EntailmentHolds)
+      (twoPtrLhs, nel, P("nel")(x1,x2), EntailmentHolds),
       // ex. y . x1 -> y * y -> x2 |= nel(x1,x2)
-      //(twoPtrLhs, nel, P("nel")(x2,x1), EntailmentFails)
-      //(twoFields, nel, P("nel")(x1,x2), EntailmentFails)
-      (oneOrTwoFields, nel, P("nel")(x1,x2), EntailmentFails)
+      (twoPtrLhs, nel, P("nel")(x2,x1), EntailmentFails),
+      // x1 -> (x2, nil) |/= nel(x1, x2)
+      (twoFields, nel, P("nel")(x1,x2), EntailmentFails),
+      // x1 -> x2 \/ x1 -> (x2, nil) |/= nel(x1, x2)
+      (oneOrTwoFields, nel, P("nel")(x1,x2), EntailmentFails),
+      // Every odd list is a list
+      (odd, nel, P("nel")(x1,x2), EntailmentHolds),
+      // Every even list is a list
+      (even, nel, P("nel")(x1,x2), EntailmentHolds),
+      // Every acyclic list is a list
+      (anel, nel, P("nel")(x1,x2), EntailmentHolds),
+      // Not every list is an acyclic list
+      // TODO: Is it enough to refute this by taking the weakest possible model of the LHS (like we currently do) or do we have to consider all possibilities to set equal variables on the LHS?
+      (nel, anel, P("anel")(x1,x2), EntailmentFails)
     )
 
     forAll(sllTable) {
