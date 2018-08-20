@@ -5,12 +5,13 @@ import at.forsyte.harrsh.seplog.FreeVar
 import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SymbolicHeap}
 import at.forsyte.harrsh.test.HarrshTableTest
 import at.forsyte.harrsh.{ExampleSIDs, TestValues}
+import org.scalatest.prop.TableFor4
 
 class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
 
   import EntailmentAutomatonTest._
 
-  property("List entailment") {
+  property("Soundness of entailment for singly-linked lists") {
 
     val nel = ExampleSIDs.Nel
     val odd = ExampleSIDs.OddNel
@@ -52,6 +53,8 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
       (twoFields, nel, P("nel")(x1,x2), EntailmentFails),
       // x1 -> x2 \/ x1 -> (x2, nil) |/= nel(x1, x2)
       (oneOrTwoFields, nel, P("nel")(x1,x2), EntailmentFails),
+      // Every list is a list
+      (nel, nel, P("nel")(x1,x2), EntailmentHolds),
       // Every odd list is a list
       (odd, nel, P("nel")(x1,x2), EntailmentHolds),
       // Every even list is a list
@@ -63,7 +66,37 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
       (nel, anel, P("anel")(x1,x2), EntailmentFails)
     )
 
-    forAll(sllTable) {
+    runAllTestsInTable(sllTable)
+
+  }
+
+  property("Soundness of entailment for singly-linked trees") {
+
+    val tree = ExampleSIDs.Tree
+    val singleTreePtr = SID.fromSymbolicHeap(SymbolicHeap(x1 -> (nil,nil)))
+    val almostLinearTree = SID("ltree",
+      "Null-terminated tree",
+      Map("ltree" -> x1, "rtree" -> x1),
+      ("ltree", Seq.empty,  SymbolicHeap(x1 -> (nil, nil))),
+      ("ltree", Seq("y", "z"), SymbolicHeap(x1 -> (y1, y2), P("ltree")(y1), P("rtree")(y2))),
+      ("rtree", Seq.empty, SymbolicHeap(x1 -> (nil, nil)))
+    )
+
+    val treeTable = Table(
+      ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
+      // Every tree is a tree
+      //(tree, tree, P("tree")(x1), EntailmentHolds),
+      //(singleTreePtr, tree, P("tree")(x1), EntailmentHolds),
+      //(almostLinearTree, tree, P("tree")(x1), EntailmentHolds)
+      (tree, almostLinearTree, P("ltree")(x1), EntailmentFails)
+    )
+
+    runAllTestsInTable(treeTable)
+
+  }
+
+  def runAllTestsInTable(table: TableFor4[SID, SID, PredCall, Boolean]) = {
+    forAll(table) {
       (lhsSid, rhsSid, rhsCall, shouldHold) =>
         Given(s"LHS $lhsSid and RHS $rhsCall w.r.t. RHS-SID $rhsSid")
         Then(s"Entailment should hold: $shouldHold")
@@ -72,8 +105,8 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
         info("Refinement result: " + serializeResult(aut, reach))
         verifyEntailment(aut, lhsSid.startPred, reach) shouldEqual shouldHold
     }
-
   }
+
 
 }
 
@@ -85,11 +118,16 @@ object EntailmentAutomatonTest extends TestValues {
   def main(args: Array[String]): Unit = {
 
     // Entailment check: x1 -> x2 |= nel(x1, x2)
-    val nel = ExampleSIDs.Nel
-    val rhs = P("nel")(x1,x2)
-    val lhs = SID.fromSymbolicHeap(SymbolicHeap(x1 -> x2))
-
-    val (lhsSid, rhsSid, rhsCall, shouldHold) = (lhs, nel, rhs, EntailmentHolds)
+    val tree = ExampleSIDs.Tree
+    val singleTreePtr = SID.fromSymbolicHeap(SymbolicHeap(x1 -> (nil,nil)))
+    val almostLinearTree = SID("ltree",
+      "Null-terminated tree",
+      Map("ltree" -> x1, "rtree" -> x1),
+      ("ltree", Seq.empty,  SymbolicHeap(x1 -> (nil, nil))),
+      ("ltree", Seq("y", "z"), SymbolicHeap(x1 -> (y1, y2), P("ltree")(y1), P("rtree")(y2))),
+      ("rtree", Seq.empty, SymbolicHeap(x1 -> (nil, nil)))
+    )
+    val (lhsSid, rhsSid, rhsCall, shouldHold) = (tree, almostLinearTree, P("ltree")(x1), EntailmentFails)
 
     println(s"Success: " + (check(rhsSid, rhsCall, lhsSid) == shouldHold))
   }

@@ -39,6 +39,29 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
     */
   override def inconsistentState(fvs: Seq[FreeVar]): State = EntailmentAutomaton.State(Set.empty, fvs)
 
+  //def combineETs(rootET: ExtensionType, childETs: Seq[ExtensionType], lab: SymbolicHeap): Option[ExtensionType] = {
+  def combineETs(ets: Seq[ExtensionType], lab: SymbolicHeap): Option[ExtensionType] = {
+    //logger.debug(s"Will combine:\n${(rootET +: childETs).map(_.parts.mkString("ET(\n  ", "\n  ", ")")).mkString("\n")}")
+    //val combined = rootET.composeWithChildren(childETs)
+    logger.debug(s"Will combine:\n${ets.map(_.parts.mkString("ET(\n  ", "\n  ", ")")).mkString("\n")}")
+    val combined = ets.reduceLeft(_ compose _)
+    logger.debug(s"Resulting parts of the ET:\n${combined.parts.mkString("\n")}")
+
+    // Drop the bound vars from the extension types, since they are no longer needed after the composition
+    val restrictedToFreeVars = combined.dropVars(lab.boundVars.toSeq)
+    logger.debug(s"After restriction to free variables:\n${restrictedToFreeVars.parts.mkString("\n")}")
+
+    // Filter out extension types that don't have free vars in all root positions
+    // FIXME: Also filter out types that lack names for back pointers
+    if (restrictedToFreeVars.hasNamesForRootParams) {
+      logger.debug(s"Extension type is consistent, will become part of target state.")
+      Some(restrictedToFreeVars)
+    } else {
+      logger.debug("Discarding extension type (missing free variables)")
+      None
+    }
+  }
+
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     logger.debug(s"Computing target for $lab from $src")
     val localETs = EntailmentAutomaton.shToExtensionTypes(lab, sid)
@@ -54,21 +77,15 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
         logger.debug(s"Process pred call $call: Instantiated source state $src to $renamed")
       }
       val allETs: Seq[Set[ExtensionType]] = localETs +: instantiatedETs
+
       // Compose the extension types
-      val reachable = for {
-        ets <- Combinators.choices(allETs map (_.toSeq))
-      } yield ets.reduceLeft(_ compose _)
-      logger.debug(s"Reachable extension types (including bound vars):\n${reachable.mkString("\n")}")
+      val targetETs = for {
+        ets <- Combinators.choices(allETs map (_.toSeq)).toSet[Seq[ExtensionType]]
+        combined <- combineETs(ets, lab)
+      } yield combined
+      logger.debug(s"Target state:\n${targetETs.mkString("\n")}")
 
-      // Drop the bound vars from the extension types, since they are no longer needed after the composition
-      val restrictedToFreeVars = reachable map (_.dropVars(lab.boundVars.toSeq))
-      logger.debug(s"Target state:\n${restrictedToFreeVars.mkString("\n")}")
-
-      // Filter out extension types that don't have free vars in all root positions
-      // FIXME: Also filter out types that lack names for back pointers
-      val consistent = restrictedToFreeVars filter (_.hasNamesForRootParams)
-
-      Set(EntailmentAutomaton.State(consistent.toSet, lab.freeVars))
+      Set(EntailmentAutomaton.State(targetETs, lab.freeVars))
     }
   }
 

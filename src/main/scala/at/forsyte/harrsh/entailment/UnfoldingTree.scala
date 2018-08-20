@@ -311,6 +311,8 @@ object UnfoldingTree extends HarrshLogging {
       (treeWithRoot, treeWithAbstractLeaf) <- Stream((tree1,tree2), (tree2,tree1))
       root = treeWithRoot.root
       abstractLeaf <- treeWithAbstractLeaf.abstractLeaves
+      // Only consider for composition if the labeling predicates are the same
+      if treeWithRoot.nodeLabels(root).pred == treeWithAbstractLeaf.nodeLabels(abstractLeaf).pred
     } yield CompositionInterface(treeWithRoot, treeWithAbstractLeaf, abstractLeaf)
   }
 

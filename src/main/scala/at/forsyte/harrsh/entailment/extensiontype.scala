@@ -113,8 +113,15 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
   def compose(other: ExtensionType): ExtensionType = {
     val thisForest = asDegeneratedForest
     val otherForest = other.asDegeneratedForest
-    (thisForest compose otherForest).toExtensionType
+    logger.trace(s"Will compose forests $thisForest and $otherForest")
+    val composedForest = thisForest compose otherForest
+    logger.trace(s"Composed forest: $composedForest")
+    val res = composedForest.toExtensionType
+    logger.trace(s"As extension type: $res")
+    res
   }
+
+  //def composeWithChildren(childETs: Seq[ExtensionType]) = ???
 
 }
 

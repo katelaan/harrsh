@@ -38,7 +38,7 @@ sealed trait NodeLabel {
 }
 
 case class RuleNodeLabel(override val pred: Predicate, rule: RuleBody, override val subst: Substitution/*, override val usage: VarUsage*/) extends NodeLabel {
-  override def toString: String = s"rule($rule, $subst)"
+  override def toString: String = s"${pred.head}.rule($rule, $subst)"
 
   override def update(f: SubstitutionUpdate): RuleNodeLabel = copy(subst = subst.update(f))
 }
