@@ -18,7 +18,7 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
       val rootParam = label.pred.rootParam.get
       val rootParamIndex = label.pred.params.indexOf(rootParam)
       val labelingVars: Set[Var] = label.subst.toSeq(rootParamIndex)
-      labelingVars.exists(v => v.isFree && !PlaceholderVar.isPlaceholder(v))
+      labelingVars.exists(v => v.isFreeNonNull && !PlaceholderVar.isPlaceholder(v))
   }
 
   def asExtensionType: ExtensionType = ExtensionType(Set(this))

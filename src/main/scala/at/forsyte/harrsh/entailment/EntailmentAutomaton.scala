@@ -107,7 +107,8 @@ object EntailmentAutomaton extends HarrshLogging {
   case class State(ets: Set[ExtensionType], orderedParams: Seq[FreeVar]) {
 
     private val freeVarsInEts = ets.flatMap(_.nonPlaceholderFreeVars)
-    if (ets.nonEmpty && freeVarsInEts != orderedParams.toSet) {
+    //if (ets.nonEmpty && freeVarsInEts != orderedParams.toSet) {
+    if (ets.nonEmpty && !(freeVarsInEts subsetOf orderedParams.toSet)) {
       throw new IllegalArgumentException(s"ETs contain FVs $freeVarsInEts, but constructing state for $orderedParams")
     }
 
@@ -121,7 +122,8 @@ object EntailmentAutomaton extends HarrshLogging {
 
     for {
       pred <- sid.preds.toSet[Predicate]
-      // Only consider rules with the same number of free variables
+      // Only consider rules with at most the same number of free variables
+      // FIXME: Assuming the same arity here unnecessarily loses generality, see test cases
       if pred.arity == sh.numFV
       rule <- pred.rules
       // Instantiate the rule body with the actual free vars of the left-hand side
