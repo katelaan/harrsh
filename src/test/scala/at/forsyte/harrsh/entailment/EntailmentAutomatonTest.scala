@@ -1,22 +1,22 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
+import at.forsyte.harrsh.seplog.FreeVar
 import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SymbolicHeap}
+import at.forsyte.harrsh.test.HarrshTableTest
 import at.forsyte.harrsh.{ExampleSIDs, TestValues}
 
-object EntailmentAutomatonTest extends TestValues {
+class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
 
-  def main(args: Array[String]): Unit = {
+  import EntailmentAutomatonTest._
 
-    // Entailment check: x1 -> x2 |= nel(x1, x2)
+  property("List entailment") {
+
     val nel = ExampleSIDs.Nel
     val rhs = P("nel")(x1,x2)
-    val lhs = SID.fromSymbolicHeap(SymbolicHeap(x1 -> x2))
-    //println(s"Success: " + check(nel, rhs, lhs, expectEmpty = false))
-
-    // Entailment check: ex. y . x1 -> y * y -> x2 |= nel(x1, x2)
-    val lhs2 = SID("twoptrs",
+    val sinlgePtrLhs = SID.fromSymbolicHeap(SymbolicHeap(x1 -> x2))
+    val reversedSinlgePtrLhs = SID.fromSymbolicHeap(SymbolicHeap(x2 -> x1))
+    val twoPtrLhs = SID("twoptrs",
       "List of length 2",
       Map("twoptrs" -> x1),
       // twoptrs <= emp : { a = b }
@@ -24,20 +24,60 @@ object EntailmentAutomatonTest extends TestValues {
       // twoptrs <= ∃ y . a -> y * twoptrs(y, b)
       ("twoptrs", Seq("y"), SymbolicHeap(x1 -> y1, P("oneptr")(y1, x2)))
     )
-    println(s"Success: " + check(nel, rhs, lhs2, expectEmpty = false))
+
+    val sllTable = Table(
+      ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
+      //(sinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentHolds),
+      //(sinlgePtrLhs, nel, P("nel")(FreeVar("z1"),FreeVar("z2")), EntailmentFails),
+      //(reversedSinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentFails)
+      (reversedSinlgePtrLhs, nel, P("nel")(x2,x1), EntailmentHolds)
+      //(twoPtrLhs, nel, P("nel")(x1,x2), EntailmentHolds)
+    )
+
+    forAll(sllTable) {
+      (lhsSid, rhsSid, rhsCall, shouldHold) =>
+        Given(s"LHS $lhsSid and RHS $rhsCall w.r.t. RHS-SID $rhsSid")
+        Then(s"Entailment should hold: $shouldHold")
+        EntailmentAutomatonTest.check(rhsSid, rhsCall, lhsSid) shouldEqual shouldHold
+    }
 
   }
 
-  def check(sid: SID, rhs: PredCall, lhs: SID, expectEmpty: Boolean): Boolean = {
+}
+
+object EntailmentAutomatonTest extends TestValues {
+
+  val EntailmentFails = false
+  val EntailmentHolds = true
+
+  def main(args: Array[String]): Unit = {
+
+    // Entailment check: x1 -> x2 |= nel(x1, x2)
+    val nel = ExampleSIDs.Nel
+    val rhs = P("nel")(x1,x2)
+    val lhs = SID.fromSymbolicHeap(SymbolicHeap(x1 -> x2))
+
+    val (lhsSid, rhsSid, rhsCall, shouldHold) = (lhs, nel, rhs, EntailmentHolds)
+
+    println(s"Success: " + (check(rhsSid, rhsCall, lhsSid) == shouldHold))
+  }
+
+  def check(sid: SID, rhs: PredCall, lhs: SID): Boolean = {
     println(s"Checking ${lhs.callToStartPred} |= $rhs for SID '${sid.description}'")
     val aut = new EntailmentAutomaton(sid, rhs)
     val reachable: Set[(String, EntailmentAutomaton.State)] = RefinementAlgorithms.allReachableStates(lhs, aut, reportProgress = true)
     val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
     println(serializeReach(reachable, isFinal))
-    true
+    if (reachable.forall{
+      case (pred, _) => pred != lhs.startPred
+    }) throw new IllegalArgumentException(s"Malformed test case: Start predicate ${lhs.startPred} unreachable, so entailment trivially holds")
+    val entailmentHolds = reachable.forall{
+      case (pred, state) => pred != lhs.startPred || isFinal(state)
+    }
+    //println(s"Entailment holds: $entailmentHolds")
 //    val refined = RefinementAlgorithms.refineSID(lhs, aut, reportProgress = true)
 //    println(refined._1)
-//    expectEmpty == refined._2
+    entailmentHolds
   }
 
   private def indent(s : String) = "  " + s

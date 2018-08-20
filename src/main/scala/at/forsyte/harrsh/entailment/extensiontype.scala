@@ -65,8 +65,8 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
   def hasNamesForRootParams: Boolean = parts.forall(_.hasNamesForRootParams)
 
   def isFinal(call: PredCall): Boolean = {
-    if (parts.size != 1) {
-      // It's not an abstracted tree, so it can't represent a single concrete unfolding tree
+    val res = if (parts.size != 1) {
+      // It's not a single (abstracted) tree, so it can't represent a single concrete unfolding tree
       false
     } else {
       val tif = parts.head
@@ -80,6 +80,8 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
         }
       ).forall(b => b)
     }
+    logger.debug(s"Checking whether $this is final w.r.t. $call => $res")
+    res
   }
 
   def nonPlaceholderFreeVars: Set[FreeVar] = parts.flatMap(_.nonPlaceholderFreeVars)

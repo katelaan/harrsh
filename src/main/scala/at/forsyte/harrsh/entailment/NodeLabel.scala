@@ -7,12 +7,11 @@ import at.forsyte.harrsh.seplog.inductive.SymbolicHeap.ops._
 
 import scala.collection.mutable
 
-// FIXME: Nodes need an ID to make it possible for the same node to occur multiple times in the same tree. (Granted, a strange corner case, but we can't avoid that, can we?)
-
 sealed trait NodeLabel {
 
   val pred: Predicate
   val subst: Substitution
+  //val usage: VarUsage
 
   assert(subst.size == pred.arity)
 
@@ -38,14 +37,13 @@ sealed trait NodeLabel {
   }
 }
 
-// FIXME: Add predicate parameter to be able to associate the rule with the correct predicate
-case class RuleNodeLabel(override val pred: Predicate, rule: RuleBody, override val subst: Substitution) extends NodeLabel {
+case class RuleNodeLabel(override val pred: Predicate, rule: RuleBody, override val subst: Substitution/*, override val usage: VarUsage*/) extends NodeLabel {
   override def toString: String = s"rule($rule, $subst)"
 
   override def update(f: SubstitutionUpdate): RuleNodeLabel = copy(subst = subst.update(f))
 }
 
-case class AbstractLeafNodeLabel(override val pred: Predicate, override val subst: Substitution) extends NodeLabel {
+case class AbstractLeafNodeLabel(override val pred: Predicate, override val subst: Substitution/*, override val usage: VarUsage*/) extends NodeLabel {
 
   override def toString: String = s"leaf(${pred.head}, $subst)"
 

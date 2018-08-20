@@ -30,4 +30,6 @@ package object entailment {
 
   }
 
+  type VarUsage = Seq[Boolean]
+
 }
