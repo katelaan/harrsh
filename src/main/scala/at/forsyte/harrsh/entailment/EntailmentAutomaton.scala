@@ -3,7 +3,7 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.heapautomata.{HeapAutomaton, InconsistentState}
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.{Closure, PureEntailment}
-import at.forsyte.harrsh.seplog.{FreeVar, Var}
+import at.forsyte.harrsh.seplog.{FreeVar, Renaming, Var}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
@@ -95,6 +95,8 @@ object EntailmentAutomaton extends HarrshLogging {
     // TODO: Deal with multi-pointer and zero-pointer SHs for the left-hand side? This is particularly important for top-level formulas. (We could do this either through rewriting (converting the LHS into a rooted SID) or through explicit support (implementing partial model checking).)
     assert(sh.pointers.size == 1)
 
+    logger.debug(s"Creating (${sid.description})-extension types from $sh")
+
     for {
       pred <- sid.preds.toSet[Predicate]
       // Only consider rules with the same number of free variables
@@ -102,9 +104,58 @@ object EntailmentAutomaton extends HarrshLogging {
       rule <- pred.rules
       // Instantiate the rule body with the actual free vars of the left-hand side
       ruleInstance = PredCall(pred.head, sh.freeVars).toSymbolicHeap.replaceCalls(Seq(rule.body))
-      varAssignment <- matchHeaps(sh, ruleInstance)
-    } yield mkExtensionType(sid, pred, rule, varAssignment)
+      freeVarPermutation <- Combinators.permutations(sh.freeVars)
+      shInstance = rename(sh, freeVarPermutation)
+      varAssignment <- matchHeaps(shInstance, ruleInstance)
+      instantiatedAssignment = reversePermutation(varAssignment, sh.freeVars, freeVarPermutation)
+    } yield mkExtensionType(sid, pred, rule, instantiatedAssignment)
   }
+
+  private def rename(sh: SymbolicHeap, perm: Seq[FreeVar]): SymbolicHeap = {
+    val renamingPairs = sh.freeVars.zip(perm)
+    val renaming = Renaming.fromPairs(renamingPairs)
+    sh.rename(renaming)
+  }
+
+
+  def reversePermutation(varAssignment: Map[Var, Var], originalFVs: Seq[FreeVar], permutedFVs: Seq[FreeVar]): Map[Var,Var] = {
+    val map: Map[Var, Var] = (permutedFVs, originalFVs).zipped.toMap
+    varAssignment.map {
+      case (k,v) => (k,map.getOrElse(v,v))
+    }
+  }
+
+  private def compatiblePointers(leftPtr: PointsTo, leftEqs: Closure, rightPtr: PointsTo): Boolean = {
+    // Pointers are compatible if all arguments coincide (modulo the equalities defined in the left heap)
+    //        val matchResults = for {
+    //          (xl, xr) <- (leftPtr.args, rightPtr.args).zipped
+    //        } yield leftEqs.getEquivalenceClass(xl).contains(xr)
+    //        matchResults.forall(b => b)
+    // TODO: Only the LHS has to coincide. I.e., the following test should be sufficient?
+    leftEqs.getEquivalenceClass(leftPtr.from).contains(rightPtr.from)
+  }
+
+  private def matchHeaps(leftHeap: SymbolicHeap, rightRuleInstance: SymbolicHeap): Set[Map[Var, Var]] = {
+    logger.debug(s"Try matching $leftHeap against $rightRuleInstance")
+
+    // FIXME: Generate all possible mappings (involving all ways that vars are allowed to alias without contradicting the RHS closure) rather than just one default substitution
+    // TODO: This equality- and unification-based reasoning should have significant overlap with existing code. (Model checking, tracking etc.) Should clean all that up and provide a set of common core routines!
+    // TODO: Explicitly include the != null constraints for allocation?
+    val leftEqs = Closure.ofAtoms(leftHeap.pure)
+    val rightEqs = Closure.ofAtoms(rightRuleInstance.pure)
+
+    // TODO: After debugging, this should be moved into the if for possible short-circuiting
+    val leftEqsEntailRightEqs = PureEntailment.check(leftEqs, rightEqs)
+    val pointersCompatible = compatiblePointers(leftHeap.pointers.head, leftEqs, rightRuleInstance.pointers.head)
+    if (leftEqsEntailRightEqs && pointersCompatible) {
+      val map = (rightRuleInstance.pointers.head.args, leftHeap.pointers.head.args).zipped.toMap
+      Set(map)
+    } else {
+      logger.debug(s"Couldn't match $leftHeap against $rightRuleInstance. Pure entailment holds: $leftEqsEntailRightEqs; Pointers compatible: $pointersCompatible")
+      Set.empty
+    }
+  }
+
 
   private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, varAssignment: Map[Var,Var]): ExtensionType = {
     logger.debug(s"Creating extension type from ${pred.head}, $rule, $varAssignment")
@@ -132,35 +183,6 @@ object EntailmentAutomaton extends HarrshLogging {
 
     logger.debug(s"Unfolding tree before conversion to ET: $ut")
     ut.interface.asExtensionType
-  }
-
-  private def compatiblePointers(leftPtr: PointsTo, leftEqs: Closure, rightPtr: PointsTo): Boolean = {
-    // Pointers are compatible if all arguments coincide (modulo the equalities defined in the left heap)
-    //        val matchResults = for {
-    //          (xl, xr) <- (leftPtr.args, rightPtr.args).zipped
-    //        } yield leftEqs.getEquivalenceClass(xl).contains(xr)
-    //        matchResults.forall(b => b)
-    // TODO: Only the LHS has to coincide. I.e., the following test should be sufficient?
-    leftEqs.getEquivalenceClass(leftPtr.from).contains(rightPtr.from)
-  }
-
-  private def matchHeaps(leftHeap: SymbolicHeap, rightRuleInstance: SymbolicHeap): Set[Map[Var, Var]] = {
-    // FIXME: Generate all possible mappings (involving all ways that vars are allowed to alias without contradicting the RHS closure) rather than just one default substitution
-    // TODO: This equality- and unification-based reasoning should have significant overlap with existing code. (Model checking, tracking etc.) Should clean all that up and provide a set of common core routines!
-    // TODO: Explicitly include the != null constraints for allocation?
-    val leftEqs = Closure.ofAtoms(leftHeap.pure)
-    val rightEqs = Closure.ofAtoms(rightRuleInstance.pure)
-
-    // TODO: After debugging, this should be moved into the if for possible short-circuiting
-    val leftEqsEntailRightEqs = PureEntailment.check(leftEqs, rightEqs)
-    val pointersCompatible = compatiblePointers(leftHeap.pointers.head, leftEqs, rightRuleInstance.pointers.head)
-    if (leftEqsEntailRightEqs && pointersCompatible) {
-      val map = (rightRuleInstance.pointers.head.args, leftHeap.pointers.head.args).zipped.toMap
-      Set(map)
-    } else {
-      logger.debug(s"Couldn't match $leftHeap against $rightRuleInstance. Pure entailment holds: $leftEqsEntailRightEqs; Pointers compatible: $pointersCompatible")
-      Set.empty
-    }
   }
 
 }

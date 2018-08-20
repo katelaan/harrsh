@@ -84,6 +84,10 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     }
   }
 
+  def rename(f : Renaming) : SymbolicHeap = {
+    SymbolicHeap(atoms.rename(f, avoidDoubleCapture = false), freeVars)
+  }
+
   /**
     * Replaces a single predicate call with the given symbolic heap, renaming variables as necessary
     * @param call Instantiation of the symbolic heap

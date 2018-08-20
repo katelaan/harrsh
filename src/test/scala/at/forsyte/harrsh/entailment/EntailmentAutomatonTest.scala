@@ -29,7 +29,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
       //(sinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentHolds),
       //(sinlgePtrLhs, nel, P("nel")(FreeVar("z1"),FreeVar("z2")), EntailmentFails),
-      //(reversedSinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentFails)
+      (reversedSinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentFails),
       (reversedSinlgePtrLhs, nel, P("nel")(x2,x1), EntailmentHolds)
       //(twoPtrLhs, nel, P("nel")(x1,x2), EntailmentHolds)
     )
@@ -38,7 +38,10 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
       (lhsSid, rhsSid, rhsCall, shouldHold) =>
         Given(s"LHS $lhsSid and RHS $rhsCall w.r.t. RHS-SID $rhsSid")
         Then(s"Entailment should hold: $shouldHold")
-        EntailmentAutomatonTest.check(rhsSid, rhsCall, lhsSid) shouldEqual shouldHold
+
+        val (aut, reach) = refine(rhsSid, rhsCall, lhsSid)
+        info("Refinement result: " + serializeResult(aut, reach))
+        verifyEntailment(aut, lhsSid.startPred, reach) shouldEqual shouldHold
     }
 
   }
@@ -62,25 +65,36 @@ object EntailmentAutomatonTest extends TestValues {
     println(s"Success: " + (check(rhsSid, rhsCall, lhsSid) == shouldHold))
   }
 
-  def check(sid: SID, rhs: PredCall, lhs: SID): Boolean = {
-    println(s"Checking ${lhs.callToStartPred} |= $rhs for SID '${sid.description}'")
+  def refine(sid: SID, rhs: PredCall, lhs: SID): (EntailmentAutomaton, Set[(String, EntailmentAutomaton.State)]) = {
     val aut = new EntailmentAutomaton(sid, rhs)
     val reachable: Set[(String, EntailmentAutomaton.State)] = RefinementAlgorithms.allReachableStates(lhs, aut, reportProgress = true)
+    (aut, reachable)
+  }
+
+  def verifyEntailment(aut: EntailmentAutomaton, lhsTopLevelPred: String, reachable: Set[(String, EntailmentAutomaton.State)]) = {
     val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
-    println(serializeReach(reachable, isFinal))
     if (reachable.forall{
-      case (pred, _) => pred != lhs.startPred
-    }) throw new IllegalArgumentException(s"Malformed test case: Start predicate ${lhs.startPred} unreachable, so entailment trivially holds")
+      case (pred, _) => pred != lhsTopLevelPred
+    }) throw new IllegalArgumentException(s"Malformed test case: LHS start predicate ${lhsTopLevelPred} unreachable, so entailment trivially holds")
     val entailmentHolds = reachable.forall{
-      case (pred, state) => pred != lhs.startPred || isFinal(state)
+      case (pred, state) => pred != lhsTopLevelPred || isFinal(state)
     }
-    //println(s"Entailment holds: $entailmentHolds")
-//    val refined = RefinementAlgorithms.refineSID(lhs, aut, reportProgress = true)
-//    println(refined._1)
     entailmentHolds
   }
 
+  def check(sid: SID, rhs: PredCall, lhs: SID): Boolean = {
+    println(s"Checking ${lhs.callToStartPred} |= $rhs for SID '${sid.description}'")
+    val (aut, reachable) = refine(sid, rhs, lhs)
+    println(serializeResult(aut, reachable))
+    verifyEntailment(aut, lhs.startPred, reachable)
+  }
+
   private def indent(s : String) = "  " + s
+
+  def serializeResult(aut: EntailmentAutomaton, reachable: Set[(String, EntailmentAutomaton.State)]): String = {
+    val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
+    serializeReach(reachable, isFinal)
+  }
 
   def serializeReach(states: Set[(String, EntailmentAutomaton.State)], isFinal: EntailmentAutomaton.State => Boolean): String = {
     val statesByPred: Map[String, Set[EntailmentAutomaton.State]] = states.groupBy(_._1).mapValues(pairs => pairs.map(_._2))
