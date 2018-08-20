@@ -45,10 +45,26 @@ object ExampleSIDs extends TestValues {
 
   lazy val OddList = SID("odd",
     "Lists of odd length",
-    Map("odd" -> x1, "even" -> x2),
+    Map("odd" -> x1, "even" -> x1),
     ("odd", Seq("n"), SymbolicHeap(x1 -> y1, P("even")(y1, x2))),
     ("even", Seq("n"), SymbolicHeap(x1 -> y1, P("odd")(y1, x2))),
     ("even", Seq.empty, SymbolicHeap(x1 =:= x2))
+  )
+
+  lazy val OddNel = SID("odd",
+    "Nonempty lists of odd length",
+    Map("odd" -> x1, "even" -> x1),
+    ("odd", Seq("n"), SymbolicHeap(x1 -> x2)),
+    ("odd", Seq("n"), SymbolicHeap(x1 -> y1, P("even")(y1, x2))),
+    ("even", Seq("n"), SymbolicHeap(x1 -> y1, P("odd")(y1, x2))),
+  )
+
+  lazy val EvenNel = SID("even",
+    "Nonempty lists of even length",
+    Map("odd" -> x1, "even" -> x1),
+    ("odd", Seq("n"), SymbolicHeap(x1 -> x2)),
+    ("odd", Seq("n"), SymbolicHeap(x1 -> y1, P("even")(y1, x2))),
+    ("even", Seq("n"), SymbolicHeap(x1 -> y1, P("odd")(y1, x2))),
   )
 
   lazy val Tll = SID("tll",

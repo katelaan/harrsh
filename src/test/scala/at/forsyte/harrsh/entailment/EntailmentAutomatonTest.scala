@@ -24,14 +24,30 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
       // twoptrs <= ∃ y . a -> y * twoptrs(y, b)
       ("twoptrs", Seq("y"), SymbolicHeap(x1 -> y1, P("oneptr")(y1, x2)))
     )
+    val twoFields = SID.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,nil)))
+    val oneOrTwoFields = SID("onetwo",
+      "Either a list pointer or a list pointer with an extra field",
+      Map("onetwo" -> x1),
+      ("onetwo", Seq.empty, SymbolicHeap(x1 -> x2)),
+      ("onetwo", Seq.empty, SymbolicHeap(x1 -> (x2,nil)))
+    )
 
     val sllTable = Table(
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
+      // x1 -> x2 |= nel(x1,x2)
       //(sinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentHolds),
+      // x1 -> x2 |/= nel(z1,z2)
       //(sinlgePtrLhs, nel, P("nel")(FreeVar("z1"),FreeVar("z2")), EntailmentFails),
-      (reversedSinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentFails),
-      (reversedSinlgePtrLhs, nel, P("nel")(x2,x1), EntailmentHolds)
+      // x2 -> x1 |/= nel(x1,x2)
+      //(reversedSinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentFails),
+      // x2 -> x1 |= nel(x2,x1)
+      //(reversedSinlgePtrLhs, nel, P("nel")(x2,x1), EntailmentHolds)
+      // ex. y . x1 -> y * y -> x2 |= nel(x1,x2)
       //(twoPtrLhs, nel, P("nel")(x1,x2), EntailmentHolds)
+      // ex. y . x1 -> y * y -> x2 |= nel(x1,x2)
+      //(twoPtrLhs, nel, P("nel")(x2,x1), EntailmentFails)
+      //(twoFields, nel, P("nel")(x1,x2), EntailmentFails)
+      (oneOrTwoFields, nel, P("nel")(x1,x2), EntailmentFails)
     )
 
     forAll(sllTable) {

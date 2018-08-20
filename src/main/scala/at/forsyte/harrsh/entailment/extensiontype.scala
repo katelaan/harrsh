@@ -45,6 +45,7 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
 
   private lazy val substs = labels map (_.subst)
 }
+
 object TreeInterface {
 
   def apply(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]): TreeInterface = {

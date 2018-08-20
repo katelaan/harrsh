@@ -42,29 +42,34 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     logger.debug(s"Computing target for $lab from $src")
     val localETs = EntailmentAutomaton.shToExtensionTypes(lab, sid)
-    logger.debug(s"Extension types for $lab:\n${localETs.mkString("\n")}")
-    val instantiatedETs = (src, lab.predCalls).zipped.map(instantiateETsForCall)
-    for {
-      (src, renamed, call) <- (src, instantiatedETs, lab.predCalls).zipped
-    } {
-      logger.debug(s"Process pred call $call: Instantiated source state $src to $renamed")
+    if (localETs.isEmpty) {
+      logger.debug(s"No extension types for local allocation $lab => Return inconsistent state")
+      Set(EntailmentAutomaton.State(Set.empty, lab.freeVars))
+    } else {
+      logger.debug(s"Extension types for $lab:\n${localETs.mkString("\n")}")
+      val instantiatedETs = (src, lab.predCalls).zipped.map(instantiateETsForCall)
+      for {
+        (src, renamed, call) <- (src, instantiatedETs, lab.predCalls).zipped
+      } {
+        logger.debug(s"Process pred call $call: Instantiated source state $src to $renamed")
+      }
+      val allETs: Seq[Set[ExtensionType]] = localETs +: instantiatedETs
+      // Compose the extension types
+      val reachable = for {
+        ets <- Combinators.choices(allETs map (_.toSeq))
+      } yield ets.reduceLeft(_ compose _)
+      logger.debug(s"Reachable extension types (including bound vars):\n${reachable.mkString("\n")}")
+
+      // Drop the bound vars from the extension types, since they are no longer needed after the composition
+      val restrictedToFreeVars = reachable map (_.dropVars(lab.boundVars.toSeq))
+      logger.debug(s"Target state:\n${restrictedToFreeVars.mkString("\n")}")
+
+      // Filter out extension types that don't have free vars in all root positions
+      // FIXME: Also filter out types that lack names for back pointers
+      val consistent = restrictedToFreeVars filter (_.hasNamesForRootParams)
+
+      Set(EntailmentAutomaton.State(consistent.toSet, lab.freeVars))
     }
-    val allETs: Seq[Set[ExtensionType]] = localETs +: instantiatedETs
-    // Compose the extension types
-    val reachable = for {
-      ets <- Combinators.choices(allETs map (_.toSeq))
-    } yield ets.reduceLeft(_ compose _)
-    logger.debug(s"Reachable extension types (including bound vars):\n${reachable.mkString("\n")}")
-
-    // Drop the bound vars from the extension types, since they are no longer needed after the composition
-    val restrictedToFreeVars = reachable map (_.dropVars(lab.boundVars.toSeq))
-    logger.debug(s"Target state:\n${restrictedToFreeVars.mkString("\n")}")
-
-    // Filter out extension types that don't have free vars in all root positions
-    // FIXME: Also filter out types that lack names for back pointers
-    val consistent = restrictedToFreeVars filter (_.hasNamesForRootParams)
-
-    Set(EntailmentAutomaton.State(consistent.toSet, lab.freeVars))
   }
 
   private def instantiateETsForCall(state: State, call: PredCall): Set[ExtensionType] = {
@@ -85,7 +90,7 @@ object EntailmentAutomaton extends HarrshLogging {
   case class State(ets: Set[ExtensionType], orderedParams: Seq[FreeVar]) {
 
     private val freeVarsInEts = ets.flatMap(_.nonPlaceholderFreeVars)
-    if (freeVarsInEts != orderedParams.toSet) {
+    if (ets.nonEmpty && freeVarsInEts != orderedParams.toSet) {
       throw new IllegalArgumentException(s"ETs contain FVs $freeVarsInEts, but constructing state for $orderedParams")
     }
 
@@ -126,13 +131,18 @@ object EntailmentAutomaton extends HarrshLogging {
   }
 
   private def compatiblePointers(leftPtr: PointsTo, leftEqs: Closure, rightPtr: PointsTo): Boolean = {
-    // Pointers are compatible if all arguments coincide (modulo the equalities defined in the left heap)
-    //        val matchResults = for {
-    //          (xl, xr) <- (leftPtr.args, rightPtr.args).zipped
-    //        } yield leftEqs.getEquivalenceClass(xl).contains(xr)
-    //        matchResults.forall(b => b)
-    // TODO: Only the LHS has to coincide. I.e., the following test should be sufficient?
-    leftEqs.getEquivalenceClass(leftPtr.from).contains(rightPtr.from)
+    if (leftPtr.to.size != rightPtr.to.size) {
+      // Pointers of different arity => Can't be matched
+      false
+    } else {
+      // Pointers of same arity are compatible if all arguments coincide (modulo the equalities defined in the left heap)
+      //        val matchResults = for {
+      //          (xl, xr) <- (leftPtr.args, rightPtr.args).zipped
+      //        } yield leftEqs.getEquivalenceClass(xl).contains(xr)
+      //        matchResults.forall(b => b)
+      // TODO: Only the LHS has to coincide. I.e., the following test should be sufficient?
+      leftEqs.getEquivalenceClass(leftPtr.from).contains(rightPtr.from)
+    }
   }
 
   private def matchHeaps(leftHeap: SymbolicHeap, rightRuleInstance: SymbolicHeap): Set[Map[Var, Var]] = {
