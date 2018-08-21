@@ -4,7 +4,7 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.PredCall
 
-case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]) {
+case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]/*, usageInfo: VarUsageInfo*/) {
 
   lazy val labels = Seq[NodeLabel](root) ++ leaves
 
@@ -40,7 +40,7 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
   }
 
   def updateSubst(f: SubstitutionUpdate): TreeInterface = {
-    TreeInterface(root.update(f), leaves map (_.update(f)))
+    TreeInterface(root.update(f), leaves map (_.update(f))/*, usageInfo*/)
   }
 
   private lazy val substs = labels map (_.subst)
@@ -48,9 +48,9 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
 
 object TreeInterface {
 
-  def apply(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]): TreeInterface = {
+  def apply(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageInfo): TreeInterface = {
     val updateF = NodeLabel.labelsToPlaceholderNormalForm(Seq(root) ++ leaves)
-    new TreeInterface(root.update(updateF), leaves map (_.update(updateF)))
+    new TreeInterface(root.update(updateF), leaves map (_.update(updateF))/*, usageInfo*/)
   }
 
 }

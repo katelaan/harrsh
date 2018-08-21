@@ -30,6 +30,17 @@ package object entailment {
 
   }
 
-  type VarUsage = Seq[Boolean]
+  sealed trait VarUsage
+  object VarUsage {
+    case object Unused extends VarUsage
+    case object Allocated extends VarUsage
+    case object Referenced extends VarUsage
+
+    val unused: VarUsage = Unused
+    val allocated: VarUsage = Allocated
+    val referenced: VarUsage = Referenced
+  }
+
+  type VarUsageInfo = Seq[VarUsage]
 
 }

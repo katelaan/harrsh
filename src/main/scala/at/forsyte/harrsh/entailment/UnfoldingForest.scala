@@ -41,8 +41,8 @@ object UnfoldingForest {
   private def tryMerge(tree: UnfoldingTree, other: Seq[UnfoldingTree]): Option[(UnfoldingTree, Seq[UnfoldingTree])] = {
     (for {
       candidate <- other.toStream
-      composed <- tree.compose(candidate)
-    } yield (composed._1, other.filter(_ != candidate))).headOption
+      composed <- CanCompose.compose(tree, candidate)
+    } yield (composed, other.filter(_ != candidate))).headOption
   }
 
 }

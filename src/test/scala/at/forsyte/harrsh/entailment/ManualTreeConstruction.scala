@@ -70,12 +70,13 @@ object ManualTreeConstruction {
     println(uf.toLatex)
 
     println("\n\nAfter composition:\n\n")
-    val composed = t1.compose(t21).map(_._1).get
+    val compose = CanCompose.compose[UnfoldingTree] _
+    val composed = compose(t1, t21).get
     //println(composed)
     println(composed.toLatex)
 
     println("\n\nAfter second composition:\n\n")
-    val finished = composed.compose(t22).map(_._1).get
+    val finished = compose(composed, t22).get
     //println(finished)
     println(finished.toLatex)
 

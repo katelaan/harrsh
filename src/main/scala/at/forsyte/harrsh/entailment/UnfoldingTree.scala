@@ -3,12 +3,11 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.util.ToLatex
 
 case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) extends HarrshLogging {
 
-  // FIXME: Validate that the tree is "sufficiently" labeled: It has free variables for all root parameters of the interface nodes + possibly for some other nodes as well (e.g., parameter corresponding to a backpointer in a dll)
-
-  import at.forsyte.harrsh.entailment.UnfoldingTree._
+    import at.forsyte.harrsh.entailment.UnfoldingTree._
 
   lazy val nodes: Set[NodeId] = nodeLabels.keySet
 
@@ -21,7 +20,6 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
   assert(children.values forall (_ forall nodes.contains))
   assert(abstractLeaves forall (children(_).isEmpty))
 
-  // TODO: The following does not hold for "degenerated" trees as derived from extension types. (Because those don't contain concrete children, so nodes for recursive rules need not have children). Do we want to perform this check in "non-degenerated" cases
 //  assert(nodes forall (n => children(n).nonEmpty
 //    || isAbstractLeaf(n)
 //    || (!isAbstractLeaf(n) && nodeLabels(n).asInstanceOf[RuleNodeLabel].rule.isBaseRule)),
@@ -88,7 +86,7 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
       root = ids.head,
       children = ruleTreeChildTuples.toMap
     )
-    val shiftedRuleTree = ruleTree.avoidClashesWith(this)
+    val shiftedRuleTree = CanCompose[UnfoldingTree].avoidClashes(ruleTree, this)._1
 
     // Shifting may have renamed placeholder vars at the root (if there are any), which we revert through unification
     val rootSubst = shiftedRuleTree.nodeLabels(shiftedRuleTree.root).subst
@@ -112,32 +110,6 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
     }
 
     projectNode(root)
-  }
-
-  private def avoidClashesWith(other: UnfoldingTree): UnfoldingTree = {
-    val shifted = avoidIdClashWith(other)
-    val res = shifted.avoidPlaceHolderClashWith(other)
-    assert(haveNoConflicts(other, res),
-      s"After shifting/renaming, still conflicts between $other and $res (with placeholders ${other.placeholders} and ${res.placeholders} and nodes ${other.nodes} and ${res.nodes})")
-    res
-  }
-
-  private def avoidPlaceHolderClashWith(other: UnfoldingTree): UnfoldingTree = {
-    val clashAvoidanceUpdate = PlaceholderVar.placeholderClashAvoidanceUpdate(other)
-    updateSubst(clashAvoidanceUpdate)
-  }
-
-  private def avoidIdClashWith(other: UnfoldingTree): UnfoldingTree = {
-    val nodes = other.nodes
-    val fresh = NodeId.freshIds(usedIds = nodes, numIds = this.nodes.size)
-    val renaming: Map[NodeId, NodeId] = (this.nodes.toSeq.sorted, fresh).zipped.toMap
-    val renamedLabels = nodeLabels map {
-      case (k, l) => (renaming(k), l)
-    }
-    val renamedChildren = children map {
-      case (p, cs) => (renaming(p), cs map renaming)
-    }
-    UnfoldingTree(renamedLabels, renaming(root), renamedChildren)
   }
 
   private def cleanUpPlaceholders: UnfoldingTree = {
@@ -223,25 +195,6 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
     combinedTree.cleanUpPlaceholders
   }
 
-  def compose(other: UnfoldingTree): Option[(UnfoldingTree, Unification)] = {
-    logger.debug(s"Will try to compose $this with $other.")
-    val shifted = other.avoidClashesWith(this)
-    logger.debug(s"Other after shifting to avoid clashes with $nodes and $placeholders: $shifted")
-
-    (for {
-      CompositionInterface(t1, t2, n2) <- compositionCandidates(this, shifted)
-      unification <- tryUnify(t1.nodeLabels(t1.root), t2.nodeLabels(n2))
-      // Compose using the unification. (This can fail in case the unification leads to double allocation)
-      instantiation = t2.instantiate(n2, t1, unification)
-      if !instantiation.hasDoubleAllocation
-    } yield (instantiation, unification)).headOption
-  }
-
-  def hasDoubleAllocation: Boolean = {
-    // FIXME: Implement double allocation check (and possibly other validation as well -- sufficiently many names in interface nodes!)
-    false
-  }
-
   def placeholders: Set[PlaceholderVar] = nodeLabels.values.flatMap(_.placeholders).toSet
 
   def updateSubst(f: SubstitutionUpdate): UnfoldingTree = {
@@ -255,7 +208,8 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
 
 object UnfoldingTree extends HarrshLogging {
 
-  implicit val treeToLatex = ForestsToLatex.treeToLatex
+  implicit val treeToLatex: ToLatex[UnfoldingTree] = ForestsToLatex.treeToLatex
+  implicit val canComposeUT: CanCompose[UnfoldingTree] = UnfoldingTreeComposition.canComposeUT
 
   private def getSubstOrDefault(subst: Option[Substitution], pred: Predicate): Substitution = {
     subst.getOrElse(Substitution.identity(pred.params))
@@ -304,32 +258,6 @@ object UnfoldingTree extends HarrshLogging {
       }
     }
     traverseByLayer(Seq(tree.root))
-  }
-
-  case class CompositionInterface(treeToEmbed: UnfoldingTree, embeddingTarget: UnfoldingTree, leafToReplaceInEmbedding: NodeId)
-
-  private def compositionCandidates(tree1: UnfoldingTree, tree2: UnfoldingTree): Stream[CompositionInterface] = {
-    for {
-      (treeWithRoot, treeWithAbstractLeaf) <- Stream((tree1,tree2), (tree2,tree1))
-      root = treeWithRoot.root
-      abstractLeaf <- treeWithAbstractLeaf.abstractLeaves
-      // Only consider for composition if the labeling predicates are the same
-      if treeWithRoot.nodeLabels(root).pred == treeWithAbstractLeaf.nodeLabels(abstractLeaf).pred
-    } yield CompositionInterface(treeWithRoot, treeWithAbstractLeaf, abstractLeaf)
-  }
-
-  private def tryUnify(n1: NodeLabel, n2: NodeLabel): Option[Unification] = {
-    logger.debug(s"Will try to unify $n1 with $n2")
-    // FIXME: Proper unification
-    assert(n1.freeVarSeq == n2.freeVarSeq)
-    val fvars = n1.freeVarSeq
-    if ((n1.rootVarSubst intersect n2.rootVarSubst).nonEmpty) {
-      logger.debug(s"Can unify: Overlap between labels of root vars, ${n1.rootVarSubst} and ${n2.rootVarSubst}")
-      Some((n1.subst.toSeq, n2.subst.toSeq).zipped.map(_ union _))
-    } else {
-      logger.debug("No unification possible")
-      None
-    }
   }
 
 }
