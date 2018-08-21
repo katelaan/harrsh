@@ -9,7 +9,6 @@ import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, Refineme
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog.inductive.{RuleBody, SID, SIDUnfolding, SymbolicHeap}
 import at.forsyte.harrsh.util.ToLatex._
-import at.forsyte.harrsh.seplog.inductive.SymbolicHeap.ops._
 import at.forsyte.harrsh.util.{Combinators, IOUtils, ToLatex}
 
 import scala.concurrent.duration

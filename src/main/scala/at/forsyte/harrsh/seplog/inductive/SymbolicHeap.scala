@@ -232,21 +232,17 @@ object SymbolicHeap extends HarrshLogging {
     spatialString.replaceAll("\u21a6", "->") ++ pureString.replaceAll("\u2248", "=").replaceAll("\u2249", "!=")
   }
 
-  object ops {
-
-    implicit val symbolicHeapToLatex: ToLatex[SymbolicHeap] = (sh: SymbolicHeap, naming: Naming) => {
-      val indexedNaming = Var.Naming.indexify(naming)
-      val defaultString = sh.toStringWithVarNames(indexedNaming)
-      StringUtils.literalReplacements(Seq(
-        "\u2203" -> "\\exists ",
-        "." -> "~.~",
-        "\u21a6" -> "\\rightarrow",
-        "\u2248" -> "=",
-        "\u2249" -> "\\neq ",
-        NullConst.toString -> "\\nil"
-      ), defaultString)
-    }
-
+  implicit val symbolicHeapToLatex: ToLatex[SymbolicHeap] = (sh: SymbolicHeap, naming: Naming) => {
+    val indexedNaming = Var.Naming.indexify(naming)
+    val defaultString = sh.toStringWithVarNames(indexedNaming)
+    StringUtils.literalReplacements(Seq(
+      "\u2203" -> "\\exists ",
+      "." -> "~.~",
+      "\u21a6" -> "\\rightarrow",
+      "\u2248" -> "=",
+      "\u2249" -> "\\neq ",
+      NullConst.toString -> "\\nil"
+    ), defaultString)
   }
 
 }

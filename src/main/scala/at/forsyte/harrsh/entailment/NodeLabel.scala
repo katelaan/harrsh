@@ -3,7 +3,6 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RuleBody}
 import at.forsyte.harrsh.util.ToLatex._
-import at.forsyte.harrsh.seplog.inductive.SymbolicHeap.ops._
 
 import scala.collection.mutable
 
@@ -11,7 +10,6 @@ sealed trait NodeLabel {
 
   val pred: Predicate
   val subst: Substitution
-  //val usage: VarUsage
 
   assert(subst.size == pred.arity)
 
@@ -37,13 +35,13 @@ sealed trait NodeLabel {
   }
 }
 
-case class RuleNodeLabel(override val pred: Predicate, rule: RuleBody, override val subst: Substitution/*, override val usage: VarUsage*/) extends NodeLabel {
+case class RuleNodeLabel(override val pred: Predicate, rule: RuleBody, override val subst: Substitution) extends NodeLabel {
   override def toString: String = s"${pred.head}.rule($rule, $subst)"
 
   override def update(f: SubstitutionUpdate): RuleNodeLabel = copy(subst = subst.update(f))
 }
 
-case class AbstractLeafNodeLabel(override val pred: Predicate, override val subst: Substitution/*, override val usage: VarUsage*/) extends NodeLabel {
+case class AbstractLeafNodeLabel(override val pred: Predicate, override val subst: Substitution) extends NodeLabel {
 
   override def toString: String = s"leaf(${pred.head}, $subst)"
 

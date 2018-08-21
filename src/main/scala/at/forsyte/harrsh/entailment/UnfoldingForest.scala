@@ -23,6 +23,8 @@ case class UnfoldingForest(trees: Set[UnfoldingTree]) {
 
 object UnfoldingForest {
 
+  implicit val forestToLatex = ForestsToLatex.forestToLatex
+
   def merge(trees: Seq[UnfoldingTree]): UnfoldingForest = sweepingMerge(Seq.empty, trees)
 
   @tailrec private def sweepingMerge(processed: Seq[UnfoldingTree], unprocessed: Seq[UnfoldingTree]): UnfoldingForest = {

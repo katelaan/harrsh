@@ -255,6 +255,8 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
 
 object UnfoldingTree extends HarrshLogging {
 
+  implicit val treeToLatex = ForestsToLatex.treeToLatex
+
   private def getSubstOrDefault(subst: Option[Substitution], pred: Predicate): Substitution = {
     subst.getOrElse(Substitution.identity(pred.params))
   }

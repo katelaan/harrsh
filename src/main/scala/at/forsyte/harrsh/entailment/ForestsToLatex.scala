@@ -6,12 +6,12 @@ import at.forsyte.harrsh.util.ToLatex._
 
 object ForestsToLatex {
 
-  implicit val treeToLatex : ToLatex[UnfoldingTree] = (ut:UnfoldingTree, _:Naming) => {
+  val treeToLatex : ToLatex[UnfoldingTree] = (ut:UnfoldingTree, _:Naming) => {
     val lines = treeToLatexLines(ut, ut.root, TikzConfig(width = 24))
     wrapInTikzPic(lines)
   }
 
-  implicit val forestToLatex : ToLatex[UnfoldingForest] = (uf: UnfoldingForest, _:Naming) => {
+  val forestToLatex : ToLatex[UnfoldingForest] = (uf: UnfoldingForest, _:Naming) => {
     val treeTex = uf map (_.toLatex)
     val treeNodes = treeTex.zipWithIndex map {
       case (tree, id) =>

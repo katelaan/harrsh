@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.ExampleSIDs
-import at.forsyte.harrsh.entailment.ForestsToLatex._
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RuleBody, SID}
 import at.forsyte.harrsh.util.ToLatex._

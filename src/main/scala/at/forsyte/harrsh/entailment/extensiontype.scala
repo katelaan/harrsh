@@ -23,7 +23,7 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
 
   def asExtensionType: ExtensionType = ExtensionType(Set(this))
 
-  def asDegeneratecTree: UnfoldingTree = {
+  def asDegeneratedTree: UnfoldingTree = {
     val ids = NodeId.freshIds(Set.empty, leaves.size + 1)
     val rootId = ids.head
     val nodeLabels = Map(rootId -> root) ++ (ids.tail, leaves).zipped
@@ -106,8 +106,8 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
   def updateSubst(f: SubstitutionUpdate): ExtensionType = ExtensionType(parts map (_.updateSubst(f)))
 
   def asDegeneratedForest: UnfoldingForest = {
-    //logger.debug(s"Will interpret $this as unfolding forest.")
-    UnfoldingForest(parts map (_.asDegeneratecTree))
+    logger.trace(s"Will interpret $this as unfolding forest.")
+    UnfoldingForest(parts map (_.asDegeneratedTree))
   }
 
   def compose(other: ExtensionType): ExtensionType = {
@@ -120,8 +120,6 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
     logger.trace(s"As extension type: $res")
     res
   }
-
-  //def composeWithChildren(childETs: Seq[ExtensionType]) = ???
 
 }
 
