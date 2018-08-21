@@ -4,6 +4,7 @@ import at.forsyte.harrsh.ExampleSIDs
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RuleBody, SID}
 import at.forsyte.harrsh.util.ToLatex._
+import at.forsyte.harrsh.entailment.CanCompose._
 
 import scala.language.implicitConversions
 
@@ -70,13 +71,12 @@ object ManualTreeConstruction {
     println(uf.toLatex)
 
     println("\n\nAfter composition:\n\n")
-    val compose = CanCompose.compose[UnfoldingTree] _
-    val composed = compose(t1, t21).get
+    val composed = (t1 compose t21).get
     //println(composed)
     println(composed.toLatex)
 
     println("\n\nAfter second composition:\n\n")
-    val finished = compose(composed, t22).get
+    val finished = (composed compose t22).get
     //println(finished)
     println(finished.toLatex)
 

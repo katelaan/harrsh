@@ -2,6 +2,8 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
 
+import scala.annotation.tailrec
+
 trait CanCompose[A] {
 
   def avoidClashes(fst: A, snd: A): (A, A)
@@ -56,6 +58,29 @@ object CanCompose extends HarrshLogging {
       // Only consider for composition if the labeling predicates are the same
       if root.pred == abstractLeaf.pred
     } yield CompositionInterface(treeWithRoot, treeWithAbstractLeaf, abstractLeaf)
+  }
+
+  /**
+    * Execute as many composition steps as possible on `as`, returning a result where no further composition steps are possible.
+    */
+  def composeAll[A: CanCompose](as: Seq[A]): Seq[A] = sweepingMerge(Seq.empty, as)
+
+  @tailrec private def sweepingMerge[A: CanCompose](processed: Seq[A], unprocessed: Seq[A]): Seq[A] = {
+    if (unprocessed.isEmpty) {
+      processed
+    } else {
+      tryMerge(unprocessed.head, unprocessed.tail) match {
+        case Some((merged, other)) => sweepingMerge(processed, merged +: other)
+        case None => sweepingMerge(processed :+ unprocessed.head, unprocessed.tail)
+      }
+    }
+  }
+
+  private def tryMerge[A: CanCompose](fst: A, other: Seq[A]): Option[(A, Seq[A])] = {
+    (for {
+      candidate <- other.toStream
+      composed <- CanCompose.compose(fst, candidate)
+    } yield (composed, other.filter(_ != candidate))).headOption
   }
 
 }

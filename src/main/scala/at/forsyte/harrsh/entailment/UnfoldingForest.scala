@@ -1,11 +1,9 @@
 package at.forsyte.harrsh.entailment
 
-import scala.annotation.tailrec
-
 case class UnfoldingForest(trees: Set[UnfoldingTree]) {
 
   def compose(other: UnfoldingForest): UnfoldingForest = {
-    UnfoldingForest.merge(trees.toSeq ++ other.trees)
+    UnfoldingForest(CanCompose.composeAll(trees.toSeq ++ other.trees).toSet)
   }
 
   def ordered: Seq[UnfoldingTree] = trees.toSeq.sortBy(tree => {
@@ -24,25 +22,5 @@ case class UnfoldingForest(trees: Set[UnfoldingTree]) {
 object UnfoldingForest {
 
   implicit val forestToLatex = ForestsToLatex.forestToLatex
-
-  def merge(trees: Seq[UnfoldingTree]): UnfoldingForest = sweepingMerge(Seq.empty, trees)
-
-  @tailrec private def sweepingMerge(processed: Seq[UnfoldingTree], unprocessed: Seq[UnfoldingTree]): UnfoldingForest = {
-    if (unprocessed.isEmpty) {
-      UnfoldingForest(processed.toSet)
-    } else {
-      tryMerge(unprocessed.head, unprocessed.tail) match {
-        case Some((merged, other)) => sweepingMerge(processed, merged +: other)
-        case None => sweepingMerge(processed :+ unprocessed.head, unprocessed.tail)
-      }
-    }
-  }
-
-  private def tryMerge(tree: UnfoldingTree, other: Seq[UnfoldingTree]): Option[(UnfoldingTree, Seq[UnfoldingTree])] = {
-    (for {
-      candidate <- other.toStream
-      composed <- CanCompose.compose(tree, candidate)
-    } yield (composed, other.filter(_ != candidate))).headOption
-  }
 
 }
