@@ -157,7 +157,7 @@ object EntailmentAutomatonTest extends TestValues {
 
   def main(args: Array[String]): Unit = {
 
-    // Entailment check: x1 -> x2 |= nel(x1, x2)
+    // Limitation of current implementation: Can't deal with redundant extra vars on LHS
     val tree = ExampleSIDs.Tree
     val singleTreePtrWithNullInfo = SID.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3), x2 =:= nil, x3 =:= nil))
     val (lhsSid, rhsSid, rhsCall, shouldHold) = (singleTreePtrWithNullInfo, tree, P("tree")(x1), EntailmentHolds)

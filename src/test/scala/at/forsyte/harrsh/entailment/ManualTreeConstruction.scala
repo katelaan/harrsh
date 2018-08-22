@@ -21,7 +21,7 @@ object ManualTreeConstruction {
     val children = nodes map {
       case (s, desc) => (strToNodeId(s), desc.succs map strToNodeId)
     }
-    UnfoldingTree(nodeLabels, rootId, children)
+    UnfoldingTree(nodeLabels, rootId, children, convertToNormalform = false)
   }
 
   def makeNodeLabel(nd: NodeDesc) : NodeLabel = nd.rule match {

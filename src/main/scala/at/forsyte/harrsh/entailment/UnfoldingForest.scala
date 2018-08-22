@@ -2,6 +2,9 @@ package at.forsyte.harrsh.entailment
 
 case class UnfoldingForest(trees: Set[UnfoldingTree]) {
 
+  assert(trees forall UnfoldingTree.isInNormalForm,
+  s"Trying to construct unfolding forest from non-normalized trees ${trees.mkString(", ")}")
+
   def compose(other: UnfoldingForest): UnfoldingForest = {
     UnfoldingForest(CanCompose.composeAll(trees.toSeq ++ other.trees).toSet)
   }

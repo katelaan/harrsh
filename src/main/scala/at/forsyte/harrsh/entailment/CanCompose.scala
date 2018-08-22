@@ -7,7 +7,7 @@ import scala.annotation.tailrec
 
 trait CanCompose[A] {
 
-  def avoidClashes(fst: A, snd: A): (A, A)
+  def makeDisjoint(fst: A, snd: A): (A, A)
 
   def root(a : A): NodeLabel
 
@@ -30,7 +30,7 @@ object CanCompose extends HarrshLogging {
     val cc = CanCompose[A]
     logger.debug(s"Will try to compose $fst with $snd.")
 
-    val shifted@(shiftedFst, shiftedSnd) = cc.avoidClashes(fst, snd)
+    val shifted@(shiftedFst, shiftedSnd) = cc.makeDisjoint(fst, snd)
     logger.debug(s"After shifting: $shifted")
 
     (for {

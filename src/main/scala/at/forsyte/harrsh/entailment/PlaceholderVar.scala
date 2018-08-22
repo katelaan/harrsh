@@ -33,10 +33,22 @@ object PlaceholderVar {
     case e: UnsupportedOperationException => PlaceholderVar(0)
   }
 
+  def maxIndex(pvs: Iterable[PlaceholderVar]): Int = max(pvs).index
+
   def min(pvs: Iterable[PlaceholderVar]): PlaceholderVar = try {
     pvs.minBy(_.index)
   } catch {
     case e: UnsupportedOperationException => PlaceholderVar(0)
+  }
+
+  def containsNoRedundantPlaceholder(vs: Set[Var]): Boolean = {
+    // There's at most one placeholder in the set and if there's one in the set it's the only element
+    val numPhs = vs.count(PlaceholderVar.isPlaceholder)
+    numPhs <= 1 && (numPhs == 0 || vs.size == 1)
+  }
+
+  def noGapsInPlaceholders(phs: Iterable[PlaceholderVar]): Boolean = {
+    phs.isEmpty || phs.map(_.index).max == phs.size
   }
   
   def placeholderClashAvoidanceUpdate(ut: UnfoldingTree) : SubstitutionUpdate = {

@@ -208,7 +208,8 @@ object EntailmentAutomaton extends HarrshLogging {
     val nodeIds = NodeId.freshIds(Set.empty, childLabels.size + 1)
     val nodeLabelsMap = (nodeIds, rootNodeLabel +: childLabels).zipped.toMap
     val childMap = Map(nodeIds.head -> nodeIds.tail) ++ nodeIds.tail.zip(Stream.continually(Seq.empty))
-    val ut = UnfoldingTree(nodeLabelsMap, nodeIds.head, childMap)
+    val ut = UnfoldingTree(nodeLabelsMap, nodeIds.head, childMap, convertToNormalform = false)
+    assert(UnfoldingTree.isInNormalForm(ut), "UT for local alloc $ut is not in normal form")
 
     logger.debug(s"Unfolding tree before conversion to ET: $ut")
     ut.interface.asExtensionType

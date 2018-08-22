@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.ToLatex
 
-case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) extends HarrshLogging {
+case class UnfoldingTree private(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]], forceRecompilation: Unit) extends HarrshLogging {
 
   import at.forsyte.harrsh.entailment.UnfoldingTree._
 
@@ -46,7 +46,6 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
   def isConcrete: Boolean = abstractLeaves.isEmpty
 
   def interface: TreeInterface = {
-    // Implicit resolution doesn't seem to work properly here, so we cast explicitly
     val interfaceNodes: Seq[NodeLabel] = Seq(nodeLabels(root)) ++ (abstractLeaves map (nodeLabels(_)))
     val allUsage: Seq[(Set[Var], VarUsage)] = for {
       node <- interfaceNodes
@@ -56,8 +55,8 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
     val usageInfoMap: Map[Set[Var], VarUsage] = allUsageByLabel.map{
       case (lbl, usage) => (lbl, usage.map(_._2).max)
     }
-    logger.warn(s"Usage map for $this: $usageInfoMap")
-    TreeInterface(nodeLabels(root), abstractLeaves map (nodeLabels(_).asInstanceOf[AbstractLeafNodeLabel]), usageInfoMap)
+    logger.debug(s"Usage map for $this: $usageInfoMap")
+    TreeInterface(nodeLabels(root), abstractLeaves map (nodeLabels(_).asInstanceOf[AbstractLeafNodeLabel]), usageInfoMap, convertToNormalform = true)
   }
 
   def unfold(leaf: NodeId, sid: SID, rule: RuleBody): UnfoldingTree = {
@@ -95,9 +94,10 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
     val ruleTree = UnfoldingTree(
       nodeLabels = ruleTreeNodeLabels,
       root = ids.head,
-      children = ruleTreeChildTuples.toMap
+      children = ruleTreeChildTuples.toMap,
+      convertToNormalform = false
     )
-    val shiftedRuleTree = CanCompose[UnfoldingTree].avoidClashes(ruleTree, this)._1
+    val shiftedRuleTree = CanCompose[UnfoldingTree].makeDisjoint(ruleTree, this)._1
 
     // Shifting may have renamed placeholder vars at the root (if there are any), which we revert through unification
     val rootSubst = shiftedRuleTree.nodeLabels(shiftedRuleTree.root).subst
@@ -123,35 +123,12 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
     projectNode(root)
   }
 
-  private def cleanUpPlaceholders: UnfoldingTree = {
-    val withoutRedundant = dropRedundantPlaceholders
-    withoutRedundant.closeGapsInPlaceholders
-  }
-
-  private def closeGapsInPlaceholders: UnfoldingTree = {
-    val currentPlaceholders = placeholders.toSeq.sortBy(_.index)
-    val newPlaceholders = (1 to currentPlaceholders.length) map (PlaceholderVar(_))
-    val replacement = (currentPlaceholders, newPlaceholders).zipped.toMap
-    val updateF: SubstitutionUpdate = {
-      v => PlaceholderVar.fromVar(v) match {
-        case Some(pv) => Set(replacement(pv).toFreeVar)
-        case None => Set(v)
-      }
-    }
-    updateSubst(updateF)
-  }
-
-  private def dropRedundantPlaceholders: UnfoldingTree = {
-    val dropper = SubstitutionUpdate.redundantPlaceholderDropper(nodeLabels.values)
-    updateSubst(dropper)
-  }
-
   def instantiate(abstractLeaf: NodeId, replacingTree: UnfoldingTree, unification: Unification): UnfoldingTree = {
     assert(haveNoConflicts(this, replacingTree))
     logger.debug(s"Replacing $abstractLeaf in $this with $replacingTree")
     val propagateUnification = SubstitutionUpdate.fromUnification(unification)
-    val thisExtended = this.updateSubst(propagateUnification)
-    val otherExtended = replacingTree.updateSubst(propagateUnification)
+    val thisExtended = this.updateSubst(propagateUnification, convertToNormalform = false)
+    val otherExtended = replacingTree.updateSubst(propagateUnification, convertToNormalform = false)
     // TODO: This instantiation 'leaks' the ID of abstractLeaf: It will not be used in the tree that we get after instantiation. I'm afraid this may complicate debugging.
     val combinedNodeLabels = (thisExtended.nodeLabels ++ otherExtended.nodeLabels) - abstractLeaf
 
@@ -179,23 +156,20 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
       otherExtended.root
     }
 
-    val combinedTree = UnfoldingTree(combinedNodeLabels, newRoot, combinedChildren)
-    combinedTree.cleanUpPlaceholders
+    UnfoldingTree(combinedNodeLabels, newRoot, combinedChildren, convertToNormalform = true)
   }
 
   def placeholders: Set[PlaceholderVar] = nodeLabels.values.flatMap(_.placeholders).toSet
 
-  def updateSubst(f: SubstitutionUpdate): UnfoldingTree = {
+  def updateSubst(f: SubstitutionUpdate, convertToNormalform: Boolean): UnfoldingTree = {
     val updatedLabels = nodeLabels.map {
       case (id,label) => (id, label.update(f))
     }
-    copy(nodeLabels = updatedLabels)
+    UnfoldingTree(updatedLabels, root, children, convertToNormalform = convertToNormalform)
   }
 
   def findUsage(n: NodeLabel, v: FreeVar): VarUsage = {
     // TODO: Usage tracking/discovery is extremely inefficient but occurs very frequently! (E.g. looking up the node id for the node in O(n))
-    // Computing usage by reverse-lookup only makes sense if n is unique in the tree
-    assert(nodeLabels.values.count(_ == n) == 1)
 
     // A variable is used if either...
     // 1.) There is a free variable somewhere in the UT that is used and that's equivalent
@@ -236,6 +210,11 @@ object UnfoldingTree extends HarrshLogging {
   implicit val treeToLatex: ToLatex[UnfoldingTree] = ForestsToLatex.treeToLatex
   implicit val canComposeUT: CanCompose[UnfoldingTree] = CanComposeUnfoldingTree.canComposeUT
 
+  def apply(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]], convertToNormalform: Boolean): UnfoldingTree = {
+    val processedNodeLabels = if (convertToNormalform) normalFormConversion(nodeLabels, root, children) else nodeLabels
+    new UnfoldingTree(processedNodeLabels, root, children, ())
+  }
+
   private def getSubstOrDefault(subst: Option[Substitution], pred: Predicate): Substitution = {
     subst.getOrElse(Substitution.identity(pred.params))
   }
@@ -243,44 +222,78 @@ object UnfoldingTree extends HarrshLogging {
   def singleton(sid: SID, pred: Predicate, subst: Option[Substitution] = None): UnfoldingTree = {
     val label = AbstractLeafNodeLabel(pred, getSubstOrDefault(subst, pred))
     val id = NodeId.zero
-    UnfoldingTree(Map(id -> label), id, Map(id -> Seq.empty))
+    UnfoldingTree(Map(id -> label), id, Map(id -> Seq.empty), convertToNormalform = false)
+  }
+
+  def fromPredicate(sid: SID, pred: String, labeling: Substitution): UnfoldingTree = {
+    val node = AbstractLeafNodeLabel(sid(pred), labeling)
+    UnfoldingTree(Map(NodeId.zero -> node), NodeId.zero, Map.empty[NodeId, Seq[NodeId]], convertToNormalform = false)
   }
 
   def haveNoConflicts(ut1: UnfoldingTree, ut2: UnfoldingTree) : Boolean = {
     (ut1.nodes intersect ut2.nodes).isEmpty && (ut1.placeholders intersect ut2.placeholders).isEmpty
   }
 
-  def fromPredicate(sid: SID, pred: String, labeling: Substitution): UnfoldingTree = {
-    val node = AbstractLeafNodeLabel(sid(pred), labeling)
-    UnfoldingTree(Map(NodeId.zero -> node), NodeId.zero, Map.empty)
-  }
-
-  def placeholderNormalForm(ut: UnfoldingTree, nodeLabelOrder: Seq[NodeLabel]): UnfoldingTree = {
-    val updateF = NodeLabel.labelsToPlaceholderNormalForm(nodeLabelOrder)
-    ut.updateSubst(updateF)
+  def isInNormalForm(ut: UnfoldingTree): Boolean = {
+    // TODO: Check that placeholders are introduced in BFS-order
+    NodeLabel.noRedundantPlaceholders(ut.nodeLabels.values) && PlaceholderVar.noGapsInPlaceholders(ut.placeholders)
   }
 
   /**
-    * Ensure that placeholder vars are named ?1, ?2... without gap and increasing with the distance to the root.
-    * This leads to a normal form for the node labels. (Not for the trees themselves, because the node IDs themselves may have gaps.)
-    * @param ut
-    * @return
+    * Update node labels to ensure that there are no redundant placeholders etc.
     */
-  def placeholderNormalForm(ut: UnfoldingTree): UnfoldingTree = {
-    placeholderNormalForm(ut, breadthFirstTraversal(ut))
-  }
+  object normalFormConversion {
 
-  def breadthFirstTraversal(tree: UnfoldingTree): Stream[NodeLabel] = {
-    def traverseByLayer(nodes: Seq[NodeId]): Stream[NodeLabel] = {
-      if (nodes.isEmpty) {
-        Stream.empty
-      }
-      else {
-        val childLayer = nodes.flatMap(n => tree.children(n))
-        nodes.toStream.map(tree.nodeLabels(_)) ++ traverseByLayer(childLayer)
+    def apply(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) : Map[NodeId,NodeLabel] = {
+      val withoutRedundant = dropRedundantPlaceholders(nodeLabels)
+      val order = breadthFirstTraversal(withoutRedundant, root, children)
+      placeholderNormalForm(withoutRedundant, order)
+    }
+
+//    private def closeGapsInPlaceholders: UnfoldingTree = {
+//      val currentPlaceholders = placeholders.toSeq.sortBy(_.index)
+//      val newPlaceholders = (1 to currentPlaceholders.length) map (PlaceholderVar(_))
+//      val replacement = (currentPlaceholders, newPlaceholders).zipped.toMap
+//      val updateF: SubstitutionUpdate = {
+//        v => PlaceholderVar.fromVar(v) match {
+//          case Some(pv) => Set(replacement(pv).toFreeVar)
+//          case None => Set(v)
+//        }
+//      }
+//      updateSubst(updateF)
+//    }
+
+    private def dropRedundantPlaceholders(nodeLabels: Map[NodeId,NodeLabel]): Map[NodeId,NodeLabel] = {
+      val dropper = SubstitutionUpdate.redundantPlaceholderDropper(nodeLabels.values)
+      nodeLabels.map{
+        case (id, lbl) => (id, lbl.update(dropper))
       }
     }
-    traverseByLayer(Seq(tree.root))
+
+    /**
+      * Ensure that placeholder vars are named ?1, ?2... without gap and increasing with the distance to the root.
+      * This leads to a normal form for the node labels. (Not necessarily a normal form for the trees themselves, because the node IDs themselves may have gaps.)
+      */
+    def placeholderNormalForm(nodeLabels: Map[NodeId,NodeLabel], nodeLabelOrder: Seq[NodeLabel]): Map[NodeId,NodeLabel] = {
+      val updateF = NodeLabel.labelsToPlaceholderNormalForm(nodeLabelOrder)
+      nodeLabels.map{
+        case (id, lbl) => (id, lbl.update(updateF))
+      }
+    }
+
+    def breadthFirstTraversal(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]): Stream[NodeLabel] = {
+      def traverseByLayer(nodes: Seq[NodeId]): Stream[NodeLabel] = {
+        if (nodes.isEmpty) {
+          Stream.empty
+        }
+        else {
+          val childLayer = nodes.flatMap(n => children(n))
+          nodes.toStream.map(nodeLabels(_)) ++ traverseByLayer(childLayer)
+        }
+      }
+      traverseByLayer(Seq(root))
+    }
+
   }
 
 }

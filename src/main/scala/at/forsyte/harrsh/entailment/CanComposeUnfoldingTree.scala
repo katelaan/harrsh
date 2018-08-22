@@ -5,7 +5,7 @@ import at.forsyte.harrsh.main.HarrshLogging
 object CanComposeUnfoldingTree {
 
   val canComposeUT: CanCompose[UnfoldingTree] = new CanCompose[UnfoldingTree] with HarrshLogging {
-    override def avoidClashes(fst: UnfoldingTree, snd: UnfoldingTree): (UnfoldingTree, UnfoldingTree) = {
+    override def makeDisjoint(fst: UnfoldingTree, snd: UnfoldingTree): (UnfoldingTree, UnfoldingTree) = {
       val shifted = avoidIdClashes(fst, snd)
       val res = avoidPlaceHolderClashes(shifted._1, shifted._2)
       assert(UnfoldingTree.haveNoConflicts(res._1, res._2),
@@ -35,7 +35,7 @@ object CanComposeUnfoldingTree {
 
   private def avoidPlaceHolderClashes(fst: UnfoldingTree, snd: UnfoldingTree): (UnfoldingTree, UnfoldingTree) = {
     val clashAvoidanceUpdate = PlaceholderVar.placeholderClashAvoidanceUpdate(snd)
-    (fst.updateSubst(clashAvoidanceUpdate), snd)
+    (fst.updateSubst(clashAvoidanceUpdate, convertToNormalform = false), snd)
   }
 
   private def avoidIdClashes(fst: UnfoldingTree, snd: UnfoldingTree): (UnfoldingTree, UnfoldingTree) = {
@@ -48,7 +48,7 @@ object CanComposeUnfoldingTree {
     val renamedChildren = fst.children map {
       case (p, cs) => (renaming(p), cs map renaming)
     }
-    (UnfoldingTree(renamedLabels, renaming(fst.root), renamedChildren), snd)
+    (UnfoldingTree(renamedLabels, renaming(fst.root), renamedChildren, convertToNormalform = false), snd)
   }
 
 }

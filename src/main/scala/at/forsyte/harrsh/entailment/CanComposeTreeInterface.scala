@@ -5,9 +5,9 @@ import at.forsyte.harrsh.main.HarrshLogging
 object CanComposeTreeInterface extends HarrshLogging {
 
   val canComposeTreeInterfaces: CanCompose[TreeInterface] = new CanCompose[TreeInterface] {
-    override def avoidClashes(fst: TreeInterface, snd: TreeInterface): (TreeInterface, TreeInterface) = {
-      val clashAvoidanceUpdate = PlaceholderVar.placeholderClashAvoidanceUpdate(snd.placeholderVarsInSubst)
-      (fst.updateSubst(clashAvoidanceUpdate), snd)
+    override def makeDisjoint(fst: TreeInterface, snd: TreeInterface): (TreeInterface, TreeInterface) = {
+      val clashAvoidanceUpdate = PlaceholderVar.placeholderClashAvoidanceUpdate(snd.placeholders)
+      (fst.updateSubst(clashAvoidanceUpdate, convertToNormalform = false), snd)
     }
 
     override def root(a: TreeInterface): NodeLabel = a.root
@@ -26,15 +26,15 @@ object CanComposeTreeInterface extends HarrshLogging {
       // FIXME: Doesn't this leak variables? I.e., don't we keep variables around that are only used at the merge point?
       val newUsageInfo = VarUsageByLabel.update(toInstantiate.usageInfo ++ instantiation.usageInfo, propagateUnification)
       // FIXME: In which cases should instantiation fail? Should we check for double allocation?
-      val res = TreeInterface(newRoot, newLeaves, newUsageInfo)
-      assert(TreeInterface.noGapsInPlaceholders(res),
-        s"After instantiation, placeholder vars ${res.placeholderVarsInSubst} contain gap for tree interface $res")
+      val res = TreeInterface(newRoot, newLeaves, newUsageInfo, convertToNormalform = true)
+      assert(TreeInterface.isInNormalForm(res),
+        s"After instantiation, placeholder vars ${res.placeholders} contain gap for tree interface $res")
       Some(res)
     }
 
     override def usageInfo(a: TreeInterface, n: NodeLabel): VarUsageInfo = {
       val res = n.subst.toSeq.map(a.usageInfo.getOrElse(_, VarUsage.Unused))
-      logger.warn(s"Usage info for $n w.r.t. $a: $res")
+      logger.debug(s"Usage info for $n w.r.t. $a: $res")
       res
     }
   }
