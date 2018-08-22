@@ -87,6 +87,20 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
 
   }
 
+  property("Soundness of entailment for doubly-linked lists") {
+
+    val dll = ExampleSIDs.NeDll
+
+    val dllTable = Table(
+      ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
+      // Every tree is a tree
+      (dll, dll, P("dll")(x1, x2, x3, x4), EntailmentHolds)
+    )
+
+    runAllTestsInTable(dllTable)
+
+  }
+
   property("Soundness of entailment for singly-linked trees") {
 
     val tree = ExampleSIDs.Tree

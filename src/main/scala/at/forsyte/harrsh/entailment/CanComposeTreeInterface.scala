@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.seplog.Var
 
 object CanComposeTreeInterface extends HarrshLogging {
 
@@ -23,13 +24,27 @@ object CanComposeTreeInterface extends HarrshLogging {
       val newRoot = toInstantiate.root.update(propagateUnification)
       val allLeaves = (toInstantiate.leaves - abstractLeaf) ++ instantiation.leaves
       val newLeaves = allLeaves.map(_.update(propagateUnification))
-      // FIXME: Doesn't this leak variables? I.e., don't we keep variables around that are only used at the merge point?
-      val newUsageInfo = VarUsageByLabel.update(toInstantiate.usageInfo ++ instantiation.usageInfo, propagateUnification)
-      // FIXME: In which cases should instantiation fail? Should we check for double allocation?
+
+      val combinedUsageInfo = combineUsageInfo(toInstantiate.usageInfo, instantiation.usageInfo, propagateUnification)
+      val occurringSubstitutions: Set[Set[Var]] = (Set(newRoot) ++ newLeaves).flatMap(_.subst.toSeq)
+      val newUsageInfo = combinedUsageInfo.filter(pair => occurringSubstitutions.contains(pair._1))
+
       val res = TreeInterface(newRoot, newLeaves, newUsageInfo, convertToNormalform = true)
       assert(TreeInterface.isInNormalForm(res),
         s"After instantiation, placeholder vars ${res.placeholders} contain gap for tree interface $res")
+
+      // FIXME: In which cases should instantiation fail? Should we check for double allocation?
       Some(res)
+    }
+
+    private def combineUsageInfo(fst: VarUsageByLabel, snd: VarUsageByLabel, update: SubstitutionUpdate): VarUsageByLabel = {
+      val fstUpdated = VarUsageByLabel.update(fst, update)
+      val sndUpdated = VarUsageByLabel.update(snd, update)
+      val keys = fstUpdated.keySet ++ sndUpdated.keySet
+      val pairs: Set[(Set[Var], VarUsage)] = keys.map{
+        k => (k, Seq(fstUpdated.getOrElse(k, VarUsage.Unused), sndUpdated.getOrElse(k, VarUsage.Unused)).max)
+      }
+      pairs.toMap
     }
 
     override def usageInfo(a: TreeInterface, n: NodeLabel): VarUsageInfo = {

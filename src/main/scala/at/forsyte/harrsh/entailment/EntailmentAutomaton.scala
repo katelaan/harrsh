@@ -39,29 +39,6 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
     */
   override def inconsistentState(fvs: Seq[FreeVar]): State = EntailmentAutomaton.State(Set.empty, fvs)
 
-  //def combineETs(rootET: ExtensionType, childETs: Seq[ExtensionType], lab: SymbolicHeap): Option[ExtensionType] = {
-  def combineETs(ets: Seq[ExtensionType], lab: SymbolicHeap): Option[ExtensionType] = {
-    //logger.debug(s"Will combine:\n${(rootET +: childETs).map(_.parts.mkString("ET(\n  ", "\n  ", ")")).mkString("\n")}")
-    //val combined = rootET.composeWithChildren(childETs)
-    logger.debug(s"Will combine:\n${ets.map(_.parts.mkString("ET(\n  ", "\n  ", ")")).mkString("\n")}")
-    val combined = ets.reduceLeft(_ compose _)
-    logger.debug(s"Resulting parts of the ET:\n${combined.parts.mkString("\n")}")
-
-    // Drop the bound vars from the extension types, since they are no longer needed after the composition
-    val restrictedToFreeVars = combined.dropVars(lab.boundVars.toSeq)
-    logger.debug(s"After restriction to free variables:\n${restrictedToFreeVars.parts.mkString("\n")}")
-
-    // Filter out extension types that don't have free vars in all root positions
-    // FIXME: Also filter out types that lack names for back pointers
-    if (restrictedToFreeVars.hasNamesForRootParams) {
-      logger.debug(s"Extension type is consistent, will become part of target state.")
-      Some(restrictedToFreeVars)
-    } else {
-      logger.debug("Discarding extension type (missing free variables)")
-      None
-    }
-  }
-
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     logger.debug(s"Computing target for $lab from $src")
     val localETs = EntailmentAutomaton.shToExtensionTypes(lab, sid)
@@ -89,6 +66,31 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
     }
   }
 
+  private def combineETs(ets: Seq[ExtensionType], lab: SymbolicHeap): Option[ExtensionType] = {
+    logger.debug(s"Will combine:\n${ets.map(_.parts.mkString("ET(", "\n  ", ")")).mkString("\n")}\nw.r.t. symbolic heap $lab")
+    val combined = ets.reduceLeft(_ compose _)
+    logger.debug(s"Resulting parts of the ET:\n${combined.parts.mkString("\n")}")
+    logger.debug(s"Bound vars in result: ${combined.boundVars} (in the symbolic heap: ${lab.boundVars}")
+
+    // Drop the bound vars from the extension types, since they are no longer needed after the composition
+    assert(combined.boundVars.diff(lab.boundVars).isEmpty,
+      s"Extension type $combined contains bound vars not in symbolic heap $lab")
+    val restrictedToFreeVars = combined.dropVars(lab.boundVars.toSeq)
+    logger.debug(s"After restriction to free variables:\n${restrictedToFreeVars.parts.mkString("\n")}")
+    assert(restrictedToFreeVars.boundVars.isEmpty,
+      s"Bound vars remain after restriction to free vars: $restrictedToFreeVars")
+
+    // Filter out extension types that don't have free vars in all root positions
+    // FIXME: Also filter out types that lack names for back pointers
+    if (restrictedToFreeVars.hasNamesForRootParams) {
+      logger.debug(s"Extension type is consistent, will become part of target state.")
+      Some(restrictedToFreeVars)
+    } else {
+      logger.debug("Discarding extension type (missing free variables)")
+      None
+    }
+  }
+
   private def instantiateETsForCall(state: State, call: PredCall): Set[ExtensionType] = {
     val EntailmentAutomaton.State(ets, params) = state
     val callUpdate: SubstitutionUpdate = v => {
@@ -105,6 +107,9 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
 object EntailmentAutomaton extends HarrshLogging {
 
   case class State(ets: Set[ExtensionType], orderedParams: Seq[FreeVar]) {
+
+    assert(ets forall (_.boundVars.isEmpty),
+      s"Trying to construct state from extension types that still contain bound vars: $ets")
 
     private val freeVarsInEts = ets.flatMap(_.nonPlaceholderFreeVars)
     //if (ets.nonEmpty && freeVarsInEts != orderedParams.toSet) {
@@ -165,7 +170,7 @@ object EntailmentAutomaton extends HarrshLogging {
   }
 
   private def matchHeaps(leftHeap: SymbolicHeap, rightRuleInstance: SymbolicHeap): Set[Map[Var, Var]] = {
-    logger.debug(s"Try matching $leftHeap against $rightRuleInstance")
+    logger.trace(s"Try matching $leftHeap against $rightRuleInstance")
 
     // FIXME: Generate all possible mappings (involving all ways that vars are allowed to alias without contradicting the RHS closure) rather than just one default substitution
     // TODO: This equality- and unification-based reasoning should have significant overlap with existing code. (Model checking, tracking etc.) Should clean all that up and provide a set of common core routines!
@@ -180,11 +185,10 @@ object EntailmentAutomaton extends HarrshLogging {
       val map = (rightRuleInstance.pointers.head.args, leftHeap.pointers.head.args).zipped.toMap
       Set(map)
     } else {
-      logger.debug(s"Couldn't match $leftHeap against $rightRuleInstance. Pure entailment holds: $leftEqsEntailRightEqs; Pointers compatible: $pointersCompatible")
+      logger.trace(s"Couldn't match $leftHeap against $rightRuleInstance. Pure entailment holds: $leftEqsEntailRightEqs; Pointers compatible: $pointersCompatible")
       Set.empty
     }
   }
-
 
   private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, varAssignment: Map[Var,Var]): ExtensionType = {
     logger.debug(s"Creating extension type from ${pred.head}, $rule, $varAssignment")

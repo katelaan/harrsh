@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.seplog.{FreeVar, Var}
+import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
 
 case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel) {
 
@@ -8,9 +8,18 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
 
   lazy val labels = Seq[NodeLabel](root) ++ leaves
 
+  lazy val placeholders: Set[PlaceholderVar] = substs.flatMap(_.placeholders).toSet
+
+  lazy val boundVars: Set[BoundVar] = substs.flatMap(_.boundVars).toSet
+
+  private lazy val substs = labels map (_.subst)
+
   override def toString: String = {
-    val usageStr = usageInfo.mkString(",")
-    s"TI(root = $root; leaves = ${leaves.mkString(",")}; usage = $usageStr)"
+    val leavesString = if (leaves.isEmpty) "empty" else leaves.mkString(",")
+    val usageStr = usageInfo.map{
+      case (vs, usage) => vs.mkString(",") + "->" + usage
+    }.mkString("; ")
+    s"TI(root = $root; leaves = $leavesString; usage = { $usageStr })"
   }
 
   def isConcrete: Boolean = leaves.isEmpty
@@ -28,15 +37,9 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
     substs.flatMap(_.freeNonNullVars).filterNot(PlaceholderVar.isPlaceholder).toSet
   }
 
-  def placeholders: Set[PlaceholderVar] = {
-    substs.flatMap(_.placeholders).toSet
-  }
-
   def updateSubst(f: SubstitutionUpdate, convertToNormalform: Boolean): TreeInterface = {
     TreeInterface(root.update(f), leaves map (_.update(f)), VarUsageByLabel.update(usageInfo,f), convertToNormalform = convertToNormalform)
   }
-
-  private lazy val substs = labels map (_.subst)
 }
 
 object TreeInterface {

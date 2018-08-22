@@ -52,6 +52,13 @@ object ExampleSIDs extends TestValues {
     ("dll", Seq("u"), SymbolicHeap(x1 -> (y1, x2), P("dll")(y1, x1, x3, x4)))
   )
 
+  lazy val NeDll = SID("dll",
+    "Nonempty Doubly-linked list",
+    Map("dll" -> x1),
+    ("dll", Seq.empty, SymbolicHeap(x1 -> (x3, x2))),
+    ("dll", Seq("u"), SymbolicHeap(x1 -> (y1, x2), P("dll")(y1, x1, x3)))
+  )
+
   lazy val OddList = SID("odd",
     "Lists of odd length",
     Map("odd" -> x1, "even" -> x1),

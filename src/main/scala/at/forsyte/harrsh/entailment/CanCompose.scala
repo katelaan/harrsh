@@ -76,7 +76,7 @@ object CanCompose extends HarrshLogging {
       (v, unifiable) <- n1.freeVarSeq.zip(unifiableParams)
       if !unifiable
     } {
-      logger.warn(s"Can't unify $v (among FVs ${n1.freeVarSeq}) in $n1 and $n2")
+      logger.debug(s"Can't unify $v (among FVs ${n1.freeVarSeq}) in $n1 and $n2")
     }
 
     if (unifiableParams.forall(b => b)) {

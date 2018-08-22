@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{FreeVar, Var}
+import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.PredCall
 
 /**
@@ -37,17 +37,19 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
     res
   }
 
-  def nonPlaceholderFreeVars: Set[FreeVar] = parts.flatMap(_.nonPlaceholderFreeVars)
+  lazy val nonPlaceholderFreeVars: Set[FreeVar] = parts.flatMap(_.nonPlaceholderFreeVars)
 
-  def placeholdersInSubst: Set[PlaceholderVar] = parts.flatMap(_.placeholders)
+  lazy val boundVars: Set[BoundVar] = parts.flatMap(_.boundVars)
+
+  lazy val placeholders: Set[PlaceholderVar] = parts.flatMap(_.placeholders)
 
   def dropVars(varsToDrop: Seq[Var]): ExtensionType = {
     // TODO: More efficient variable dropping for extension types
     // FIXME: Don't introduce redundant placeholder vars, i.e., if there is a variable alias that we don't drop, we don't need a new placeholder name to avoid empty sets in the substitution
     // Rename the vars to fresh placeholder vars
-    val maxPlaceholder = PlaceholderVar.maxIndex(placeholdersInSubst)
-    val placeholders = (maxPlaceholder+1 to varsToDrop.size) map (PlaceholderVar(_))
-    val pairs: Seq[(Var,Var)] = varsToDrop.zip(placeholders.map(_.toFreeVar))
+    val maxPlaceholder = PlaceholderVar.maxIndex(placeholders)
+    val newPlaceholders = (1 to varsToDrop.size) map (i => PlaceholderVar(maxPlaceholder+i))
+    val pairs: Seq[(Var,Var)] = varsToDrop.zip(newPlaceholders.map(_.toFreeVar))
     val replaceByPlacheolders: SubstitutionUpdate = SubstitutionUpdate.fromPairs(pairs)
 
     // Get rid of gaps in results and strange order by doing normalization

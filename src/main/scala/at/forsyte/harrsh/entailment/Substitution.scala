@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.seplog.inductive.PureAtom
-import at.forsyte.harrsh.seplog.{FreeVar, Var}
+import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
 
 import scala.annotation.tailrec
 
@@ -20,6 +20,10 @@ case class Substitution(toSeq: Seq[Set[Var]]) extends AnyVal {
   }
 
   def freeNonNullVars: Set[FreeVar] = Var.freeNonNullVars(toSeq.flatten).toSet
+
+  def boundVars: Set[BoundVar] = toSeq.flatten.collect{
+    case bv: BoundVar => bv
+  }.toSet
 
   def toAtoms(params: Seq[FreeVar]) : Seq[PureAtom] = for {
     (k,vs) <- params.zip(toSeq)
