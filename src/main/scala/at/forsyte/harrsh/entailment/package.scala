@@ -2,7 +2,8 @@ package at.forsyte.harrsh
 
 import at.forsyte.harrsh.entailment.VarUsage.{Allocated, Referenced, Unused}
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
+import at.forsyte.harrsh.seplog.inductive.RuleBody
 
 package object entailment {
 
@@ -32,6 +33,19 @@ package object entailment {
 
     def fromUnification(unification: Unification): SubstitutionUpdate = {
       v => unification.find(_.contains(v)).getOrElse(Set(v))
+    }
+
+    def fromRuleAndParamSubstitution(rule: RuleBody, paramSubst: Substitution): SubstitutionUpdate = {
+      val freeVarsToLeafSubst = rule.body.freeVars.zip(paramSubst.toSeq).toMap
+      val boundVars = rule.body.boundVars.toSeq
+      val allUnusedPlaceholders = PlaceholderVar.allUnusedPlaceholders(used = paramSubst.placeholders)
+      val boundVarsToPlaceholders = boundVars.zip(allUnusedPlaceholders).toMap
+      val renameArgs: SubstitutionUpdate = {
+        case fv: FreeVar => freeVarsToLeafSubst(fv)
+        case NullConst => Set(NullConst)
+        case bv: BoundVar => Set[Var](boundVarsToPlaceholders(bv))
+      }
+      renameArgs
     }
 
     def redundantPlaceholderDropper(nodeLabels: Iterable[NodeLabel]): SubstitutionUpdate = {

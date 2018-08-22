@@ -15,6 +15,8 @@ case class Predicate(head: String, rules: Seq[RuleBody], rootParam: Option[FreeV
 
   lazy val arity: Int = rules.head.body.numFV
 
+  lazy val rootParamIndex: Option[Int] = rootParam.map(params.indexOf(_))
+
   lazy val params: Seq[FreeVar] = rules.head.body.freeVars
 
   def defaultCall: SymbolicHeap = {

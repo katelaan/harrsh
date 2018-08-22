@@ -20,13 +20,47 @@ object CanComposeUnfoldingTree {
     override def tryInstantiate(toInstantiate: UnfoldingTree, abstractLeaf: AbstractLeafNodeLabel, instantiation: UnfoldingTree, unification: Unification): Option[UnfoldingTree] = {
       assert(UnfoldingTree.haveNoConflicts(toInstantiate, instantiation))
 
-      val maybeNodeId = toInstantiate.abstractLeaves.find(
-        id => toInstantiate.nodeLabels(id) == abstractLeaf
-      )
       for {
-        nodeId <- maybeNodeId
-      } yield toInstantiate.instantiate(nodeId, instantiation, unification)
+        nodeId <- toInstantiate.abstractLeaves.find(
+          id => toInstantiate.nodeLabels(id) == abstractLeaf
+        )
+      } yield instantiate(toInstantiate, nodeId, instantiation, unification)
     }
+
+    private def instantiate(toInstantiate: UnfoldingTree, abstractLeaf: NodeId, replacingTree: UnfoldingTree, unification: Unification): UnfoldingTree = {
+      logger.debug(s"Replacing $abstractLeaf in $toInstantiate with $replacingTree")
+      val propagateUnification = SubstitutionUpdate.fromUnification(unification)
+      val thisExtended = toInstantiate.updateSubst(propagateUnification, convertToNormalform = false)
+      val otherExtended = replacingTree.updateSubst(propagateUnification, convertToNormalform = false)
+      // TODO: This instantiation 'leaks' the ID of abstractLeaf: It will not be used in the tree that we get after instantiation. I'm afraid this may complicate debugging.
+      val combinedNodeLabels = (thisExtended.nodeLabels ++ otherExtended.nodeLabels) - abstractLeaf
+
+      val (updatedRoot, updatedChildren) = if (abstractLeaf != toInstantiate.root) {
+        (thisExtended.root, replaceAbstractLeafInChildren(thisExtended.children, thisExtended.parents, abstractLeaf, otherExtended.root))
+      } else {
+        (otherExtended.root, thisExtended.children)
+      }
+      // TODO: Another position where the 'leak' manifests
+      val combinedChildren = (updatedChildren ++ otherExtended.children) - abstractLeaf
+
+      UnfoldingTree(combinedNodeLabels, updatedRoot, combinedChildren, convertToNormalform = true)
+    }
+
+    private def replaceAbstractLeafInChildren(children: Map[NodeId, Seq[NodeId]], parents: Map[NodeId, NodeId], abstractLeaf: NodeId, root: NodeId) = {
+      // Connect the parent of the replaced leaf with the root of the replacing tree
+      val maybeParent = parents.get(abstractLeaf)
+      maybeParent match {
+        case Some(parent) =>
+          val newParentsChildren = children(parent).map{
+            child => if (child == abstractLeaf) root else child
+          }
+          logger.debug(s"Updating children of $parent from ${children(parent)} to $newParentsChildren")
+          children.updated(parent, newParentsChildren)
+        case None =>
+          children
+      }
+    }
+
 
     override def usageInfo(a: UnfoldingTree, n: NodeLabel): VarUsageInfo = {
       n.freeVarSeq.map(a.findUsage(n,_))

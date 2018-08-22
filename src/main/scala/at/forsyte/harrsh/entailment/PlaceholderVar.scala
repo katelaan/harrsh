@@ -41,6 +41,14 @@ object PlaceholderVar {
     case e: UnsupportedOperationException => PlaceholderVar(0)
   }
 
+  def allUnusedPlaceholders(used: Set[PlaceholderVar]): Stream[FreeVar] = {
+    for {
+      i <- Stream.from(0)
+      pv = PlaceholderVar(i)
+      if !used.contains(pv)
+    } yield pv.toFreeVar
+  }
+
   def containsNoRedundantPlaceholder(vs: Set[Var]): Boolean = {
     // There's at most one placeholder in the set and if there's one in the set it's the only element
     val numPhs = vs.count(PlaceholderVar.isPlaceholder)

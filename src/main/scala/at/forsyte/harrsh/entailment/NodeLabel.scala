@@ -30,8 +30,7 @@ sealed trait NodeLabel {
   def update(f: SubstitutionUpdate): NodeLabel
 
   lazy val rootVarSubst: Set[Var] = {
-    val rootVarIx = freeVarSeq.indexOf(pred.rootParam.get)
-    subst.toSeq(rootVarIx)
+    subst.toSeq(pred.rootParamIndex.get)
   }
 
   def varUsage(freeVar: FreeVar): VarUsage

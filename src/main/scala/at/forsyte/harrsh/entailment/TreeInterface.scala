@@ -17,9 +17,7 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
 
   def hasNamesForRootParams: Boolean = labels.forall{
     label =>
-      // TODO: Get the index directly through the pred. (Change this in other places, too)
-      val rootParam = label.pred.rootParam.get
-      val rootParamIndex = label.pred.params.indexOf(rootParam)
+      val rootParamIndex = label.pred.rootParamIndex.get
       val labelingVars: Set[Var] = label.subst.toSeq(rootParamIndex)
       labelingVars.exists(v => v.isFreeNonNull && !PlaceholderVar.isPlaceholder(v))
   }
