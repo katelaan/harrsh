@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.ToLatex
 
-case class UnfoldingTree private(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]], forceRecompilation: Unit) extends HarrshLogging {
+case class UnfoldingTree private(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) extends HarrshLogging {
 
   import at.forsyte.harrsh.entailment.UnfoldingTree._
 
@@ -212,7 +212,7 @@ object UnfoldingTree extends HarrshLogging {
 
   def apply(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]], convertToNormalform: Boolean): UnfoldingTree = {
     val processedNodeLabels = if (convertToNormalform) normalFormConversion(nodeLabels, root, children) else nodeLabels
-    new UnfoldingTree(processedNodeLabels, root, children, ())
+    new UnfoldingTree(processedNodeLabels, root, children)
   }
 
   private def getSubstOrDefault(subst: Option[Substitution], pred: Predicate): Substitution = {
@@ -249,19 +249,6 @@ object UnfoldingTree extends HarrshLogging {
       val order = breadthFirstTraversal(withoutRedundant, root, children)
       placeholderNormalForm(withoutRedundant, order)
     }
-
-//    private def closeGapsInPlaceholders: UnfoldingTree = {
-//      val currentPlaceholders = placeholders.toSeq.sortBy(_.index)
-//      val newPlaceholders = (1 to currentPlaceholders.length) map (PlaceholderVar(_))
-//      val replacement = (currentPlaceholders, newPlaceholders).zipped.toMap
-//      val updateF: SubstitutionUpdate = {
-//        v => PlaceholderVar.fromVar(v) match {
-//          case Some(pv) => Set(replacement(pv).toFreeVar)
-//          case None => Set(v)
-//        }
-//      }
-//      updateSubst(updateF)
-//    }
 
     private def dropRedundantPlaceholders(nodeLabels: Map[NodeId,NodeLabel]): Map[NodeId,NodeLabel] = {
       val dropper = SubstitutionUpdate.redundantPlaceholderDropper(nodeLabels.values)

@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 
-case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel, forceRecompilation: Unit) {
+case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel) {
 
   assert(NodeLabel.noRedundantPlaceholders(labels), s"There are redundant placeholders in $this")
 
@@ -49,7 +49,7 @@ object TreeInterface {
     if (convertToNormalform) {
       normalFormConversion(root, leaves, usageInfo)
     } else {
-      new TreeInterface(root, leaves, usageInfo, ())
+      new TreeInterface(root, leaves, usageInfo)
     }
   }
 
@@ -64,8 +64,7 @@ object TreeInterface {
     new TreeInterface(
       rootAfterDropping.update(establishNormalForm),
       leavesAfterDropping map (_.update(establishNormalForm)),
-      VarUsageByLabel.update(usageInfoAfterDropping, establishNormalForm),
-      ())
+      VarUsageByLabel.update(usageInfoAfterDropping, establishNormalForm))
   }
 
   def isInNormalForm(tif: TreeInterface): Boolean = {
