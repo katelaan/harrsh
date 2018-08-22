@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
 
-object UnfoldingTreeComposition {
+object CanComposeUnfoldingTree {
 
   val canComposeUT: CanCompose[UnfoldingTree] = new CanCompose[UnfoldingTree] with HarrshLogging {
     override def avoidClashes(fst: UnfoldingTree, snd: UnfoldingTree): (UnfoldingTree, UnfoldingTree) = {
@@ -17,27 +17,19 @@ object UnfoldingTreeComposition {
 
     override def abstractLeaves(a: UnfoldingTree): Set[AbstractLeafNodeLabel] = a.abstractLeaves map (a.nodeLabels(_).asInstanceOf[AbstractLeafNodeLabel])
 
-    override def tryUnify(n1: NodeLabel, n2: NodeLabel): Option[Unification] = {
-      logger.debug(s"Will try to unify $n1 with $n2")
-      // FIXME: Proper unification
-      assert(n1.freeVarSeq == n2.freeVarSeq)
-      val fvars = n1.freeVarSeq
-      if ((n1.rootVarSubst intersect n2.rootVarSubst).nonEmpty) {
-        logger.debug(s"Can unify: Overlap between labels of root vars, ${n1.rootVarSubst} and ${n2.rootVarSubst}")
-        Some((n1.subst.toSeq, n2.subst.toSeq).zipped.map(_ union _))
-      } else {
-        logger.debug("No unification possible")
-        None
-      }
-    }
+    override def tryInstantiate(toInstantiate: UnfoldingTree, abstractLeaf: AbstractLeafNodeLabel, instantiation: UnfoldingTree, unification: Unification): Option[UnfoldingTree] = {
+      assert(UnfoldingTree.haveNoConflicts(toInstantiate, instantiation))
 
-    override def tryInstantiate(toInstantiate: UnfoldingTree, abstractLeaf: NodeLabel, instantiation: UnfoldingTree, unification: Unification): Option[UnfoldingTree] = {
       val maybeNodeId = toInstantiate.abstractLeaves.find(
         id => toInstantiate.nodeLabels(id) == abstractLeaf
       )
       for {
         nodeId <- maybeNodeId
       } yield toInstantiate.instantiate(nodeId, instantiation, unification)
+    }
+
+    override def usageInfo(a: UnfoldingTree, n: NodeLabel): VarUsageInfo = {
+      n.freeVarSeq.map(a.findUsage(n,_))
     }
   }
 

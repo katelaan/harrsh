@@ -33,12 +33,22 @@ sealed trait NodeLabel {
     val rootVarIx = freeVarSeq.indexOf(pred.rootParam.get)
     subst.toSeq(rootVarIx)
   }
+
+  def varUsage(freeVar: FreeVar): VarUsage
 }
 
 case class RuleNodeLabel(override val pred: Predicate, rule: RuleBody, override val subst: Substitution) extends NodeLabel {
   override def toString: String = s"${pred.head}.rule($rule, $subst)"
 
   override def update(f: SubstitutionUpdate): RuleNodeLabel = copy(subst = subst.update(f))
+
+  override def varUsage(freeVar: FreeVar): VarUsage = {
+    assert(rule.body.pointers.size == 1)
+    val ptr = rule.body.pointers.head
+    if (ptr.from == freeVar) VarUsage.Allocated
+    else if (ptr.to.contains(freeVar)) VarUsage.Referenced
+    else VarUsage.Unused
+  }
 }
 
 case class AbstractLeafNodeLabel(override val pred: Predicate, override val subst: Substitution) extends NodeLabel {
@@ -46,6 +56,11 @@ case class AbstractLeafNodeLabel(override val pred: Predicate, override val subs
   override def toString: String = s"leaf(${pred.head}, $subst)"
 
   override def update(f: SubstitutionUpdate): AbstractLeafNodeLabel = copy(subst = subst.update(f))
+
+  override def varUsage(freeVar: FreeVar): VarUsage = {
+    // The abstract leaves themselves don't use the variables in any way
+    VarUsage.Unused
+  }
 }
 
 object NodeLabel {

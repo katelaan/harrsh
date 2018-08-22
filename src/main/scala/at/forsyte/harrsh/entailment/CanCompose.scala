@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.seplog.FreeVar
 
 import scala.annotation.tailrec
 
@@ -12,9 +13,9 @@ trait CanCompose[A] {
 
   def abstractLeaves(a: A): Set[AbstractLeafNodeLabel]
 
-  def tryUnify(n1: NodeLabel, n2: NodeLabel): Option[Unification]
+  def usageInfo(a: A, n: NodeLabel): VarUsageInfo
 
-  def tryInstantiate(toInstantiate: A, abstractLeaf: NodeLabel, instantiation: A, unification: Unification): Option[A]
+  def tryInstantiate(toInstantiate: A, abstractLeaf: AbstractLeafNodeLabel, instantiation: A, unification: Unification): Option[A]
 
 }
 
@@ -28,15 +29,61 @@ object CanCompose extends HarrshLogging {
   def compose[A: CanCompose](fst: A, snd: A): Option[A] = {
     val cc = CanCompose[A]
     logger.debug(s"Will try to compose $fst with $snd.")
+
     val shifted@(shiftedFst, shiftedSnd) = cc.avoidClashes(fst, snd)
     logger.debug(s"After shifting: $shifted")
 
     (for {
       CompositionInterface(t1, t2, n2) <- compositionCandidates(shiftedFst, shiftedSnd)
-      unification <- cc.tryUnify(cc.root(t1), n2)
+      unification <- tryUnify(t1, cc.root(t1).asInstanceOf[RuleNodeLabel], t2, n2)
       // Compose using the unification. (This can fail in case the unification leads to double allocation)
       instantiation <- cc.tryInstantiate(t2, n2, t1, unification)
     } yield instantiation).headOption
+  }
+
+  private def tryUnify[A: CanCompose](a1: A, n1: RuleNodeLabel, a2: A, n2: AbstractLeafNodeLabel): Option[Unification] = {
+    logger.debug(s"Will try to unify $n1 with $n2")
+    val cc = CanCompose[A]
+    assert(cc.root(a1) == n1)
+    assert(cc.abstractLeaves(a2).contains(n2))
+    assert(n1.freeVarSeq == n2.freeVarSeq)
+    val (n1usage, n2usage) = (cc.usageInfo(a1, n1), cc.usageInfo(a2, n2))
+
+    // Sanity check: The root parameter of the predicate is marked as used in both nodes
+    val ix = n1.freeVarSeq.indexOf(n1.pred.rootParam.get)
+    assert(n1usage(ix).isUsed && n2usage(ix).isUsed,
+      s"Root parameter ${n1.pred.rootParam.get} isn't marked as used in at least one of $n1 and $n2 (usage info: ${n1usage.mkString(",")}; ${n2usage.mkString(",")})")
+
+    val unifiableParams: Seq[Boolean] = (n1.freeVarSeq, n1usage, n2usage).zipped.toSeq.map{
+      tuple: (FreeVar, VarUsage, VarUsage) => tuple match {
+        case (_, VarUsage.Allocated, VarUsage.Allocated) =>
+          // Double allocation
+          false
+        case (_, VarUsage.Unused, _) =>
+          // Only used in one of the objects => Don't need to have a name in both
+          true
+        case (_, _, VarUsage.Unused) =>
+          // Only used in one of the objects => Don't need to have a name in both
+          true
+        case (v, used1, used2) =>
+          assert(used1.isUsed && used2.isUsed)
+          // Used in both => Need a common name
+          (n1.rootVarSubst intersect n2.rootVarSubst).nonEmpty
+      }
+    }
+
+    for {
+      (v, unifiable) <- n1.freeVarSeq.zip(unifiableParams)
+      if !unifiable
+    } {
+      logger.warn(s"Can't unify $v (among FVs ${n1.freeVarSeq}) in $n1 and $n2")
+    }
+
+    if (unifiableParams.forall(b => b)) {
+      Some((n1.subst.toSeq, n2.subst.toSeq).zipped.map(_ union _))
+    } else {
+      None
+    }
   }
 
   /* Note: Since we're using NodeLabels rather than e.g. NodeIDs here, we do not consider all compositions in the corner
@@ -47,13 +94,14 @@ object CanCompose extends HarrshLogging {
      Note further that under the assumption that even base rules allocate memory, such objects will anyway always
      represent double allocation (same node label implies same root), so they should anyway be discarded.
    */
-  case class CompositionInterface[A](treeToEmbed: A, embeddingTarget: A, leafToReplaceInEmbedding: NodeLabel)
+  case class CompositionInterface[A](treeToEmbed: A, embeddingTarget: A, leafToReplaceInEmbedding: AbstractLeafNodeLabel)
 
   private def compositionCandidates[A: CanCompose](fst: A, snd: A): Stream[CompositionInterface[A]] = {
     val cc = CanCompose[A]
     for {
       (treeWithRoot, treeWithAbstractLeaf) <- Stream((fst,snd), (snd,fst))
       root = cc.root(treeWithRoot)
+      if !root.isAbstractLeaf // Can't compose trivial trees consisting of nothing but an abstract root
       abstractLeaf <- cc.abstractLeaves(treeWithAbstractLeaf)
       // Only consider for composition if the labeling predicates are the same
       if root.pred == abstractLeaf.pred

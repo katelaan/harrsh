@@ -4,11 +4,18 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.PredCall
 
-case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel]/*, usageInfo: VarUsageInfo*/) {
+case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel) {
+
+  assert(TreeInterface.noRedundantPlaceholders(this),
+    s"There are redundant placeholders in $this"
+  )
 
   lazy val labels = Seq[NodeLabel](root) ++ leaves
 
-  override def toString = s"TI(root = $root; leaves = ${leaves.mkString(",")})"
+  override def toString: String = {
+    val usageStr = usageInfo.mkString(",")
+    s"TI(root = $root; leaves = ${leaves.mkString(",")}; usage = $usageStr)"
+  }
 
   def isConcrete: Boolean = leaves.isEmpty
 
@@ -23,14 +30,6 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
 
   def asExtensionType: ExtensionType = ExtensionType(Set(this))
 
-  def asDegeneratedTree: UnfoldingTree = {
-    val ids = NodeId.freshIds(Set.empty, leaves.size + 1)
-    val rootId = ids.head
-    val nodeLabels = Map(rootId -> root) ++ (ids.tail, leaves).zipped
-    val children = Map(rootId -> ids.tail) ++ ids.tail.zip(Stream.continually(Seq.empty))
-    UnfoldingTree(nodeLabels, rootId, children)
-  }
-
   def nonPlaceholderFreeVars: Set[FreeVar] = {
     substs.flatMap(_.freeNonNullVars).filterNot(PlaceholderVar.isPlaceholder).toSet
   }
@@ -40,7 +39,7 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
   }
 
   def updateSubst(f: SubstitutionUpdate): TreeInterface = {
-    TreeInterface(root.update(f), leaves map (_.update(f))/*, usageInfo*/)
+    new TreeInterface(root.update(f), leaves map (_.update(f)), VarUsageByLabel.update(usageInfo,f))
   }
 
   private lazy val substs = labels map (_.subst)
@@ -48,9 +47,42 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
 
 object TreeInterface {
 
-  def apply(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageInfo): TreeInterface = {
-    val updateF = NodeLabel.labelsToPlaceholderNormalForm(Seq(root) ++ leaves)
-    new TreeInterface(root.update(updateF), leaves map (_.update(updateF))/*, usageInfo*/)
+  implicit val canComposeTreeInterfaces: CanCompose[TreeInterface] = CanComposeTreeInterface.canComposeTreeInterfaces
+
+  def apply(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel): TreeInterface = {
+    val dropper = SubstitutionUpdate.redundantPlaceholderDropper(Set(root) ++ leaves)
+    val rootAfterDropping = root.update(dropper)
+    val leavesAfterDropping = leaves map (_.update(dropper))
+    val usageInfoAfterDropping = VarUsageByLabel.update(usageInfo, dropper)
+
+    val establishNormalForm = NodeLabel.labelsToPlaceholderNormalForm(Seq(rootAfterDropping) ++ leavesAfterDropping)
+
+    new TreeInterface(
+      rootAfterDropping.update(establishNormalForm),
+      leavesAfterDropping map (_.update(establishNormalForm)),
+      VarUsageByLabel.update(usageInfoAfterDropping, establishNormalForm))
+  }
+
+  def haveNoConflicts(tif1: TreeInterface, tif2: TreeInterface) : Boolean = {
+    (tif1.placeholderVarsInSubst intersect tif2.placeholderVarsInSubst).isEmpty
+  }
+
+  // TODO: Check this in UTs as well?
+  def noRedundantPlaceholders(tif: TreeInterface): Boolean = {
+    tif.labels.forall{
+      nodeLabel => nodeLabel.subst.toSeq.forall(containsNoRedundantPlaceholder)
+    }
+  }
+
+  private def containsNoRedundantPlaceholder(vs: Set[Var]): Boolean = {
+    // There's at most one placeholder in the set and if there's one in the set it's the only element
+    val numPhs = vs.count(PlaceholderVar.isPlaceholder)
+    numPhs <= 1 && (numPhs == 0 || vs.size == 1)
+  }
+
+  def noGapsInPlaceholders(tif: TreeInterface): Boolean = {
+    val phs = tif.placeholderVarsInSubst
+    phs.isEmpty || phs.map(_.index).max == phs.size
   }
 
 }
@@ -105,20 +137,9 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
 
   def updateSubst(f: SubstitutionUpdate): ExtensionType = ExtensionType(parts map (_.updateSubst(f)))
 
-  def asDegeneratedForest: UnfoldingForest = {
-    logger.trace(s"Will interpret $this as unfolding forest.")
-    UnfoldingForest(parts map (_.asDegeneratedTree))
-  }
-
   def compose(other: ExtensionType): ExtensionType = {
-    val thisForest = asDegeneratedForest
-    val otherForest = other.asDegeneratedForest
-    logger.trace(s"Will compose forests $thisForest and $otherForest")
-    val composedForest = thisForest compose otherForest
-    logger.trace(s"Composed forest: $composedForest")
-    val res = composedForest.toExtensionType
-    logger.trace(s"As extension type: $res")
-    res
+    val composed = CanCompose.composeAll(parts.toSeq ++ other.parts)
+    ExtensionType(composed)
   }
 
 }

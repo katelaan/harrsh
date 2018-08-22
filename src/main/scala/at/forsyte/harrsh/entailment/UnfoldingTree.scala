@@ -7,7 +7,7 @@ import at.forsyte.harrsh.util.ToLatex
 
 case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]]) extends HarrshLogging {
 
-    import at.forsyte.harrsh.entailment.UnfoldingTree._
+  import at.forsyte.harrsh.entailment.UnfoldingTree._
 
   lazy val nodes: Set[NodeId] = nodeLabels.keySet
 
@@ -20,10 +20,10 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
   assert(children.values forall (_ forall nodes.contains))
   assert(abstractLeaves forall (children(_).isEmpty))
 
-//  assert(nodes forall (n => children(n).nonEmpty
-//    || isAbstractLeaf(n)
-//    || (!isAbstractLeaf(n) && nodeLabels(n).asInstanceOf[RuleNodeLabel].rule.isBaseRule)),
-//    s"Inconsistent unfolding tree $this")
+  assert(nodes forall (n => children(n).nonEmpty
+    || isAbstractLeaf(n)
+    || (!isAbstractLeaf(n) && nodeLabels(n).asInstanceOf[RuleNodeLabel].rule.isBaseRule)),
+    s"Inconsistent unfolding tree $this")
 
   lazy val parents: Map[NodeId, NodeId] = {
     for {
@@ -46,7 +46,18 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
   def isConcrete: Boolean = abstractLeaves.isEmpty
 
   def interface: TreeInterface = {
-    TreeInterface(nodeLabels(root), abstractLeaves map (nodeLabels(_).asInstanceOf[AbstractLeafNodeLabel]))
+    // Implicit resolution doesn't seem to work properly here, so we cast explicitly
+    val interfaceNodes: Seq[NodeLabel] = Seq(nodeLabels(root)) ++ (abstractLeaves map (nodeLabels(_)))
+    val allUsage: Seq[(Set[Var], VarUsage)] = for {
+      node <- interfaceNodes
+      (v,ix) <- node.freeVarSeq.zipWithIndex
+    } yield (node.subst.toSeq(ix), findUsage(node, v))
+    val allUsageByLabel = allUsage.groupBy(_._1)
+    val usageInfoMap: Map[Set[Var], VarUsage] = allUsageByLabel.map{
+      case (lbl, usage) => (lbl, usage.map(_._2).max)
+    }
+    logger.warn(s"Usage map for $this: $usageInfoMap")
+    TreeInterface(nodeLabels(root), abstractLeaves map (nodeLabels(_).asInstanceOf[AbstractLeafNodeLabel]), usageInfoMap)
   }
 
   def unfold(leaf: NodeId, sid: SID, rule: RuleBody): UnfoldingTree = {
@@ -131,39 +142,16 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
   }
 
   private def dropRedundantPlaceholders: UnfoldingTree = {
-    def getRedundantVars(vs: Set[Var]): Set[Var] = {
-      val (phs, nonPhs) = vs.partition(PlaceholderVar.isPlaceholder)
-      if (nonPhs.nonEmpty) {
-        // There is a proper free var in this equivalence class => discard all equivalent placeholders
-        phs
-      } else {
-        // Keep only the smalles placeholder among multiple placeholders
-        val typedPhs = phs map (ph => PlaceholderVar.fromVar(ph).get)
-        phs - PlaceholderVar.min(typedPhs).toFreeVar
-      }
-    }
-    val equivalenceClasses = extractVarEquivClasses(nodeLabels.values)
-    val redundantVars = equivalenceClasses.flatMap(getRedundantVars)
-    logger.debug(s"Reundant vars: $redundantVars")
-
-    val updateF: SubstitutionUpdate = {
-      v => if (redundantVars.contains(v)) Set.empty else Set(v)
-    }
-    updateSubst(updateF)
-  }
-
-  def extendLabeling(unification: Unification): UnfoldingTree = {
-    val updateFn : SubstitutionUpdate = {
-      v => unification.find(_.contains(v)).getOrElse(Set(v))
-    }
-    updateSubst(updateFn)
+    val dropper = SubstitutionUpdate.redundantPlaceholderDropper(nodeLabels.values)
+    updateSubst(dropper)
   }
 
   def instantiate(abstractLeaf: NodeId, replacingTree: UnfoldingTree, unification: Unification): UnfoldingTree = {
     assert(haveNoConflicts(this, replacingTree))
     logger.debug(s"Replacing $abstractLeaf in $this with $replacingTree")
-    val thisExtended = this.extendLabeling(unification)
-    val otherExtended = replacingTree.extendLabeling(unification)
+    val propagateUnification = SubstitutionUpdate.fromUnification(unification)
+    val thisExtended = this.updateSubst(propagateUnification)
+    val otherExtended = replacingTree.updateSubst(propagateUnification)
     // TODO: This instantiation 'leaks' the ID of abstractLeaf: It will not be used in the tree that we get after instantiation. I'm afraid this may complicate debugging.
     val combinedNodeLabels = (thisExtended.nodeLabels ++ otherExtended.nodeLabels) - abstractLeaf
 
@@ -204,12 +192,49 @@ case class UnfoldingTree(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, childr
     copy(nodeLabels = updatedLabels)
   }
 
+  def findUsage(n: NodeLabel, v: FreeVar): VarUsage = {
+    // TODO: Usage tracking/discovery is extremely inefficient but occurs very frequently! (E.g. looking up the node id for the node in O(n))
+    // Computing usage by reverse-lookup only makes sense if n is unique in the tree
+    assert(nodeLabels.values.count(_ == n) == 1)
+
+    // A variable is used if either...
+    // 1.) There is a free variable somewhere in the UT that is used and that's equivalent
+    val s: Set[Var] = n.subst.toSeq(n.freeVarSeq.indexOf(v))
+    val usages = for {
+      nodeLabel <- nodeLabels.values
+      substSeq = nodeLabel.subst.toSeq
+      (vars, ix) <- substSeq.zipWithIndex
+      if vars == s
+    } yield nodeLabel.varUsage(nodeLabel.freeVarSeq(ix))
+
+    // or 2.) v is equivalent to a bound variable in its father and that variable is used
+    val maybeParentUsage: Option[VarUsage] = for {
+      (nodeId, _) <- nodeLabels.find(_._2 == n)
+      parent <- parents.get(nodeId)
+      parentLabel = nodeLabels(parent).asInstanceOf[RuleNodeLabel]
+      sh = parentLabel.rule.body
+      callsWithChildren: Seq[(PredCall, NodeId)] = sh.predCalls.zip(children(parent))
+      (callForN, _) <- callsWithChildren.find(_._2 == nodeId)
+      matchingVar = callForN.args(n.freeVarSeq.indexOf(v))
+      ptr = sh.pointers.head
+    } yield {
+      // FIXME: This doesn't take into account that 'matchingVar' could only be equal to an allocated/referenced var rather than used itself!
+      if (ptr.from == matchingVar) VarUsage.Allocated
+      else if (ptr.to.contains(matchingVar)) VarUsage.Referenced
+      else VarUsage.Unused
+    }
+
+    val allUsages = usages ++ maybeParentUsage
+
+    if (allUsages.isEmpty) VarUsage.Unused else allUsages.max
+  }
+
 }
 
 object UnfoldingTree extends HarrshLogging {
 
   implicit val treeToLatex: ToLatex[UnfoldingTree] = ForestsToLatex.treeToLatex
-  implicit val canComposeUT: CanCompose[UnfoldingTree] = UnfoldingTreeComposition.canComposeUT
+  implicit val canComposeUT: CanCompose[UnfoldingTree] = CanComposeUnfoldingTree.canComposeUT
 
   private def getSubstOrDefault(subst: Option[Substitution], pred: Predicate): Substitution = {
     subst.getOrElse(Substitution.identity(pred.params))
@@ -220,8 +245,6 @@ object UnfoldingTree extends HarrshLogging {
     val id = NodeId.zero
     UnfoldingTree(Map(id -> label), id, Map(id -> Seq.empty))
   }
-
-  def extractVarEquivClasses(labels: Iterable[NodeLabel]) : Set[Set[Var]] = Substitution.extractVarEquivClasses(labels map (_.subst))
 
   def haveNoConflicts(ut1: UnfoldingTree, ut2: UnfoldingTree) : Boolean = {
     (ut1.nodes intersect ut2.nodes).isEmpty && (ut1.placeholders intersect ut2.placeholders).isEmpty
