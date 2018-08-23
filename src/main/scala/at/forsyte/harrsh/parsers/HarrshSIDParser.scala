@@ -26,6 +26,10 @@ private[parsers] trait HarrshSIDParser extends SIDCombinatorParser with HarrshLo
       SID.fromTuples(startPred, rules, desc)
   }
 
+  override def parseSymbolicHeap : Parser[SymbolicHeap] = parseBody ^^ {
+    HarrshSIDParser.stringSHwithHarrshNamingtoSH(_)._1
+  }
+
   // TODO This is still somewhat brittle, in that the parser does not detect if the largest free variable of this rule is less than the max free var for other rules of the same predicate, thus erroneously assuming an arity that is too low
   def parseRule : Parser[(String,RuleBody)] = parseHead ~ ("<=" ~> parseBody) ^^ {
     case head ~ body =>

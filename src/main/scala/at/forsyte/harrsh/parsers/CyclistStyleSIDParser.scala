@@ -22,6 +22,10 @@ private[parsers] trait CyclistStyleSIDParser extends SIDCombinatorParser {
       SID(startPred, preds, desc)
   }
 
+  override def parseSymbolicHeap : Parser[SymbolicHeap] = parseBody ^^ {
+    throw new NotImplementedError("Have to add support for quantifier prefixes to be able to parse symbolic heaps in a Cyclist-style format")
+  }
+
   override def parseBody : Parser[StringSymbolicHeap] = parseAtomSeq map {
     atoms =>
       val spatial = atoms filter (_.isInstanceOf[StringSpatialAtom]) map (_.asInstanceOf[StringSpatialAtom])

@@ -19,7 +19,7 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
 
   }
 
-  it should "return the correct preds in correct order " in {
+  it should "return the correct preds in correct order" in {
 
     def getCallIds(s : String) : Seq[String] = s.parse.identsOfCalledPreds
 
