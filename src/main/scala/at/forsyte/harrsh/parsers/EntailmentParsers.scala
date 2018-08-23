@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.parsers
 
+import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.parsers.buildingblocks.{AsciiAtoms, EmptyQuantifierPrefix}
 import at.forsyte.harrsh.seplog.FreeVar
@@ -10,8 +11,6 @@ import scala.util.{Failure, Success, Try}
 object EntailmentParsers extends HarrshLogging {
 
   val DefaultEntailmentParser = new EntailmentParser with HarrshSIDParser with AsciiAtoms with EmptyQuantifierPrefix
-
-  case class EntailmentInstance(lhsSid: SID, lhsCall: PredCall, rhsSid: SID, rhsCall: PredCall, entailmentHolds: Option[Boolean])
 
   def parse(input: String): Option[EntailmentInstance] = {
     DefaultEntailmentParser.run(input).flatMap(transformToInstance)

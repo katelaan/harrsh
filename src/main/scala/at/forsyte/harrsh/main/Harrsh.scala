@@ -1,10 +1,12 @@
 package at.forsyte.harrsh.main
 
+import at.forsyte.harrsh.entailment.EntailmentChecker
 import at.forsyte.harrsh.modelchecking.GreedyUnfoldingModelChecker
-import at.forsyte.harrsh.parsers.slcomp
+import at.forsyte.harrsh.parsers.{EntailmentParsers, slcomp}
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
+import at.forsyte.harrsh.main.ExecutionMode._
 
 import scala.concurrent.duration.{Duration, SECONDS}
 import scalaz.State
@@ -72,6 +74,7 @@ object Harrsh {
       _ <- tryParseMode("--show", "--show", Show)
       _ <- tryParseMode("--unfold", "-u", Unfold)
       _ <- tryParseMode("--analyze", "-a", Analyze)
+      _ <- tryParseMode("--entailment", "-e", Entailment)
       _ <- tryParseMode("--spec", "-s", ModelChecking)
       _ <- tryParseMode("--parse", "--parse", ParseOnly)
       mode <- gets[Config,ExecutionMode](_.mode)
@@ -128,6 +131,16 @@ object Harrsh {
 
       case ParseOnly =>
         println(slcomp.parseFileToSatBenchmark(config.file))
+
+      case Entailment =>
+        val fileContent = IOUtils.readFile(config.file)
+        EntailmentParsers.parse(fileContent) match {
+          case Some(entailmentInstance) =>
+            val res = EntailmentChecker.solve(entailmentInstance)
+            println(if (res) "The entailment holds" else "The entailment does NOT hold")
+          case None =>
+            println("Parsing the entailment input failed.")
+        }
 
       case Decide =>
         val task = TaskConfig(config.file, config.prop, None)
