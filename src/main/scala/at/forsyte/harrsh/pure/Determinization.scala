@@ -39,7 +39,7 @@ object Determinization extends HarrshLogging {
   }
 
   def undeterminedRelationships(rsh : SymbolicHeap) : Seq[(Var,Var)] = {
-    val constraints = ConsistencyCheck.symbolicHeapToEqualityConstraintsQuantified(rsh)
+    val constraints = ConsistencyCheck.symbolicHeapToEqualityConstraints(rsh)
     logger.debug("Full set of constraints: " + constraints.mkString("{",",","}"))
 
     val closure = Closure.ofAtoms(constraints)

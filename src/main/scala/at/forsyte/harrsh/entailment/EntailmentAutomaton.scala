@@ -2,8 +2,8 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.heapautomata.{HeapAutomaton, InconsistentState}
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.{Closure, PureEntailment}
-import at.forsyte.harrsh.seplog.{FreeVar, Renaming, Var}
+import at.forsyte.harrsh.pure.{Closure, ConsistencyCheck, PureEntailment}
+import at.forsyte.harrsh.seplog.{FreeVar, NullConst, Renaming, Var}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
@@ -46,7 +46,7 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
       logger.debug(s"No extension types for local allocation $lab => Return inconsistent state")
       Set(EntailmentAutomaton.State(Set.empty, lab.freeVars))
     } else {
-      logger.debug(s"Extension types for $lab:\n${localETs.mkString("\n")}")
+      logger.debug(s"Extension types for local allocation of $lab:\n${localETs.mkString("\n")}")
       val instantiatedETs = (src, lab.predCalls).zipped.map(instantiateETsForCall)
       for {
         (src, renamed, call) <- (src, instantiatedETs, lab.predCalls).zipped
@@ -60,7 +60,7 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
         ets <- Combinators.choices(allETs map (_.toSeq)).toSet[Seq[ExtensionType]]
         combined <- combineETs(ets, lab)
       } yield combined
-      logger.debug(s"Target state:\n${targetETs.mkString("\n")}")
+      logger.debug(s"Target state:\n${if (targetETs.nonEmpty) targetETs.mkString("\n") else "empty (sink state)"}")
 
       Set(EntailmentAutomaton.State(targetETs, lab.freeVars))
     }
@@ -70,7 +70,7 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
     logger.debug(s"Will combine:\n${ets.map(_.parts.mkString("ET(", "\n  ", ")")).mkString("\n")}\nw.r.t. symbolic heap $lab")
     val combined = ets.reduceLeft(_ compose _)
     logger.debug(s"Resulting parts of the ET:\n${combined.parts.mkString("\n")}")
-    logger.debug(s"Bound vars in result: ${combined.boundVars} (in the symbolic heap: ${lab.boundVars}")
+    logger.debug(s"Bound vars in result: ${combined.boundVars} (in the symbolic heap: ${lab.boundVars.mkString(",")})")
 
     // Drop the bound vars from the extension types, since they are no longer needed after the composition
     assert(combined.boundVars.diff(lab.boundVars).isEmpty,
@@ -119,86 +119,35 @@ object EntailmentAutomaton extends HarrshLogging {
 
   }
 
-  def shToExtensionTypes(sh: SymbolicHeap, sid: SID) : Set[ExtensionType] = {
-    // TODO: Deal with multi-pointer and zero-pointer SHs for the left-hand side? This is particularly important for top-level formulas. (We could do this either through rewriting (converting the LHS into a rooted SID) or through explicit support (implementing partial model checking).)
-    assert(sh.pointers.size == 1)
+  def shToExtensionTypes(lhs: SymbolicHeap, sid: SID) : Set[ExtensionType] = {
+    // TODO: Deal with multi-pointer and zero-pointer SHs for the left-hand side? This is particularly interesting for top-level formulas. (We could do this either through rewriting (converting the LHS into a rooted SID) or through explicit support (implementing partial model checking).)
+    assert(lhs.pointers.size == 1)
 
-    logger.debug(s"Creating (${sid.description})-extension types from $sh")
+    logger.debug(s"Creating (${sid.description})-extension types from $lhs")
 
     for {
       pred <- sid.preds.toSet[Predicate]
-      // Only consider rules with at most the same number of free variables
-      // FIXME: Assuming the same arity here unnecessarily loses generality, see test cases
-      if pred.arity == sh.numFV
       rule <- pred.rules
-      // Instantiate the rule body with the actual free vars of the left-hand side
-      ruleInstance = PredCall(pred.head, sh.freeVars).toSymbolicHeap.replaceCalls(Seq(rule.body))
-      freeVarPermutation <- Combinators.permutations(sh.freeVars)
-      shInstance = rename(sh, freeVarPermutation)
-      varAssignment <- matchHeaps(shInstance, ruleInstance)
-      instantiatedAssignment = reversePermutation(varAssignment, sh.freeVars, freeVarPermutation)
-    } yield mkExtensionType(sid, pred, rule, instantiatedAssignment)
+      body = rule.body
+      lhsLocal = lhs.withoutCalls
+      // Convert to atoms to ensure we only get variables that actually occur in the remaining heap
+      lhsLocalVars = lhsLocal.atoms.vars.toSeq
+      // Go over all ways to map a variable of the lhs to a variable of the rhs
+      varAssignment <- Combinators.allSeqsOfLength(lhsLocalVars.size, body.allVars)
+      // Match the pointers under the variable assignment,
+      // returning the resulting var equivalence classes in case a match is possible
+      reversedVarAssignment <- matchResult(lhsLocal, lhsLocalVars, varAssignment, body)
+    } yield mkExtensionType(sid, pred, rule, reversedVarAssignment)
   }
 
-  private def rename(sh: SymbolicHeap, perm: Seq[FreeVar]): SymbolicHeap = {
-    val renamingPairs = sh.freeVars.zip(perm)
-    val renaming = Renaming.fromPairs(renamingPairs)
-    sh.rename(renaming)
-  }
-
-
-  def reversePermutation(varAssignment: Map[Var, Var], originalFVs: Seq[FreeVar], permutedFVs: Seq[FreeVar]): Map[Var,Var] = {
-    val map: Map[Var, Var] = (permutedFVs, originalFVs).zipped.toMap
-    varAssignment.map {
-      case (k,v) => (k,map.getOrElse(v,v))
-    }
-  }
-
-  private def compatiblePointers(leftPtr: PointsTo, leftEqs: Closure, rightPtr: PointsTo): Boolean = {
-    if (leftPtr.to.size != rightPtr.to.size) {
-      // Pointers of different arity => Can't be matched
-      false
-    } else {
-      // Pointers of same arity are compatible if all arguments coincide (modulo the equalities defined in the left heap)
-      //        val matchResults = for {
-      //          (xl, xr) <- (leftPtr.args, rightPtr.args).zipped
-      //        } yield leftEqs.getEquivalenceClass(xl).contains(xr)
-      //        matchResults.forall(b => b)
-      // TODO: Only the LHS has to coincide. I.e., the following test should be sufficient?
-      leftEqs.getEquivalenceClass(leftPtr.from).contains(rightPtr.from)
-    }
-  }
-
-  private def matchHeaps(leftHeap: SymbolicHeap, rightRuleInstance: SymbolicHeap): Set[Map[Var, Var]] = {
-    logger.trace(s"Try matching $leftHeap against $rightRuleInstance")
-
-    // FIXME: Generate all possible mappings (involving all ways that vars are allowed to alias without contradicting the RHS closure) rather than just one default substitution
-    // TODO: This equality- and unification-based reasoning should have significant overlap with existing code. (Model checking, tracking etc.) Should clean all that up and provide a set of common core routines!
-    // TODO: Explicitly include the != null constraints for allocation?
-    val leftEqs = Closure.ofAtoms(leftHeap.pure)
-    val rightEqs = Closure.ofAtoms(rightRuleInstance.pure)
-
-    // TODO: After debugging, this should be moved into the if for possible short-circuiting
-    val leftEqsEntailRightEqs = PureEntailment.check(leftEqs, rightEqs)
-    val pointersCompatible = compatiblePointers(leftHeap.pointers.head, leftEqs, rightRuleInstance.pointers.head)
-    if (leftEqsEntailRightEqs && pointersCompatible) {
-      val map = (rightRuleInstance.pointers.head.args, leftHeap.pointers.head.args).zipped.toMap
-      Set(map)
-    } else {
-      logger.trace(s"Couldn't match $leftHeap against $rightRuleInstance. Pure entailment holds: $leftEqsEntailRightEqs; Pointers compatible: $pointersCompatible")
-      Set.empty
-    }
-  }
-
-  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, varAssignment: Map[Var,Var]): ExtensionType = {
+  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, varAssignment: Map[Var,Set[Var]]): ExtensionType = {
     logger.debug(s"Creating extension type from ${pred.head}, $rule, $varAssignment")
-
     val body = rule.body
-    val varsNotInAlloc = (body.allVars -- varAssignment.keySet).toSeq.sorted
-    val placeholders = (1 to varsNotInAlloc.size) map (PlaceholderVar(_).toFreeVar)
-    val placeholderMap = (varsNotInAlloc, placeholders).zipped.toMap
+    val varsNotInAssignment = body.allVars -- varAssignment.keySet
+    val placeholders = (1 to varsNotInAssignment.size) map (i => Set[Var](PlaceholderVar(i).toFreeVar))
+    val placeholderMap: Map[Var,Set[Var]] = (varsNotInAssignment, placeholders).zipped.toMap
     val combinedMap = varAssignment ++ placeholderMap
-    val rename = (v: Var) => Set(combinedMap(v))
+    val rename = (v: Var) => combinedMap(v)
 
     // Compute the substitutions for the root node and the abstract leaves
     val rootSubst = Substitution(body.freeVars map rename)
@@ -219,4 +168,29 @@ object EntailmentAutomaton extends HarrshLogging {
     ut.interface.asExtensionType
   }
 
+  private def matchResult(lhsLocal: SymbolicHeap, lhsLocalVars: Seq[Var], assignment: Seq[Var], rhs: SymbolicHeap): Option[Map[Var,Set[Var]]] = {
+    assert(assignment.size == lhsLocalVars.size)
+    val pairs = lhsLocalVars.zip(assignment)
+    val renamed = lhsLocal.rename(Renaming.fromPairs(pairs))
+    // FIXME: Check pure entailment instead of syntactic equality check!
+    val res = renamed.pointers == rhs.pointers && ConsistencyCheck.isConsistent(renamed)
+    logger.debug(s"Renamed $lhsLocal to $renamed to match against $rhs => match result: $res")
+    if (res) {
+      // Compute reverse assignment
+      val reverseAssignment: Map[Var,Set[Var]] = pairs.groupBy(_._2).map(pair => (pair._1, pair._2.map(_._1).toSet[Var]))
+      logger.debug(s"Computed reverse assignment $reverseAssignment")
+
+      // FIXME: Propagate equalities in RHS
+      val closure = Closure.fromSH(rhs)
+
+      Some(reverseAssignment)
+    }
+    else None
+  }
+
+  private def rename(sh: SymbolicHeap, perm: Seq[FreeVar]): SymbolicHeap = {
+    val renamingPairs = sh.freeVars.zip(perm)
+    val renaming = Renaming.fromPairs(renamingPairs)
+    sh.rename(renaming)
+  }
 }

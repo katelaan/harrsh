@@ -36,8 +36,8 @@ object EntailmentChecker {
     * @param reportProgress Produce additional output to keep track of progress
     * @return True iff the entailment holds
     */
-  def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true): Boolean = {
-    val entailmentHolds = runEntailmentAutomaton(entailmentInstance, reportProgress)
+  def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true): Boolean = {
+    val entailmentHolds = runEntailmentAutomaton(entailmentInstance, reportProgress, printResult)
 
     entailmentInstance.entailmentHolds foreach {
       shouldHold =>
@@ -48,14 +48,49 @@ object EntailmentChecker {
     entailmentHolds
   }
 
-  def runEntailmentAutomaton(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true): Boolean = {
+  def runEntailmentAutomaton(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true): Boolean = {
     val EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhsSid, rhsCall)
     val reachable: Set[(String, EntailmentAutomaton.State)] = RefinementAlgorithms.allReachableStates(lhsSid, aut, reportProgress)
+    if (printResult) {
+      println(serializeResult(aut, reachable))
+    }
     val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
     reachable.forall{
       case (pred, state) => pred != lhsCall.name || isFinal(state)
     }
+  }
+
+  object serializeResult {
+
+    def apply(aut: EntailmentAutomaton, reachable: Set[(String, EntailmentAutomaton.State)]): String = {
+      val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
+      serializeReach(reachable, isFinal)
+    }
+
+    private def indent(s : String) = "  " + s
+
+    def serializeReach(states: Set[(String, EntailmentAutomaton.State)], isFinal: EntailmentAutomaton.State => Boolean): String = {
+      val statesByPred: Map[String, Set[EntailmentAutomaton.State]] = states.groupBy(_._1).mapValues(pairs => pairs.map(_._2))
+      val lines = Stream("RESULT {") ++ statesByPred.toStream.flatMap(pair => serializePred(pair._1, pair._2, isFinal)).map(indent) ++ Stream("}")
+      lines.mkString("\n")
+    }
+
+    def serializePred(pred: String, states: Set[EntailmentAutomaton.State], isFinal: EntailmentAutomaton.State => Boolean): Stream[String] = {
+      Stream(s"PRED $pred {") ++ states.toStream.flatMap(s => serializeState(s, isFinal)).map(indent) ++ Stream("}")
+    }
+
+    def serializeState(state: EntailmentAutomaton.State, isFinal: EntailmentAutomaton.State => Boolean): Stream[String] = {
+      (Stream("STATE {",
+        s"  PARAMS: ${state.orderedParams.mkString(", ")}")
+        ++ Some("  FINAL").filter(_ => isFinal(state))
+        ++ state.ets.toStream.flatMap(serializeET).map(indent) ++ Stream("}"))
+    }
+
+    def serializeET(et: ExtensionType): Stream[String] = {
+      et.toString.lines.toStream
+    }
+
   }
 
 }

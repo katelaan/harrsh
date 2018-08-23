@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.pure
 
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.PureAtom
+import at.forsyte.harrsh.seplog.inductive.{PureAtom, SymbolicHeap}
 
 /**
   * Created by jkatelaa on 10/17/16.
@@ -67,5 +67,7 @@ object Closure {
     * @return View of atoms as closure
     */
   def unsafeTrivialClosure(atoms : Set[PureAtom]) : Closure = UnsafeAtomsAsClosure(atoms)
+
+  def fromSH(sh: SymbolicHeap) : Closure = ofAtoms(ConsistencyCheck.symbolicHeapToEqualityConstraints(sh))
 
 }

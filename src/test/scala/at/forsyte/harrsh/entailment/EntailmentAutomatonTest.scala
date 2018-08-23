@@ -140,9 +140,9 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
 
     val tllTable = Table(
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
-      (tll, tll, P("tll")(x1), EntailmentHolds),
-      (tllAcyc, tll, P("tll")(x1), EntailmentHolds),
-      (tll, tllAcyc, P("tll")(x1), EntailmentFails)
+      (tll, tll, P("tll")(x1,x2,x3), EntailmentHolds),
+      //(tllAcyc, tll, P("tll")(x1,x2,x3), EntailmentHolds),
+      //(tll, tllAcyc, P("tll")(x1,x2,x3), EntailmentFails)
     )
 
     runAllTestsInTable(tllTable)
@@ -156,7 +156,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
         Then(s"Entailment should hold: $shouldHold")
 
         val (aut, reach) = refine(rhsSid, rhsCall, lhsSid)
-        info("Refinement result: " + serializeResult(aut, reach))
+        info("Refinement result: " + EntailmentChecker.serializeResult(aut, reach))
         verifyEntailment(aut, lhsSid.startPred, reach) shouldEqual shouldHold
     }
   }
@@ -199,36 +199,10 @@ object EntailmentAutomatonTest extends TestValues {
   def check(sid: SID, rhs: PredCall, lhs: SID): Boolean = {
     println(s"Checking ${lhs.callToStartPred} |= $rhs for SID '${sid.description}'")
     val (aut, reachable) = refine(sid, rhs, lhs)
-    println(serializeResult(aut, reachable))
+    println(EntailmentChecker.serializeResult(aut, reachable))
     verifyEntailment(aut, lhs.startPred, reachable)
   }
 
-  private def indent(s : String) = "  " + s
 
-  def serializeResult(aut: EntailmentAutomaton, reachable: Set[(String, EntailmentAutomaton.State)]): String = {
-    val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
-    serializeReach(reachable, isFinal)
-  }
-
-  def serializeReach(states: Set[(String, EntailmentAutomaton.State)], isFinal: EntailmentAutomaton.State => Boolean): String = {
-    val statesByPred: Map[String, Set[EntailmentAutomaton.State]] = states.groupBy(_._1).mapValues(pairs => pairs.map(_._2))
-    val lines = Stream("RESULT {") ++ statesByPred.toStream.flatMap(pair => serializePred(pair._1, pair._2, isFinal)).map(indent) ++ Stream("}")
-    lines.mkString("\n")
-  }
-
-  def serializePred(pred: String, states: Set[EntailmentAutomaton.State], isFinal: EntailmentAutomaton.State => Boolean): Stream[String] = {
-    Stream(s"PRED $pred {") ++ states.toStream.flatMap(s => serializeState(s, isFinal)).map(indent) ++ Stream("}")
-  }
-
-  def serializeState(state: EntailmentAutomaton.State, isFinal: EntailmentAutomaton.State => Boolean): Stream[String] = {
-    (Stream("STATE {",
-      s"  PARAMS: ${state.orderedParams.mkString(", ")}")
-      ++ Some("  FINAL").filter(_ => isFinal(state))
-    ++ state.ets.toStream.flatMap(serializeET).map(indent) ++ Stream("}"))
-  }
-
-  def serializeET(et: ExtensionType): Stream[String] = {
-    et.toString.lines.toStream
-  }
 
 }
