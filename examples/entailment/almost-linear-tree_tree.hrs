@@ -1,0 +1,13 @@
+query {
+  ltree(x1, x2) |= tree(x1, x2)
+}
+sid {
+  tree <= x1 -> (nil, nil) ;
+  tree <= x1 -> (y,z) * tree(y) * tree(z) ;
+  ltree <= x1 -> (nil, nil) ;
+  ltree <= x1 -> (y,z) * ltree(y) * rtree(z) ;
+  rtree <= x1 -> (nil, nil) ;
+}
+info {
+  status = true
+}

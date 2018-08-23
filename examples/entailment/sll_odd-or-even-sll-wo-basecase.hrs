@@ -1,0 +1,15 @@
+query {
+  sll(x1, x2) |= oddeven(x1, x2)
+}
+sid {
+  sll <= x1 -> x2 ;
+  sll <= x1 -> y * sll(y,x2) ;
+  oddeven <= x1 -> y * odd(y,x2) ;
+  oddeven <= x1 -> y * even(y,x2) ;
+  odd <= x1 -> x2 ;
+  odd <= x1 -> y * even(y,x2) ;
+  even <= x1 -> y * odd(y,x2)
+}
+info {
+  status = false
+}

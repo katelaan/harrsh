@@ -1,0 +1,11 @@
+query {
+  oneptr(x1, x2) |= sll(x1, x2)
+}
+sid {
+  sll <= x1 -> x2 ;
+  sll <= x1 -> y * sll(y,x2) ;
+  oneptr <= x1 -> x2 ;
+}
+info {
+  status = true
+}

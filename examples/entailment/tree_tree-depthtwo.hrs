@@ -1,0 +1,12 @@
+query {
+  tree(x1) |= depthtwo(x1)
+}
+sid {
+  tree <= x1 -> (nil, nil) ;
+  tree <= x1 -> (y,z) * tree(y) * tree(z) ;
+  depthtwo <= x1 -> (y,z) * depthone(y) * depthone(z) ;
+  depthone <= x1 -> (nil, nil) ;
+}
+info {
+  status = false
+}

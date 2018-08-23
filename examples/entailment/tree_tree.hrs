@@ -1,0 +1,10 @@
+query {
+  tree(x1) |= tree(x1)
+}
+sid {
+  tree <= x1 -> (nil, nil) ;
+  tree <= x1 -> (y,z) * tree(y) * tree(z)
+}
+info {
+  status = true
+}
