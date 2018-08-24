@@ -17,9 +17,10 @@ trait Closure {
   /**
     * Computes the set of all variables that are in the same equivalence class as v
     * @param v Member of class
+    * @param defaultToSingletonClass When given a variable v not in the closure, should Set(v) be returned (instead of Set())
     * @return Equivalence class that contains v
     */
-  def getEquivalenceClass(v : Var) : Set[Var]
+  def getEquivalenceClass(v : Var, defaultToSingletonClass: Boolean = true) : Set[Var]
 
   /**
     * Checks if v is the representative ((numerically) minimal element) of its equivalence class

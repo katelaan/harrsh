@@ -18,7 +18,9 @@ private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure 
     extendEntry(left, right)
   }
 
-  override def getEquivalenceClass(v : Var) : Set[Var] = mapToClasses.getOrElse(v, Set(v))
+  override def getEquivalenceClass(v : Var, defaultToSingletonClass: Boolean = true) : Set[Var] = {
+    mapToClasses.getOrElse(v, if (defaultToSingletonClass) Set(v) else Set.empty)
+  }
 
   override def isRepresentative(v : Var) : Boolean = {
     // If the EQ class is defined, check if i is the representation = the minimum of that class

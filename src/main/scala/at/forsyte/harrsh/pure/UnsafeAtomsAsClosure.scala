@@ -15,7 +15,7 @@ private[pure] case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends C
       throw new IllegalStateException("Assumed " + closure + " is closure, but actual closure is" + computedClosure)
   }
 
-  override def getEquivalenceClass(v: Var): Set[Var] = {
+  override def getEquivalenceClass(v: Var, defaultToSingletonClass: Boolean = true): Set[Var] = {
     val otherMembers = closure.filter({
       atom =>
         val PureAtom(l, r, isEq) = atom
@@ -27,7 +27,11 @@ private[pure] case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends C
         // Return the argument that is different from v
         if (l == v) r else l
     })
-    Set(v) union otherMembers
+    if (otherMembers.isEmpty && !defaultToSingletonClass) {
+      Set.empty
+    } else {
+      Set(v) union otherMembers
+    }
   }
 
   override def isRepresentative(v: Var): Boolean = !closure.exists({

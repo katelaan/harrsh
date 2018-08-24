@@ -46,7 +46,7 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
       logger.debug(s"No extension types for local allocation $lab => Return inconsistent state")
       Set(EntailmentAutomaton.State(Set.empty, lab.freeVars))
     } else {
-      logger.debug(s"Extension types for local allocation of $lab:\n${localETs.mkString("\n")}")
+      logger.debug(s"Extension types for local allocation of $lab from $src:\n${localETs.mkString("\n")}")
       val instantiatedETs = (src, lab.predCalls).zipped.map(instantiateETsForCall)
       for {
         (src, renamed, call) <- (src, instantiatedETs, lab.predCalls).zipped
@@ -130,9 +130,10 @@ object EntailmentAutomaton extends HarrshLogging {
       rule <- pred.rules
       body = rule.body
       lhsLocal = lhs.withoutCalls
-      // Convert to atoms to ensure we only get variables that actually occur in the remaining heap
-      lhsLocalVars = lhsLocal.atoms.vars.toSeq
+      // Rename the variables that occur in the points-to assertion. (Only those, because we match only the pointers)
+      lhsLocalVars = lhsLocal.pointers.head.getNonNullVars.toSeq
       // Go over all ways to map a variable of the lhs to a variable of the rhs
+      // FIXME: Don't brute force over assignments, but pick the suitable one(s) directly
       varAssignment <- Combinators.allSeqsOfLength(lhsLocalVars.size, body.allVars)
       // Match the pointers under the variable assignment,
       // returning the resulting var equivalence classes in case a match is possible
@@ -172,16 +173,34 @@ object EntailmentAutomaton extends HarrshLogging {
     assert(assignment.size == lhsLocalVars.size)
     val pairs = lhsLocalVars.zip(assignment)
     val renamed = lhsLocal.rename(Renaming.fromPairs(pairs))
-    // FIXME: Check pure entailment instead of syntactic equality check!
+    // TODO: Do we want to check pure entailment instead of syntactic equality? This depends on how we compute the var assignment. Since we're currently brute-forcing over all assignments, I don't think that's necessary. Revisit this as we implement direct matching.
     val res = renamed.pointers == rhs.pointers && ConsistencyCheck.isConsistent(renamed)
-    logger.debug(s"Renamed $lhsLocal to $renamed to match against $rhs => match result: $res")
+    if (res) {
+      logger.debug(s"Used $assignment to rename $lhsLocal to $renamed to match against $rhs => match result: $res")
+    }
     if (res) {
       // Compute reverse assignment
-      val reverseAssignment: Map[Var,Set[Var]] = pairs.groupBy(_._2).map(pair => (pair._1, pair._2.map(_._1).toSet[Var]))
-      logger.debug(s"Computed reverse assignment $reverseAssignment")
+      val unpropagatedReverseAssignment: Map[Var,Set[Var]] = pairs.groupBy(_._2).map(pair => (pair._1, pair._2.map(_._1).toSet[Var]))
+      logger.debug(s"Computed reverse assignment before propagation: $unpropagatedReverseAssignment")
 
-      // FIXME: Propagate equalities in RHS
-      val closure = Closure.fromSH(rhs)
+      val shAtoms = lhsLocal.pure :+ (lhsLocal.pointers.head.from =/= NullConst)
+      def toEqs(vs: Set[Var]): Set[PureAtom] = if (vs.size <= 1) Set.empty else {
+        val head = vs.head
+        val tail = vs - head
+        (tail map (head =:= _)) ++ toEqs(tail)
+      }
+      val revAssAtoms = unpropagatedReverseAssignment.values.flatMap(toEqs)
+      val closure = Closure.ofAtoms(shAtoms ++ revAssAtoms)
+      val reverseAssignmentPairs = for {
+        fv <- rhs.allVars //freeVars
+        explicit = unpropagatedReverseAssignment.getOrElse(fv, Set.empty)
+        implied = closure.getEquivalenceClass(fv, defaultToSingletonClass = false)
+        combined = explicit ++ implied
+        if combined.nonEmpty
+      } yield (fv.asInstanceOf[Var], combined)
+      val reverseAssignment = reverseAssignmentPairs.toMap
+
+      logger.debug(s"Reverse assignment after propagation: $reverseAssignment")
 
       Some(reverseAssignment)
     }
