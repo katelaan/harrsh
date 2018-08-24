@@ -79,7 +79,6 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
       // Every acyclic list is a list
       (anel, nel, P("nel")(x1,x2), EntailmentHolds),
       // Not every list is an acyclic list
-      // TODO: Is it enough to refute this by taking the weakest possible model of the LHS (like we currently do) or do we have to consider all possibilities to set equal variables on the LHS?
       (nel, anel, P("anel")(x1,x2), EntailmentFails)
     )
 

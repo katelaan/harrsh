@@ -1,0 +1,12 @@
+# A pointer from x2 to x1 is a list from x2 to x1
+query {
+  revptr(x1, x2) |= sll(x2, x1)
+}
+sid {
+  sll <= x1 -> x2 ;
+  sll <= x1 -> y * sll(y,x2) ;
+  revptr <= x2 -> x1
+}
+info {
+  status = true
+}

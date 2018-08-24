@@ -1,0 +1,15 @@
+# A list which may have additional pointers to null need not be a list
+query {
+  mixedarity(x1, x2) |= sll(x1, x2)
+}
+sid {
+  sll <= x1 -> x2 ;
+  sll <= x1 -> y * sll(y,x2) ;
+  mixedarity <= x1 -> (y,nil) * mixedarity(y, x2);
+  mixedarity <= x1 -> y * mixedarity(y, x2);
+  mixedarity <= x1 -> (x2,nil) ;
+  mixedarity <= x1 -> x2 ;
+}
+info {
+  status = false
+}

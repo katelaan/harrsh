@@ -1,0 +1,13 @@
+# Every acyclic tll is a tll
+query {
+  atll(x1, x2, x3) |= tll(x1, x2, x3)
+}
+sid {
+  tll <= x1 -> (nil,nil,x3) : {x1 = x2} ;
+  tll <= x1 -> (l,r,nil) * tll(l,x2,m) * tll(r,m,x3) ;
+  atll <= x1 -> (nil,nil,x3) : {x1 = x2, x1 != x3} ;
+  atll <= x1 -> (l,r,nil) * atll(l,x2,m) * atll(r,m,x3) : {x1 != x3}
+}
+info {
+  status = true
+}

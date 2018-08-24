@@ -1,0 +1,13 @@
+# A list with two pointers to each successor is not a list
+query {
+  wrongarity(x1, x2) |= sll(x1, x2)
+}
+sid {
+  sll <= x1 -> x2 ;
+  sll <= x1 -> y * sll(y,x2) ;
+  wrongarity <= x1 -> (y,y) * wrongarity(y, x2);
+  wrongarity <= x1 -> (x2,x2) ;
+}
+info {
+  status = false
+}
