@@ -1,3 +1,4 @@
+# A single pointer from x1 to x2 is a list from x1 to x2
 query {
   oneptr(x1, x2) |= sll(x1, x2)
 }

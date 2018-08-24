@@ -94,7 +94,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
     val dllTable = Table(
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
       // Every tree is a tree
-      (dll, dll, P("dll")(x1, x2, x3, x4), EntailmentHolds)
+      (dll, dll, P("dll")(x1, x2, x3), EntailmentHolds)
     )
 
     runAllTestsInTable(dllTable)
@@ -124,7 +124,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
       (almostLinearTree, tree, P("tree")(x1), EntailmentHolds),
       // Not every tree is an almost-linear tree
       (tree, almostLinearTree, P("ltree")(x1), EntailmentFails),
-      (singleTreePtrWoNullInfo, tree, P("tree")(x1), EntailmentFails)
+      (singleTreePtrWoNullInfo, tree, P("tree")(x1), EntailmentFails),
       // FIXME The following entailment should hold, even though there are more free variables on the lhs! --> Allow different numbers of FVs on the sides of the entailment
       //(singleTreePtrWithNullInfo, tree, P("tree")(x1), EntailmentHolds)
     )
@@ -141,8 +141,8 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
     val tllTable = Table(
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
       (tll, tll, P("tll")(x1,x2,x3), EntailmentHolds),
-      //(tllAcyc, tll, P("tll")(x1,x2,x3), EntailmentHolds),
-      //(tll, tllAcyc, P("tll")(x1,x2,x3), EntailmentFails)
+      (tllAcyc, tll, P("tll")(x1,x2,x3), EntailmentHolds),
+      (tll, tllAcyc, P("tll")(x1,x2,x3), EntailmentFails)
     )
 
     runAllTestsInTable(tllTable)

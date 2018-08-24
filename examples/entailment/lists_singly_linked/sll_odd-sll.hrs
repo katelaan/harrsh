@@ -1,3 +1,4 @@
+# Not every list has odd length
 query {
   sll(x1, x2) |= odd(x1, x2)
 }

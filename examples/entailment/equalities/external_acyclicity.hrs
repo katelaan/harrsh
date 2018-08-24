@@ -1,11 +1,16 @@
+# Test proper treatment of disequalities
 query {
   external(x1, x2) |= asll(x1, x2)
 }
 sid {
+  # Enforce that the parameters are different
   asll <= x1 -> x2 : {x1 != x2} ;
   asll <= x1 -> y * asll(y,x2) : {x1 != x2} ;
-  external <= x1 -> y * base(y, x2) : {x1 != y, x1 != x2, y != x2} ;
+
+  # Don't enforce that the parameters are different in the base rule...
   base <= x1 -> x2 ;
+  # ...but add the disequality in the context
+  external <= x1 -> y * base(y, x2) : {x1 != y, x1 != x2, y != x2} ;
 }
 info {
   status = true

@@ -1,3 +1,4 @@
+# Not every tree has depth two
 query {
   tree(x1) |= depthtwo(x1)
 }

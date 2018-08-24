@@ -7,7 +7,7 @@ object ParseUtils {
 
   def stripCommentLines(input : String, commentPrefix : String) = {
     val lines = input.split("\n")
-    val strippedLines = lines.filterNot(_.startsWith(commentPrefix))
+    val strippedLines = lines.filterNot(_.trim.startsWith(commentPrefix))
     strippedLines.mkString("\n")
   }
 

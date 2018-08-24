@@ -1,3 +1,4 @@
+# Every acyclic list is a list
 query {
   asll(x1, x2) |= sll(x1, x2)
 }

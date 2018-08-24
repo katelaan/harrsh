@@ -1,3 +1,4 @@
+# Every list of odd length is a list
 query {
   odd(x1, x2) |= sll(x1, x2)
 }

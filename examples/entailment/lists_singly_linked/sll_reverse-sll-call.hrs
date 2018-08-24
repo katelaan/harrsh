@@ -1,3 +1,4 @@
+# Not every list from x1 to x2 is a list from x2 to x1
 query {
   sll(x1, x2) |= sll(x2, x1)
 }

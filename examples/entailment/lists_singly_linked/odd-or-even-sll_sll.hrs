@@ -1,3 +1,4 @@
+# Every list that is either odd or even in length is a list
 query {
   oddeven(x1, x2) |= sll(x1, x2)
 }

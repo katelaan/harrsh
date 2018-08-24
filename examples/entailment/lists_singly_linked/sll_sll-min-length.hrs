@@ -1,3 +1,4 @@
+# Not every list has length at least four
 query {
   sll(x1, x2) |= sll3(x1, x2)
 }

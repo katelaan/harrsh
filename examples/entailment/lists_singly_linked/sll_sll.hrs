@@ -1,3 +1,4 @@
+# Every list is a list
 query {
   sll(x1, x2) |= sll(x1, x2)
 }

@@ -1,9 +1,11 @@
+# Not every list has length at least two
 query {
   sll(x1, x2) |= oddeven(x1, x2)
 }
 sid {
   sll <= x1 -> x2 ;
   sll <= x1 -> y * sll(y,x2) ;
+  # No base case for oddeven => has only models of length at least two => entailment check fails
   oddeven <= x1 -> y * odd(y,x2) ;
   oddeven <= x1 -> y * even(y,x2) ;
   odd <= x1 -> x2 ;

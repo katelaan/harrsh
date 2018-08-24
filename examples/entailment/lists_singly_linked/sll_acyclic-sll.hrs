@@ -1,3 +1,4 @@
+# Not every list is acyclic
 query {
   sll(x1, x2) |= asll(x1, x2)
 }

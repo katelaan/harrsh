@@ -1,3 +1,4 @@
+# Every tree is a tree
 query {
   tree(x1) |= tree(x1)
 }

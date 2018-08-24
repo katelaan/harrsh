@@ -1,3 +1,4 @@
+# A tree of depth two is a tree
 query {
   depthtwo(x1, x2) |= tree(x1, x2)
 }

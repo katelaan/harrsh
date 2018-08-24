@@ -1,3 +1,4 @@
+# Not every list has even length
 query {
   sll(x1, x2) |= even(x1, x2)
 }

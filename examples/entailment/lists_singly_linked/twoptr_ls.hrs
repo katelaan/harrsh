@@ -1,3 +1,4 @@
+# A list of length two is a list
 query {
   twoptrs(x1, x2) |= sll(x1, x2)
 }

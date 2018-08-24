@@ -1,3 +1,4 @@
+# Every list of length at least four is a list
 query {
   sll3(x1, x2) |= sll(x1, x2)
 }
