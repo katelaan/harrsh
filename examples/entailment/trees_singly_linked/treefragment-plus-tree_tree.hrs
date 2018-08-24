@@ -1,0 +1,14 @@
+# Every tree-fragment ending in trees is a tree
+# This illustrates that the LHS SID may contain predicates of higher arity than the RHS
+query {
+  treecombined(x1) |= tree(x1)
+}
+sid {
+  tree <= x1 -> (nil, nil) ;
+  tree <= x1 -> (y,z) * tree(y) * tree(z) ;
+  treefrag <= x1 -> (x2, x3) : {x2 != null, x3 != null} ;
+  treecombined <= x1 -> (l, r) * treefrag(l, ll, lr) * tree(ll) * tree(lr) * tree(r)
+}
+info {
+  status = true
+}

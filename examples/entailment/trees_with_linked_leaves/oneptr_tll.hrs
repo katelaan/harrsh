@@ -1,0 +1,12 @@
+# Every single pointer is a tll
+query {
+  oneptr(x1, x2) |= tll(x1, x1, x2)
+}
+sid {
+  tll <= x1 -> (nil,nil,x3) : {x1 = x2} ;
+  tll <= x1 -> (l,r,nil) * tll(l,x2,m) * tll(r,m,x3) ;
+  oneptr <= x1 -> (nil,nil,x2)
+}
+info {
+  status = true
+}

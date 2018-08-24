@@ -196,32 +196,58 @@ object EntailmentAutomaton extends HarrshLogging {
       logger.debug(s"Used $assignment to rename $lhsLocal to $renamed to match against $rhs => match result: $res")
     }
     if (res) {
-      // Compute reverse assignment
+      // Compute reverse assignment:
+      // First of all, we simply reverse the variable assignment; since the original assignment is not injective, this yields a set-valued codomain:
       val unpropagatedReverseAssignment: Map[Var,Set[Var]] = pairs.groupBy(_._2).map(pair => (pair._1, pair._2.map(_._1).toSet[Var]))
       logger.debug(s"Computed reverse assignment before propagation: $unpropagatedReverseAssignment")
-
-      val shAtoms = lhsLocal.pure :+ (lhsLocal.pointers.head.from =/= NullConst)
-      def toEqs(vs: Set[Var]): Set[PureAtom] = if (vs.size <= 1) Set.empty else {
-        val head = vs.head
-        val tail = vs - head
-        (tail map (head =:= _)) ++ toEqs(tail)
-      }
-      val revAssAtoms = unpropagatedReverseAssignment.values.flatMap(toEqs)
-      val closure = Closure.ofAtoms(shAtoms ++ revAssAtoms)
-      val reverseAssignmentPairs = for {
-        v <- rhs.allNonNullVars
-        explicit = unpropagatedReverseAssignment.getOrElse(v, Set.empty)
-        implied = closure.getEquivalenceClass(v, defaultToSingletonClass = false)
-        combined = explicit ++ implied
-        if combined.nonEmpty
-      } yield (v.asInstanceOf[Var], combined)
-      val reverseAssignment = reverseAssignmentPairs.toMap
-
+      // However, this is not enough: We need to take equalities into account: If two variables are known to be equal,
+      // both of these variables must be mapped to the same values, the union of their values before propagation:
+      val reverseAssignment = propagateEqualitiesIntoReverseAssignment(lhsLocal, rhs, unpropagatedReverseAssignment)
       logger.debug(s"Reverse assignment after propagation: $reverseAssignment")
-
       Some(reverseAssignment)
     }
     else None
+  }
+
+  private def propagateEqualitiesIntoReverseAssignment(lhsLocal: SymbolicHeap, rhs: SymbolicHeap, unpropagatedReverseAssignment: Map[Var, Set[Var]]): Map[Var, Set[Var]] = {
+    // The reverse assignment maps RHS variables onto LHS variables
+    // There are three types of equalities that must be propagated throughout this assignment:
+
+    // 1.) Equalities that are explicit in the RHS rule body.
+    // If x = y in the RHS, this means that x and y must be mapped to the same values in teh reverse assignment
+    // These must be hold in every matching of the LHS against the RHS
+    // They can be accessed via a closure of the RHS
+    val rhsClosure = Closure.fromSH(rhs)
+
+    // 2.) Equalities that are explicit in the LHS heap;
+    // These must of course be respected in the matching and be reflected in the variable assignment
+    val lhsAtoms = lhsLocal.pure.filter(_.isEquality)
+
+    // 3.) Whenever x is mapped to both y and z in the reverse assignment, this also implies an equality y = z
+    def toEqs(vs: Set[Var]): Set[PureAtom] = if (vs.size <= 1) Set.empty else {
+      val head = vs.head
+      val tail = vs - head
+      (tail map (head =:= _)) ++ toEqs(tail)
+    }
+    val revAssAtoms = unpropagatedReverseAssignment.values.flatMap(toEqs)
+
+    // 2.) and 3.) both concern the LHS variables and must thus be interleaved in the propagation
+    // We therefore construct a common closure
+    val closure = Closure.ofAtoms(lhsAtoms ++ revAssAtoms)
+
+    val reverseAssignmentPairs = for {
+      // For each variable of the RHS...
+      v <- rhs.allNonNullVars
+      // ...we assemble the reverse assignment by...
+      // 1.) Collecting the values in the unpropagated assignment for all keys that are equal to v
+      explicit = rhsClosure.getEquivalenceClass(v).flatMap(w => unpropagatedReverseAssignment.getOrElse(w, Set.empty))
+      // 2.) Adding the variables that are known to be equal to v because of LHS atoms and/or the unpropagated reverse assignment
+      // TODO: Does it really make sense to mix RHS vars (rhsClosure) and LHS vars (closure is computed wrt the original LHS) in this way?
+      implied = rhsClosure.getEquivalenceClass(v).flatMap(w => closure.getEquivalenceClass(w, defaultToSingletonClass = false))
+      combined = explicit ++ implied
+      if combined.nonEmpty
+    } yield (v.asInstanceOf[Var], combined)
+    reverseAssignmentPairs.toMap
   }
 
   private def rename(sh: SymbolicHeap, perm: Seq[FreeVar]): SymbolicHeap = {
