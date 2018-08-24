@@ -1,0 +1,12 @@
+query {
+  asll(x1, x2) |= sll(x1, x2)
+}
+sid {
+  sll <= x1 -> x2 ;
+  sll <= x1 -> y * sll(y,x2) ;
+  asll <= x1 -> x2 : {x1 != x2} ;
+  asll <= x1 -> y * asll(y,x2) : {x1 != x2}
+}
+info {
+  status = true
+}

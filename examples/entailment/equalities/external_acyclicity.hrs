@@ -1,0 +1,12 @@
+query {
+  external(x1, x2) |= asll(x1, x2)
+}
+sid {
+  asll <= x1 -> x2 : {x1 != x2} ;
+  asll <= x1 -> y * asll(y,x2) : {x1 != x2} ;
+  external <= x1 -> y * base(y, x2) : {x1 != y, x1 != x2, y != x2} ;
+  base <= x1 -> x2 ;
+}
+info {
+  status = true
+}

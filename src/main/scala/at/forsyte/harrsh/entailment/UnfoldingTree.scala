@@ -43,7 +43,7 @@ case class UnfoldingTree private(nodeLabels: Map[NodeId,NodeLabel], root: NodeId
 
   def isConcrete: Boolean = abstractLeaves.isEmpty
 
-  def interface: TreeInterface = {
+  def interface(diseqs: DisequalityTracker): TreeInterface = {
     val interfaceNodes: Seq[NodeLabel] = Seq(nodeLabels(root)) ++ (abstractLeaves map (nodeLabels(_)))
     val allUsage: Seq[(Set[Var], VarUsage)] = for {
       node <- interfaceNodes
@@ -54,7 +54,7 @@ case class UnfoldingTree private(nodeLabels: Map[NodeId,NodeLabel], root: NodeId
       case (lbl, usage) => (lbl, usage.map(_._2).max)
     }
     logger.debug(s"Usage map for $this: $usageInfoMap")
-    TreeInterface(nodeLabels(root), abstractLeaves map (nodeLabels(_).asInstanceOf[AbstractLeafNodeLabel]), usageInfoMap, convertToNormalform = true)
+    TreeInterface(nodeLabels(root), abstractLeaves map (nodeLabels(_).asInstanceOf[AbstractLeafNodeLabel]), usageInfoMap, diseqs, convertToNormalform = true)
   }
 
   def project(retainCalls: Boolean = false): SymbolicHeap = {

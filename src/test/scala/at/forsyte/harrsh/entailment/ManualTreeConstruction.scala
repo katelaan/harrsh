@@ -88,8 +88,8 @@ object ManualTreeConstruction {
 
     println(s"Results are the same: ${finished == direct.trees.head}")
 
-    println(UnfoldingForest(Set(t1)).toExtensionType)
-    println(direct.toExtensionType)
+    println(UnfoldingForest(Set(t1)).toExtensionTypeWithoutDisequalities)
+    println(direct.toExtensionTypeWithoutDisequalities)
   }
 
 

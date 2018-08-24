@@ -18,7 +18,7 @@ case class UnfoldingForest(trees: Set[UnfoldingTree]) {
 
   def isConcrete: Boolean = trees.size == 1 && trees.head.isConcrete
 
-  def toExtensionType: ExtensionType = ExtensionType(trees map (_.interface))
+  def toExtensionTypeWithoutDisequalities: ExtensionType = ExtensionType(trees map (_.interface(DisequalityTracker.empty)))
 
 }
 

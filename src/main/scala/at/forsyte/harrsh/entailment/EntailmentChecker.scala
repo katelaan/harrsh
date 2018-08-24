@@ -84,7 +84,12 @@ object EntailmentChecker {
       (Stream("STATE {",
         s"  PARAMS: ${state.orderedParams.mkString(", ")}")
         ++ Some("  FINAL").filter(_ => isFinal(state))
-        ++ state.ets.toStream.flatMap(serializeET).map(indent) ++ Stream("}"))
+        ++ serializeETs(state.ets) ++ Stream("}"))
+    }
+
+    def serializeETs(ets: Set[ExtensionType]): Stream[String] = {
+      if (ets.nonEmpty) ets.toStream.flatMap(serializeET).map(indent)
+      else Stream(indent("NO CONSISTENT ET"))
     }
 
     def serializeET(et: ExtensionType): Stream[String] = {

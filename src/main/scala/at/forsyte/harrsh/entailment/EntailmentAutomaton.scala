@@ -66,29 +66,38 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
     }
   }
 
-  private def combineETs(ets: Seq[ExtensionType], lab: SymbolicHeap): Option[ExtensionType] = {
-    logger.debug(s"Will combine:\n${ets.map(_.parts.mkString("ET(", "\n  ", ")")).mkString("\n")}\nw.r.t. symbolic heap $lab")
-    val combined = ets.reduceLeft(_ compose _)
-    logger.debug(s"Resulting parts of the ET:\n${combined.parts.mkString("\n")}")
-    logger.debug(s"Bound vars in result: ${combined.boundVars} (in the symbolic heap: ${lab.boundVars.mkString(",")})")
-
-    // Drop the bound vars from the extension types, since they are no longer needed after the composition
-    assert(combined.boundVars.diff(lab.boundVars).isEmpty,
-      s"Extension type $combined contains bound vars not in symbolic heap $lab")
-    val restrictedToFreeVars = combined.dropVars(lab.boundVars.toSeq)
-    logger.debug(s"After restriction to free variables:\n${restrictedToFreeVars.parts.mkString("\n")}")
-    assert(restrictedToFreeVars.boundVars.isEmpty,
-      s"Bound vars remain after restriction to free vars: $restrictedToFreeVars")
-
-    // Filter out extension types that don't have free vars in all root positions
-    // FIXME: Also filter out types that lack names for back pointers
-    if (restrictedToFreeVars.hasNamesForRootParams) {
-      logger.debug(s"Extension type is consistent, will become part of target state.")
-      Some(restrictedToFreeVars)
-    } else {
-      logger.debug("Discarding extension type (missing free variables)")
-      None
+  private def composeAll(ets: Seq[ExtensionType]): Option[ExtensionType] = {
+    if (ets.size <= 1) ets.headOption else {
+      for {
+        combinedHead <- ets.head compose ets.tail.head
+        allComposed <- composeAll(combinedHead +: ets.drop(2))
+      } yield allComposed
     }
+  }
+
+  private def combineETs(ets: Seq[ExtensionType], lab: SymbolicHeap): Option[ExtensionType] = {
+    logger.debug(s"Trying to combine:\n${ets.map(_.parts.mkString("ET(", "\n  ", ")")).mkString("\n")}\nw.r.t. symbolic heap $lab...")
+    val res = for {
+      combined <- composeAll(ets)
+      _ = logger.debug(s"Resulting parts of the ET:\n${combined.parts.mkString("\n")}")
+      _ = logger.debug(s"Bound vars in result: ${combined.boundVars} (in the symbolic heap: ${lab.boundVars.mkString(",")})")
+      // Drop the bound vars from the extension types, since they are no longer needed after the composition
+      _ = assert(combined.boundVars.diff(lab.boundVars).isEmpty,
+        s"Extension type $combined contains bound vars not in symbolic heap $lab")
+      restrictedToFreeVars <- combined.dropVars(lab.boundVars.toSeq)
+      _ = logger.debug(s"After restriction to free variables:\n${restrictedToFreeVars.parts.mkString("\n")}")
+      _ = assert(restrictedToFreeVars.boundVars.isEmpty, s"Bound vars remain after restriction to free vars: $restrictedToFreeVars")
+      // Filter out extension types that don't have free vars in all root positions
+      // FIXME: Also filter out types that lack names for back pointers
+      if restrictedToFreeVars.hasNamesForRootParams
+      _ = logger.debug(s"Extension type is consistent, will become part of target state.")
+    } yield restrictedToFreeVars
+
+    if (res.isEmpty) {
+      logger.debug("Could not combine ETs.")
+    }
+
+    res
   }
 
   private def instantiateETsForCall(state: State, call: PredCall): Set[ExtensionType] = {
@@ -132,17 +141,18 @@ object EntailmentAutomaton extends HarrshLogging {
       lhsLocal = lhs.withoutCalls
       // Rename the variables that occur in the points-to assertion. (Only those, because we match only the pointers)
       lhsLocalVars = lhsLocal.pointers.head.getNonNullVars.toSeq
+      lhsEnsuredDiseqs = Closure.fromSH(lhsLocal).asSetOfAtoms.filter(!_.isEquality)
       // Go over all ways to map a variable of the lhs to a variable of the rhs
       // FIXME: Don't brute force over assignments, but pick the suitable one(s) directly
       varAssignment <- Combinators.allSeqsOfLength(lhsLocalVars.size, body.allVars)
       // Match the pointers under the variable assignment,
       // returning the resulting var equivalence classes in case a match is possible
       reversedVarAssignment <- matchResult(lhsLocal, lhsLocalVars, varAssignment, body)
-    } yield mkExtensionType(sid, pred, rule, reversedVarAssignment)
+    } yield mkExtensionType(sid, pred, rule, lhsEnsuredDiseqs, reversedVarAssignment)
   }
 
-  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, varAssignment: Map[Var,Set[Var]]): ExtensionType = {
-    logger.debug(s"Creating extension type from ${pred.head}, $rule, $varAssignment")
+  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredDiseqs: Set[PureAtom], varAssignment: Map[Var,Set[Var]]): ExtensionType = {
+    logger.debug(s"Creating extension type from ${pred.head}, $rule, $lhsEnsuredDiseqs, $varAssignment")
     val body = rule.body
     val varsNotInAssignment = body.allVars -- varAssignment.keySet
     val placeholders = (1 to varsNotInAssignment.size) map (i => Set[Var](PlaceholderVar(i).toFreeVar))
@@ -159,6 +169,12 @@ object EntailmentAutomaton extends HarrshLogging {
       subst = args map rename
     } yield AbstractLeafNodeLabel(pred, Substitution(subst))
 
+    // Compute the missing disequalities
+    val ruleDiseqs: DisequalityTracker = DisequalityTracker(ensured = Closure.fromSH(body).asSetOfAtoms.filter(!_.isEquality), missing = Set.empty)
+    val instantiatedRuleDiseqs = ruleDiseqs.update(rename)
+    val missingDisEqsOfRhs = instantiatedRuleDiseqs.ensured -- lhsEnsuredDiseqs
+    val propagatedDiseqs = DisequalityTracker(lhsEnsuredDiseqs, missingDisEqsOfRhs)
+
     val nodeIds = NodeId.freshIds(Set.empty, childLabels.size + 1)
     val nodeLabelsMap = (nodeIds, rootNodeLabel +: childLabels).zipped.toMap
     val childMap = Map(nodeIds.head -> nodeIds.tail) ++ nodeIds.tail.zip(Stream.continually(Seq.empty))
@@ -166,7 +182,7 @@ object EntailmentAutomaton extends HarrshLogging {
     assert(UnfoldingTree.isInNormalForm(ut), "UT for local alloc $ut is not in normal form")
 
     logger.debug(s"Unfolding tree before conversion to ET: $ut")
-    ut.interface.asExtensionType
+    ut.interface(propagatedDiseqs).asExtensionType
   }
 
   private def matchResult(lhsLocal: SymbolicHeap, lhsLocalVars: Seq[Var], assignment: Seq[Var], rhs: SymbolicHeap): Option[Map[Var,Set[Var]]] = {

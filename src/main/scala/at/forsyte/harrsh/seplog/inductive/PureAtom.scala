@@ -25,7 +25,11 @@ case class PureAtom(l: Var, r: Var, isEquality: Boolean) extends SepLogAtom with
 
   def isPointerComparison = true
 
-  def ordered : PureAtom = if (l < r) this else PureAtom(r, l, isEquality)
+  def isOrdered: Boolean = l <= r
+
+  def ordered: PureAtom = if (isOrdered) this else PureAtom(r, l, isEquality)
+
+  def isConsistent: Boolean = isEquality || l != r
 
   override def toStringWithVarNames(names: Naming): String = {
     val op = if (isEquality) " \u2248 " else " \u2249 "

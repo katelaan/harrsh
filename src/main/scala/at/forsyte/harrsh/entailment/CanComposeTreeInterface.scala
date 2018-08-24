@@ -28,12 +28,13 @@ object CanComposeTreeInterface extends HarrshLogging {
       val combinedUsageInfo = combineUsageInfo(toInstantiate.usageInfo, instantiation.usageInfo, propagateUnification)
       val occurringSubstitutions: Set[Set[Var]] = (Set(newRoot) ++ newLeaves).flatMap(_.subst.toSeq)
       val newUsageInfo = combinedUsageInfo.filter(pair => occurringSubstitutions.contains(pair._1))
+      val newDiseqs = (toInstantiate.diseqs compose instantiation.diseqs).update(propagateUnification)
 
-      val res = TreeInterface(newRoot, newLeaves, newUsageInfo, convertToNormalform = true)
+      val res = TreeInterface(newRoot, newLeaves, newUsageInfo, newDiseqs, convertToNormalform = true)
       assert(TreeInterface.isInNormalForm(res),
         s"After instantiation, placeholder vars ${res.placeholders} contain gap for tree interface $res")
 
-      // FIXME: In which cases should instantiation fail? Should we check for double allocation?
+      // FIXME: In which cases should instantiation fail? Should we e.g. check for double allocation?
       Some(res)
     }
 
