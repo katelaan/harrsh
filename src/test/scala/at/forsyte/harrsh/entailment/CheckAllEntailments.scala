@@ -7,7 +7,7 @@ object CheckAllEntailments {
 
   def main(args: Array[String]): Unit = {
 
-    val files = IOUtils.getListOfFiles("examples/entailment")
+    val files = IOUtils.allFilesRecursively("examples/entailment")
     val failures = for {
       file <- files
       fileContent = IOUtils.readFile(file.toString)

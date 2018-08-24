@@ -16,7 +16,22 @@ object IOUtils {
     println(Console.BLUE + "Warning: " + warning + Console.RESET)
   }
 
-  def getListOfFiles(dir: String) : List[File] = {
+  def allFilesRecursively(topmostDirectory: String): Stream[File] = {
+    allFilesRecursively(new File(topmostDirectory))
+  }
+
+  def allFilesRecursively(topmostDirectory: File): Stream[File] = {
+    if (topmostDirectory.exists && topmostDirectory.isDirectory) {
+      val allLocalFiles = topmostDirectory.listFiles()
+      val localFiles = allLocalFiles.filter(_.isFile).toStream
+      val subDirs = allLocalFiles.filter(_.isDirectory).toStream
+      localFiles ++ subDirs.flatMap(allFilesRecursively)
+    } else {
+      Stream.empty[File]
+    }
+  }
+
+  def getListOfFiles(dir: String): List[File] = {
     val d = new File(dir)
     if (d.exists && d.isDirectory) {
       d.listFiles.filter(_.isFile).toList
