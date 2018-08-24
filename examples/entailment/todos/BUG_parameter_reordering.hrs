@@ -1,4 +1,4 @@
-# A reverse list from x2 to x1 is a list from x1 to x2
+# TODO: Allow parameter reordering
 query {
   revsll(x2, x1) |= sll(x1, x2)
 }

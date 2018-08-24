@@ -10,6 +10,7 @@ object CheckAllEntailments {
     val files = IOUtils.allFilesRecursively("examples/entailment")
     val failures = (for {
       file <- files
+      if !file.toString.contains("todo")
       fileContent = IOUtils.readFile(file.toString)
       // Explicit call to get instead of <- to avoid swallowing parse errors
       instance = EntailmentParsers.parse(fileContent).get

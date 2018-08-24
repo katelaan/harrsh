@@ -19,12 +19,24 @@ object EntailmentParsers extends HarrshLogging {
   private def transformToInstance(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentInstance] = {
     for {
       lhsCall <- toSingleCall(parseResult.lhs)
+      if correctArity(lhsCall, parseResult.sid)
+      _ = if (lhsCall.args != parseResult.sid(lhsCall.name).params) throw new NotImplementedError(s"Currently no support for parameter reordering on the left-hand side of the query; try ${parseResult.sid(lhsCall.name).defaultCall} instead of ${lhsCall}")
       rhsCall <- toSingleCall(parseResult.rhs)
+      if correctArity(rhsCall, parseResult.sid)
+      _ = if (!rhsCall.args.forall(_.isFreeNonNull)) throw new NotImplementedError(s"Can't check entailment against $rhsCall: Currently no support for using bound variables and/or null in the query")
       rootedSID <- makeRooted(parseResult.sid)
       lhsSid <- extractSidForCall(rootedSID, lhsCall)
       rhsSid <- extractSidForCall(rootedSID, rhsCall)
       if satisfiesProgress(lhsSid) && satisfiesProgress(rhsSid)
     } yield EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, parseResult.entailmentHolds)
+  }
+
+  private def correctArity(call: PredCall, sid: SID) = {
+    val res = call.args.length == sid(call.name).arity
+    if (!res) {
+      logger.warn(s"Invalid input: Query contains call $call, but predicate ${call.name} has arity ${sid(call.name).arity}")
+    }
+    res
   }
 
   private def makeRooted(sid: SID): Option[SID] = {

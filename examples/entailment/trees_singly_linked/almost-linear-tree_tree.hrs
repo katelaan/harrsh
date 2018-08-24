@@ -1,6 +1,6 @@
 # Every "almost linear tree" is a tree
 query {
-  ltree(x1, x2) |= tree(x1, x2)
+  ltree(x1) |= tree(x1)
 }
 sid {
   tree <= x1 -> (nil, nil) ;
