@@ -144,7 +144,8 @@ object EntailmentAutomaton extends HarrshLogging {
       lhsEnsuredDiseqs = Closure.fromSH(lhsLocal).asSetOfAtoms.filter(!_.isEquality)
       // Go over all ways to map a variable of the lhs to a variable of the rhs
       // FIXME: Don't brute force over assignments, but pick the suitable one(s) directly
-      varAssignment <- Combinators.allSeqsOfLength(lhsLocalVars.size, body.allVars)
+      bodyVars = body.allNonNullVars ++ body.pointers.head.args.find(_.isNull)
+      varAssignment <- Combinators.allSeqsOfLength(lhsLocalVars.size, bodyVars)
       // Match the pointers under the variable assignment,
       // returning the resulting var equivalence classes in case a match is possible
       reversedVarAssignment <- matchResult(lhsLocal, lhsLocalVars, varAssignment, body)
@@ -154,7 +155,7 @@ object EntailmentAutomaton extends HarrshLogging {
   private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredDiseqs: Set[PureAtom], varAssignment: Map[Var,Set[Var]]): ExtensionType = {
     logger.debug(s"Creating extension type from ${pred.head}, $rule, $lhsEnsuredDiseqs, $varAssignment")
     val body = rule.body
-    val varsNotInAssignment = body.allVars -- varAssignment.keySet
+    val varsNotInAssignment = body.allNonNullVars -- varAssignment.keySet
     val placeholders = (1 to varsNotInAssignment.size) map (i => Set[Var](PlaceholderVar(i).toFreeVar))
     val placeholderMap: Map[Var,Set[Var]] = (varsNotInAssignment, placeholders).zipped.toMap
     val combinedMap = varAssignment ++ placeholderMap
@@ -208,12 +209,12 @@ object EntailmentAutomaton extends HarrshLogging {
       val revAssAtoms = unpropagatedReverseAssignment.values.flatMap(toEqs)
       val closure = Closure.ofAtoms(shAtoms ++ revAssAtoms)
       val reverseAssignmentPairs = for {
-        fv <- rhs.allVars //freeVars
-        explicit = unpropagatedReverseAssignment.getOrElse(fv, Set.empty)
-        implied = closure.getEquivalenceClass(fv, defaultToSingletonClass = false)
+        v <- rhs.allNonNullVars
+        explicit = unpropagatedReverseAssignment.getOrElse(v, Set.empty)
+        implied = closure.getEquivalenceClass(v, defaultToSingletonClass = false)
         combined = explicit ++ implied
         if combined.nonEmpty
-      } yield (fv.asInstanceOf[Var], combined)
+      } yield (v.asInstanceOf[Var], combined)
       val reverseAssignment = reverseAssignmentPairs.toMap
 
       logger.debug(s"Reverse assignment after propagation: $reverseAssignment")

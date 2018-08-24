@@ -46,10 +46,10 @@ class BaseReachabilityAutomaton() extends HeapAutomaton with InconsistentState w
     // If the state is inconsistent, return the unique inconsistent state; otherwise compute reachability info
     if (trackingsStateWithClosure.isConsistent) {
       val newMatrix = ReachabilityMatrix.fromSymbolicHeapAndTrackingInfo(compressed, trackingsStateWithClosure)
-      val extraInfo = UncleanedTrackingInfo(trackingsStateWithClosure, compressed.allVars)
+      val extraInfo = UncleanedTrackingInfo(trackingsStateWithClosure, compressed.allNonNullVars)
       (ReachabilityInfo(trackingsStateWithClosure, newMatrix), extraInfo)
     } else {
-      (inconsistentState(lab.freeVars),UncleanedTrackingInfo(trackingsStateWithClosure, compressed.allVars))
+      (inconsistentState(lab.freeVars),UncleanedTrackingInfo(trackingsStateWithClosure, compressed.allNonNullVars))
     }
   }
 

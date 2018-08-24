@@ -45,7 +45,7 @@ object Determinization extends HarrshLogging {
     val closure = Closure.ofAtoms(constraints)
     logger.debug("Closure: " + closure.asSetOfAtoms)
 
-    val vars = rsh.allVars + NullConst
+    val vars = rsh.allNonNullVars + NullConst
     val relevantVars = closure.classRepresentativesOf(vars).toIndexedSeq
     logger.debug("One variable per equivalence class: " + relevantVars.mkString(", "))
     val numvars = relevantVars.size

@@ -67,7 +67,7 @@ class SymbolicHeapTest extends HarrshTest with TestValues {
 
   it should "have the right vars" in {
 
-    def getVars(s : String) : Set[Var] = s.parse.allVars
+    def getVars(s : String) : Set[Var] = s.parse.allNonNullVars
 
     assert(getVars("emp * x1 -> null * Q(y1, y1)") == Set(x1,y1))
     assert(getVars("emp * y6 -> null * Q(y6, y6)") == Set(y1)) // Gaps in bound variables are filled automatically

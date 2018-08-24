@@ -125,7 +125,7 @@ object Model {
         None
       } else {
 
-        val memLayout: Map[Set[Var], Loc] = Map() ++ sh.allVars.groupBy(cl.getEquivalenceClass(_)).keys.zipWithIndex.map {
+        val memLayout: Map[Set[Var], Loc] = Map() ++ sh.allNonNullVars.groupBy(cl.getEquivalenceClass(_)).keys.zipWithIndex.map {
           case (set, i) => (set, i + 1)
         }
 

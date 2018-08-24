@@ -1,0 +1,12 @@
+# A single pointer whose two successor are constrained to be null is a tree
+query {
+  ptrwnull(x1, x2, x3) |= tree(x1)
+}
+sid {
+  tree <= x1 -> (nil, nil) ;
+  tree <= x1 -> (y, z) * tree(y) * tree(z) ;
+  ptrwnull <= x1 -> (x2, x3) : {x2 = nil, x3 = nil}
+}
+info {
+  status = true
+}

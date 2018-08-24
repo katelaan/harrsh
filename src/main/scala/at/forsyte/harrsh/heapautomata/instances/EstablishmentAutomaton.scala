@@ -33,7 +33,7 @@ class EstablishmentAutomaton(acceptEstablished : Boolean) extends TaggedAutomato
         logger.debug(s"There is a non-established source among $srcTags")
         false
       } else {
-        val allVars = lab.allVars
+        val allVars = lab.allNonNullVars
         logger.debug("Checking establishment of " + allVars.mkString(", "))
         allVars.forall(isEstablished(trackingTargetWithoutCleanup, _))
       }

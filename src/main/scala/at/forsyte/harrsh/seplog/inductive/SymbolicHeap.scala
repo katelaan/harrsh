@@ -50,13 +50,13 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
 
   lazy val identsOfCalledPreds: Seq[String] = predCalls map (_.name)
 
-  lazy val equalities : Seq[PureAtom] = pure filter (_.isEquality)
+  lazy val equalities: Seq[PureAtom] = pure filter (_.isEquality)
 
-  lazy val ptrComparisons : Seq[PureAtom] = pure filter (_.isPointerComparison)
+  lazy val ptrComparisons: Seq[PureAtom] = pure filter (_.isPointerComparison)
 
-  lazy val allVars : Set[Var] = freeVars.toSet ++ boundVars
+  lazy val allNonNullVars: Set[Var] = freeVars.toSet ++ boundVars
 
-  def hasVar(v : Var) : Boolean = allVars.contains(v)
+  def hasVar(v : Var) : Boolean = allNonNullVars.contains(v)
 
   def withoutCalls : SymbolicHeap = copy(predCalls = Seq.empty)
 
