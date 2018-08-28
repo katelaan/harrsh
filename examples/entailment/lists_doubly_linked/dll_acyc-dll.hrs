@@ -1,0 +1,13 @@
+# Not every dll is acyclic
+query {
+  dll(x1, x2, x3, x4) |= adll(x1, x2, x3, x4)
+}
+sid {
+  dll <= x1 -> (x4, x2) : {x1 = x3} ;
+  dll <= x1 -> (y, x2) * dll(y, x1, x3, x4) ;
+  adll <= x1 -> (x4, x2) : {x1 = x3, x1 != x4} ;
+  adll <= x1 -> (y, x2) * adll(y, x1, x3, x4) : {x1 != x2, x1 != x4}
+}
+info {
+  status = false
+}

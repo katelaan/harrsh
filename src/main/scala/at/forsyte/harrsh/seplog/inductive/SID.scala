@@ -97,18 +97,18 @@ object SID extends HarrshLogging {
     backgroundSID.copy(startPred = startPred, preds = newPred +: backgroundSID.preds, description = "symbolic heap")
   }
 
-  implicit val sidToLatex: ToLatex[SID] = (a: SID, naming: Naming) => {
+  implicit val sidToLatex: ToLatex[SID] = (a: SID, _: Naming) => {
     val predStrings = for {
       pred <- a.preds
       if pred.rules.nonEmpty
-    } yield predToLatex(pred, naming)
+    } yield predToLatex(pred)
     predStrings.mkString("\n\n")
   }
 
-  private def predToLatex(pred: Predicate, naming: Naming): String = {
+  private def predToLatex(pred: Predicate): String = {
     val rulesStr = for {
       rule <- pred.rules
-    } yield s"$$ ${pred.head} \\Longleftarrow ${rule.body.toLatex(naming)} $$\n"
+    } yield s"$$ ${pred.head} \\Longleftarrow ${rule.body.toLatex(rule.naming)} $$\n"
     rulesStr.mkString("\n\n")
   }
 

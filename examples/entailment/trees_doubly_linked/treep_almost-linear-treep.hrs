@@ -1,0 +1,15 @@
+# Every almost linear tree with parent pointers is a tree with parent pointers
+query {
+  treep(x1,x2) |= ltree(x1,x2)
+}
+sid {
+  treep <= x1 -> (nil, nil, x2) ;
+  treep <= x1 -> (y, z, x2) * treep(y, x1) * treep(z, x1) ;
+  # Every right child of an ltree is a leaf => Almost linear trees
+  ltree <= x1 -> (nil, nil, x2) ;
+  ltree <= x1 -> (y, z, x2) * ltree(y, x1) * rtree(z, x1) ;
+  rtree <= x1 -> (nil, nil, x2) ;
+}
+info {
+  status = false
+}

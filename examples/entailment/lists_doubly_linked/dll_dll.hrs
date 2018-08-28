@@ -1,0 +1,11 @@
+# Every dll is a dll
+query {
+  dll(x1, x2, x3, x4) |= dll(x1, x2, x3, x4)
+}
+sid {
+  dll <= x1 -> (x4, x2) : {x1 = x3} ;
+  dll <= x1 -> (y, x2) * dll(y, x1, x3, x4)
+}
+info {
+  status = true
+}

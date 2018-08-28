@@ -53,31 +53,35 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
   }
 
   def dropVars(varsToDrop: Seq[Var]): Option[ExtensionType] = {
-    logger.debug(s"Will remove $varsToDrop from extensionType")
-    if (tryingToDropVarsWithMissingDiseqs(varsToDrop)) {
-      // We're forgetting variables for which there are still missing disequalities
-      // After dropping, it will no longer be possible to supply the disequalities
-      // We hence discard the extension type
-      logger.debug(s"Discarding extension type: Missing diseqs $missingDisequalities contain at least one discarded variable from ${varsToDrop.mkString(", ")}")
-      None
+    if (varsToDrop.isEmpty) {
+      Some(this)
     } else {
-      // From the disequalities, we must remove the variables completely, because after forgetting a variable,
-      // the (ensured) disequality becomes meaningless for the context...
-      val partsAfterDroppingDiseqs = parts map (_.dropVarsFromDiseqs(varsToDrop.toSet))
-      
-      // ...whereas in the interface nodes/usage info, we replace the bound vars by placeholders
-      // TODO: More efficient variable dropping for extension types
-      // Rename the vars to fresh placeholder vars
-      val maxPlaceholder = PlaceholderVar.maxIndex(placeholders)
-      val newPlaceholders = (1 to varsToDrop.size) map (i => PlaceholderVar(maxPlaceholder + i))
-      val pairs: Seq[(Var, Var)] = varsToDrop.zip(newPlaceholders.map(_.toFreeVar))
-      val replaceByPlacheolders: SubstitutionUpdate = SubstitutionUpdate.fromPairs(pairs)
+      logger.debug(s"Will remove bound variables ${varsToDrop.mkString(",")} from extensionType")
+      if (tryingToDropVarsWithMissingDiseqs(varsToDrop)) {
+        // We're forgetting variables for which there are still missing disequalities
+        // After dropping, it will no longer be possible to supply the disequalities
+        // We hence discard the extension type
+        logger.debug(s"Discarding extension type: Missing diseqs $missingDisequalities contain at least one discarded variable from ${varsToDrop.mkString(", ")}")
+        None
+      } else {
+        // From the disequalities, we must remove the variables completely, because after forgetting a variable,
+        // the (ensured) disequality becomes meaningless for the context...
+        val partsAfterDroppingDiseqs = parts map (_.dropVarsFromDiseqs(varsToDrop.toSet))
+
+        // ...whereas in the interface nodes/usage info, we replace the bound vars by placeholders
+        // TODO: More efficient variable dropping for extension types
+        // Rename the vars to fresh placeholder vars
+        val maxPlaceholder = PlaceholderVar.maxIndex(placeholders)
+        val newPlaceholders = (1 to varsToDrop.size) map (i => PlaceholderVar(maxPlaceholder + i))
+        val pairs: Seq[(Var, Var)] = varsToDrop.zip(newPlaceholders.map(_.toFreeVar))
+        val replaceByPlacheolders: SubstitutionUpdate = SubstitutionUpdate.fromPairs(pairs)
 
 
-      // Note: Must to normalization to get rid of gaps in results and strange order by doing normalization
-      val partsAfterDropping = partsAfterDroppingDiseqs map (_.updateSubst(replaceByPlacheolders, convertToNormalform = true))
+        // Note: Must to normalization to get rid of gaps in results and strange order by doing normalization
+        val partsAfterDropping = partsAfterDroppingDiseqs map (_.updateSubst(replaceByPlacheolders, convertToNormalform = true))
 
-      Some(ExtensionType(partsAfterDropping))
+        Some(ExtensionType(partsAfterDropping))
+      }
     }
   }
 
