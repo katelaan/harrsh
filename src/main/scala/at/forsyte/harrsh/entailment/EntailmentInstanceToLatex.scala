@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
+import at.forsyte.harrsh.entailment.VarUsage.{Allocated, Referenced, Unused}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog.inductive.{PureAtom, SID}
@@ -77,11 +78,17 @@ object EntailmentInstanceToLatex {
 
     private def nodeLabelToLatexLines(nodeLabel: NodeLabel, usageInfo: VarUsageByLabel, nodeId: String, style: String): Stream[String] = {
       val tikzNodeLabel = nodeLabel.symbolicHeapLabel
+      val annotateWithUsageInfo = (vs: Set[Var]) => {
+        usageInfo(vs) match {
+          case Unused => ""
+          case Allocated => "\\overset{\\rightsquigarrow}"
+          case Referenced => "\\overset{\\leftsquigarrow}"
+        }
+      }
 
       val (pred, subst) = (nodeLabel.pred, nodeLabel.subst)
-      // TODO: Annotate with usage info
       val pairs = (pred.params, subst.toSeq).zipped.map {
-        case (from, to) => varsToMath(from) + " \\rightarrow " + to.map(varsToMath).mkString(",")
+        case (from, to) => s"${annotateWithUsageInfo(to)}{${varsToMath(from)}}" + " \\rightarrow " + to.map(varsToMath).mkString(",")
       }
       val substLatex = '$' + pairs.mkString(";") + '$'
 
@@ -150,8 +157,18 @@ object EntailmentInstanceToLatex {
 
   private val latexTemplate = s"""\\documentclass{article}
                                 |\\usepackage[a2paper, landscape]{geometry}
+                                |\\usepackage{amsmath,amssymb}
                                 |
                                 |\\newcommand{\\nil}{\\ensuremath{\\textnormal{\\textbf{null}}}}
+                                |
+                                |\\makeatletter
+                                |\\providecommand{\\leftsquigarrow}{%
+                                |  \\mathrel{\\mathpalette\\reflect@squig\\relax}%
+                                |}
+                                |\\newcommand{\\reflect@squig}[2]{%
+                                |  \\reflectbox{$$\\m@th#1\\rightsquigarrow $$}%
+                                |}
+                                |\\makeatother
                                 |
                                 |\\usepackage{tikz}
                                 |\\usetikzlibrary{backgrounds,arrows,shapes,positioning,fit}
