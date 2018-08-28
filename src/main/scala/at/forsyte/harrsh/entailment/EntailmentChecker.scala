@@ -53,18 +53,21 @@ object EntailmentChecker {
     val EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhsSid, rhsCall)
     val reachable: Set[(String, EntailmentAutomaton.State)] = RefinementAlgorithms.allReachableStates(lhsSid, aut, reportProgress)
+    val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
+    val entailmentHolds = reachable.forall{
+      case (pred, state) => pred != lhsCall.name || isFinal(state)
+    }
+
     if (printResult) {
       println(serializeResult(aut, reachable))
     }
     if (exportToLatex) {
       print("Will export result to LaTeX...")
-      IOUtils.writeFile("entailment.tex", EntailmentInstanceToLatex.entailmentCheckerResultToLatex(aut, reachable))
+      IOUtils.writeFile("entailment.tex", EntailmentInstanceToLatex.entailmentInstanceToLatex(entailmentInstance, entailmentHolds, aut, reachable))
       println(" Done.")
     }
-    val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
-    reachable.forall{
-      case (pred, state) => pred != lhsCall.name || isFinal(state)
-    }
+
+    entailmentHolds
   }
 
   object serializeResult {

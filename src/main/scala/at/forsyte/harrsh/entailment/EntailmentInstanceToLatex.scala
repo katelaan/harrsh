@@ -1,9 +1,11 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var.Naming
-import at.forsyte.harrsh.seplog.inductive.PureAtom
+import at.forsyte.harrsh.seplog.inductive.{PureAtom, SID}
 import at.forsyte.harrsh.util.ToLatex
+import at.forsyte.harrsh.util.ToLatex._
 
 object EntailmentInstanceToLatex {
 
@@ -87,12 +89,27 @@ object EntailmentInstanceToLatex {
     }
   }
 
+  object entailmentInstanceToLatex {
+
+    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, reachable: Set[(String, EntailmentAutomaton.State)]): String = {
+      val resultTex = entailmentCheckerResultToLatex(aut, reachable)
+      val queryTex = s"$$${ei.lhsCall.toSymbolicHeap.toLatex} \\models ${ei.rhsCall.toSymbolicHeap.toLatex}$$"
+      val combinedSid = SID(startPred = "", description = "", preds = ei.lhsSid.preds ++ ei.rhsSid.preds.filterNot(ei.lhsSid.preds.contains))
+      val sidTex = combinedSid.toLatex
+      latexTemplate.replace(ResultPlaceholder, resultTex)
+        .replace(QueryPlaceholder, queryTex)
+        .replace(SidPlaceholder, sidTex)
+        .replace(ExpectationPlaceholder, ei.entailmentHolds.map(_.toString).getOrElse("unspecified"))
+        .replace(EntailmentHoldsPlaceholder, holds.toString)
+    }
+
+  }
+
   object entailmentCheckerResultToLatex {
 
     def apply(aut: EntailmentAutomaton, reachable: Set[(String, EntailmentAutomaton.State)]): String = {
       val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
-      val content = statesToLatex(reachable, isFinal)
-      latexTemplate.replace(ContentPlaceholder, content)
+      statesToLatex(reachable, isFinal)
     }
 
     def statesToLatex(states: Set[(String, EntailmentAutomaton.State)], isFinal: EntailmentAutomaton.State => Boolean): String = {
@@ -125,7 +142,11 @@ object EntailmentInstanceToLatex {
   private val EtStyleClass = "et"
   private val NodeLabelStyleClass = "utnode"
   private val MissingStyleClass = "missing"
-  private val ContentPlaceholder = "CONTENT"
+  private val SidPlaceholder = "SIDPLACEHOLDER"
+  private val QueryPlaceholder = "QUERYPLACEHOLDER"
+  private val ResultPlaceholder = "RESULTPLACEHOLDER"
+  private val ExpectationPlaceholder = "EXPECTATIONPLACEHOLDER"
+  private val EntailmentHoldsPlaceholder = "EHPLACEHOLDER"
 
   private val latexTemplate = s"""\\documentclass{article}
                                 |\\usepackage[a2paper, landscape]{geometry}
@@ -142,7 +163,23 @@ object EntailmentInstanceToLatex {
                                 |
                                 |\\begin{document}
                                 |
-                                |$ContentPlaceholder
+                                |\\section{Input}
+                                |
+                                |\\begin{itemize}
+                                |\\item Query: $QueryPlaceholder
+                                |
+                                |\\item SID:
+                                |
+                                |$SidPlaceholder
+                                |
+                                |\\item Expected result: $ExpectationPlaceholder
+                                |
+                                |\\item Actual result: $EntailmentHoldsPlaceholder
+                                |\\end{itemize}
+                                |
+                                |\\section{Result}
+                                |
+                                |$ResultPlaceholder
                                 |
                                 |\\end{document}""".stripMargin('|')
 

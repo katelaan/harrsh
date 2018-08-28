@@ -3,6 +3,8 @@ package at.forsyte.harrsh.seplog.inductive
 import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog.FreeVar
 import at.forsyte.harrsh.seplog.Var.Naming
+import at.forsyte.harrsh.util.ToLatex
+import at.forsyte.harrsh.util.ToLatex._
 
 /**
   * System of inductive definitions
@@ -93,6 +95,21 @@ object SID extends HarrshLogging {
     val newRule = RuleBody(sh.boundVars.toSeq map (_.toString), sh)
     val newPred = Predicate(startPred, Seq(newRule))
     backgroundSID.copy(startPred = startPred, preds = newPred +: backgroundSID.preds, description = "symbolic heap")
+  }
+
+  implicit val sidToLatex: ToLatex[SID] = (a: SID, naming: Naming) => {
+    val predStrings = for {
+      pred <- a.preds
+      if pred.rules.nonEmpty
+    } yield predToLatex(pred, naming)
+    predStrings.mkString("\n\n")
+  }
+
+  private def predToLatex(pred: Predicate, naming: Naming): String = {
+    val rulesStr = for {
+      rule <- pred.rules
+    } yield s"$$ ${pred.head} \\Longleftarrow ${rule.body.toLatex(naming)} $$\n"
+    rulesStr.mkString("\n\n")
   }
 
 }
