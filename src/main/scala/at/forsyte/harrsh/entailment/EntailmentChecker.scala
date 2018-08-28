@@ -2,6 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.seplog.inductive.{PredCall, SID}
+import at.forsyte.harrsh.util.IOUtils
 
 object EntailmentChecker {
 
@@ -48,12 +49,17 @@ object EntailmentChecker {
     entailmentHolds
   }
 
-  def runEntailmentAutomaton(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true): Boolean = {
+  def runEntailmentAutomaton(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): Boolean = {
     val EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhsSid, rhsCall)
     val reachable: Set[(String, EntailmentAutomaton.State)] = RefinementAlgorithms.allReachableStates(lhsSid, aut, reportProgress)
     if (printResult) {
       println(serializeResult(aut, reachable))
+    }
+    if (exportToLatex) {
+      print("Will export result to LaTeX...")
+      IOUtils.writeFile("entailment.tex", EntailmentInstanceToLatex.entailmentCheckerResultToLatex(aut, reachable))
+      println(" Done.")
     }
     val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
     reachable.forall{

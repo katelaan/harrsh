@@ -242,7 +242,7 @@ object EntailmentAutomaton extends HarrshLogging {
       // 1.) Collecting the values in the unpropagated assignment for all keys that are equal to v
       explicit = rhsClosure.getEquivalenceClass(v).flatMap(w => unpropagatedReverseAssignment.getOrElse(w, Set.empty))
       // 2.) Adding the variables that are known to be equal to v because of LHS atoms and/or the unpropagated reverse assignment
-      // TODO: Does it really make sense to mix RHS vars (rhsClosure) and LHS vars (closure is computed wrt the original LHS) in this way?
+      // TODO: Does it really make sense to mix RHS vars (rhsClosure) and LHS vars (closure is computed wrt the original LHSprog`) in this way?
       implied = rhsClosure.getEquivalenceClass(v).flatMap(w => closure.getEquivalenceClass(w, defaultToSingletonClass = false))
       combined = explicit ++ implied
       if combined.nonEmpty

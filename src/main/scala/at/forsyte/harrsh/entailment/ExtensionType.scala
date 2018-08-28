@@ -3,6 +3,7 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.{PredCall, PureAtom}
+import at.forsyte.harrsh.util.ToLatex
 
 /**
   * A single abstracted forest, retaining only the tree interfaces rather than the full trees.
@@ -97,6 +98,8 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
 }
 
 object ExtensionType {
+
+  implicit val etypeToLatex: ToLatex[ExtensionType] = EntailmentInstanceToLatex.etypeToLatex
 
   def apply(parts: Seq[TreeInterface]): ExtensionType = ExtensionType(parts.toSet)
 
