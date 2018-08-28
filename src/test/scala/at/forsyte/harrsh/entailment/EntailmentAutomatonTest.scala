@@ -178,20 +178,18 @@ object EntailmentAutomatonTest extends TestValues {
     println(s"Success: " + (check(rhsSid, rhsCall, lhsSid) == shouldHold))
   }
 
-  def refine(sid: SID, rhs: PredCall, lhs: SID): (EntailmentAutomaton, Set[(String, EntailmentAutomaton.State)]) = {
+  def refine(sid: SID, rhs: PredCall, lhs: SID): (EntailmentAutomaton, Map[String, Set[EntailmentAutomaton.State]]) = {
     val aut = new EntailmentAutomaton(sid, rhs)
-    val reachable: Set[(String, EntailmentAutomaton.State)] = RefinementAlgorithms.allReachableStates(lhs, aut, reportProgress = true)
+    val reachable = RefinementAlgorithms.allReachableStates(lhs, aut, reportProgress = true)
     (aut, reachable)
   }
 
-  def verifyEntailment(aut: EntailmentAutomaton, lhsTopLevelPred: String, reachable: Set[(String, EntailmentAutomaton.State)]) = {
+  def verifyEntailment(aut: EntailmentAutomaton, lhsTopLevelPred: String, reachable: Map[String, Set[EntailmentAutomaton.State]]) = {
     val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
-    if (reachable.forall{
-      case (pred, _) => pred != lhsTopLevelPred
-    }) throw new IllegalArgumentException(s"Malformed test case: LHS start predicate ${lhsTopLevelPred} unreachable, so entailment trivially holds")
-    val entailmentHolds = reachable.forall{
-      case (pred, state) => pred != lhsTopLevelPred || isFinal(state)
+    if (!reachable.keySet.contains(lhsTopLevelPred)) {
+      throw new IllegalArgumentException(s"Malformed test case: LHS start predicate $lhsTopLevelPred unreachable, so entailment trivially holds")
     }
+    val entailmentHolds = reachable(lhsTopLevelPred).forall(isFinal)
     entailmentHolds
   }
 

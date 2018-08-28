@@ -101,8 +101,8 @@ object EntailmentInstanceToLatex {
 
   object entailmentInstanceToLatex {
 
-    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, reachable: Set[(String, EntailmentAutomaton.State)]): String = {
-      val resultTex = entailmentCheckerResultToLatex(aut, reachable)
+    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.State]]): String = {
+      val resultTex = entailmentCheckerResultToLatex(aut, statesByPred)
       val queryTex = s"$$${ei.lhsCall.toSymbolicHeap.toLatex} \\models ${ei.rhsCall.toSymbolicHeap.toLatex}$$"
       val combinedSid = SID(startPred = "", description = "", preds = ei.lhsSid.preds ++ ei.rhsSid.preds.filterNot(ei.lhsSid.preds.contains))
       val sidTex = combinedSid.toLatex
@@ -117,13 +117,12 @@ object EntailmentInstanceToLatex {
 
   object entailmentCheckerResultToLatex {
 
-    def apply(aut: EntailmentAutomaton, reachable: Set[(String, EntailmentAutomaton.State)]): String = {
+    def apply(aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.State]]): String = {
       val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
-      statesToLatex(reachable, isFinal)
+      statesToLatex(statesByPred, isFinal)
     }
 
-    def statesToLatex(states: Set[(String, EntailmentAutomaton.State)], isFinal: EntailmentAutomaton.State => Boolean): String = {
-      val statesByPred: Map[String, Set[EntailmentAutomaton.State]] = states.groupBy(_._1).mapValues(pairs => pairs.map(_._2))
+    def statesToLatex(statesByPred: Map[String, Set[EntailmentAutomaton.State]], isFinal: EntailmentAutomaton.State => Boolean): String = {
       val lines = Stream("\\begin{itemize}") ++ statesByPred.toStream.flatMap(pair => Stream("\\item") ++ predToLatex(pair._1, pair._2, isFinal)).map(indent) ++ Stream("\\end{itemize}")
       lines.mkString("\n")
     }

@@ -49,11 +49,26 @@ object RefinementAlgorithms {
     }
   }
 
-  def allReachableStates(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): Set[(String, ha.State)] = {
+  def fullRefinementTrace(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): (Map[String, Set[ha.State]], Map[String,Set[(Seq[ha.State], RuleBody, ha.State)]]) = {
+    // TODO: Make this more readable & reduce code duplication wrt. allReachableStates
     val res = RefinementInstance(sid, ha, mode = RefinementInstance.FullRefinement, reportProgress = reportProgress).run
-    res.reachedStates.pairs.map {
+    val typedResultStates = res.reachedStates.pairs.map {
       case (str, state) => (str, state.asInstanceOf[ha.State])
     }
+    val statesByPred: Map[String, Set[ha.State]] = typedResultStates.groupBy(_._1).mapValues(pairs => pairs.map(_._2))
+    val transitions = res.reachedTransitions map {
+      te => (te.headPredicate, (te.srcStates.map(_.asInstanceOf[ha.State]), sid(te.headPredicate).rules.find(_.body == te.body).get, te.headState.asInstanceOf[ha.State]))
+    }
+    val transitionMap: Map[String,Set[(Seq[ha.State], RuleBody, ha.State)]] = transitions.groupBy(_._1).mapValues(pairs => pairs.map(_._2))
+    (statesByPred, transitionMap)
+  }
+
+  def allReachableStates(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): Map[String, Set[ha.State]] = {
+    val res = RefinementInstance(sid, ha, mode = RefinementInstance.FullRefinement, reportProgress = reportProgress).run
+    val typedResultStates = res.reachedStates.pairs.map {
+      case (str, state) => (str, state.asInstanceOf[ha.State])
+    }
+    typedResultStates.groupBy(_._1).mapValues(pairs => pairs.map(_._2))
   }
 
   def refineSID(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): (SID,Boolean) = {
