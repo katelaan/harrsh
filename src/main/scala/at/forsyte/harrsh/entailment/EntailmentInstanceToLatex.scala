@@ -4,7 +4,7 @@ import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
 import at.forsyte.harrsh.entailment.VarUsage.{Allocated, Referenced, Unused}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var.Naming
-import at.forsyte.harrsh.seplog.inductive.{PureAtom, SID}
+import at.forsyte.harrsh.seplog.inductive.{PureAtom, RuleBody, SID}
 import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
 
@@ -101,7 +101,7 @@ object EntailmentInstanceToLatex {
 
   object entailmentInstanceToLatex {
 
-    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.State]]): String = {
+    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.State]], transitions: Map[String, Set[(Seq[EntailmentAutomaton.State], RuleBody, EntailmentAutomaton.State)]]): String = {
       val resultTex = entailmentCheckerResultToLatex(aut, statesByPred)
       val queryTex = s"$$${ei.lhsCall.toSymbolicHeap.toLatex} \\models ${ei.rhsCall.toSymbolicHeap.toLatex}$$"
       val combinedSid = SID(startPred = "", description = "", preds = ei.lhsSid.preds ++ ei.rhsSid.preds.filterNot(ei.lhsSid.preds.contains))
@@ -111,7 +111,28 @@ object EntailmentInstanceToLatex {
         .replace(SidPlaceholder, sidTex)
         .replace(ExpectationPlaceholder, ei.entailmentHolds.map(_.toString).getOrElse("unspecified"))
         .replace(EntailmentHoldsPlaceholder, holds.toString)
+        .replace(TransitionPlaceholder, transitionsToLatex(transitions))
     }
+
+    private def transitionsToLatex(transitions: Map[String, Set[(Seq[EntailmentAutomaton.State], RuleBody, EntailmentAutomaton.State)]]): String = {
+      val byPred = for {
+        (pred, ts) <- transitions
+        predStr = s"\\subsection{Transitions for \\texttt{$pred}}\n\\begin{itemize}\n"
+        endStr = "\\end{itemize}\n"
+      } yield predStr + ts.map(transitionToLatex).map("\\item Transition: " + _).mkString("\n\n") + endStr
+      byPred.mkString("\n\n")
+    }
+
+    private def transitionToLatex(transition: (Seq[EntailmentAutomaton.State], RuleBody, EntailmentAutomaton.State)) : String = {
+      val (srcs, rule, trg) = transition
+      // TODO: Remove code duplication
+      val srcStrs = (srcs map (s => entailmentCheckerResultToLatex.stateToLatex(trg, s => false).mkString("\n"))).mkString("\n\n")
+      val srcStrInItemize = if (srcStrs.nonEmpty) s"\\begin{itemize}$srcStrs\\end{itemize}" else srcStrs
+      val bodyStr = '$' + rule.body.toLatex(rule.naming).replaceAllLiterally("α", """\alpha""") + '$'
+      val trgStr = entailmentCheckerResultToLatex.stateToLatex(trg, _ => false).mkString("\n").drop(5)
+      s"\\begin{itemize}\\item Source states:\n\n \n$srcStrInItemize\n \\item Rule body: $bodyStr\n \\item Target state:\n $trgStr \\end{itemize}"
+    }
+
 
   }
 
@@ -156,6 +177,7 @@ object EntailmentInstanceToLatex {
   private val ResultPlaceholder = "RESULTPLACEHOLDER"
   private val ExpectationPlaceholder = "EXPECTATIONPLACEHOLDER"
   private val EntailmentHoldsPlaceholder = "EHPLACEHOLDER"
+  private val TransitionPlaceholder = "TRANSPLACEHOLDER"
 
   private val latexTemplate = s"""\\documentclass{article}
                                 |\\usepackage[a2paper, landscape]{geometry}
@@ -199,6 +221,10 @@ object EntailmentInstanceToLatex {
                                 |\\section{Result}
                                 |
                                 |$ResultPlaceholder
+                                |
+                                |\\section{Transitions}
+                                |
+                                |$TransitionPlaceholder
                                 |
                                 |\\end{document}""".stripMargin('|')
 

@@ -61,7 +61,7 @@ object EntailmentChecker {
     }
     if (exportToLatex) {
       print("Will export result to LaTeX...")
-      IOUtils.writeFile("entailment.tex", EntailmentInstanceToLatex.entailmentInstanceToLatex(entailmentInstance, entailmentHolds, aut, reachableStatesByPred))
+      IOUtils.writeFile("entailment.tex", EntailmentInstanceToLatex.entailmentInstanceToLatex(entailmentInstance, entailmentHolds, aut, reachableStatesByPred, transitionsByHeadPred))
       println(" Done.")
     }
 
