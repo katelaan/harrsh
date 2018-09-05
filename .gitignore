@@ -1,6 +1,5 @@
 examples/cyclist/*.defs
 .idea
-project
 target
 benchmark-results*
 previous-batch.bms
