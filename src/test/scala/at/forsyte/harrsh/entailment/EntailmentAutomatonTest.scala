@@ -124,8 +124,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
       // Not every tree is an almost-linear tree
       (tree, almostLinearTree, P("ltree")(x1), EntailmentFails),
       (singleTreePtrWoNullInfo, tree, P("tree")(x1), EntailmentFails),
-      // FIXME The following entailment should hold, even though there are more free variables on the lhs! --> Allow different numbers of FVs on the sides of the entailment
-      //(singleTreePtrWithNullInfo, tree, P("tree")(x1), EntailmentHolds)
+      (singleTreePtrWithNullInfo, tree, P("tree")(x1), EntailmentHolds)
     )
 
     runAllTestsInTable(treeTable)

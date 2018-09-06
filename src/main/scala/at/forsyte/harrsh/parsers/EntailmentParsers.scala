@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
+import at.forsyte.harrsh.entailment.EntailmentChecker.{EntailmentCallOnlyInstance, EntailmentInstance}
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.parsers.buildingblocks.{AsciiAtoms, EmptyQuantifierPrefix}
 import at.forsyte.harrsh.seplog.FreeVar
@@ -12,11 +12,12 @@ object EntailmentParsers extends HarrshLogging {
 
   val DefaultEntailmentParser = new EntailmentParser with HarrshSIDParser with AsciiAtoms with EmptyQuantifierPrefix
 
-  def parse(input: String): Option[EntailmentInstance] = {
-    DefaultEntailmentParser.run(input).flatMap(transformToInstance)
+  def parse(input: String): Option[EntailmentCallOnlyInstance] = {
+    DefaultEntailmentParser.run(input).flatMap(transformToCallOnlyInstance)
   }
 
-  private def transformToInstance(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentInstance] = {
+  // TODO: Get rid of this restricted transformation once the more general one is working correctly
+  private def transformToCallOnlyInstance(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentCallOnlyInstance] = {
     for {
       lhsCall <- toSingleCall(parseResult.lhs)
       if correctArity(lhsCall, parseResult.sid)
@@ -28,7 +29,18 @@ object EntailmentParsers extends HarrshLogging {
       lhsSid <- extractSidForCall(rootedSID, lhsCall)
       rhsSid <- extractSidForCall(rootedSID, rhsCall)
       if satisfiesProgress(lhsSid) && satisfiesProgress(rhsSid)
-    } yield EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, parseResult.entailmentHolds)
+    } yield EntailmentCallOnlyInstance(lhsSid, lhsCall, rhsSid, rhsCall, parseResult.entailmentHolds)
+  }
+
+  private def transformToInstance(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentInstance] = {
+    for {
+      rootedSID <- makeRooted(parseResult.sid)
+      if satisfiesProgress(rootedSID)
+      lhsPreds = SIDUtils.shToProgressSid(parseResult.lhs, "lhs")
+      rhsPreds = SIDUtils.shToProgressSid(parseResult.rhs, "rhs")
+      lhsSid <- extractSidForSide(rootedSID, lhsPreds)
+      rhsSid <- extractSidForSide(rootedSID, rhsPreds)
+    } yield EntailmentInstance(lhsSid, rhsSid, parseResult.entailmentHolds)
   }
 
   private def correctArity(call: PredCall, sid: SID) = {
@@ -63,19 +75,19 @@ object EntailmentParsers extends HarrshLogging {
     sid.satisfiesProgress
   }
 
-  private def extractSidForCall(sid: SID, call: PredCall): Option[SID] = {
-    def getReachablePreds(curr: String, visited: Set[String] = Set.empty): Set[String] = {
-      if (visited.contains(curr)) visited
-      else {
-        val withCurr = visited + curr
-        val occurringPreds = sid(curr).rules.toSet[RuleBody].flatMap(_.body.predCalls).map(_.name)
-        val reachableFromOccurring = occurringPreds.flatMap(getReachablePreds(_, withCurr))
-        // Note: Need to explicitly include withCurr in result because reachableFromOccurring may be empty!
-        withCurr ++ reachableFromOccurring
-      }
+  private def getReachablePreds(sid: SID, curr: String, visited: Set[String] = Set.empty): Set[String] = {
+    if (visited.contains(curr)) visited
+    else {
+      val withCurr = visited + curr
+      val occurringPreds = sid(curr).rules.toSet[RuleBody].flatMap(_.body.predCalls).map(_.name)
+      val reachableFromOccurring = occurringPreds.flatMap(getReachablePreds(sid, _, withCurr))
+      // Note: Need to explicitly include withCurr in result because reachableFromOccurring may be empty!
+      withCurr ++ reachableFromOccurring
     }
+  }
 
-    val reachablePreds = getReachablePreds(call.name)
+  private def extractSidForCall(sid: SID, call: PredCall): Option[SID] = {
+    val reachablePreds = getReachablePreds(sid, call.name)
 
     val res = sid.copy(startPred = call.name, preds = sid.preds.filter(pred => reachablePreds.contains(pred.head)))
     if (res.preds.nonEmpty) {
@@ -83,6 +95,31 @@ object EntailmentParsers extends HarrshLogging {
     } else {
       logger.warn(s"Illegal specification: The SID doesn't contain any rules for ${call.name}")
       None
+    }
+  }
+
+  private def extractSidForCalls(sid: SID, calls: Set[PredCall]): Option[SID] = {
+    val predsByCall: Set[(String, Set[String])] = calls.map(_.name).map(p => (p, getReachablePreds(sid, p)))
+    predsByCall find (_._2.isEmpty) match {
+      case Some(value) =>
+        logger.warn(s"Illegal specification: The SID doesn't contain any rules for ${value._1}")
+        None
+      case None =>
+        // There are rules for all predicates => Filter SID accordingly & return
+        val uniquePreds = predsByCall.flatMap(_._2)
+        val res = sid.copy(startPred = "UNDEFINED", preds = sid.preds.filter(pred => uniquePreds.contains(pred.head)))
+        Some(res)
+    }
+  }
+
+  private def extractSidForSide(defSid: SID, entailmentSid: SID): Option[SID] = {
+    val entailmentPreds = entailmentSid.preds.map(_.head).toSet
+    assert((defSid.preds.map(_.head).toSet intersect entailmentPreds).isEmpty)
+    val allCalls = entailmentSid.preds.toSet[Predicate].flatMap(_.rules).flatMap(_.body.predCalls)
+    val callsFromDefSid = allCalls filterNot(call => entailmentPreds.contains(call.name))
+    val extractedDefSid = extractSidForCalls(defSid, callsFromDefSid)
+    extractedDefSid.map {
+      someSid => entailmentSid.copy(preds = entailmentSid.preds ++ someSid.preds)
     }
   }
 

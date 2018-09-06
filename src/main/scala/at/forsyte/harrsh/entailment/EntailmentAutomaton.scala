@@ -189,7 +189,7 @@ object EntailmentAutomaton extends HarrshLogging {
   private def matchResult(lhsLocal: SymbolicHeap, lhsLocalVars: Seq[Var], assignment: Seq[Var], rhs: SymbolicHeap): Option[Map[Var,Set[Var]]] = {
     assert(assignment.size == lhsLocalVars.size)
     val pairs = lhsLocalVars.zip(assignment)
-    val renamed = lhsLocal.rename(Renaming.fromPairs(pairs))
+    val renamed = lhsLocal.renameAndCreateSortedFvSequence(Renaming.fromPairs(pairs))
     // TODO: Do we want to check pure entailment instead of syntactic equality? This depends on how we compute the var assignment. Since we're currently brute-forcing over all assignments, I don't think that's necessary. Revisit this as we implement direct matching.
     val res = renamed.pointers == rhs.pointers && ConsistencyCheck.isConsistent(renamed)
     if (res) {
@@ -253,6 +253,6 @@ object EntailmentAutomaton extends HarrshLogging {
   private def rename(sh: SymbolicHeap, perm: Seq[FreeVar]): SymbolicHeap = {
     val renamingPairs = sh.freeVars.zip(perm)
     val renaming = Renaming.fromPairs(renamingPairs)
-    sh.rename(renaming)
+    sh.rename(renaming, overrideFreeVars = None)
   }
 }

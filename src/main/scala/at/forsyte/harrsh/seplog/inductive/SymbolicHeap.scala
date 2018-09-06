@@ -84,8 +84,42 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     }
   }
 
-  def rename(f : Renaming) : SymbolicHeap = {
-    SymbolicHeap(atoms.rename(f, avoidDoubleCapture = false), freeVars)
+  /**
+    * If the renaming introduces additional free variables, the resulting free var sequence must be provided; otherwise, the ordering of the free variables would be underconstrained.
+    * @param f Renaming to apply
+    * @param overrideFreeVars New sequence of free vars, if the renaming introduces original free vars
+    * @return
+    */
+  def rename(f: Renaming, overrideFreeVars: Option[Seq[FreeVar]]): SymbolicHeap = {
+    val renamedAtoms = atoms.rename(f, avoidDoubleCapture = false)
+    overrideFreeVars match {
+      case Some(newFreeVarSeq) =>
+        val res = SymbolicHeap(renamedAtoms, newFreeVarSeq)
+        if (res.freeVars.sorted == res.atoms.freeVarSeq) {
+          res
+        } else {
+          throw new IllegalArgumentException(s"Original free vars are $freeVars, new free vars are ${res.atoms.freeVarSeq}, but no order for the new sequence was provided")
+        }
+      case None =>
+        val res = SymbolicHeap(renamedAtoms, Var.freeNonNullVars(freeVars.map(f.apply)))
+        if (res.freeVars.forall(v => freeVars.contains(v))) {
+          res
+        } else {
+          throw new IllegalArgumentException(s"Original free vars are $freeVars, renamed free vars contain additional var (${res.atoms.freeVarSeq}), but no order for the new sequence was provided for the new vars")
+        }
+    }
+  }
+
+  // TODO: It's annoying that we need renameAndCreateSortedFvSequence. Can we get rid of this?
+  /**
+    * Apply the renaming, computing the free var sequence automatically from the resulting atoms.
+    * Note that this is only sound if the resulting symbolic heap is never used to instantiate a call; call instantiation only makes sense with an explicit variable order.
+    * @param f Renaming to apply
+    * @return The symbolic heap after renaming, with free vars ordered according to the canonical order on vars
+    */
+  def renameAndCreateSortedFvSequence(f: Renaming): SymbolicHeap = {
+    val renamedAtoms = atoms.rename(f, avoidDoubleCapture = false)
+    SymbolicHeap(renamedAtoms, renamedAtoms.freeVarSeq)
   }
 
   /**
