@@ -43,7 +43,7 @@ case class UnfoldingTree private(nodeLabels: Map[NodeId,NodeLabel], root: NodeId
 
   def isConcrete: Boolean = abstractLeaves.isEmpty
 
-  def interface(diseqs: DisequalityTracker): TreeInterface = {
+  def interface(diseqs: PureConstraintTracker): TreeInterface = {
     val interfaceNodes: Seq[NodeLabel] = Seq(nodeLabels(root)) ++ (abstractLeaves map (nodeLabels(_)))
     val allUsage: Seq[(Set[Var], VarUsage)] = for {
       node <- interfaceNodes

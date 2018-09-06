@@ -39,6 +39,7 @@ sealed trait Var extends Ordered[Var] {
     case (BoundVar(_), NullConst) => -1
     case (BoundVar(_), FreeVar(_)) => -1
     case (NullConst, FreeVar(_)) => -1
+    case (NullConst, NullConst) => 0
     case (NullConst, _) => 1
     case (FreeVar(m), FreeVar(n)) => m compare n
     case (FreeVar(_), _) => 1

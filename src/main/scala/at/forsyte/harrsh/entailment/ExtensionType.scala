@@ -13,11 +13,12 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
 
   assert(parts forall TreeInterface.isInNormalForm,
     s"Trying to construct extension type from non-normalized parts ${parts.mkString(", ")}")
-  assert(parts forall (_.hasConsistentDiseqs))
+  assert(parts forall (_.hasConsistentPureConstraints),
+    s"Contradictory pure constraints in tree interface ${parts.find(!_.hasConsistentPureConstraints).get}")
 
   override def toString: String = parts.mkString("ET(", ",\n   ", ")")
 
-  lazy val missingDisequalities: Set[PureAtom] = parts.flatMap(_.diseqs.missing)
+  lazy val missingPureConstraints: Set[PureAtom] = parts.flatMap(_.pureConstraints.missing)
 
   def hasNamesForRootParams: Boolean = parts.forall(_.hasNamesForRootParams)
 
@@ -31,7 +32,7 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
       Stream(
         tif.isConcrete, // It represents a concrete tree...
         rootPred.head == call.name, // ...rooted in the correct predicate...
-        tif.diseqs.missing.isEmpty, // ...without missing disequalities...
+        tif.pureConstraints.missing.isEmpty, // ...without missing pure constraints...
         (call.args, tif.root.subst.toSeq).zipped.forall{
           // ...and with the correct vector of variables at the root (corresponding to the goal predicate call)
           case (arg, substVal) => substVal.contains(arg)
@@ -48,8 +49,11 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
 
   lazy val placeholders: Set[PlaceholderVar] = parts.flatMap(_.placeholders)
 
-  private def tryingToDropVarsWithMissingDiseqs(varsToDrop: Seq[Var]): Boolean = {
-    (missingDisequalities.flatMap(_.getNonNullVars) intersect varsToDrop.toSet).nonEmpty
+  /**
+    * Check whether dropping the given var would put one or missing constraints out of scope---thus meaning the entailment can never become true.
+    */
+  private def tryingToDropVarsWithMissingConstraints(varsToDrop: Seq[Var]): Boolean = {
+    (missingPureConstraints.flatMap(_.getNonNullVars) intersect varsToDrop.toSet).nonEmpty
   }
 
   def dropVars(varsToDrop: Seq[Var]): Option[ExtensionType] = {
@@ -57,16 +61,16 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
       Some(this)
     } else {
       logger.debug(s"Will remove bound variables ${varsToDrop.mkString(",")} from extensionType")
-      if (tryingToDropVarsWithMissingDiseqs(varsToDrop)) {
-        // We're forgetting variables for which there are still missing disequalities
-        // After dropping, it will no longer be possible to supply the disequalities
+      if (tryingToDropVarsWithMissingConstraints(varsToDrop)) {
+        // We're forgetting variables for which there are still missing constraints
+        // After dropping, it will no longer be possible to supply the constraints
         // We hence discard the extension type
-        logger.debug(s"Discarding extension type: Missing diseqs $missingDisequalities contain at least one discarded variable from ${varsToDrop.mkString(", ")}")
+        logger.debug(s"Discarding extension type: Missing pure constraints $missingPureConstraints contain at least one discarded variable from ${varsToDrop.mkString(", ")}")
         None
       } else {
-        // From the disequalities, we must remove the variables completely, because after forgetting a variable,
-        // the (ensured) disequality becomes meaningless for the context...
-        val partsAfterDroppingDiseqs = parts map (_.dropVarsFromDiseqs(varsToDrop.toSet))
+        // From the pure constraints, we must remove the variables completely, because after forgetting a variable,
+        // the (ensured) constraints become meaningless for the context...
+        val partsAfterDroppingPureConstraints = parts map (_.dropVarsFromPureConstraints(varsToDrop.toSet))
 
         // ...whereas in the interface nodes/usage info, we replace the bound vars by placeholders
         // TODO: More efficient variable dropping for extension types
@@ -78,7 +82,7 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
 
 
         // Note: Must to normalization to get rid of gaps in results and strange order by doing normalization
-        val partsAfterDropping = partsAfterDroppingDiseqs map (_.updateSubst(replaceByPlacheolders, convertToNormalform = true))
+        val partsAfterDropping = partsAfterDroppingPureConstraints map (_.updateSubst(replaceByPlacheolders, convertToNormalform = true))
 
         Some(ExtensionType(partsAfterDropping))
       }
@@ -91,10 +95,10 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
 
   def compose(other: ExtensionType): Option[ExtensionType] = {
     val composed = CanCompose.composeAll(parts.toSeq ++ other.parts)
-    if (composed.forall(_.hasConsistentDiseqs))
+    if (composed.forall(_.hasConsistentPureConstraints))
       Some(ExtensionType(composed))
     else {
-      logger.debug(s"Discarding extension type $composed because of inconsistent disequalities")
+      logger.debug(s"Discarding extension type $composed because of inconsistent pure constraints")
       None
     }
   }

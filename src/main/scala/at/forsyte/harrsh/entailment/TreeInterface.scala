@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
 
-case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel, diseqs: DisequalityTracker) {
+case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) {
 
   assert(NodeLabel.noRedundantPlaceholders(labels), s"There are redundant placeholders in $this")
 
@@ -19,14 +19,14 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
     val usageStr = usageInfo.map{
       case (vs, usage) => vs.mkString(",") + "->" + usage
     }.mkString("; ")
-    val ensuredStr = diseqs.ensured.mkString(",")
-    val missingStr = diseqs.missing.mkString(",")
+    val ensuredStr = pureConstraints.ensured.mkString(",")
+    val missingStr = pureConstraints.missing.mkString(",")
     s"TI(root = $root; leaves = $leavesString; usage = { $usageStr }; ensured = { $ensuredStr }; missing = { $missingStr })"
   }
 
   def isConcrete: Boolean = leaves.isEmpty
 
-  def hasConsistentDiseqs: Boolean = diseqs.isConsistent
+  def hasConsistentPureConstraints: Boolean = pureConstraints.isConsistent
 
   def hasNamesForRootParams: Boolean = labels.forall{
     label =>
@@ -45,12 +45,12 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
     TreeInterface(root.update(f),
       leaves map (_.update(f)),
       VarUsageByLabel.update(usageInfo, f),
-      diseqs.update(f),
+      pureConstraints.update(f),
       convertToNormalform)
   }
 
-  def dropVarsFromDiseqs(varsToDrop: Set[Var]): TreeInterface = {
-    TreeInterface(root, leaves, usageInfo, diseqs.dropVars(varsToDrop), convertToNormalform = false)
+  def dropVarsFromPureConstraints(varsToDrop: Set[Var]): TreeInterface = {
+    TreeInterface(root, leaves, usageInfo, pureConstraints.dropVars(varsToDrop), convertToNormalform = false)
   }
 }
 
@@ -58,20 +58,20 @@ object TreeInterface {
 
   implicit val canComposeTreeInterfaces: CanCompose[TreeInterface] = CanComposeTreeInterface.canComposeTreeInterfaces
 
-  def apply(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel, diseqs: DisequalityTracker, convertToNormalform: Boolean): TreeInterface = {
+  def apply(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker, convertToNormalform: Boolean): TreeInterface = {
     if (convertToNormalform) {
-      normalFormConversion(root, leaves, usageInfo, diseqs)
+      normalFormConversion(root, leaves, usageInfo, pureConstraints)
     } else {
-      new TreeInterface(root, leaves, usageInfo, diseqs)
+      new TreeInterface(root, leaves, usageInfo, pureConstraints)
     }
   }
 
-  def normalFormConversion(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel, diseqs: DisequalityTracker): TreeInterface = {
+  def normalFormConversion(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): TreeInterface = {
     val dropper = SubstitutionUpdate.redundantPlaceholderDropper(Set(root) ++ leaves)
     val rootAfterDropping = root.update(dropper)
     val leavesAfterDropping = leaves map (_.update(dropper))
     val usageInfoAfterDropping = VarUsageByLabel.update(usageInfo, dropper)
-    val diseqsAfterDropping = diseqs.update(dropper)
+    val diseqsAfterDropping = pureConstraints.update(dropper)
 
     val establishNormalForm = NodeLabel.labelsToPlaceholderNormalForm(Seq(rootAfterDropping) ++ leavesAfterDropping)
 

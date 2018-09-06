@@ -63,7 +63,7 @@ object EntailmentInstanceToLatex {
       case other => other
     }
 
-    private def diseqsToTikz(diseqs: DisequalityTracker, tifRootId: String, nodeId: String, style: String): Stream[String] = {
+    private def diseqsToTikz(diseqs: PureConstraintTracker, tifRootId: String, nodeId: String, style: String): Stream[String] = {
       val disEqsToLatex = (deqs: Set[PureAtom]) => if (deqs.isEmpty) "---" else deqs.map(a => s"$$${varsToMath(a.l)} \\neq ${varsToMath(a.r)}$$").mkString(", ")
 
       if (diseqs.ensured.nonEmpty || diseqs.missing.nonEmpty) {

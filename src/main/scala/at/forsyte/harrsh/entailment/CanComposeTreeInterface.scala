@@ -28,7 +28,7 @@ object CanComposeTreeInterface extends HarrshLogging {
       val combinedUsageInfo = combineUsageInfo(toInstantiate.usageInfo, instantiation.usageInfo, propagateUnification)
       val occurringSubstitutions: Set[Set[Var]] = (Set(newRoot) ++ newLeaves).flatMap(_.subst.toSeq)
       val newUsageInfo = combinedUsageInfo.filter(pair => occurringSubstitutions.contains(pair._1))
-      val newDiseqs = (toInstantiate.diseqs compose instantiation.diseqs).update(propagateUnification)
+      val newDiseqs = (toInstantiate.pureConstraints compose instantiation.pureConstraints).update(propagateUnification)
 
       val res = TreeInterface(newRoot, newLeaves, newUsageInfo, newDiseqs, convertToNormalform = true)
       assert(TreeInterface.isInNormalForm(res),

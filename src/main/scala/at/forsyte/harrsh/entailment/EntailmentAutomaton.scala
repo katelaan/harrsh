@@ -141,7 +141,7 @@ object EntailmentAutomaton extends HarrshLogging {
       lhsLocal = lhs.withoutCalls
       // Rename the variables that occur in the points-to assertion. (Only those, because we match only the pointers)
       lhsLocalVars = lhsLocal.pointers.head.getNonNullVars.toSeq
-      lhsEnsuredDiseqs = Closure.fromSH(lhsLocal).asSetOfAtoms.filter(!_.isEquality)
+      lhsEnsuredConstraints = Closure.fromSH(lhsLocal).asSetOfAtoms
       // Go over all ways to map a variable of the lhs to a variable of the rhs
       // FIXME: Don't brute force over assignments, but pick the suitable one(s) directly
       bodyVars = body.allNonNullVars ++ body.pointers.head.args.find(_.isNull)
@@ -149,16 +149,16 @@ object EntailmentAutomaton extends HarrshLogging {
       // Match the pointers under the variable assignment,
       // returning the resulting var equivalence classes in case a match is possible
       reversedVarAssignment <- matchResult(lhsLocal, lhsLocalVars, varAssignment, body)
-    } yield mkExtensionType(sid, pred, rule, lhsEnsuredDiseqs, reversedVarAssignment)
+    } yield mkExtensionType(sid, pred, rule, lhsEnsuredConstraints, reversedVarAssignment)
   }
 
-  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredDiseqs: Set[PureAtom], varAssignment: Map[Var,Set[Var]]): ExtensionType = {
-    logger.debug(s"Creating extension type from ${pred.head}, $rule, $lhsEnsuredDiseqs, $varAssignment")
+  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredConstraints: Set[PureAtom], reversedVarAssignment: Map[Var,Set[Var]]): ExtensionType = {
+    logger.debug(s"Creating extension type from ${pred.head}, $rule, $lhsEnsuredConstraints, $reversedVarAssignment")
     val body = rule.body
-    val varsNotInAssignment = body.allNonNullVars -- varAssignment.keySet
+    val varsNotInAssignment = body.allNonNullVars -- reversedVarAssignment.keySet
     val placeholders = (1 to varsNotInAssignment.size) map (i => Set[Var](PlaceholderVar(i).toFreeVar))
     val placeholderMap: Map[Var,Set[Var]] = (varsNotInAssignment, placeholders).zipped.toMap
-    val combinedMap = varAssignment ++ placeholderMap
+    val combinedMap = reversedVarAssignment ++ placeholderMap
     val rename = (v: Var) => combinedMap(v)
 
     // Compute the substitutions for the root node and the abstract leaves
@@ -170,11 +170,28 @@ object EntailmentAutomaton extends HarrshLogging {
       subst = args map rename
     } yield AbstractLeafNodeLabel(pred, Substitution(subst))
 
-    // Compute the missing disequalities
-    val ruleDiseqs: DisequalityTracker = DisequalityTracker(ensured = Closure.fromSH(body).asSetOfAtoms.filter(!_.isEquality), missing = Set.empty)
-    val instantiatedRuleDiseqs = ruleDiseqs.update(rename)
-    val missingDisEqsOfRhs = instantiatedRuleDiseqs.ensured -- lhsEnsuredDiseqs
-    val propagatedDiseqs = DisequalityTracker(lhsEnsuredDiseqs, missingDisEqsOfRhs)
+    // Compute the missing constraints
+    logger.debug(s"Pure constraints of LHS: $lhsEnsuredConstraints")
+    // TODO: It's kinda stupid to construct a tracker here, but that's where we currently implement the update. Should probably do some refactoring...
+    val ruleConstraints: PureConstraintTracker = PureConstraintTracker(ensured = Closure.fromSH(body).asSetOfAtoms, missing = Set.empty)
+    val instantiatedRuleConstraints = ruleConstraints.update(rename)
+    logger.debug(s"Pure constraints of RHS $body: ${ruleConstraints.ensured}; after instantiation: $instantiatedRuleConstraints")
+
+    val nullEqs = reversedVarAssignment.getOrElse(NullConst, Set.empty).map(NullConst =:= _)
+    val otherEqs = for {
+      vs <- reversedVarAssignment.values
+      v <- vs
+      w <- vs
+      if v < w
+    } yield v =:= w
+    val assignmentEqs = nullEqs ++ otherEqs
+    logger.debug(s"Variable assignment implies that we need the following equalities: $assignmentEqs")
+
+    // TODO: Must compute another closure...
+    val allRuleConstraints = instantiatedRuleConstraints.ensured ++ assignmentEqs
+    val missingConstraintsOfRhs = (Closure.ofAtoms(allRuleConstraints).asSetOfAtoms -- lhsEnsuredConstraints).filterNot(_.isTautology)
+    logger.debug(s"Missing constraints to satisfy RHS: $missingConstraintsOfRhs")
+    val propagatedConstraints = PureConstraintTracker(lhsEnsuredConstraints, missingConstraintsOfRhs)
 
     val nodeIds = NodeId.freshIds(Set.empty, childLabels.size + 1)
     val nodeLabelsMap = (nodeIds, rootNodeLabel +: childLabels).zipped.toMap
@@ -183,7 +200,7 @@ object EntailmentAutomaton extends HarrshLogging {
     assert(UnfoldingTree.isInNormalForm(ut), "UT for local alloc $ut is not in normal form")
 
     logger.debug(s"Unfolding tree before conversion to ET: $ut")
-    ut.interface(propagatedDiseqs).asExtensionType
+    ut.interface(propagatedConstraints).asExtensionType
   }
 
   private def matchResult(lhsLocal: SymbolicHeap, lhsLocalVars: Seq[Var], assignment: Seq[Var], rhs: SymbolicHeap): Option[Map[Var,Set[Var]]] = {
@@ -214,7 +231,7 @@ object EntailmentAutomaton extends HarrshLogging {
     // There are three types of equalities that must be propagated throughout this assignment:
 
     // 1.) Equalities that are explicit in the RHS rule body.
-    // If x = y in the RHS, this means that x and y must be mapped to the same values in teh reverse assignment
+    // If x = y in the RHS, this means that x and y must be mapped to the same values in the reverse assignment
     // These must be hold in every matching of the LHS against the RHS
     // They can be accessed via a closure of the RHS
     val rhsClosure = Closure.fromSH(rhs)
@@ -237,16 +254,17 @@ object EntailmentAutomaton extends HarrshLogging {
 
     val reverseAssignmentPairs = for {
       // For each variable of the RHS...
-      v <- rhs.allNonNullVars
+      // FIXME: Does it make sense to always include null?
+      v <- NullConst +: (rhs.freeVars ++ rhs.boundVars) //rhs.allNonNullVars
       // ...we assemble the reverse assignment by...
       // 1.) Collecting the values in the unpropagated assignment for all keys that are equal to v
       explicit = rhsClosure.getEquivalenceClass(v).flatMap(w => unpropagatedReverseAssignment.getOrElse(w, Set.empty))
       // 2.) Adding the variables that are known to be equal to v because of LHS atoms and/or the unpropagated reverse assignment
-      // TODO: Does it really make sense to mix RHS vars (rhsClosure) and LHS vars (closure is computed wrt the original LHSprog`) in this way?
+      // TODO: Does it really make sense to mix RHS vars (rhsClosure) and LHS vars (closure is computed wrt the original LHS) in this way?
       implied = rhsClosure.getEquivalenceClass(v).flatMap(w => closure.getEquivalenceClass(w, defaultToSingletonClass = false))
       combined = explicit ++ implied
       if combined.nonEmpty
-    } yield (v.asInstanceOf[Var], combined)
+    } yield (v/*.asInstanceOf[Var]*/, combined)
     reverseAssignmentPairs.toMap
   }
 

@@ -29,6 +29,8 @@ case class PureAtom(l: Var, r: Var, isEquality: Boolean) extends SepLogAtom with
 
   def ordered: PureAtom = if (isOrdered) this else PureAtom(r, l, isEquality)
 
+  def isTautology: Boolean = isEquality && l == r
+
   def isConsistent: Boolean = isEquality || l != r
 
   override def toStringWithVarNames(names: Naming): String = {
