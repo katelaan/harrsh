@@ -42,7 +42,7 @@ object EntailmentInstanceToLatex {
 
       val TreeInterface(root, leaves, usageInfo, diseqs) = tif
       val rootTikz = nodeLabelToLatexLines(root, usageInfo, rootId, rootStyle)
-      val diseqsTikz = diseqsToTikz(diseqs, rootId, diseqId, s"right=of $rootId")
+      val diseqsTikz = pureConstraintToTikz(diseqs, rootId, diseqId, s"right=of $rootId")
 
       val leavesTikz = leaves.toStream.zipWithIndex.flatMap {
         case (leaf, ix) =>
@@ -63,13 +63,18 @@ object EntailmentInstanceToLatex {
       case other => other
     }
 
-    private def diseqsToTikz(diseqs: PureConstraintTracker, tifRootId: String, nodeId: String, style: String): Stream[String] = {
-      val disEqsToLatex = (deqs: Set[PureAtom]) => if (deqs.isEmpty) "---" else deqs.map(a => s"$$${varsToMath(a.l)} \\neq ${varsToMath(a.r)}$$").mkString(", ")
+    private def pureConstraintToTikz(pureConstraints: PureConstraintTracker, tifRootId: String, nodeId: String, style: String): Stream[String] = {
+      val pureAtomsToLatex = (deqs: Set[PureAtom]) =>
+        if (deqs.isEmpty) {
+          "---"
+        } else {
+          deqs.map(a => s"$$${varsToMath(a.l)} ${if (a.isEquality) "=" else "\\neq"} ${varsToMath(a.r)}$$").mkString(", ")
+        }
 
-      if (diseqs.ensured.nonEmpty || diseqs.missing.nonEmpty) {
-        val ensuredLabel = s"Guaranteed: ${disEqsToLatex(diseqs.ensured)}"
-        val missingLabel = s"Missing: ${disEqsToLatex(diseqs.missing)}"
-        val missingStyle = if (diseqs.missing.nonEmpty) s"$MissingStyleClass," else ""
+      if (pureConstraints.ensured.nonEmpty || pureConstraints.missing.nonEmpty) {
+        val ensuredLabel = s"Guaranteed: ${pureAtomsToLatex(pureConstraints.ensured)}"
+        val missingLabel = s"Missing: ${pureAtomsToLatex(pureConstraints.missing)}"
+        val missingStyle = if (pureConstraints.missing.nonEmpty) s"$MissingStyleClass," else ""
         Stream(s"\\node[$NodeLabelStyleClass,$style,${missingStyle}right=2mm of $tifRootId] ($nodeId) {\\footnotesize $ensuredLabel \\nodepart{two} \\footnotesize $missingLabel};")
       } else {
         Stream.empty
