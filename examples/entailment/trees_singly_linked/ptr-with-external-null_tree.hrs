@@ -1,0 +1,13 @@
+# A tree of depth two, where we set the leaves to be equal to null in the recursive rule rather than in the base rule
+query {
+  depthtwo(x1) |= tree(x1)
+}
+sid {
+  tree <= x1 -> (nil, nil) ;
+  tree <= x1 -> (y,z) * tree(y) * tree(z) ;
+  depthtwo <= x1 -> (y,z) * depthone(y, y2, y3) * depthone(z, z2, z3) : {y2 = nil, y3 = nil, z2 = nil, z3 = nil};
+  depthone <= x1 -> (x2, x3) ;
+}
+info {
+  status = true
+}

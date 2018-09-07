@@ -19,7 +19,7 @@ case class AtomContainer(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCall
     SortedSet.empty(boundVarOrdering) ++ Var.boundVars(vars)
   }
 
-  private def rename(f : Renaming) : AtomContainer = {
+  private def renameWithoutDoubleCaptureCheck(f : Renaming) : AtomContainer = {
     AtomContainer(pure.map(_.renameVars(f)), pointers.map(_.renameVars(f)), predCalls.map(_.renameVars(f)))
   }
 
@@ -30,22 +30,29 @@ case class AtomContainer(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCall
     * @return
     */
   def rename(f : Renaming, avoidDoubleCapture : Boolean) : AtomContainer = {
+    if (avoidDoubleCapture) renameWithoutDoubleCapture(f)._1 else {
+      val res = renameWithoutDoubleCaptureCheck(f)
+      logger.debug(s"After renaming: $res")
+      res
+    }
+  }
+
+  def renameWithoutDoubleCapture(f : Renaming) : (AtomContainer, Renaming) = {
     logger.info(s"Renaming vars in $this")
 
-    // Rename bound variables if applicable
-    val extendedF : Renaming = if (avoidDoubleCapture) {
+    val extendedF : Renaming = {
       logger.debug(s"Will check whether any vars in $boundVars have to be renamed")
       boundVars.foldLeft(f)({
         case (intermediateF, v) =>
           if (!f.isDefinedAt(v)) intermediateF.addBoundVarWithOptionalAlphaConversion(v) else intermediateF
         //intermediateF.addBoundVarWithOptionalAlphaConversion(v)
       })
-    } else f
+    }
     logger.debug(s"Map for renaming $f extended to $extendedF")
 
-    val res = rename(extendedF)
+    val res = renameWithoutDoubleCaptureCheck(extendedF)
     logger.debug(s"After renaming: $res")
-    res
+    (res, extendedF)
   }
 
   /**
@@ -68,7 +75,7 @@ case class AtomContainer(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCall
     assert(vars.subsetOf(boundVars))
     val pairs = vars.zipWithIndex.map(pair => (pair._1, BoundVar(pair._2 + shiftTo)))
     logger.trace(s"Will execute shifting to $shiftTo => using pairs " + pairs.mkString(", "))
-    rename(Renaming.fromPairs(pairs))
+    renameWithoutDoubleCaptureCheck(Renaming.fromPairs(pairs))
   }
 
   /**
@@ -83,7 +90,7 @@ case class AtomContainer(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCall
       }
       logger.trace("Will close gaps by renaming " + renamingPairs.mkString(", "))
       val renaming = Renaming.fromPairs(renamingPairs)
-      val res = rename(renaming)
+      val res = renameWithoutDoubleCaptureCheck(renaming)
       logger.debug(s"Closed gaps in $this yielding: $res")
       res
     } else {

@@ -39,13 +39,13 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
   override def inconsistentState(fvs: Seq[FreeVar]): State = EntailmentAutomaton.State(Set.empty, fvs)
 
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
-    logger.debug(s"Computing target for $lab from $src")
+    logger.debug(s"Computing target for $lab from source states:\n${src.mkString("\n")}")
     val localETs = EntailmentAutomaton.shToExtensionTypes(lab, sid)
     if (localETs.isEmpty) {
       logger.debug(s"No extension types for local allocation $lab => Return inconsistent state")
       Set(EntailmentAutomaton.State(Set.empty, lab.freeVars))
     } else {
-      logger.debug(s"Extension types for local allocation of $lab from $src:\n${localETs.mkString("\n")}")
+      logger.debug(s"Extension types for local allocation of $lab:\n${localETs.mkString("\n")}")
       val instantiatedETs = (src, lab.predCalls).zipped.map(instantiateETsForCall)
       for {
         (src, renamed, call) <- (src, instantiatedETs, lab.predCalls).zipped
@@ -129,10 +129,10 @@ object EntailmentAutomaton extends HarrshLogging {
   }
 
   def shToExtensionTypes(lhs: SymbolicHeap, sid: SID) : Set[ExtensionType] = {
-    // TODO: Deal with multi-pointer and zero-pointer SHs for the left-hand side? This is particularly interesting for top-level formulas. (We could do this either through rewriting (converting the LHS into a rooted SID) or through explicit support (implementing partial model checking).)
+    // FIXME: Deal with 0 pointers in top-level formula
     assert(lhs.pointers.size == 1)
 
-    logger.debug(s"Creating (${sid.description})-extension types from $lhs")
+    logger.debug(s"Local allocation: Creating (${sid.description})-extension types from $lhs")
 
     for {
       pred <- sid.preds.toSet[Predicate]
@@ -156,7 +156,7 @@ object EntailmentAutomaton extends HarrshLogging {
   private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredConstraints: Set[PureAtom], reversedVarAssignment: Map[Var,Set[Var]]): Option[ExtensionType] = {
     // TODO: Make extension types: Split this monster of a method into smaller pieces
 
-    logger.debug(s"Creating extension type from ${pred.head}, $rule, $lhsEnsuredConstraints, $reversedVarAssignment")
+    logger.debug(s"Local allocation: Creating extension type from ${pred.head}, $rule, $lhsEnsuredConstraints, $reversedVarAssignment")
     val body = rule.body
     val varsNotInAssignment = body.allNonNullVars -- reversedVarAssignment.keySet
     val placeholders = (1 to varsNotInAssignment.size) map (i => Set[Var](PlaceholderVar(i).toFreeVar))
@@ -202,9 +202,9 @@ object EntailmentAutomaton extends HarrshLogging {
     val ut = UnfoldingTree(nodeLabelsMap, nodeIds.head, childMap, convertToNormalform = false)
     assert(UnfoldingTree.isInNormalForm(ut), "UT for local alloc $ut is not in normal form")
 
-    logger.debug(s"Unfolding tree before conversion to ET: $ut")
+    logger.debug(s"Local allocation: Unfolding tree before conversion to ET: $ut")
     val ti = ut.interface(propagatedConstraints)
-    logger.debug(s"Tree interface: $ti")
+    logger.debug(s"Tree interface for local allocation: $ti")
 
     if (!ti.allRootParamsUsed) {
       logger.debug(s"Discarding extension type: Not all root parameters are used")
@@ -219,11 +219,14 @@ object EntailmentAutomaton extends HarrshLogging {
 
   private def matchResult(lhsLocal: SymbolicHeap, lhsLocalVars: Seq[Var], assignment: Seq[Var], rhs: SymbolicHeap): Option[Map[Var,Set[Var]]] = {
     assert(assignment.size == lhsLocalVars.size)
-    val pairs = lhsLocalVars.zip(assignment)
-    val renamed = lhsLocal.renameAndCreateSortedFvSequence(Renaming.fromPairs(pairs))
+    val pairsWithPossibleDoubleCapture = lhsLocalVars.zip(assignment)
+    val (renamed,extendedF) = lhsLocal.renameAndCreateSortedFvSequence(Renaming.fromPairs(pairsWithPossibleDoubleCapture))
+    val pairs = extendedF.toPairs
     // TODO: Do we want to check pure entailment instead of syntactic equality? This depends on how we compute the var assignment. Since we're currently brute-forcing over all assignments, I don't think that's necessary. Revisit this as we implement direct matching.
     val res = renamed.pointers == rhs.pointers && ConsistencyCheck.isConsistent(renamed)
     if (res) {
+      logger.debug(s"Will rename using: $pairsWithPossibleDoubleCapture")
+      logger.debug(s"Renaming that avoids double capture: $pairs")
       logger.debug(s"Used $assignment to rename $lhsLocal to $renamed to match against $rhs => match result: $res")
     }
     if (res) {
@@ -241,44 +244,32 @@ object EntailmentAutomaton extends HarrshLogging {
   }
 
   private def propagateEqualitiesIntoReverseAssignment(lhsLocal: SymbolicHeap, rhs: SymbolicHeap, unpropagatedReverseAssignment: Map[Var, Set[Var]]): Map[Var, Set[Var]] = {
-    // The reverse assignment maps RHS variables onto LHS variables
-    // There are three types of equalities that must be propagated throughout this assignment:
-
-    // 1.) Equalities that are explicit in the RHS rule body.
-    // If x = y in the RHS, this means that x and y must be mapped to the same values in the reverse assignment
-    // These must be hold in every matching of the LHS against the RHS
-    // They can be accessed via a closure of the RHS
     val rhsClosure = Closure.fromSH(rhs)
+    logger.debug(s"Reverse atom propagation: Closure of rhs: $rhsClosure")
 
-    // 2.) Equalities that are explicit in the LHS heap;
-    // These must of course be respected in the matching and be reflected in the variable assignment
-    val lhsAtoms = lhsLocal.pure.filter(_.isEquality)
-
-    // 3.) Whenever x is mapped to both y and z in the reverse assignment, this also implies an equality y = z
-    def toEqs(vs: Set[Var]): Set[PureAtom] = if (vs.size <= 1) Set.empty else {
-      val head = vs.head
-      val tail = vs - head
-      (tail map (head =:= _)) ++ toEqs(tail)
-    }
-    val revAssAtoms = unpropagatedReverseAssignment.values.flatMap(toEqs)
-
-    // 2.) and 3.) both concern the LHS variables and must thus be interleaved in the propagation
-    // We therefore construct a common closure
-    val closure = Closure.ofAtoms(lhsAtoms ++ revAssAtoms)
+    val lhsClosure = Closure.ofAtoms(lhsLocal.pure.filter(_.isEquality))
+    logger.debug(s"Reverse atom propagation: Equalities of the LHS: $lhsClosure")
 
     val reverseAssignmentPairs = for {
       // For each variable of the RHS...
-      // FIXME: Does it make sense to always include null?
-      v <- NullConst +: (rhs.freeVars ++ rhs.boundVars) //rhs.allNonNullVars
-      // ...we assemble the reverse assignment by...
-      // 1.) Collecting the values in the unpropagated assignment for all keys that are equal to v
-      explicit = rhsClosure.getEquivalenceClass(v).flatMap(w => unpropagatedReverseAssignment.getOrElse(w, Set.empty))
-      // 2.) Adding the variables that are known to be equal to v because of LHS atoms and/or the unpropagated reverse assignment
-      // TODO: Does it really make sense to mix RHS vars (rhsClosure) and LHS vars (closure is computed wrt the original LHS) in this way?
-      implied = rhsClosure.getEquivalenceClass(v).flatMap(w => closure.getEquivalenceClass(w, defaultToSingletonClass = false))
-      combined = explicit ++ implied
+      v <- NullConst +: (rhs.freeVars ++ rhs.boundVars)
+      combined = for {
+        // ...there are three types of equalities that must be propagated throughout this assignment:
+        // 1.) Equalities that are explicit in the RHS rule body.
+        // If x = y in the RHS, this means that x and y must be mapped to the same values in the reverse assignment
+        // These must be hold in every matching of the LHS against the RHS
+        // They can be accessed via a closure of the RHS
+        srcVar <- rhsClosure.getEquivalenceClass(v)
+        // 2.) Equalities explicit in the reverse assignment
+        // We map all rhs variables that are equal to v to all the targets of their respective reverse assignment
+        // (The reverse assignment maps RHS variables onto LHS variables)
+        trgVar <- unpropagatedReverseAssignment.getOrElse(srcVar, Set.empty)
+        // 3.) Equalities that are explicit in the LHS heap;
+        // These must of course be respected in the matching and be reflected in the variable assignment
+        eqVar <- lhsClosure.getEquivalenceClass(trgVar)
+      } yield eqVar
       if combined.nonEmpty
-    } yield (v/*.asInstanceOf[Var]*/, combined)
+    } yield (v, combined)
     reverseAssignmentPairs.toMap
   }
 

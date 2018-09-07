@@ -117,9 +117,9 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     * @param f Renaming to apply
     * @return The symbolic heap after renaming, with free vars ordered according to the canonical order on vars
     */
-  def renameAndCreateSortedFvSequence(f: Renaming): SymbolicHeap = {
-    val renamedAtoms = atoms.rename(f, avoidDoubleCapture = false)
-    SymbolicHeap(renamedAtoms, renamedAtoms.freeVarSeq)
+  def renameAndCreateSortedFvSequence(f: Renaming): (SymbolicHeap, Renaming) = {
+    val (renamedAtoms, extendedF) = atoms.renameWithoutDoubleCapture(f)
+    (SymbolicHeap(renamedAtoms, renamedAtoms.freeVarSeq), extendedF)
   }
 
   /**

@@ -31,6 +31,8 @@ trait Renaming {
     */
   def filter(p : (Var,Var) => Boolean) : Renaming
 
+  def toPairs: Seq[(Var,Var)]
+
   private final def freshName(v: Var): Var =
     if (!codomain.contains(v)) {
       v
@@ -80,6 +82,8 @@ object Renaming {
     override def isDefinedAt(s: Var): Boolean = map.isDefinedAt(s)
 
     override def filter(p: (Var, Var) => Boolean): Renaming = MapBasedRenaming(map.filter(p.tupled))
+
+    override def toPairs: Seq[(Var,Var)] = map.toSeq
   }
 
 }
