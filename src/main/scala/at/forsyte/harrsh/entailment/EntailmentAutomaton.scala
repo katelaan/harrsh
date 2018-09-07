@@ -149,10 +149,13 @@ object EntailmentAutomaton extends HarrshLogging {
       // Match the pointers under the variable assignment,
       // returning the resulting var equivalence classes in case a match is possible
       reversedVarAssignment <- matchResult(lhsLocal, lhsLocalVars, varAssignment, body)
-    } yield mkExtensionType(sid, pred, rule, lhsEnsuredConstraints, reversedVarAssignment)
+      etype <- mkExtensionType(sid, pred, rule, lhsEnsuredConstraints, reversedVarAssignment)
+    } yield etype
   }
 
-  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredConstraints: Set[PureAtom], reversedVarAssignment: Map[Var,Set[Var]]): ExtensionType = {
+  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredConstraints: Set[PureAtom], reversedVarAssignment: Map[Var,Set[Var]]): Option[ExtensionType] = {
+    // TODO: Make extension types: Split this monster of a method into smaller pieces
+
     logger.debug(s"Creating extension type from ${pred.head}, $rule, $lhsEnsuredConstraints, $reversedVarAssignment")
     val body = rule.body
     val varsNotInAssignment = body.allNonNullVars -- reversedVarAssignment.keySet
@@ -187,7 +190,6 @@ object EntailmentAutomaton extends HarrshLogging {
     val assignmentEqs = nullEqs ++ otherEqs
     logger.debug(s"Variable assignment implies that we need the following equalities: $assignmentEqs")
 
-    // TODO: Must compute another closure...
     val allRuleConstraints = instantiatedRuleConstraints.ensured ++ assignmentEqs
     val missingConstraintsOfRhs = (Closure.ofAtoms(allRuleConstraints).asSetOfAtoms -- lhsEnsuredConstraints).filterNot(_.isTautology)
     logger.debug(s"Missing constraints to satisfy RHS: $missingConstraintsOfRhs")
@@ -200,7 +202,18 @@ object EntailmentAutomaton extends HarrshLogging {
     assert(UnfoldingTree.isInNormalForm(ut), "UT for local alloc $ut is not in normal form")
 
     logger.debug(s"Unfolding tree before conversion to ET: $ut")
-    ut.interface(propagatedConstraints).asExtensionType
+    val ti = ut.interface(propagatedConstraints)
+    logger.debug(s"Tree interface: $ti")
+
+    if (!ti.allRootParamsUsed) {
+      logger.debug(s"Discarding extension type: Not all root parameters are used")
+      None
+    } else if (!ti.hasNamesForUsedParams) {
+      logger.debug(s"Discarding extension type: Not all used parameters have names")
+      None
+    } else {
+      Some(ti.asExtensionType)
+    }
   }
 
   private def matchResult(lhsLocal: SymbolicHeap, lhsLocalVars: Seq[Var], assignment: Seq[Var], rhs: SymbolicHeap): Option[Map[Var,Set[Var]]] = {

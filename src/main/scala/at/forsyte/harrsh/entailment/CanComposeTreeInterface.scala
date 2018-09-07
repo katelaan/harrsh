@@ -48,11 +48,7 @@ object CanComposeTreeInterface extends HarrshLogging {
       pairs.toMap
     }
 
-    override def usageInfo(a: TreeInterface, n: NodeLabel): VarUsageInfo = {
-      val res = n.subst.toSeq.map(a.usageInfo.getOrElse(_, VarUsage.Unused))
-      logger.debug(s"Usage info for $n w.r.t. $a: $res")
-      res
-    }
+    override def usageInfo(a: TreeInterface, n: NodeLabel): VarUsageInfo = a.usageInfoOfNode(n)
   }
 
 }

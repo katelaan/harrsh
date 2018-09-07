@@ -50,9 +50,12 @@ object CanCompose extends HarrshLogging {
     val (n1usage, n2usage) = (cc.usageInfo(a1, n1), cc.usageInfo(a2, n2))
 
     // Sanity check: The root parameter of the predicate is marked as used in both nodes
-    val ix = n1.freeVarSeq.indexOf(n1.pred.rootParam.get)
-    assert(n1usage(ix).isUsed && n2usage(ix).isUsed,
-      s"Root parameter ${n1.pred.rootParam.get} isn't marked as used in at least one of $n1 and $n2 (usage info: ${n1usage.mkString(",")}; ${n2usage.mkString(",")})")
+    n1.pred.rootParam foreach {
+      param =>
+        val ix = n1.freeVarSeq.indexOf(param)
+        assert(n1usage(ix).isUsed && n2usage(ix).isUsed,
+          s"Root parameter ${n1.pred.rootParam.get} isn't marked as used in at least one of $n1 and $n2 (usage info: ${n1usage.mkString(",")}; ${n2usage.mkString(",")})")
+    }
 
     val unifiableParams: Seq[Boolean] = (n1.freeVarSeq, n1usage, n2usage).zipped.toSeq.map{
       tuple: (FreeVar, VarUsage, VarUsage) => tuple match {

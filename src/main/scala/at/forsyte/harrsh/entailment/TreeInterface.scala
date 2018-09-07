@@ -1,8 +1,9 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
 
-case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) {
+case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
 
   assert(NodeLabel.noRedundantPlaceholders(labels), s"There are redundant placeholders in $this")
 
@@ -56,6 +57,36 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
 
   def dropVarsFromPureConstraints(varsToDrop: Set[Var]): TreeInterface = {
     TreeInterface(root, leaves, usageInfo, pureConstraints.dropVars(varsToDrop), convertToNormalform = false)
+  }
+
+  def usageInfoOfNode(n: NodeLabel): VarUsageInfo = {
+    val res = n.subst.toSeq.map(usageInfo.getOrElse(_, VarUsage.Unused))
+    logger.trace(s"Usage info for $n w.r.t. $this: $res")
+    res
+  }
+
+  def allRootParamsUsed: Boolean = {
+    val rootsUsed = for {
+      node <- labels.toStream
+      rootParam <- node.pred.rootParam
+      ix = node.freeVarSeq.indexOf(rootParam)
+      usage = usageInfoOfNode(node)
+    } yield usage(ix).isUsed
+    rootsUsed.forall(b => b)
+  }
+
+  def hasNamesForUsedParams: Boolean = {
+    // Everything that's used has a name
+    val enoughNamesByNodeAndParam = for {
+      node <- labels.toStream
+      usageByVar = (node.subst.toSeq, usageInfoOfNode(node)).zipped
+      (substVars, usg) <- usageByVar
+      res = !usg.isUsed || substVars.exists(!PlaceholderVar.isPlaceholder(_))
+      _ = {
+        if (!res) logger.debug(s"Not enough names for $node: $substVars is not marked as used")
+      }
+    } yield res
+    enoughNamesByNodeAndParam.forall(b => b)
   }
 }
 
