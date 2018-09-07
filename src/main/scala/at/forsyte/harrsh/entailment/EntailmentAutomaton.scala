@@ -14,11 +14,10 @@ import at.forsyte.harrsh.util.Combinators
   */
 class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with InconsistentState {
 
-  // TODO: Support for null param in rhs?
-
   // The entailment checker only works for rooted SIDs that satisfy progress
-  assert(sid.isRooted)
-  assert(sid.satisfiesProgress)
+  // TODO: Check rootedness and progress for the part of the SID that does not correspond to the top-level predicate?
+  //assert(sid.isRooted)
+  //assert(sid.satisfiesProgress)
 
   assert(rhs.args forall (_.isFree))
 
@@ -89,6 +88,7 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
       _ = assert(restrictedToFreeVars.boundVars.isEmpty, s"Bound vars remain after restriction to free vars: $restrictedToFreeVars")
       // Filter out extension types that don't have free vars in all root positions
       // FIXME: Also filter out types that lack names for back pointers
+      // FIXME: What to check for the top-level predicates that don't have a root parameter annotation?
       if restrictedToFreeVars.hasNamesForRootParams
       _ = logger.debug(s"Extension type is consistent, will become part of target state.")
     } yield restrictedToFreeVars

@@ -30,9 +30,14 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
 
   def hasNamesForRootParams: Boolean = labels.forall{
     label =>
-      val rootParamIndex = label.pred.rootParamIndex.get
-      val labelingVars: Set[Var] = label.subst.toSeq(rootParamIndex)
-      labelingVars.exists(v => v.isFreeNonNull && !PlaceholderVar.isPlaceholder(v))
+      label.pred.rootParamIndex match {
+        case Some(rootParamIndex) =>
+          val labelingVars: Set[Var] = label.subst.toSeq(rootParamIndex)
+          labelingVars.exists(v => v.isFreeNonNull && !PlaceholderVar.isPlaceholder(v))
+        case None =>
+          // No root parameter to have a name for
+          true
+      }
   }
 
   def asExtensionType: ExtensionType = ExtensionType(Set(this))

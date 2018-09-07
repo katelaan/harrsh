@@ -1,13 +1,13 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.seplog.inductive.{PredCall, SID}
 import at.forsyte.harrsh.util.IOUtils
 
-object EntailmentChecker {
+object EntailmentChecker extends HarrshLogging {
 
-  case class EntailmentCallOnlyInstance(lhsSid: SID, lhsCall: PredCall, rhsSid: SID, rhsCall: PredCall, entailmentHolds: Option[Boolean])
-  case class EntailmentInstance(lhsSid: SID, rhsSid: SID, entailmentHolds: Option[Boolean])
+  case class EntailmentInstance(lhsSid: SID, lhsCall: PredCall, rhsSid: SID, rhsCall: PredCall, entailmentHolds: Option[Boolean])
 
   /**
     * Check whether the entailment solver produces the expected result on the given instance.
@@ -16,7 +16,7 @@ object EntailmentChecker {
     * @param reportProgress Produce additional output to keep track of progress
     * @return Is the result as expected?
     */
-  def check(description: String, entailmentInstance: EntailmentCallOnlyInstance, reportProgress: Boolean = true): Boolean = {
+  def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true): Boolean = {
     val entailmentHolds = runEntailmentAutomaton(entailmentInstance, reportProgress)
     entailmentInstance.entailmentHolds match {
       case Some(shouldHold) =>
@@ -38,7 +38,7 @@ object EntailmentChecker {
     * @param reportProgress Produce additional output to keep track of progress
     * @return True iff the entailment holds
     */
-  def solve(entailmentInstance: EntailmentCallOnlyInstance, reportProgress: Boolean = true, printResult: Boolean = true): Boolean = {
+  def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true): Boolean = {
     val entailmentHolds = runEntailmentAutomaton(entailmentInstance, reportProgress, printResult)
 
     entailmentInstance.entailmentHolds foreach {
@@ -50,8 +50,8 @@ object EntailmentChecker {
     entailmentHolds
   }
 
-  def runEntailmentAutomaton(entailmentInstance: EntailmentCallOnlyInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): Boolean = {
-    val EntailmentCallOnlyInstance(lhsSid, lhsCall, rhsSid, rhsCall, _) = entailmentInstance
+  def runEntailmentAutomaton(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): Boolean = {
+    val EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhsSid, rhsCall)
     val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhsSid, aut, reportProgress)
     val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)

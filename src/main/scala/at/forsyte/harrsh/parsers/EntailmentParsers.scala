@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.entailment.EntailmentChecker.{EntailmentCallOnlyInstance, EntailmentInstance}
+import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.parsers.buildingblocks.{AsciiAtoms, EmptyQuantifierPrefix}
 import at.forsyte.harrsh.seplog.FreeVar
@@ -12,12 +12,22 @@ object EntailmentParsers extends HarrshLogging {
 
   val DefaultEntailmentParser = new EntailmentParser with HarrshSIDParser with AsciiAtoms with EmptyQuantifierPrefix
 
-  def parse(input: String): Option[EntailmentCallOnlyInstance] = {
+  def parse(input: String): Option[EntailmentInstance] = {
+    val coInstance = Try { DefaultEntailmentParser.run(input).flatMap(transformToCallOnlyInstance) }.toOption.flatten
+    if (coInstance.isEmpty) {
+      DefaultEntailmentParser.run(input).flatMap(transformToInstance)
+    } else {
+      coInstance
+    }
+    //DefaultEntailmentParser.run(input).flatMap(transformToInstance)
+  }
+
+  def parseCallOnlyInstance(input: String): Option[EntailmentInstance] = {
     DefaultEntailmentParser.run(input).flatMap(transformToCallOnlyInstance)
   }
 
   // TODO: Get rid of this restricted transformation once the more general one is working correctly
-  private def transformToCallOnlyInstance(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentCallOnlyInstance] = {
+  private def transformToCallOnlyInstance(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentInstance] = {
     for {
       lhsCall <- toSingleCall(parseResult.lhs)
       if correctArity(lhsCall, parseResult.sid)
@@ -29,18 +39,27 @@ object EntailmentParsers extends HarrshLogging {
       lhsSid <- extractSidForCall(rootedSID, lhsCall)
       rhsSid <- extractSidForCall(rootedSID, rhsCall)
       if satisfiesProgress(lhsSid) && satisfiesProgress(rhsSid)
-    } yield EntailmentCallOnlyInstance(lhsSid, lhsCall, rhsSid, rhsCall, parseResult.entailmentHolds)
+    } yield EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, parseResult.entailmentHolds)
   }
 
   private def transformToInstance(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentInstance] = {
+    logger.debug(s"Will establish progress normal form for parse result ${parseResult.lhs} |= ${parseResult.rhs} for SID\n${parseResult.sid}")
     for {
       rootedSID <- makeRooted(parseResult.sid)
       if satisfiesProgress(rootedSID)
       lhsPreds = SIDUtils.shToProgressSid(parseResult.lhs, "lhs")
       rhsPreds = SIDUtils.shToProgressSid(parseResult.rhs, "rhs")
+      // TODO: Don't introduce extra predicates when the top-level query is already a call (at least for the RHS, where we already support parameter reordering)
       lhsSid <- extractSidForSide(rootedSID, lhsPreds)
       rhsSid <- extractSidForSide(rootedSID, rhsPreds)
-    } yield EntailmentInstance(lhsSid, rhsSid, parseResult.entailmentHolds)
+      rhsCall = rhsSid.callToStartPred.predCalls.head
+      lhsCall = lhsSid.callToStartPred.predCalls.head
+      _ = {
+        logger.debug(s"Will perform entailment check $lhsCall |= $rhsCall w.r.t. SIDs in progress normal form:")
+        logger.debug(s"LHS SID:\n$lhsSid")
+        logger.debug(s"RHS SID:\n$rhsSid")
+      }
+    } yield EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, parseResult.entailmentHolds)
   }
 
   private def correctArity(call: PredCall, sid: SID) = {
@@ -54,6 +73,10 @@ object EntailmentParsers extends HarrshLogging {
   private def makeRooted(sid: SID): Option[SID] = {
     Try {
       def makePredRooted(pred: Predicate): Predicate = {
+        pred.rules.find(_.body.pointers.isEmpty).map {
+          rule => throw new IllegalArgumentException(s"SID contains a rule that violates progress: $rule")
+        }
+
         val rootVars = pred.rules.map(_.body.pointers.head.from).toSet
         if (rootVars.size == 1) pred.copy(rootParam = rootVars.headOption.map(_.asInstanceOf[FreeVar]))
         else throw new IllegalArgumentException(s"No unique root parameter in predicate $pred; roots: $rootVars")

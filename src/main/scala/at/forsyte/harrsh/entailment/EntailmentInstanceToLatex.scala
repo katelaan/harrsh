@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.entailment.EntailmentChecker.{EntailmentCallOnlyInstance, EntailmentInstance}
+import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
 import at.forsyte.harrsh.entailment.VarUsage.{Allocated, Referenced, Unused}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var.Naming
@@ -101,7 +101,7 @@ object EntailmentInstanceToLatex {
 
   object entailmentInstanceToLatex {
 
-    def apply(ei: EntailmentCallOnlyInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.State]], transitions: Map[String, Set[(Seq[EntailmentAutomaton.State], RuleBody, EntailmentAutomaton.State)]]): String = {
+    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.State]], transitions: Map[String, Set[(Seq[EntailmentAutomaton.State], RuleBody, EntailmentAutomaton.State)]]): String = {
       val resultTex = entailmentCheckerResultToLatex(aut, statesByPred)
       val queryTex = s"$$${ei.lhsCall.toSymbolicHeap.toLatex} \\models ${ei.rhsCall.toSymbolicHeap.toLatex}$$"
       val combinedSid = SID(startPred = "", description = "", preds = ei.lhsSid.preds ++ ei.rhsSid.preds.filterNot(ei.lhsSid.preds.contains))
