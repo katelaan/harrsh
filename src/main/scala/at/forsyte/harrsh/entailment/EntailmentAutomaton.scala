@@ -192,7 +192,7 @@ object EntailmentAutomaton extends HarrshLogging {
     logger.debug(s"Variable assignment implies that we need the following equalities: $assignmentEqs")
 
     val allRuleConstraints = instantiatedRuleConstraints.ensured ++ assignmentEqs
-    val missingConstraintsOfRhs = (Closure.ofAtoms(allRuleConstraints).asSetOfAtoms -- lhsEnsuredConstraints).filterNot(_.isTautology)
+    val missingConstraintsOfRhs = Closure.ofAtoms(allRuleConstraints).asSetOfAtoms -- lhsEnsuredConstraints
     logger.debug(s"Missing constraints to satisfy RHS: $missingConstraintsOfRhs")
     val propagatedConstraints = PureConstraintTracker(lhsEnsuredConstraints, missingConstraintsOfRhs)
 

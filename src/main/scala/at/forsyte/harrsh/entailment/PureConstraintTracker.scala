@@ -46,7 +46,7 @@ object PureConstraintTracker {
   def empty: PureConstraintTracker = apply(Set.empty, Set.empty)
 
   def apply(ensured: Set[PureAtom], missing: Set[PureAtom]): PureConstraintTracker = {
-    new PureConstraintTracker(ensured.map(_.ordered), missing.map(_.ordered))
+    new PureConstraintTracker(ensured.map(_.ordered).filterNot(_.isTautology), missing.map(_.ordered).filterNot(_.isTautology))
   }
 
 }
