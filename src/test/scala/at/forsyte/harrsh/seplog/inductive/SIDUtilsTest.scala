@@ -49,15 +49,22 @@ class SIDUtilsTest extends HarrshTableTest with TestValues {
     (SymbolicHeap(x1 -> (y1, y2), y2 -> y3, x1 =/= y1, x1 =:= y3, P("q")(y3), P("r")(x2)),
       Seq(
         mkPred("P1", "x1 ↦ (_1, _2) * P2(x2, _2, _3) : {x1 ≉ _1, x1 ≈ _3}".parse),
-        mkPred("P2", "x2 ↦ x3 * q(x3) * r(x1)".parse)))
+        mkPred("P2", "x2 ↦ x3 * q(x3) * r(x1)".parse))),
+    // Gaps in the bound variable sequence are closed when creating the new predicates
+    ("y5 -> y4 * x1 -> y5 * SLSLList(y4,null)".parse,
+      Seq(
+        mkPred("P1", "x1 ↦ _1 * P2(_1)".parse),
+        mkPred("P2", "x1 ↦ _1 * SLSLList(_1,null)".parse)
+      ))
   )
 
   property("Correct progress normal form computation") {
     forAll(inputs) {
       (sh, expectedResult) =>
+        info(s"Will convert $sh")
         val conversionResult = SIDUtils.shToProgressSid(sh, "P")
 
-        info("" + conversionResult)
+        info(s"Conversion result: $conversionResult")
 
         conversionResult.preds should be(expectedResult)
     }

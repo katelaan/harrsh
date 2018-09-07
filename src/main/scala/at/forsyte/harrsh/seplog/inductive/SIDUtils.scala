@@ -8,7 +8,11 @@ object SIDUtils extends HarrshLogging {
   // TODO: Introduce unique names for bound vars + don't hardcode prefix?
   private def defaultBoundVarNames(sh: SymbolicHeap): Seq[String] = sh.boundVars.toSeq.map(bv => "_"+bv.index)
 
-  def shToRuleBody(sh: SymbolicHeap): RuleBody = RuleBody(defaultBoundVarNames(sh), sh)
+  def shToRuleBody(sh: SymbolicHeap): RuleBody = {
+    // TODO: The SH API is obviously not meant to be used in this way. Refactor?
+    val withoutGaps = SymbolicHeap(sh.atoms.closeGapsInBoundVars, sh.freeVars)
+    RuleBody(defaultBoundVarNames(withoutGaps), withoutGaps)
+  }
 
   def shToProgressSid(sh: SymbolicHeap, predPrefix: String): SID = {
     val preds = transformToPreds(sh, predPrefix)
@@ -85,7 +89,7 @@ object SIDUtils extends HarrshLogging {
     // TODO: The SH API is obviously not meant to be used in this way. Refactor?
     val normalizedRemainder = SymbolicHeap(renamedRemainder.atoms.closeGapsInBoundVars, renamedRemainder.freeVars)
 
-    logger.debug(s"Splitting off $ptr and pure atoms from $sh: Got $remainder => Normalized to $normalizedRemainder")
+    logger.debug(s"Splitting off $ptr and pure atoms from $sh: Got $remainder, renamed to $renamedRemainder, normalized to $normalizedRemainder")
     val newFreeVarsByBoundVar = sharedBoundVars.map(bv => (bv,renamingMap(bv)))
     SplitResult(normalizedRemainder, droppedFreeVars, newFreeVarsByBoundVar)
   }
