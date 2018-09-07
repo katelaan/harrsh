@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.pure.PureEntailment
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.seplog.inductive.{PredCall, SID}
 import at.forsyte.harrsh.util.IOUtils
@@ -17,6 +18,33 @@ object EntailmentChecker extends HarrshLogging {
     * @return Is the result as expected?
     */
   def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true): Boolean = {
+    if (noAllocationIn(entailmentInstance)) {
+      solveViaPureEntailment(entailmentInstance)
+    } else {
+      solveWithEntailmentAutomaton(description, entailmentInstance, reportProgress)
+    }
+  }
+
+  def noAllocationIn(instance: EntailmentInstance): Boolean = {
+    (for {
+      (sid, call) <- Seq((instance.lhsSid, instance.lhsCall), (instance.rhsSid, instance.rhsCall))
+      startPred = sid(call.name)
+      rule <- startPred.rules
+      body = rule.body
+    } yield body.pointers.isEmpty && body.predCalls.isEmpty).forall(b => b)
+  }
+
+  def solveViaPureEntailment(entailmentInstance: EntailmentInstance): Boolean = {
+    val lhsRules = entailmentInstance.lhsSid(entailmentInstance.lhsCall.name).rules
+    val rhsRules = entailmentInstance.rhsSid(entailmentInstance.rhsCall.name).rules
+    // Check that there is at least one RHS rule for every LHS rule
+    lhsRules.forall { rule =>
+      val lhsPure = rule.body.pure
+      rhsRules.map(_.body.pure).exists(rhsPure => PureEntailment.check(lhsPure, rhsPure))
+    }
+  }
+
+  def solveWithEntailmentAutomaton(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean): Boolean = {
     val entailmentHolds = runEntailmentAutomaton(entailmentInstance, reportProgress)
     entailmentInstance.entailmentHolds match {
       case Some(shouldHold) =>
