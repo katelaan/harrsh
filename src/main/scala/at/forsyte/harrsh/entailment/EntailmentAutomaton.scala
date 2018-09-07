@@ -161,7 +161,8 @@ object EntailmentAutomaton extends HarrshLogging {
     val varsNotInAssignment = body.allNonNullVars -- reversedVarAssignment.keySet
     val placeholders = (1 to varsNotInAssignment.size) map (i => Set[Var](PlaceholderVar(i).toFreeVar))
     val placeholderMap: Map[Var,Set[Var]] = (varsNotInAssignment, placeholders).zipped.toMap
-    val combinedMap = reversedVarAssignment ++ placeholderMap
+    // FIXME: Is it correct to include a mapping from null to null here?
+    val combinedMap = Map[Var,Set[Var]]((NullConst, Set(NullConst))) ++ reversedVarAssignment ++ placeholderMap
     val rename = (v: Var) => combinedMap(v)
 
     // Compute the substitutions for the root node and the abstract leaves
