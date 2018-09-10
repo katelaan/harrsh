@@ -1,0 +1,11 @@
+query {
+  ptrtonull(x1) |= sll(x1, null)
+}
+sid {
+  sll <= x1 -> x2 ;
+  sll <= x1 -> y * sll(y,x2) ;
+  ptrtonull <= x1 -> null ;
+}
+info {
+  status = true
+}

@@ -162,32 +162,46 @@ object EntailmentAutomaton extends HarrshLogging {
 
   }
 
-  def localAllocToExtensionTypes(lhs: SymbolicHeap, sid: SID) : Set[ExtensionType] = {
-    // FIXME: Deal with 0 pointers in top-level formula
-    assert(lhs.pointers.size == 1)
+  private case class AnnotatedLocalHeap(sh: SymbolicHeap, pointerVarSeq: Seq[Var], ensuredPureConstraints: Set[PureAtom])
 
+  private def annotatedLocalHeap(lhs: SymbolicHeap): AnnotatedLocalHeap = {
+    assert(lhs.pointers.size == 1)
+    val localLhs = lhs.withoutCalls
+    // Rename the variables that occur in the points-to assertion. (Only those, because we match only the pointers)
+    val localPtr = localLhs.pointers.head
+    val pointerVarSeq = localPtr.getNonNullVars.toSeq ++ localPtr.args.find(_ == NullConst)
+    val ensuredPureConstraints = Closure.fromSH(localLhs).asSetOfAtoms
+    AnnotatedLocalHeap(localLhs, pointerVarSeq, ensuredPureConstraints)
+  }
+
+  def localAllocToExtensionTypes(lhs: SymbolicHeap, sid: SID) : Set[ExtensionType] = {
     logger.debug(s"Local allocation: Creating (${sid.description})-extension types from $lhs")
+    val localLhs = annotatedLocalHeap(lhs)
 
     for {
       pred <- sid.preds.toSet[Predicate]
       rule <- pred.rules
-      body = rule.body
-      lhsLocal = lhs.withoutCalls
-      // Rename the variables that occur in the points-to assertion. (Only those, because we match only the pointers)
-      lhsLocalVars = lhsLocal.pointers.head.getNonNullVars.toSeq
-      lhsEnsuredConstraints = Closure.fromSH(lhsLocal).asSetOfAtoms
-      // Go over all ways to map a variable of the lhs to a variable of the rhs
-      // FIXME: Don't brute force over assignments, but pick the suitable one(s) directly
-      bodyVars = body.allNonNullVars ++ body.pointers.head.args.find(_.isNull)
-      varAssignment <- Combinators.allSeqsOfLength(lhsLocalVars.size, bodyVars)
-      // Match the pointers under the variable assignment,
-      // returning the resulting var equivalence classes in case a match is possible
-      reversedVarAssignment <- matchResult(lhsLocal, lhsLocalVars, varAssignment, body)
-      etype <- mkExtensionType(sid, pred, rule, lhsEnsuredConstraints, reversedVarAssignment)
+      etype <- mkExtensionType(sid, pred, rule, localLhs)
     } yield etype
   }
 
-  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredConstraints: Set[PureAtom], reversedVarAssignment: Map[Var,Set[Var]]): Option[ExtensionType] = {
+  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, localLhs: AnnotatedLocalHeap): Set[ExtensionType] = {
+    // Go over all ways to map a variable of the lhs to a variable of the rhs
+    // FIXME: Don't brute force over assignments, but pick the suitable one(s) directly
+    val body = rule.body
+    val bodyVars = body.allNonNullVars ++ body.pointers.head.args.find(_.isNull)
+    val res = for {
+      varAssignment <- Combinators.allSeqsOfLength(localLhs.pointerVarSeq.size, bodyVars)
+      // Match the pointers under the variable assignment,
+      // returning the resulting var equivalence classes in case a match is possible
+      reversedVarAssignment <- matchResult(localLhs, varAssignment, body)
+      etype <- extensionTypeFromReverseAssignment(sid, pred, rule, localLhs.ensuredPureConstraints, reversedVarAssignment)
+    } yield etype
+    logger.debug(s"Found ${res.size} way(s) to match ${localLhs.sh} against rule $rule of predicate ${pred.head}")
+    res
+  }
+
+  private def extensionTypeFromReverseAssignment(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredConstraints: Set[PureAtom], reversedVarAssignment: Map[Var,Set[Var]]): Option[ExtensionType] = {
     // TODO: Make extension types: Split this monster of a method into smaller pieces
 
     logger.debug(s"Local allocation: Creating extension type from ${pred.head}, $rule, $lhsEnsuredConstraints, $reversedVarAssignment")
@@ -251,17 +265,17 @@ object EntailmentAutomaton extends HarrshLogging {
     }
   }
 
-  private def matchResult(lhsLocal: SymbolicHeap, lhsLocalVars: Seq[Var], assignment: Seq[Var], rhs: SymbolicHeap): Option[Map[Var,Set[Var]]] = {
-    assert(assignment.size == lhsLocalVars.size)
-    val pairsWithPossibleDoubleCapture = lhsLocalVars.zip(assignment)
-    val (renamed,extendedF) = lhsLocal.renameAndCreateSortedFvSequence(Renaming.fromPairs(pairsWithPossibleDoubleCapture))
+  private def matchResult(localLhs: AnnotatedLocalHeap, assignment: Seq[Var], rhs: SymbolicHeap): Option[Map[Var,Set[Var]]] = {
+    assert(assignment.size == localLhs.pointerVarSeq.size)
+    val pairsWithPossibleDoubleCapture = localLhs.pointerVarSeq.zip(assignment)
+    val (renamed,extendedF) = localLhs.sh.renameAndCreateSortedFvSequence(Renaming.fromPairs(pairsWithPossibleDoubleCapture))
     val pairs = extendedF.toPairs
     // TODO: Do we want to check pure entailment instead of syntactic equality? This depends on how we compute the var assignment. Since we're currently brute-forcing over all assignments, I don't think that's necessary. Revisit this as we implement direct matching.
     val res = renamed.pointers == rhs.pointers && ConsistencyCheck.isConsistent(renamed)
     if (res) {
       logger.debug(s"Will rename using: $pairsWithPossibleDoubleCapture")
       logger.debug(s"Renaming that avoids double capture: $pairs")
-      logger.debug(s"Used $assignment to rename $lhsLocal to $renamed to match against $rhs => match result: $res")
+      logger.debug(s"Used $assignment to rename ${localLhs.sh} to $renamed to match against $rhs => match result: $res")
     }
     if (res) {
       // Compute reverse assignment:
@@ -270,7 +284,7 @@ object EntailmentAutomaton extends HarrshLogging {
       logger.debug(s"Computed reverse assignment before propagation: $unpropagatedReverseAssignment")
       // However, this is not enough: We need to take equalities into account: If two variables are known to be equal,
       // both of these variables must be mapped to the same values, the union of their values before propagation:
-      val reverseAssignment = propagateEqualitiesIntoReverseAssignment(lhsLocal, rhs, unpropagatedReverseAssignment)
+      val reverseAssignment = propagateEqualitiesIntoReverseAssignment(localLhs.sh, rhs, unpropagatedReverseAssignment)
       logger.debug(s"Reverse assignment after propagation: $reverseAssignment")
       Some(reverseAssignment)
     }

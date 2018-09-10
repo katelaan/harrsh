@@ -1,0 +1,11 @@
+query {
+  exsll(x1) |= sll(x1, y1)
+}
+sid {
+  sll <= x1 -> x2 ;
+  sll <= x1 -> y * sll(y,x2) ;
+  exsll <= x1 -> y * sll(y, y2)
+}
+info {
+  status = true
+}

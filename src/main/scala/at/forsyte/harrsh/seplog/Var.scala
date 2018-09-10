@@ -29,10 +29,7 @@ sealed trait Var extends Ordered[Var] {
   def ->(other4: (Var,Var,Var,Var)): PointsTo = PointsTo(this, Seq(other4._1, other4._2, other4._3, other4._4))
   def ->(other5: (Var,Var,Var,Var,Var)): PointsTo = PointsTo(this, Seq(other5._1, other5._2, other5._3, other5._4, other5._5))
 
-  def rename(f : Renaming) : Var = this match {
-    case NullConst => NullConst
-    case v => f(v)
-  }
+  def rename(f : Renaming) : Var = f(this)
 
   override def compare(other: Var): Int = (this, other) match {
     case (BoundVar(i), BoundVar(j)) => i - j
