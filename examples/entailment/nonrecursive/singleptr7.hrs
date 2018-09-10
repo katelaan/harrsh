@@ -1,0 +1,8 @@
+query {
+  x1 -> x2 : {x1 = x2} |= x1 -> x1
+}
+sid {
+}
+info {
+  status = true
+}

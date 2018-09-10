@@ -150,7 +150,6 @@ object EntailmentParsers extends HarrshLogging {
     if (sh.predCalls.size == 1 && sh.pointers.isEmpty && sh.pure.isEmpty) {
       sh.predCalls.headOption
     } else {
-      logger.warn(s"Currently Harrsh only supports single calls on both sides of the entailment")
       None
     }
   }

@@ -1,0 +1,8 @@
+query {
+  x1 -> x2 |= emp
+}
+sid {
+}
+info {
+  status = false
+}

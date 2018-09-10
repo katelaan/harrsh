@@ -1,0 +1,8 @@
+query {
+  emp : {x1 = x2, x2 = null} |= emp : {x1 = null}
+}
+sid {
+}
+info {
+  status = true
+}

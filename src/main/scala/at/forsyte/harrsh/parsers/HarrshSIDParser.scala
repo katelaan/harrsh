@@ -18,10 +18,10 @@ private[parsers] trait HarrshSIDParser extends SIDCombinatorParser with HarrshLo
     runParser(parseBody)(input, printFailure) map (HarrshSIDParser.stringSHwithHarrshNamingtoSH(_)._1)
   }
 
-  override def parseSID : Parser[SID] = rep1sep(parseRule, ";") <~ opt(";") ^^ {
+  override def parseSID : Parser[SID] = repsep(parseRule, ";") <~ opt(";") ^^ {
     rules =>
       // We assume the start predicate appears first in the file
-      val startPred : String = rules.head._1
+      val startPred : String = rules.headOption.map(_._1).getOrElse(HarrshSIDParser.EmptySidStartPred)
       val desc : String = startPred + "-SID"
       SID.fromTuples(startPred, rules, desc)
   }
@@ -60,6 +60,8 @@ object HarrshSIDParser {
   // TODO: Add support for other free variable names
 
   val FreeVarString = "x"
+
+  val EmptySidStartPred = "EMPTY"
 
   private def isHarrshFreeVariableString(fv : String): Boolean = fv match {
     case "null" => true

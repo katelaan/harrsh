@@ -3,7 +3,7 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.PureEntailment
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
-import at.forsyte.harrsh.seplog.inductive.{PredCall, SID}
+import at.forsyte.harrsh.seplog.inductive.{PredCall, RuleBody, SID}
 import at.forsyte.harrsh.util.IOUtils
 
 object EntailmentChecker extends HarrshLogging {
@@ -18,34 +18,7 @@ object EntailmentChecker extends HarrshLogging {
     * @return Is the result as expected?
     */
   def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true): Boolean = {
-    if (noAllocationIn(entailmentInstance)) {
-      solveViaPureEntailment(entailmentInstance)
-    } else {
-      solveWithEntailmentAutomaton(description, entailmentInstance, reportProgress)
-    }
-  }
-
-  def noAllocationIn(instance: EntailmentInstance): Boolean = {
-    (for {
-      (sid, call) <- Seq((instance.lhsSid, instance.lhsCall), (instance.rhsSid, instance.rhsCall))
-      startPred = sid(call.name)
-      rule <- startPred.rules
-      body = rule.body
-    } yield body.pointers.isEmpty && body.predCalls.isEmpty).forall(b => b)
-  }
-
-  def solveViaPureEntailment(entailmentInstance: EntailmentInstance): Boolean = {
-    val lhsRules = entailmentInstance.lhsSid(entailmentInstance.lhsCall.name).rules
-    val rhsRules = entailmentInstance.rhsSid(entailmentInstance.rhsCall.name).rules
-    // Check that there is at least one RHS rule for every LHS rule
-    lhsRules.forall { rule =>
-      val lhsPure = rule.body.pure
-      rhsRules.map(_.body.pure).exists(rhsPure => PureEntailment.check(lhsPure, rhsPure))
-    }
-  }
-
-  def solveWithEntailmentAutomaton(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean): Boolean = {
-    val entailmentHolds = runEntailmentAutomaton(entailmentInstance, reportProgress)
+    val entailmentHolds = solve(entailmentInstance, reportProgress)
     entailmentInstance.entailmentHolds match {
       case Some(shouldHold) =>
         val expectedResult = shouldHold == entailmentHolds
@@ -60,6 +33,48 @@ object EntailmentChecker extends HarrshLogging {
     }
   }
 
+  def contradictoryAllocationIn(instance: EntailmentInstance): Boolean = {
+    (for {
+      (sid, call) <- Seq((instance.lhsSid, instance.lhsCall), (instance.rhsSid, instance.rhsCall))
+      startPred = sid(call.name)
+      rule <- startPred.rules
+      body = rule.body
+    } yield body.pointers.isEmpty && body.predCalls.isEmpty).forall(b => b)
+  }
+
+  sealed trait Allocation
+  case object NoAllocation extends Allocation
+  case object AllocationInSomeRules extends Allocation
+  case object AllocationInAllRules extends Allocation
+
+  private def noAllocationIn(r: RuleBody): Boolean = {
+    // If there is a predicate call, there must also be allocation, because we assume progress for all predicates except the top-level one
+    // Hence we check if both pointers and rules are empty
+    val body = r.body
+    body.pointers.isEmpty && body.predCalls.isEmpty
+  }
+
+  def allocationInPred(sid: SID, predCall: PredCall): Allocation = {
+    val pred = sid(predCall.name)
+    val (withoutAlloc, withAlloc) = pred.rules.partition(noAllocationIn)
+    if (withAlloc.isEmpty) NoAllocation
+    else if (withoutAlloc.isEmpty) AllocationInAllRules
+    else AllocationInSomeRules
+  }
+
+  def solveViaPureEntailment(entailmentInstance: EntailmentInstance): Boolean = {
+    // The entailment holds if for every LHS rule there exists an RHS rule such that the entailment holds between the pair of rules
+    val lhsRules = entailmentInstance.lhsSid(entailmentInstance.lhsCall.name).rules
+    assert(lhsRules forall noAllocationIn)
+    // Discard RHS rules with allocation -- since there is no allocation on the left, they are not relevant for the entailment
+    // (If no rule remains after filtering, the entailment is trivially false
+    val rhsRules = entailmentInstance.rhsSid(entailmentInstance.rhsCall.name).rules.filter(noAllocationIn)
+    lhsRules.forall { rule =>
+      val lhsPure = rule.body.pure
+      rhsRules.map(_.body.pure).exists(rhsPure => PureEntailment.check(lhsPure, rhsPure))
+    }
+  }
+
   /**
     * Check whether the given entailment instance holds
     * @param entailmentInstance Instance to solve
@@ -67,7 +82,17 @@ object EntailmentChecker extends HarrshLogging {
     * @return True iff the entailment holds
     */
   def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true): Boolean = {
-    val entailmentHolds = runEntailmentAutomaton(entailmentInstance, reportProgress, printResult)
+    val leftAlloc = allocationInPred(entailmentInstance.lhsSid, entailmentInstance.lhsCall)
+    val rightAlloc = allocationInPred(entailmentInstance.rhsSid, entailmentInstance.rhsCall)
+    val entailmentHolds = (leftAlloc, rightAlloc) match {
+      case (NoAllocation, _) =>
+        solveViaPureEntailment(entailmentInstance)
+      case (_, NoAllocation) =>
+        // Allocation is possible on the left, but not on the right => Entailment can't hold
+        false
+      case _ =>
+        runEntailmentAutomaton(entailmentInstance, reportProgress)
+    }
 
     entailmentInstance.entailmentHolds foreach {
       shouldHold =>
