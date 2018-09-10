@@ -276,7 +276,8 @@ object SymbolicHeap extends HarrshLogging {
       "\u2248" -> "=",
       "\u2249" -> "\\neq ",
       "\u03b1" -> "\\alpha",
-      NullConst.toString -> "\\nil"
+      "__" -> "\\beta_",
+      NullConst.toString -> "\\nil{}"
     ), defaultString)
   }
 

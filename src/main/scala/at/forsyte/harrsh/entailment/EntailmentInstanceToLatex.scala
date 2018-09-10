@@ -50,7 +50,7 @@ object EntailmentInstanceToLatex {
           nodeLabelToLatexLines(leaf, usageInfo, tifId + "_" + ix, s"missing,$position")
       }
       val leafIds = (0 until leaves.size) map (tifId + "_" + _)
-      val nodeIds = Seq(rootId, diseqId) ++ leafIds
+      val nodeIds = Seq(rootId) ++ diseqsTikz.map(_ => diseqId) ++ leafIds
       val fitConstraint = nodeIds.map("(" + _ + ")").mkString(" ")
 
       val fitTikz = Stream(s"\\node[draw=black!50, fit={$fitConstraint}] ($fitId) {};")
@@ -63,7 +63,7 @@ object EntailmentInstanceToLatex {
       case other => other
     }
 
-    private def pureConstraintToTikz(pureConstraints: PureConstraintTracker, tifRootId: String, nodeId: String, style: String): Stream[String] = {
+    private def pureConstraintToTikz(pureConstraints: PureConstraintTracker, tifRootId: String, nodeId: String, style: String): Option[String] = {
       val pureAtomsToLatex = (deqs: Set[PureAtom]) =>
         if (deqs.isEmpty) {
           "---"
@@ -75,9 +75,9 @@ object EntailmentInstanceToLatex {
         val ensuredLabel = s"Guaranteed: ${pureAtomsToLatex(pureConstraints.ensured)}"
         val missingLabel = s"Missing: ${pureAtomsToLatex(pureConstraints.missing)}"
         val missingStyle = if (pureConstraints.missing.nonEmpty) s"$MissingStyleClass," else ""
-        Stream(s"\\node[$NodeLabelStyleClass,$style,${missingStyle}right=2mm of $tifRootId] ($nodeId) {\\footnotesize $ensuredLabel \\nodepart{two} \\footnotesize $missingLabel};")
+        Some(s"\\node[$NodeLabelStyleClass,$style,${missingStyle}right=2mm of $tifRootId] ($nodeId) {\\footnotesize $ensuredLabel \\nodepart{two} \\footnotesize $missingLabel};")
       } else {
-        Stream.empty
+        None
       }
     }
 
