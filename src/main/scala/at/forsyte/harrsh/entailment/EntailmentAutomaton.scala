@@ -38,31 +38,65 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
     */
   override def inconsistentState(fvs: Seq[FreeVar]): State = EntailmentAutomaton.State(Set.empty, fvs)
 
+  sealed trait LocalETs {
+    def areDefined: Boolean = this match {
+      case NoLocalETs => true
+      case ETsOfLocalAtoms(ets) => ets.nonEmpty
+    }
+
+    def ++(other: Seq[Set[ExtensionType]]) : Seq[Set[ExtensionType]] = this match {
+      case NoLocalETs => other
+      case ETsOfLocalAtoms(ets) => ets +: other
+    }
+  }
+  case object NoLocalETs extends LocalETs
+  case class ETsOfLocalAtoms(ets: Set[ExtensionType]) extends LocalETs
+
+  private def localETs(lab: SymbolicHeap) : LocalETs = {
+    if (lab.pointers.isEmpty) {
+      if (lab.pure.nonEmpty) {
+        throw new IllegalArgumentException(s"Can't process symbolic heap without allocation but with pure constraints: $lab")
+      } else {
+        logger.debug(s"No pointers/pure atoms in rule => don't compute local ETs")
+        NoLocalETs
+      }
+    } else {
+      val res = EntailmentAutomaton.localAllocToExtensionTypes(lab, sid)
+      logger.debug(s"Extension types for local allocation of $lab:\n${res.mkString("\n")}")
+      ETsOfLocalAtoms(res)
+    }
+  }
+
   override def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = {
     logger.debug(s"Computing target for $lab from source states:\n${src.mkString("\n")}")
-    val localETs = EntailmentAutomaton.shToExtensionTypes(lab, sid)
-    if (localETs.isEmpty) {
+    val local = localETs(lab)
+    if (local.areDefined) {
+      val instantiatedETs = instantiatedSourceStates(src, lab)
+      val allETs: Seq[Set[ExtensionType]] = local ++ instantiatedETs
+      val targetETs = allPossibleETCompositions(allETs, lab)
+      logger.debug(s"Target state:\n${if (targetETs.nonEmpty) targetETs.mkString("\n") else "empty (sink state)"}")
+      Set(EntailmentAutomaton.State(targetETs, lab.freeVars))
+    } else {
       logger.debug(s"No extension types for local allocation $lab => Return inconsistent state")
       Set(EntailmentAutomaton.State(Set.empty, lab.freeVars))
-    } else {
-      logger.debug(s"Extension types for local allocation of $lab:\n${localETs.mkString("\n")}")
-      val instantiatedETs = (src, lab.predCalls).zipped.map(instantiateETsForCall)
-      for {
-        (src, renamed, call) <- (src, instantiatedETs, lab.predCalls).zipped
-      } {
-        logger.debug(s"Process pred call $call: Instantiated source state $src to $renamed")
-      }
-      val allETs: Seq[Set[ExtensionType]] = localETs +: instantiatedETs
-
-      // Compose the extension types
-      val targetETs = for {
-        ets <- Combinators.choices(allETs map (_.toSeq)).toSet[Seq[ExtensionType]]
-        combined <- combineETs(ets, lab)
-      } yield combined
-      logger.debug(s"Target state:\n${if (targetETs.nonEmpty) targetETs.mkString("\n") else "empty (sink state)"}")
-
-      Set(EntailmentAutomaton.State(targetETs, lab.freeVars))
     }
+  }
+
+  private def instantiatedSourceStates(src: Seq[State], lab: SymbolicHeap): Seq[Set[ExtensionType]] = {
+    val instantiatedETs = (src, lab.predCalls).zipped.map(instantiateETsForCall)
+    for {
+      (src, renamed, call) <- (src, instantiatedETs, lab.predCalls).zipped
+    } {
+      logger.debug(s"Process pred call $call: Instantiated source state $src to $renamed")
+    }
+    instantiatedETs
+  }
+
+  private def allPossibleETCompositions(etsByState: Seq[Set[ExtensionType]], lab: SymbolicHeap): Set[ExtensionType] = {
+    for {
+      ets <- Combinators.choices(etsByState map (_.toSeq)).toSet[Seq[ExtensionType]]
+      combined <- combineETs(ets, lab)
+    } yield combined
   }
 
   private def composeAll(ets: Seq[ExtensionType]): Option[ExtensionType] = {
@@ -128,7 +162,7 @@ object EntailmentAutomaton extends HarrshLogging {
 
   }
 
-  def shToExtensionTypes(lhs: SymbolicHeap, sid: SID) : Set[ExtensionType] = {
+  def localAllocToExtensionTypes(lhs: SymbolicHeap, sid: SID) : Set[ExtensionType] = {
     // FIXME: Deal with 0 pointers in top-level formula
     assert(lhs.pointers.size == 1)
 
