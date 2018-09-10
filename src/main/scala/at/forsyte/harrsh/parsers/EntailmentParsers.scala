@@ -13,56 +13,59 @@ object EntailmentParsers extends HarrshLogging {
   val DefaultEntailmentParser = new EntailmentParser with HarrshSIDParser with AsciiAtoms with EmptyQuantifierPrefix
 
   def parse(input: String): Option[EntailmentInstance] = {
-    val coInstance = Try { DefaultEntailmentParser.run(input).flatMap(transformToCallOnlyInstance) }.toOption.flatten
-    if (coInstance.isEmpty) {
-      DefaultEntailmentParser.run(input).flatMap(transformToInstance)
+    DefaultEntailmentParser.run(input) flatMap establishProgress map logTransformationResult
+  }
+
+  private def logTransformationResult(instance: EntailmentInstance): EntailmentInstance = {
+    logger.debug(s"Will perform entailment check ${instance.lhsCall} |= ${instance.rhsCall} w.r.t. SIDs in progress normal form:")
+    logger.debug(s"LHS SID:\n${instance.lhsSid}")
+    logger.debug(s"RHS SID:\n${instance.rhsSid}")
+    instance
+  }
+
+  private def establishProgress(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentInstance] = {
+    for {
+      rootedSid <- makeRooted(parseResult.sid)
+      if satisfiesProgress(rootedSid)
+      (lhsSid, lhsCall) <- establishProgress(parseResult.lhs, rootedSid, isLhs = true)
+      (rhsSid, rhsCall) <- establishProgress(parseResult.rhs, rootedSid, isLhs = false)
+    } yield EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, parseResult.entailmentHolds)
+  }
+
+  private def establishProgress(querySide: SymbolicHeap, sid: SID, isLhs: Boolean): Option[(SID, PredCall)] = {
+    // If the query is a single predicate call, it is not necessary to introduce a new predicate,\
+    // unless the call references bound variables or null
+    val withoutNormalization = asSingleCallQuery(querySide, sid, isLhs)
+
+    if (withoutNormalization.isDefined) {
+      withoutNormalization
     } else {
-      coInstance
+      normalizeToSingleCallQuery(querySide, sid, isLhs)
     }
-    //DefaultEntailmentParser.run(input).flatMap(transformToInstance)
   }
 
-  def parseCallOnlyInstance(input: String): Option[EntailmentInstance] = {
-    DefaultEntailmentParser.run(input).flatMap(transformToCallOnlyInstance)
-  }
-
-  // TODO: Get rid of this restricted transformation once the more general one is working correctly
-  private def transformToCallOnlyInstance(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentInstance] = {
+  private def asSingleCallQuery(querySide: SymbolicHeap, sid: SID, isLhs: Boolean): Option[(SID, PredCall)] = {
     for {
-      lhsCall <- toSingleCall(parseResult.lhs)
-      if correctArity(lhsCall, parseResult.sid)
-      _ = if (lhsCall.args != parseResult.sid(lhsCall.name).params) throw new NotImplementedError(s"Currently no support for parameter reordering on the left-hand side of the query; try ${parseResult.sid(lhsCall.name).defaultCall} instead of ${lhsCall}")
-      rhsCall <- toSingleCall(parseResult.rhs)
-      if correctArity(rhsCall, parseResult.sid)
-      _ = if (!rhsCall.args.forall(_.isFreeNonNull)) throw new NotImplementedError(s"Can't check entailment against $rhsCall: Currently no support for using bound variables and/or null in the query")
-      rootedSID <- makeRooted(parseResult.sid)
-      lhsSid <- extractSidForCall(rootedSID, lhsCall)
-      rhsSid <- extractSidForCall(rootedSID, rhsCall)
-      if satisfiesProgress(lhsSid) && satisfiesProgress(rhsSid)
-    } yield EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, parseResult.entailmentHolds)
+      call <- toSingleCall(querySide)
+      if hasCorrectArity(call, sid)
+      if call.args.forall(_.isFreeNonNull)
+      // Without normalization, parameter reordering is only allowed on the RHS
+      // (Parameter reordering on the RHS is possible, because the parameter order is part of the final state test.)
+      if !isLhs || call.args == sid(call.name).params
+      querySid <- extractSidForCall(sid, call)
+    } yield (querySid, call)
   }
 
-  private def transformToInstance(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentInstance] = {
-    logger.debug(s"Will establish progress normal form for parse result ${parseResult.lhs} |= ${parseResult.rhs} for SID\n${parseResult.sid}")
+  private def normalizeToSingleCallQuery(querySide: SymbolicHeap, sid: SID, isLhs: Boolean): Option[(SID, PredCall)] = {
+    logger.debug(s"Will establish progress normal form for $querySide for SID\n$sid")
+    val queryPreds = SIDUtils.shToProgressSid(querySide, if (isLhs) "lhs" else "rhs", sid)
     for {
-      rootedSID <- makeRooted(parseResult.sid)
-      if satisfiesProgress(rootedSID)
-      lhsPreds = SIDUtils.shToProgressSid(parseResult.lhs, "lhs")
-      rhsPreds = SIDUtils.shToProgressSid(parseResult.rhs, "rhs")
-      // TODO: Don't introduce extra predicates when the top-level query is already a call (at least for the RHS, where we already support parameter reordering)
-      lhsSid <- extractSidForSide(rootedSID, lhsPreds)
-      rhsSid <- extractSidForSide(rootedSID, rhsPreds)
-      rhsCall = rhsSid.callToStartPred.predCalls.head
-      lhsCall = lhsSid.callToStartPred.predCalls.head
-      _ = {
-        logger.debug(s"Will perform entailment check $lhsCall |= $rhsCall w.r.t. SIDs in progress normal form:")
-        logger.debug(s"LHS SID:\n$lhsSid")
-        logger.debug(s"RHS SID:\n$rhsSid")
-      }
-    } yield EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, parseResult.entailmentHolds)
+      querySid <- combineIntoSidForSide(sid, queryPreds)
+      call = querySid.callToStartPred.predCalls.head
+    } yield (querySid, call)
   }
 
-  private def correctArity(call: PredCall, sid: SID) = {
+  private def hasCorrectArity(call: PredCall, sid: SID) = {
     val res = call.args.length == sid(call.name).arity
     if (!res) {
       logger.warn(s"Invalid input: Query contains call $call, but predicate ${call.name} has arity ${sid(call.name).arity}")
@@ -70,19 +73,20 @@ object EntailmentParsers extends HarrshLogging {
     res
   }
 
+  private def makePredRooted(pred: Predicate): Predicate = {
+    pred.rules.find(_.body.pointers.isEmpty).map {
+      rule => throw new IllegalArgumentException(s"SID contains a rule that violates progress: $rule")
+    }
+
+    val rootVars = pred.rules.map(_.body.pointers.head.from).toSet
+
+    if (rootVars.size == 1) pred.copy(rootParam = rootVars.headOption.map(_.asInstanceOf[FreeVar]))
+    else throw new IllegalArgumentException(s"No unique root parameter in predicate $pred; roots: $rootVars")
+  }
+
   private def makeRooted(sid: SID): Option[SID] = {
     Try {
-      def makePredRooted(pred: Predicate): Predicate = {
-        pred.rules.find(_.body.pointers.isEmpty).map {
-          rule => throw new IllegalArgumentException(s"SID contains a rule that violates progress: $rule")
-        }
-
-        val rootVars = pred.rules.map(_.body.pointers.head.from).toSet
-        if (rootVars.size == 1) pred.copy(rootParam = rootVars.headOption.map(_.asInstanceOf[FreeVar]))
-        else throw new IllegalArgumentException(s"No unique root parameter in predicate $pred; roots: $rootVars")
-      }
-
-      val rootedPreds: Seq[Predicate] = for (pred <- sid.preds) yield makePredRooted(pred)
+      val rootedPreds = sid.preds map makePredRooted
       sid.copy(preds = rootedPreds)
     } match {
       case Failure(exception) =>
@@ -135,7 +139,7 @@ object EntailmentParsers extends HarrshLogging {
     }
   }
 
-  private def extractSidForSide(defSid: SID, entailmentSid: SID): Option[SID] = {
+  private def combineIntoSidForSide(defSid: SID, entailmentSid: SID): Option[SID] = {
     val entailmentPreds = entailmentSid.preds.map(_.head).toSet
     assert((defSid.preds.map(_.head).toSet intersect entailmentPreds).isEmpty)
     val allCalls = entailmentSid.preds.toSet[Predicate].flatMap(_.rules).flatMap(_.body.predCalls)

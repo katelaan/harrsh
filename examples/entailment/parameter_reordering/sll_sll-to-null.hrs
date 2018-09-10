@@ -1,0 +1,12 @@
+query {
+  sll(x1, null) |= ntsll(x1)
+}
+sid {
+  sll <= x1 -> x2 ;
+  sll <= x1 -> y * sll(y,x2) ;
+  ntsll <= x1 -> null ;
+  ntsll <= x1 -> y * sll(y,null)
+}
+info {
+  status = true
+}

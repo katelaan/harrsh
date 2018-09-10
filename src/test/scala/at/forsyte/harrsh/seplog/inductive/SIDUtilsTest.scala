@@ -13,9 +13,10 @@ class SIDUtilsTest extends HarrshTableTest with TestValues {
     (SymbolicHeap.empty, Seq(mkPred("P1", SymbolicHeap.empty))),
     (SymbolicHeap(x1 -> (x2, x3)), Seq(mkPred("P1", "x1 ↦ (x2, x3)".parse))),
     (SymbolicHeap(x1 -> (y1, x3), P("Q")(y1, x2)), Seq(mkPred("P1", "∃_1 . x1 ↦ (_1, x3) * Q(_1,x2)".parse))),
-    (SymbolicHeap(P("Q")(x2, x1)), Seq(mkPred("P1", "Q(x2,x1)".parse))),
-    (SymbolicHeap(P("Q")(x1, x2), P("R")(x3, x4)), Seq(mkPred("P1", "Q(x1,x2) * R(x3,x4)".parse))),
-    (SymbolicHeap(P("Q")(x1, y1), P("R")(y1, y2)), Seq(mkPred("P1", "Q(x1,_1) * R(_1,_2)".parse))),
+    // TODO: New test cases now that the transformation unfolds predicate calls in case there is no local allocation
+//    (SymbolicHeap(P("Q")(x2, x1)), Seq(mkPred("P1", "Q(x2,x1)".parse))),
+//    (SymbolicHeap(P("Q")(x1, x2), P("R")(x3, x4)), Seq(mkPred("P1", "Q(x1,x2) * R(x3,x4)".parse))),
+//    (SymbolicHeap(P("Q")(x1, y1), P("R")(y1, y2)), Seq(mkPred("P1", "Q(x1,_1) * R(_1,_2)".parse))),
     (SymbolicHeap(x1 -> (x2, x3), x3 -> x4),
       Seq(
         mkPred("P1", "x1 ↦ (x2, x3) * P2(x3,x4)".parse),
@@ -51,7 +52,7 @@ class SIDUtilsTest extends HarrshTableTest with TestValues {
         mkPred("P1", "x1 ↦ (_1, _2) * P2(x2, _2, _3) : {x1 ≉ _1, x1 ≈ _3}".parse),
         mkPred("P2", "x2 ↦ x3 * q(x3) * r(x1)".parse))),
     // Gaps in the bound variable sequence are closed when creating the new predicates
-    ("y5 -> y4 * x1 -> y5 * SLSLList(y4,null)".parse,
+    ("x1 -> y5 * y5 -> y4 * SLSLList(y4,null)".parse,
       Seq(
         mkPred("P1", "x1 ↦ _1 * P2(_1)".parse),
         mkPred("P2", "x1 ↦ _1 * SLSLList(_1,null)".parse)
@@ -62,7 +63,7 @@ class SIDUtilsTest extends HarrshTableTest with TestValues {
     forAll(inputs) {
       (sh, expectedResult) =>
         info(s"Will convert $sh")
-        val conversionResult = SIDUtils.shToProgressSid(sh, "P")
+        val conversionResult = SIDUtils.shToProgressSid(sh, "P", SID.empty)
 
         info(s"Conversion result: $conversionResult")
 

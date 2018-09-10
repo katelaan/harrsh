@@ -14,18 +14,43 @@ object SIDUtils extends HarrshLogging {
     RuleBody(defaultBoundVarNames(withoutGaps), withoutGaps)
   }
 
-  def shToProgressSid(sh: SymbolicHeap, predPrefix: String): SID = {
-    val preds = transformToPreds(sh, predPrefix)
+  private def logTransformationResult(preds: Seq[Predicate]) = {
     logger.debug(s"Transformation results:")
     for (pred <- preds) {
       logger.debug(s"Introducing pred ${pred.head} with free vars ${pred.rules.head.body.freeVars}, atoms ${pred.rules.head.body.atoms}, body ${pred.rules.head.body}")
       logger.debug(s"Overall: $pred")
     }
-    val headPred = predPrefix + '1'
-    SID(headPred, preds, s"Progress normal form of $sh")
   }
 
-  private def transformToPreds(intermediateSh: SymbolicHeap, predPrefix: String, introducedPredicates: Seq[Predicate] = Seq.empty): Seq[Predicate] = {
+  def shToProgressSid(sh: SymbolicHeap, predPrefix: String, underlyingSID: SID): SID = {
+    val TransformationResult(headPred, otherPreds) = introduceOnePredPerPointer(sh, predPrefix)
+    logTransformationResult(headPred +: otherPreds)
+    val normalizedHeadPred = normalizeHeadPred(headPred, underlyingSID)
+    SID(normalizedHeadPred.head, normalizedHeadPred +: otherPreds, s"Progress normal form of $sh")
+  }
+
+  private def normalizeHeadPred(headPred: Predicate, underlyingSID: SID): Predicate = {
+    assert(headPred.rules.size == 1)
+    val rule = headPred.rules.head
+    val body = rule.body
+    if (body.pointers.nonEmpty || body.predCalls.isEmpty) {
+      // Progress satisfied => no further normalization necessary
+      headPred
+    } else {
+      // Extract rules of an arbitrary pred call to establish progress
+      val fstCall = body.predCalls.head
+      val ruleBodies = underlyingSID(fstCall.name).bodySHs
+      val instantiatedBodies = ruleBodies map (body.replaceCall(fstCall, _))
+      val newRules = instantiatedBodies map shToRuleBody
+      val res = Predicate(headPred.head, newRules, headPred.rootParam)
+      logger.debug(s"Normalizing rule ${headPred.head} <= $rule by replacing $fstCall with rules of ${fstCall.name}:\n$res")
+      res
+    }
+  }
+
+  case class TransformationResult(headPredicate: Predicate, otherPredicates: Seq[Predicate])
+
+  private def introduceOnePredPerPointer(intermediateSh: SymbolicHeap, predPrefix: String, introducedPredicates: Seq[Predicate] = Seq.empty): TransformationResult = {
     val currName = predPrefix + (introducedPredicates.size + 1)
     val successorName = predPrefix + (introducedPredicates.size + 2)
     intermediateSh.pointers.size match {
@@ -34,33 +59,24 @@ object SIDUtils extends HarrshLogging {
         // Simply introduce a single new predicate for this
         // Note that this will lead to special treatment in the automaton transitions, because progress is violated
         assert(introducedPredicates.isEmpty)
-        Seq(Predicate(currName, Seq(shToRuleBody(intermediateSh))))
+        TransformationResult(Predicate(currName, Seq(shToRuleBody(intermediateSh))), Seq.empty)
       case 1 =>
         // Exactly one pointer => Progress is satisfied => Simply create a single predicate
-        if (!intermediateSh.pointers.head.from.isFree) {
-          // FIXME: Fix this by having a top-level predicate with 0 parameters and an auxiliary predicate that receives all vars including the bound ones as parameters
-          throw new NotImplementedError(s"Currently can't deal with top-level pointers originating in a bound variable")
-        } else {
-          introducedPredicates :+ Predicate(currName, Seq(shToRuleBody(intermediateSh)))
-        }
+        val allPreds = introducedPredicates :+ Predicate(currName, Seq(shToRuleBody(intermediateSh)))
+        TransformationResult(allPreds.head, allPreds.tail)
       case n if n >= 2 =>
-        // Pick a pointer whose head is a free variable
-        intermediateSh.pointers.find(_.from.isFree) match {
-          case Some(localAlloc) =>
-            val SplitResult(remainder, droppedFreeVars, newFreeVarsByBoundVar) = splitOffPtrAndAllPureAtoms(localAlloc, intermediateSh)
-            val recPredName = successorName
-            val recPredParams = intermediateSh.freeVars.filterNot(droppedFreeVars.contains) ++ newFreeVarsByBoundVar.map(_._1)
-            val recPredCall = PredCall(recPredName, recPredParams)
-            val ruleSh = SymbolicHeap(pure = intermediateSh.pure,
-              pointers = Seq(localAlloc),
-              predCalls = Seq(recPredCall),
-              freeVars = intermediateSh.freeVars)
-            val newPred = Predicate(currName, Seq(shToRuleBody(ruleSh)))
-            transformToPreds(remainder, predPrefix, introducedPredicates :+ newPred)
-          case None =>
-            // FIXME: See above
-            throw new NotImplementedError(s"Currently can't deal with top-level pointers originating in a bound variable")
-        }
+        // Recurse on an arbitrary pointer
+        val localPtr = intermediateSh.pointers.head
+        val SplitResult(remainder, droppedFreeVars, newFreeVarsByBoundVar) = splitOffPtrAndAllPureAtoms(localPtr, intermediateSh)
+        val recPredName = successorName
+        val recPredParams = intermediateSh.freeVars.filterNot(droppedFreeVars.contains) ++ newFreeVarsByBoundVar.map(_._1)
+        val recPredCall = PredCall(recPredName, recPredParams)
+        val ruleSh = SymbolicHeap(pure = intermediateSh.pure,
+          pointers = Seq(localPtr),
+          predCalls = Seq(recPredCall),
+          freeVars = intermediateSh.freeVars)
+        val newPred = Predicate(currName, Seq(shToRuleBody(ruleSh)))
+        introduceOnePredPerPointer(remainder, predPrefix, introducedPredicates :+ newPred)
     }
   }
 

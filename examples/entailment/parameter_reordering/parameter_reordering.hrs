@@ -1,4 +1,3 @@
-# TODO: Allow parameter reordering
 query {
   revsll(x2, x1) |= sll(x1, x2)
 }
