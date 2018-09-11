@@ -1,9 +1,0 @@
-query {
-     y4 -> null * x2 -> y4 : {x1 = x4,x3 = x5} |= x5 -> null : {x1 = x3,x2 = x4}
-}
-
-sid {
-    SLSLList <= x1 -> x2;
-    SLSLList <= x1 -> y2 * SLSLList(y2,x2);
-    SLSLList <= SLSLList(x1,y2) * SLSLList(y2,x2);
-}

@@ -1,8 +1,0 @@
-query {
-     x1 -> null |= x1 -> null
-}
-sid {
-    SLSLList <= x1 -> x2;
-    SLSLList <= x1 -> y2 * SLSLList(y2,x2);
-    SLSLList <= SLSLList(x1,y2) * SLSLList(y2,x2);
-}
