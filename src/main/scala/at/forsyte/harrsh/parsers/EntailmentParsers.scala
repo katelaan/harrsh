@@ -3,7 +3,7 @@ package at.forsyte.harrsh.parsers
 import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.parsers.buildingblocks.{AsciiAtoms, EmptyQuantifierPrefix}
-import at.forsyte.harrsh.seplog.FreeVar
+import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive._
 
 import scala.util.{Failure, Success, Try}
@@ -74,14 +74,17 @@ object EntailmentParsers extends HarrshLogging {
   }
 
   private def makePredRooted(pred: Predicate): Predicate = {
-    pred.rules.find(_.body.pointers.isEmpty).map {
+    pred.rules.find(!_.satisfiesProgress(rootOfPred = None)).map {
       rule => throw new IllegalArgumentException(s"SID contains a rule that violates progress: $rule")
     }
 
-    val rootVars = pred.rules.map(_.body.pointers.head.from).toSet
-
+    val rootVars = sourcesOfHeadPtrs(pred)
     if (rootVars.size == 1) pred.copy(rootParam = rootVars.headOption.map(_.asInstanceOf[FreeVar]))
     else throw new IllegalArgumentException(s"No unique root parameter in predicate $pred; roots: $rootVars")
+  }
+
+  private def sourcesOfHeadPtrs(pred: Predicate): Set[Var] = {
+    pred.rules.flatMap(_.body.pointers.headOption.map(_.from)).toSet
   }
 
   private def makeRooted(sid: SID): Option[SID] = {

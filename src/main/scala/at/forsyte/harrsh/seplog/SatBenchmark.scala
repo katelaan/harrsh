@@ -45,7 +45,7 @@ case class SatBenchmark(sid: SID, query: SymbolicHeap, status: SatBenchmark.Stat
   }
 
   private def isRedundantSingleCall(heap: SymbolicHeap) = {
-    if (heap.pointers.nonEmpty || heap.pure.nonEmpty || heap.predCalls.size != 1) {
+    if (heap.hasPointer || heap.pure.nonEmpty || heap.predCalls.size != 1) {
       // Query isn't even a single call
       false
     } else {

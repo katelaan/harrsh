@@ -51,6 +51,7 @@ object LocalETs extends HarrshLogging {
     for {
       pred <- sid.preds.toSet[Predicate]
       rule <- pred.rules
+      if rule.hasPointer
       etype <- mkExtensionType(sid, pred, rule, localLhs)
     } yield etype
   }

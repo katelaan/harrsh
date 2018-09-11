@@ -4,6 +4,8 @@ import at.forsyte.harrsh.seplog.FreeVar
 
 case class Predicate(head: String, rules: Seq[RuleBody], rootParam: Option[FreeVar] = None) {
 
+  def isRooted = rootParam.nonEmpty
+
   if (rules.isEmpty) {
     throw new IllegalArgumentException("Can't construct predicate without rules.")
   }

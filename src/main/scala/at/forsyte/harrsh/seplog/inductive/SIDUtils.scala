@@ -33,7 +33,7 @@ object SIDUtils extends HarrshLogging {
     assert(headPred.rules.size == 1)
     val rule = headPred.rules.head
     val body = rule.body
-    if (body.pointers.nonEmpty || body.predCalls.isEmpty) {
+    if (body.hasPointer || body.predCalls.isEmpty) {
       // Progress satisfied => no further normalization necessary
       headPred
     } else {

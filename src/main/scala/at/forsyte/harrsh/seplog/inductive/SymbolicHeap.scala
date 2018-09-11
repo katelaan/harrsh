@@ -26,7 +26,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
       (pointers.map(_.toStringWithVarNames(naming)) ++ predCalls.map(_.toStringWithVarNames(naming))).mkString(" * ")
     }
     val pureString = if (pure.isEmpty) "" else pure.map(_.toStringWithVarNames(naming)).mkString(" : {", ", ", "}")
-    prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString //+ " [" + numFV + "/" + boundVars.size + "]"
+    prefix + (if (prefix.isEmpty) "" else " . ") + spatialString + pureString
   }
 
   lazy val atoms: AtomContainer = AtomContainer(pure, pointers, predCalls)

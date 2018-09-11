@@ -23,21 +23,22 @@ case class SID(startPred : String, preds : Seq[Predicate], description : String)
 
   def apply(predName: String): Predicate = predMap(predName)
 
-  lazy val isRooted: Boolean = preds.forall(_.rootParam.nonEmpty)
+  lazy val isRooted: Boolean = preds.forall(_.isRooted)
 
   lazy val satisfiesProgress: Boolean = {
-    val violatingRules = for {
-      pred <- preds
-      rule <- pred.rules
-      pointers = rule.body.pointers
-      if pointers.size != 1 || pointers.head.from != pred.rootParam.get
-    } yield (pred, rule)
-
+    val violatingRules = rulesViolatingProgress
     if (violatingRules.nonEmpty) {
       logger.info(s"SID violates progress:\n${violatingRules.mkString("\n")}")
     }
-
     violatingRules.isEmpty
+  }
+
+  private def rulesViolatingProgress = {
+    for {
+      pred <- preds
+      rule <- pred.rules
+      if !rule.satisfiesProgress(pred.rootParam)
+    } yield (pred, rule)
   }
 
   def arity(pred: String): Int = predMap.get(pred).map(_.arity).getOrElse(0)
@@ -49,20 +50,26 @@ case class SID(startPred : String, preds : Seq[Predicate], description : String)
   lazy val callToStartPred: SymbolicHeap = callToPred(startPred)
 
   def toHarrshFormat : Seq[String] = {
+    val rulesWithStartFirst : Seq[(String,RuleBody)] = orderedRulesStartingInStartPred
+    val undelimitedLines = rulesWithStartFirst map (pair => predRulePairToHarrshFormatLine(pair._1, pair._2))
+    undelimitedLines.init.map(_ + " ;") :+ undelimitedLines.last
+  }
+
+  private def predRulePairToHarrshFormatLine(predHead: String, rule: RuleBody): String = {
+    val sh = rule.body
+    // In Harrsh format, we have to use default names, ignoring the names in the rule object
+    val namedBody = SymbolicHeap.toHarrshFormat(sh, Naming.DefaultNaming)
+    s"$predHead <= $namedBody"
+  }
+
+  private def orderedRulesStartingInStartPred: Seq[(String, RuleBody)] = {
     val startRules: Seq[(String, RuleBody)] = apply(startPred).rules.map(rb => (startPred, rb))
     val otherRules = for {
       pred <- preds
       if pred.head != startPred
       rule <- pred.rules
     } yield (pred.head, rule)
-    val rulesWithStartFirst : Seq[(String,RuleBody)] = startRules ++ otherRules
-    val undelimitedLines = for {
-      (head, rule) <- rulesWithStartFirst
-      sh = rule.body
-      // In Harrsh format, we have to use default names, ignoring the names in the rule object
-      namedBody = SymbolicHeap.toHarrshFormat(sh, Naming.DefaultNaming)
-    } yield s"$head <= $namedBody"
-    undelimitedLines.init.map(_ + " ;") :+ undelimitedLines.last
+    startRules ++ otherRules
   }
 
 }
