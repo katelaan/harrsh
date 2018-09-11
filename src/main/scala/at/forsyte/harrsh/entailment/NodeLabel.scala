@@ -29,8 +29,10 @@ sealed trait NodeLabel {
 
   def update(f: SubstitutionUpdate): NodeLabel
 
-  lazy val rootVarSubst: Set[Var] = {
-    subst.toSeq(pred.rootParamIndex.get)
+  lazy val rootParamSubst: Option[Set[Var]] = {
+    pred.rootParamIndex map {
+      ix => subst.toSeq(ix)
+    }
   }
 
   def varUsage(freeVar: FreeVar): VarUsage

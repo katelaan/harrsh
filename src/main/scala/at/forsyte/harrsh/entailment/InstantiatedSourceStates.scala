@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PredCall, SymbolicHeap}
 
 sealed trait InstantiatedSourceStates {
@@ -61,6 +62,20 @@ object InstantiatedSourceStates extends HarrshLogging {
     ets.map(_.updateSubst(callUpdate))
   }
 
-  private def isInconsistent(extensionType: ExtensionType): Boolean = false
+  private def isInconsistent(extensionType: ExtensionType): Boolean = {
+    allocsNull(extensionType) || doubleAlloc(extensionType)
+  }
+
+  private def allocsNull(et: ExtensionType): Boolean = {
+    et.rootParamSubsts exists Var.containsNull
+  }
+
+  private def doubleAlloc(et: ExtensionType): Boolean = {
+    val doublyAlloced = for {
+      (k, vs) <- et.rootParamSubsts.groupBy(vs => vs).toStream
+      if vs.size > 1
+    } yield k
+    doublyAlloced.nonEmpty
+  }
 
 }

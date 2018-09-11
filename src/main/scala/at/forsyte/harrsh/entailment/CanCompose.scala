@@ -71,7 +71,7 @@ object CanCompose extends HarrshLogging {
         case (v, used1, used2) =>
           assert(used1.isUsed && used2.isUsed)
           // Used in both => Need a common name
-          (n1.rootVarSubst intersect n2.rootVarSubst).nonEmpty
+          (n1.rootParamSubst.get intersect n2.rootParamSubst.get).nonEmpty
       }
     }
 

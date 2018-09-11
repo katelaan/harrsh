@@ -30,17 +30,11 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
 
   def hasConsistentPureConstraints: Boolean = pureConstraints.isConsistent
 
-  def hasNamesForRootParams: Boolean = labels.forall{
-    label =>
-      label.pred.rootParamIndex match {
-        case Some(rootParamIndex) =>
-          val labelingVars: Set[Var] = label.subst.toSeq(rootParamIndex)
-          labelingVars.exists(v => v.isFreeNonNull && !PlaceholderVar.isPlaceholder(v))
-        case None =>
-          // No root parameter to have a name for
-          true
-      }
+  def hasNamesForRootParams: Boolean = rootParamSubsts.forall {
+    labelingVars => labelingVars.exists(PlaceholderVar.isNonPlaceholderNonNullFreeVar)
   }
+
+  def rootParamSubsts: Seq[Set[Var]] = labels flatMap (_.rootParamSubst)
 
   def isFinalFor(call: PredCall): Boolean = {
     val rootPred = root.pred

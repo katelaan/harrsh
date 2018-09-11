@@ -20,6 +20,8 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
 
   lazy val missingPureConstraints: Set[PureAtom] = parts.flatMap(_.pureConstraints.missing)
 
+  lazy val rootParamSubsts: Seq[Set[Var]] = parts.toSeq.flatMap(_.rootParamSubsts)
+
   def hasNamesForRootParams: Boolean = parts.forall(_.hasNamesForRootParams)
 
   def isFinal(call: PredCall): Boolean = {

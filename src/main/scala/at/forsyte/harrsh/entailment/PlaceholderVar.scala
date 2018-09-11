@@ -27,6 +27,8 @@ object PlaceholderVar {
 
   def isPlaceholder(v : Var): Boolean = fromVar(v).nonEmpty
 
+  def isNonPlaceholderNonNullFreeVar(v: Var): Boolean = v.isFreeNonNull && !isPlaceholder(v)
+
   def max(pvs: Iterable[PlaceholderVar]): PlaceholderVar = try {
     pvs.maxBy(_.index)
   } catch {

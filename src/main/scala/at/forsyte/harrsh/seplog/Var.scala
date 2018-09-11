@@ -143,6 +143,7 @@ object Var {
     }
   }
 
+  def containsNull(vars: Iterable[Var]) = vars.exists(_ == NullConst)
 
   @inline def maxOf(vars : Iterable[Var]) : Var = vars.max
 
