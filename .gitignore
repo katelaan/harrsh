@@ -4,5 +4,7 @@ target
 benchmark-results*
 previous-batch.bms
 LAST
-*.aut
 export/*
+*.bak
+*.aux
+*.log
