@@ -27,19 +27,9 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
       // Only single (abstracted) trees can be final
       false
     } else {
-      val tif = parts.head
-      val rootPred = tif.root.pred
-      Stream(
-        tif.isConcrete, // It represents a concrete tree...
-        rootPred.head == call.name, // ...rooted in the correct predicate...
-        tif.pureConstraints.missing.isEmpty, // ...without missing pure constraints...
-        (call.args, tif.root.subst.toSeq).zipped.forall{
-          // ...and with the correct vector of variables at the root (corresponding to the goal predicate call)
-          case (arg, substVal) => substVal.contains(arg)
-        }
-      ).forall(b => b)
+      parts.head.isFinalFor(call)
     }
-    logger.debug(s"Checking whether $this is final w.r.t. $call => $res")
+    logger.trace(s"Checking whether $this is final w.r.t. $call => $res")
     res
   }
 

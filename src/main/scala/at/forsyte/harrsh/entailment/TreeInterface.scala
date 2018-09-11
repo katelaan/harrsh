@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.seplog.inductive.PredCall
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
 
 case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
@@ -39,6 +40,19 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
           // No root parameter to have a name for
           true
       }
+  }
+
+  def isFinalFor(call: PredCall): Boolean = {
+    val rootPred = root.pred
+    Stream(
+      isConcrete, // It represents a concrete tree...
+      rootPred.head == call.name, // ...rooted in the correct predicate...
+      pureConstraints.missing.isEmpty, // ...without missing pure constraints...
+      (call.args, root.subst.toSeq).zipped.forall{
+        // ...and with the correct vector of variables at the root (corresponding to the goal predicate call)
+        case (arg, substVal) => substVal.contains(arg)
+      }
+    ).forall(b => b)
   }
 
   def asExtensionType: ExtensionType = ExtensionType(Set(this))
