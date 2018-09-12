@@ -66,12 +66,6 @@ case class AbstractLeafNodeLabel(override val pred: Predicate, override val subs
 
 object NodeLabel {
 
-  def noRedundantPlaceholders(labels: Iterable[NodeLabel]): Boolean = {
-    labels.forall{
-      nodeLabel => nodeLabel.subst.toSeq.forall(PlaceholderVar.containsNoRedundantPlaceholder)
-    }
-  }
-
   def labelsToPlaceholderNormalForm(orderedNodeLabels: Seq[NodeLabel]): SubstitutionUpdate = {
     val found = mutable.Set.empty[PlaceholderVar]
     val order = new mutable.ListBuffer[PlaceholderVar]()

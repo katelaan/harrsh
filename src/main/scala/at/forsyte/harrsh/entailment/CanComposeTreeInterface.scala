@@ -25,9 +25,7 @@ object CanComposeTreeInterface extends HarrshLogging {
       val allLeaves = (toInstantiate.leaves - abstractLeaf) ++ instantiation.leaves
       val newLeaves = allLeaves.map(_.update(propagateUnification))
 
-      val combinedUsageInfo = combineUsageInfo(toInstantiate.usageInfo, instantiation.usageInfo, propagateUnification)
-      val occurringSubstitutions: Set[Set[Var]] = (Set(newRoot) ++ newLeaves).flatMap(_.subst.toSeq)
-      val newUsageInfo = combinedUsageInfo.filter(pair => occurringSubstitutions.contains(pair._1))
+      val newUsageInfo = combineUsageInfo(toInstantiate.usageInfo, instantiation.usageInfo, propagateUnification, Set(newRoot) ++ newLeaves)
       val newDiseqs = (toInstantiate.pureConstraints compose instantiation.pureConstraints).update(propagateUnification)
 
       val res = TreeInterface(newRoot, newLeaves, newUsageInfo, newDiseqs, convertToNormalform = true)
@@ -38,10 +36,11 @@ object CanComposeTreeInterface extends HarrshLogging {
       Some(res)
     }
 
-    private def combineUsageInfo(fst: VarUsageByLabel, snd: VarUsageByLabel, update: SubstitutionUpdate): VarUsageByLabel = {
+    private def combineUsageInfo(fst: VarUsageByLabel, snd: VarUsageByLabel, update: SubstitutionUpdate, labels: Iterable[NodeLabel]): VarUsageByLabel = {
       val fstUpdated = VarUsageByLabel.update(fst, update)
       val sndUpdated = VarUsageByLabel.update(snd, update)
-      VarUsageByLabel.merge(fstUpdated, sndUpdated)
+      val combinedUsageInfo = VarUsageByLabel.merge(fstUpdated, sndUpdated)
+      VarUsageByLabel.restrictToSubstitutionsInLabels(combinedUsageInfo, labels)
     }
 
     override def usageInfo(a: TreeInterface, n: NodeLabel): VarUsageInfo = a.usageInfoOfNode(n)

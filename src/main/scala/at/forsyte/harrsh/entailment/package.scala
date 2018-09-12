@@ -62,7 +62,7 @@ package object entailment {
       }
       val equivalenceClasses = Substitution.extractVarEquivClasses(nodeLabels map (_.subst))
       val redundantVars = equivalenceClasses.flatMap(getRedundantVars)
-      logger.debug(s"Reundant vars: $redundantVars")
+      logger.debug(s"Redundant vars: $redundantVars")
 
       val updateF: SubstitutionUpdate = {
         v => if (redundantVars.contains(v)) Set.empty else Set(v)
@@ -104,8 +104,8 @@ package object entailment {
 
   object VarUsageByLabel {
 
-    def update(m: VarUsageByLabel, f: Var => Set[Var]): VarUsageByLabel = {
-      m map {
+    def update(usageInfo: VarUsageByLabel, f: Var => Set[Var]): VarUsageByLabel = {
+      usageInfo map {
         case (set, usage) => (set.flatMap(f), usage)
       }
     }
@@ -116,6 +116,11 @@ package object entailment {
         k => (k, Seq(u1.getOrElse(k, VarUsage.Unused), u2.getOrElse(k, VarUsage.Unused)).max)
       }
       pairs.toMap
+    }
+
+    def restrictToSubstitutionsInLabels(usageInfo: VarUsageByLabel, nodeLabels: Iterable[NodeLabel]): VarUsageByLabel = {
+      val occurringSubstitutions: Set[Set[Var]] = nodeLabels.toSet[NodeLabel].flatMap(_.subst.toSeq)
+      usageInfo.filter(pair => occurringSubstitutions.contains(pair._1))
     }
 
   }

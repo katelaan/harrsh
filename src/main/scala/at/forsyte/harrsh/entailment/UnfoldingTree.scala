@@ -151,7 +151,7 @@ object UnfoldingTree extends HarrshLogging {
 
   def isInNormalForm(ut: UnfoldingTree): Boolean = {
     // TODO: Check that placeholders are introduced in BFS-order
-    NodeLabel.noRedundantPlaceholders(ut.nodeLabels.values) && PlaceholderVar.noGapsInPlaceholders(ut.placeholders)
+    TreeInterface.noRedundantPlaceholders(ut.nodeLabels.values) && PlaceholderVar.noGapsInPlaceholders(ut.placeholders)
   }
 
   /**

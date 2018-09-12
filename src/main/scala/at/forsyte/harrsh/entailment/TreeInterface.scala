@@ -6,7 +6,8 @@ import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
 
 case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
 
-  assert(NodeLabel.noRedundantPlaceholders(labels), s"There are redundant placeholders in $this")
+  assert(TreeInterface.noRedundantPlaceholders(labels), s"There are redundant placeholders in $this")
+  assert(TreeInterface.nodeLabelsAndUsageInfoContainSameVars(this), s"Inconsistent tree interface $this: There is a difference between the variables in the usage info and in the substitutions")
 
   lazy val labels: Seq[NodeLabel] = Seq[NodeLabel](root) ++ leaves
 
@@ -127,11 +128,23 @@ object TreeInterface {
   }
 
   def isInNormalForm(tif: TreeInterface): Boolean = {
-    NodeLabel.noRedundantPlaceholders(tif.labels) && PlaceholderVar.noGapsInPlaceholders(tif.placeholders)
+    noRedundantPlaceholders(tif.labels) && PlaceholderVar.noGapsInPlaceholders(tif.placeholders)
   }
 
   def haveNoConflicts(tif1: TreeInterface, tif2: TreeInterface): Boolean = {
     (tif1.placeholders intersect tif2.placeholders).isEmpty
+  }
+
+  def noRedundantPlaceholders(labels: Iterable[NodeLabel]): Boolean = {
+    labels.forall{
+      nodeLabel => nodeLabel.subst.toSeq.forall(PlaceholderVar.containsNoRedundantPlaceholder)
+    }
+  }
+
+  def nodeLabelsAndUsageInfoContainSameVars(tif: TreeInterface): Boolean = {
+    val varsOccurringInNodeLabels = tif.substs.toSet[Substitution].flatMap(subst => subst.toSeq)
+    val varsInUsageInfo = tif.usageInfo.keySet
+    varsOccurringInNodeLabels == varsInUsageInfo
   }
 
 }

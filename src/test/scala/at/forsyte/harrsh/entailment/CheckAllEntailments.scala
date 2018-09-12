@@ -15,7 +15,7 @@ object CheckAllEntailments {
       file <- files
       if !file.toString.contains("todo")
       fileContent = IOUtils.readFile(file.toString)
-      instance = Try { EntailmentParsers.parse(fileContent) }
+      instance = Try { println(s"Checking $file..."); EntailmentParsers.parse(fileContent) }
       failure <- collectFailure(file.toString, instance)
     } yield failure).toList
 

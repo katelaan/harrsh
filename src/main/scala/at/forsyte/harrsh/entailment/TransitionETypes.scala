@@ -147,8 +147,24 @@ object TransitionETypes extends HarrshLogging {
   private def tryMergeGivenRoots(extensionType: ExtensionType, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[NodeLabel]): Option[ExtensionType] = {
     val callsInRule = rule.body.predCalls
     assert(rootsToMerge.size == callsInRule.size)
-    val matched = callsInRule zip rootsToMerge
-    val assignmentsByVar: Map[Var, Set[Set[Var]]] = varAssignmentFromMatching(matched)
+    if (predicatesMatch(callsInRule, rootsToMerge)) {
+      tryArgumentMatching(extensionType, rule, pred, rootsToMerge)
+    }
+    else {
+      None
+    }
+  }
+
+  private def predicatesMatch(calls: Seq[PredCall], labels: Seq[NodeLabel]): Boolean = {
+    (calls, labels).zipped forall {
+      case (call, label) => call.name == label.pred.head
+    }
+  }
+
+  private def tryArgumentMatching(extensionType: ExtensionType, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[NodeLabel]): Option[ExtensionType] = {
+    val callsInRule = rule.body.predCalls
+    val candidateMatching = callsInRule zip rootsToMerge
+    val assignmentsByVar: Map[Var, Set[Set[Var]]] = varAssignmentFromMatching(candidateMatching)
     assignmentsByVar.find(_._2.size >= 2) match {
       case Some(pair) =>
         // FIXME: Do we have to implement speculative merging where we match even if we have duplicate targets, but record this as missing equality constraint in the pure constraints of the resulting extension type?
@@ -173,13 +189,21 @@ object TransitionETypes extends HarrshLogging {
 
   private def mergeRoots(extensionType: ExtensionType, rootsToMerge: Seq[NodeLabel], rule: RuleBody, pred: Predicate, assignmentsByVar: Map[Var, Set[Var]]): ExtensionType = {
     val (tifsToMerge, unchangedTifs) = extensionType.parts.partition(tif => rootsToMerge.contains(tif.root))
+    logger.debug(s"Roots that were matched: $rootsToMerge")
+    logger.debug(s"Will apply $rule to merge:\n${tifsToMerge.mkString("\n")}")
+    logger.debug(s"Merge based on variable assignment $assignmentsByVar")
     val subst = Substitution(rule.body.freeVars map assignmentsByVar)
     val newRoot = RuleNodeLabel(pred, rule, subst)
     val concatenatedLeaves = tifsToMerge.flatMap(_.leaves)
-    // Because we're not doing any unification, the usage info can simply be merged -- no propagation of unification results necessary
-    val mergedUsageInfo = tifsToMerge.map(_.usageInfo).reduceLeft(VarUsageByLabel.merge)
+    val mergedUsageInfo = integrateUsageInfo(tifsToMerge, Set(newRoot) ++ concatenatedLeaves)
     val mergedPureConstraints = tifsToMerge.map(_.pureConstraints).reduceLeft(_ compose _)
     val tifAfterMerging = TreeInterface(newRoot, concatenatedLeaves, mergedUsageInfo, mergedPureConstraints)
     ExtensionType(unchangedTifs + tifAfterMerging)
+  }
+
+  private def integrateUsageInfo(tifsToMerge: Set[TreeInterface], nodeLabelsInMergedInterface: Iterable[NodeLabel]) = {
+    // Because we're not doing any unification, the usage info can simply be merged -- no propagation of unification results necessary
+    val mergedUsageInfo = tifsToMerge.map(_.usageInfo).reduceLeft(VarUsageByLabel.merge)
+    VarUsageByLabel.restrictToSubstitutionsInLabels(mergedUsageInfo, nodeLabelsInMergedInterface)
   }
 }
