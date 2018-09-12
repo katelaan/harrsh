@@ -40,12 +40,12 @@ case class ConsistentTransitionETypes(etypes: Seq[Set[ExtensionType]], lab: Symb
     } yield combined
   }
 
-  private def tryToCombineETs(ets: Seq[ExtensionType], lab: SymbolicHeap): Option[ExtensionType] = {
+  private def tryToCombineETs(ets: Seq[ExtensionType], lab: SymbolicHeap): Seq[ExtensionType] = {
     logger.debug(s"Trying to combine:\n${ets.map(_.parts.mkString("ET(", "\n  ", ")")).mkString("\n")}\nw.r.t. symbolic heap $lab...")
     val res = for {
-      combined <- composeAll(ets)
+      combined <- composeAll(ets).toSeq
       _ = logger.debug(s"Resulting parts of the ET:\n${combined.parts.mkString("\n")}")
-      afterRuleApplications = TransitionETypes.useNonProgressRulesToMergeTreeInterfaces(combined, sid)
+      afterRuleApplications <- TransitionETypes.useNonProgressRulesToMergeTreeInterfaces(combined, sid)
       _ = {
         logger.debug(if (afterRuleApplications != combined) s"After applying non-progress rules:\n${afterRuleApplications.parts.mkString("\n")}" else "No non-progress rule can be applied.")
       }
@@ -106,7 +106,7 @@ object TransitionETypes extends HarrshLogging {
     }
   }
 
-  def useNonProgressRulesToMergeTreeInterfaces(etype: ExtensionType, sid: SID): ExtensionType = {
+  def useNonProgressRulesToMergeTreeInterfaces(etype: ExtensionType, sid: SID): Seq[ExtensionType] = {
     val nonProgressRules = sid.rulesWithoutPointers
     if (nonProgressRules.nonEmpty && !etype.representsSingleTree) {
       logger.debug(s"Will try to apply non-progress rules to merge trees in extension type. Rules to consider: ${nonProgressRules.map(pair => s"${pair._1.defaultCall} <= ${pair._2}")}")
@@ -116,22 +116,30 @@ object TransitionETypes extends HarrshLogging {
       val msg = if (etype.representsSingleTree) "Extension type represents a single tree => No merging of trees via non-progress rules possible"
       else "The SID does not contain any non-progress rule. Will return extension type as is."
       logger.debug(msg)
-      etype
+      Seq(etype)
     }
   }
 
-  @tailrec private def mergeWithRules(etype: ExtensionType, rules: Seq[(Predicate, RuleBody)], sid: SID): ExtensionType = {
-    applyFirstPossibleRule(etype, rules) match {
-      case Some(etypeAfterRuleApplication) =>
-        mergeWithRules(etypeAfterRuleApplication, rules, sid)
-      case None =>
-        etype
+  private def mergeWithRules(etype: ExtensionType, rules: Seq[(Predicate, RuleBody)], sid: SID): Seq[ExtensionType] = {
+    val afterMerging = for {
+      etypeAfterRuleApplication <- applyAllPossibleRules(etype, rules)
+      afterAdditionalApplications <- mergeWithRules(etypeAfterRuleApplication, rules, sid)
+    } yield afterAdditionalApplications
+
+    if (afterMerging.isEmpty) {
+      Seq(etype)
+    } else {
+      afterMerging
     }
   }
 
-  private def applyFirstPossibleRule(etype: ExtensionType, rules: Seq[(Predicate, RuleBody)]): Option[ExtensionType] = {
-    rules.toStream.flatMap(rule => applyRule(etype, rule._2, rule._1)).headOption
+  private def applyAllPossibleRules(etype: ExtensionType, rules: Seq[(Predicate, RuleBody)]): Stream[ExtensionType] = {
+    rules.toStream.flatMap(rule => applyRule(etype, rule._2, rule._1))
   }
+
+//  private def applyFirstPossibleRule(etype: ExtensionType, rules: Seq[(Predicate, RuleBody)]): Option[ExtensionType] = {
+//    rules.toStream.flatMap(rule => applyRule(etype, rule._2, rule._1)).headOption
+//  }
 
   private def applyRule(extensionType: ExtensionType, rule: RuleBody, pred: Predicate): Option[ExtensionType] = {
     val callsInRule = rule.body.predCalls
