@@ -1,16 +1,22 @@
-package at.forsyte.harrsh.entailment
+package at.forsyte.harrsh.main
 
+import at.forsyte.harrsh.entailment.EntailmentChecker
 import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
 import at.forsyte.harrsh.parsers.EntailmentParsers
 import at.forsyte.harrsh.util.IOUtils
 
 import scala.util.{Failure, Success, Try}
 
-object CheckAllEntailments {
+object EntailmentBatchMode {
+
+  val PathToDefaultEntailmentBenchmarks = "examples/entailment"
 
   def main(args: Array[String]): Unit = {
+    runAllEntailmentsInPath(PathToDefaultEntailmentBenchmarks)
+  }
 
-    val files = IOUtils.allFilesRecursively("examples/entailment")
+  def runAllEntailmentsInPath(path: String): Unit = {
+    val files = IOUtils.allFilesRecursively(path)
     val failures = (for {
       file <- files
       if !file.toString.contains("todo")
@@ -27,7 +33,6 @@ object CheckAllEntailments {
         case (name, msg) => s" - $name: $msg"
       }.mkString("\n"))
     }
-
   }
 
   private def collectFailure(file: String, tryInstance: Try[Option[EntailmentInstance]]) : Option[(String,String)] = {

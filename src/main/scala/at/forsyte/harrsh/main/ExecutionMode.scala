@@ -11,18 +11,20 @@ sealed trait ExecutionMode {
     case Help => false
     case Decide => true
     case Refine => true
-    case Batch => false
+    case RefinementBatch => false
     case Show => false
     case Unfold => false
     case Analyze => false
     case ModelChecking => false
     case Entailment => false
+    case EntailmentBatch => false
     case ParseOnly => false
   }
 
   def defaultTimeout : Duration = this match {
     case Decide => Duration(120, SECONDS)
-    case Batch => Duration(120, SECONDS)
+    case RefinementBatch => Duration(120, SECONDS)
+    case EntailmentBatch => Duration(120, SECONDS)
     case Analyze => Duration(5, SECONDS)
     case Entailment => Duration(120, SECONDS)
     case ModelChecking => Duration(120, SECONDS)
@@ -38,7 +40,9 @@ object ExecutionMode {
 
   case object Refine extends ExecutionMode
 
-  case object Batch extends ExecutionMode
+  case object EntailmentBatch extends ExecutionMode
+
+  case object RefinementBatch extends ExecutionMode
 
   case object Show extends ExecutionMode
 

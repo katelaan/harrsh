@@ -68,7 +68,8 @@ object Harrsh {
        * Parse mode
        */
       _ <- parseSwitch("--help", "-h", _.copy(mode = Help))
-      _ <- tryParseMode("--batch", "-b", Batch)
+      _ <- tryParseMode("--batch", "-b", RefinementBatch)
+      _ <- tryParseMode("--ebatch", "-eb", EntailmentBatch)
       _ <- tryParseMode("--refine", "-r", Refine)
       _ <- tryParseMode("--decide", "-d", Decide)
       _ <- tryParseMode("--show", "--show", Show)
@@ -164,8 +165,8 @@ object Harrsh {
             IOUtils.printWarningToConsole("Refinement failed.")
         }
 
-      case Batch =>
-          println("Will run all benchmarks in " + config.file)
+      case RefinementBatch =>
+          println("Will run all refinement benchmarks in " + config.file)
           val tasks = MainIO.readTasksFromFile(config.file)
           val (results, stats) = DecisionProcedures.decideInstances(tasks, config.timeout, config.verbose, config.reportProgress)
 
@@ -180,6 +181,10 @@ object Harrsh {
               (taskConfig, result) <- diffs
             } IOUtils.printWarningToConsole(taskConfig.fileName + " " + taskConfig.decisionProblem + ": Expected " + taskConfig.expectedResult.get + ", actual " + !result.isEmpty)
           }
+
+      case EntailmentBatch =>
+        println("Will run all entailment benchmarks in " + config.file)
+        EntailmentBatchMode.runAllEntailmentsInPath(config.file)
 
       case Show =>
           val sid = MainIO.getSidFromFile(config.file)
