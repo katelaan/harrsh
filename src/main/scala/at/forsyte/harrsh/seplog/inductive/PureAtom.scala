@@ -17,9 +17,7 @@ case class PureAtom(l: Var, r: Var, isEquality: Boolean) extends SepLogAtom with
 
   override def renameVars(f: Renaming): PureAtom = PureAtom(l.rename(f), r.rename(f), isEquality)
 
-  override def getNonNullVars : Set[Var] = Set(l, r) - NullConst
-
-  def getVarsWithNull : Set[Var] = Set(l, r)
+  override def getVars : Set[Var] = Set(l, r)
 
   def comparesFree: Boolean = getNonNullVars.forall(_.isFree)
 

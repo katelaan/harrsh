@@ -18,7 +18,7 @@ case class PointsTo(from : Var, to : Seq[Var]) extends SepLogAtom {
 
   override def renameVars(f : Renaming) : PointsTo = PointsTo(from.rename(f), to map (_.rename(f)))
 
-  override def getNonNullVars : Set[Var] = (from +: to).toSet - NullConst
+  override def getVars : Set[Var] = (from +: to).toSet
 
   override def toStringWithVarNames(names: Naming): String = names(from) + " \u21a6 " + (if (to.tail.isEmpty) names(to.head).toString else to.map(names).mkString("(", ", ", ")"))
 }

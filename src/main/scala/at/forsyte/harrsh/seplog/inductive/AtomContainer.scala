@@ -7,11 +7,13 @@ import scala.collection.SortedSet
 
 case class AtomContainer(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls : Seq[PredCall]) extends HarrshLogging {
 
-  lazy val vars = Set.empty ++ pure.flatMap(_.getNonNullVars) ++ pointers.flatMap(_.getNonNullVars) ++ predCalls.flatMap(_.getNonNullVars)
+  lazy val vars = Set.empty ++ all.flatMap(_.getNonNullVars)
 
   lazy val freeVarSeq: Seq[FreeVar] = {
     Var.freeNonNullVars(vars).toSeq.sorted
   }
+
+  def all: Stream[SepLogAtom] = pure.toStream ++ pointers ++ predCalls
 
   private val boundVarOrdering = Ordering.fromLessThan[BoundVar](_ < _)
 

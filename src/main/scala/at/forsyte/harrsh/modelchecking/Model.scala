@@ -120,7 +120,7 @@ object Model {
       }
       val cl: Closure = Closure.ofAtoms(sh.pure.toSet ++ allocAtoms ++ diffAtoms)
 
-      if (cl.asSetOfAtoms.exists(atom => !atom.isEquality && atom.getVarsWithNull.size == 1)) {
+      if (cl.asSetOfAtoms.exists(atom => !atom.isEquality && atom.getVars.size == 1)) {
         println("Can't get model for unsatisfiable heap")
         None
       } else {

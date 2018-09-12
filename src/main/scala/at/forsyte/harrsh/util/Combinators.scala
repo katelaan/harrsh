@@ -46,6 +46,27 @@ object Combinators {
     fixedPointAux(initial, 1)
   }
 
+  def fixedPointOfMap[A](m: Map[A,Set[A]]): Map[A,Set[A]] = {
+
+    def step(mAux: Map[A,Set[A]]): Map[A,Set[A]] = {
+      mAux.map {
+        case (k,vs) =>
+          val stepped = for {
+            v <- vs
+            w <- mAux.getOrElse(v, Set.empty)
+          } yield w
+          (k, vs ++ stepped)
+      }
+    }
+
+    @tailrec def fixedPointAux(mAux: Map[A,Set[A]]): Map[A,Set[A]] = {
+      val stepped = step(mAux)
+      if (stepped == mAux) mAux else fixedPointAux(stepped)
+    }
+
+    fixedPointAux(m)
+  }
+
   def dropFirstMatch[A](ls: Seq[A], p: A => Boolean): Seq[A] = {
     val index = ls.indexWhere(p)  //index is -1 if there is no match
     if (index < 0) {

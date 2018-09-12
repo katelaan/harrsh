@@ -23,5 +23,5 @@ case class PredCall(name : String, args : Seq[Var]) extends SepLogAtom {
 
   override def renameVars(f: Renaming): PredCall = copy(args = args map (_.rename(f)))
 
-  override def getNonNullVars : Set[Var] = args.toSet - NullConst
+  override def getVars : Set[Var] = args.toSet
 }

@@ -42,7 +42,7 @@ private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure 
 
   override def isConsistent : Boolean = {
     // TODO Code duplication with UnsafeClosure
-    !asSetOfAtoms.exists(atom => !atom.isEquality && atom.getVarsWithNull.size == 1)
+    !asSetOfAtoms.exists(atom => !atom.isEquality && atom.getVars.size == 1)
   }
 
   private def extendEntry(key : Var, newVal : Var) = {
