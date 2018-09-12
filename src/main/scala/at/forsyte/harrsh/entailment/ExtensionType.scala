@@ -1,8 +1,10 @@
 package at.forsyte.harrsh.entailment
 
+import java.awt.JobAttributes.SidesType
+
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
-import at.forsyte.harrsh.seplog.inductive.{PredCall, PureAtom}
+import at.forsyte.harrsh.seplog.inductive.{PredCall, Predicate, PureAtom, SID}
 import at.forsyte.harrsh.util.ToLatex
 
 /**
@@ -25,6 +27,17 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
   def hasNamesForAllRootParams: Boolean = parts.forall(_.hasNamesForRootParams)
 
   def representsSingleTree: Boolean = parts.size == 1
+
+  def containsMultipleRootsOf(pred: Predicate): Boolean = {
+    parts.count(_.root.pred == pred) > 1
+  }
+
+  def isViable(sid: SID): Boolean = {
+    // We don't do a full viability check (yet)
+    // This overapproximation of viability discards those forests that contain two trees rooted in a predicate that can
+    // occur at most once in an unfolding tree.
+    !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleRootsOf)
+  }
 
   def isFinal(call: PredCall): Boolean = {
     val res = if (!representsSingleTree) {

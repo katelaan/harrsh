@@ -14,7 +14,7 @@ object SIDUtils extends HarrshLogging {
     RuleBody(defaultBoundVarNames(withoutGaps), withoutGaps)
   }
 
-  private def logTransformationResult(preds: Seq[Predicate]) = {
+  private def logTransformationResult(preds: Seq[Predicate]): Unit = {
     logger.debug(s"Transformation results:")
     for (pred <- preds) {
       logger.debug(s"Introducing pred ${pred.head} with free vars ${pred.rules.head.body.freeVars}, atoms ${pred.rules.head.body.atoms}, body ${pred.rules.head.body}")

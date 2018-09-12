@@ -56,7 +56,9 @@ case class ConsistentTransitionETypes(etypes: Seq[Set[ExtensionType]], lab: Symb
       // FIXME: Also filter out types that lack names for back pointers
       // FIXME: What to check for the top-level predicates that don't have a root parameter annotation?
       if restrictedToFreeVars.hasNamesForAllRootParams
-      _ = logger.debug(s"Extension type is consistent, will become part of target state.")
+      _ = logger.debug("Extension type has names for all roots. Will keep if viable.")
+      if restrictedToFreeVars.isViable(sid)
+      _ = logger.debug("Extension type is viable, will become part of target state.")
     } yield restrictedToFreeVars
 
     if (res.isEmpty) {

@@ -12,6 +12,11 @@ object EntailmentParsers extends HarrshLogging {
 
   val DefaultEntailmentParser = new EntailmentParser with HarrshSIDParser with AsciiAtoms with EmptyQuantifierPrefix
 
+  val PrefixOfLhsAuxiliaryPreds = "lhs"
+  val PrefixOfRhsAuxiliaryPreds = "rhs"
+
+  def isAuxiliaryPred(pred: Predicate): Boolean = pred.head.startsWith(PrefixOfLhsAuxiliaryPreds) || pred.head.startsWith(PrefixOfRhsAuxiliaryPreds)
+
   def parse(input: String): Option[EntailmentInstance] = {
     DefaultEntailmentParser.run(input) flatMap establishProgress map logTransformationResult
   }
@@ -58,7 +63,7 @@ object EntailmentParsers extends HarrshLogging {
 
   private def normalizeToSingleCallQuery(querySide: SymbolicHeap, sid: SID, isLhs: Boolean): Option[(SID, PredCall)] = {
     logger.debug(s"Will establish progress normal form for $querySide for SID\n$sid")
-    val queryPreds = SIDUtils.shToProgressSid(querySide, if (isLhs) "lhs" else "rhs", sid)
+    val queryPreds = SIDUtils.shToProgressSid(querySide, if (isLhs) PrefixOfLhsAuxiliaryPreds else PrefixOfRhsAuxiliaryPreds, sid)
     for {
       querySid <- combineIntoSidForSide(sid, queryPreds)
       call = querySid.callToStartPred.predCalls.head

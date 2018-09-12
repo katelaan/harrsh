@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.main._
+import at.forsyte.harrsh.parsers.EntailmentParsers
 import at.forsyte.harrsh.seplog.FreeVar
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.util.ToLatex
@@ -52,6 +53,11 @@ case class SID(startPred : String, preds : Seq[Predicate], description : String)
   def hasRuleForStartPred: Boolean = predMap.isDefinedAt(startPred)
 
   lazy val callToStartPred: SymbolicHeap = callToPred(startPred)
+
+  lazy val predsThatOccurAtMostOnceInUnfolding: Set[Predicate] = {
+    // FIXME: A proper implementation of this that also works for non-auxiliary predicates?
+    preds.filter(EntailmentParsers.isAuxiliaryPred).toSet
+  }
 
   def toHarrshFormat : Seq[String] = {
     val rulesWithStartFirst : Seq[(String,RuleBody)] = orderedRulesStartingInStartPred
