@@ -19,7 +19,7 @@ case class RuleBody(qvarNames : Seq[String], body : SymbolicHeap) {
 
   def hasPointer: Boolean = body.hasPointer
 
-  def satisfiesProgress(rootOfPred: Option[Var]): Boolean = {
+  def satisfiesGeneralizedProgress(rootOfPred: Option[Var]): Boolean = {
     body.pointers.length match {
       case 0 =>
         // Generalized progress: We allow rules without allocation provided they contain at least two recursive calls.

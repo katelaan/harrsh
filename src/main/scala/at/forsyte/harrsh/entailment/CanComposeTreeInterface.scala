@@ -41,11 +41,7 @@ object CanComposeTreeInterface extends HarrshLogging {
     private def combineUsageInfo(fst: VarUsageByLabel, snd: VarUsageByLabel, update: SubstitutionUpdate): VarUsageByLabel = {
       val fstUpdated = VarUsageByLabel.update(fst, update)
       val sndUpdated = VarUsageByLabel.update(snd, update)
-      val keys = fstUpdated.keySet ++ sndUpdated.keySet
-      val pairs: Set[(Set[Var], VarUsage)] = keys.map{
-        k => (k, Seq(fstUpdated.getOrElse(k, VarUsage.Unused), sndUpdated.getOrElse(k, VarUsage.Unused)).max)
-      }
-      pairs.toMap
+      VarUsageByLabel.merge(fstUpdated, sndUpdated)
     }
 
     override def usageInfo(a: TreeInterface, n: NodeLabel): VarUsageInfo = a.usageInfoOfNode(n)

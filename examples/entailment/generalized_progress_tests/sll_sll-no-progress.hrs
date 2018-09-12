@@ -1,0 +1,12 @@
+query {
+     sll(x1, x2) |= sllnp(x1, x2)
+}
+sid {
+    sllnp <= x1 -> x2;
+    sllnp <= sllnp(x1,y) * sllnp(y,x2);
+    sll <= x1 -> x2 ;
+    sll <= x1 -> y * sll(y,x2)
+}
+info {
+    status = true
+}

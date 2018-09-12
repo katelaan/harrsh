@@ -1,8 +1,11 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
+
+import scala.annotation.tailrec
 
 sealed trait TransitionETypes {
   def toTarget: Option[EntailmentAutomaton.State]
@@ -22,17 +25,17 @@ case object InconsistentTransitionSources extends TransitionETypes with HarrshLo
   }
 }
 
-case class ConsistentTransitionETypes(etypes: Seq[Set[ExtensionType]], lab: SymbolicHeap) extends TransitionETypes with HarrshLogging {
+case class ConsistentTransitionETypes(etypes: Seq[Set[ExtensionType]], lab: SymbolicHeap, sid: SID) extends TransitionETypes with HarrshLogging {
 
   override def toTarget: Option[EntailmentAutomaton.State] = {
-    val targetETs = allPossibleETCompositions(etypes, lab)
+    val targetETs = allPossibleETCompositions
     logger.debug(s"Target state:\n${if (targetETs.nonEmpty) targetETs.mkString("\n") else "empty (sink state)"}")
     Some(EntailmentAutomaton.State(targetETs, lab.freeVars))
   }
 
-  private def allPossibleETCompositions(etsByState: Seq[Set[ExtensionType]], lab: SymbolicHeap): Set[ExtensionType] = {
+  private def allPossibleETCompositions: Set[ExtensionType] = {
     for {
-      ets <- Combinators.choices(etsByState map (_.toSeq)).toSet[Seq[ExtensionType]]
+      ets <- Combinators.choices(etypes map (_.toSeq)).toSet[Seq[ExtensionType]]
       combined <- tryToCombineETs(ets, lab)
     } yield combined
   }
@@ -42,14 +45,17 @@ case class ConsistentTransitionETypes(etypes: Seq[Set[ExtensionType]], lab: Symb
     val res = for {
       combined <- composeAll(ets)
       _ = logger.debug(s"Resulting parts of the ET:\n${combined.parts.mkString("\n")}")
+      afterRuleApplications = TransitionETypes.useNonProgressRulesToMergeTreeInterfaces(combined, sid)
+      _ = {
+        logger.debug(if (afterRuleApplications != combined) s"After applying non-progress rules:\n${afterRuleApplications.parts.mkString("\n")}" else "No non-progress can be applied.")
+      }
       // Bound variables are not visible from outside the transition, so we remove them from the extension type
-      restrictedToFreeVars <- restrictToFreeVars(combined)
+      restrictedToFreeVars <- restrictToFreeVars(afterRuleApplications)
       _ = logger.debug(s"After restriction to free variables:\n${restrictedToFreeVars.parts.mkString("\n")}")
       _ = assert(restrictedToFreeVars.boundVars.isEmpty, s"Bound vars remain after restriction to free vars: $restrictedToFreeVars")
-      // Filter out extension types that don't have free vars in all root positions
       // FIXME: Also filter out types that lack names for back pointers
       // FIXME: What to check for the top-level predicates that don't have a root parameter annotation?
-      if restrictedToFreeVars.hasNamesForRootParams
+      if restrictedToFreeVars.hasNamesForAllRootParams
       _ = logger.debug(s"Extension type is consistent, will become part of target state.")
     } yield restrictedToFreeVars
 
@@ -78,24 +84,102 @@ case class ConsistentTransitionETypes(etypes: Seq[Set[ExtensionType]], lab: Symb
 
 }
 
-object TransitionETypes {
+object TransitionETypes extends HarrshLogging {
 
   def apply(src: Seq[EntailmentAutomaton.State], lab: SymbolicHeap, sid: SID): TransitionETypes = {
     val instantiatedETs = InstantiatedSourceStates(src, lab)
     if (instantiatedETs.isConsistent) {
       val local = LocalETs(lab, sid)
-      combineLocalAndSourceEtypes(local, instantiatedETs, lab)
+      combineLocalAndSourceEtypes(local, instantiatedETs, lab, sid)
     } else {
       InconsistentTransitionSources
     }
   }
 
-  private def combineLocalAndSourceEtypes(local: LocalETs, instantiatedETs: InstantiatedSourceStates, lab: SymbolicHeap) = {
+  private def combineLocalAndSourceEtypes(local: LocalETs, instantiatedETs: InstantiatedSourceStates, lab: SymbolicHeap, sid: SID) = {
     if (local.areDefined) {
-      ConsistentTransitionETypes(local +: instantiatedETs, lab)
+      ConsistentTransitionETypes(local +: instantiatedETs, lab, sid)
     } else {
       UnmatchableLocalAllocation(lab)
     }
   }
 
+  def useNonProgressRulesToMergeTreeInterfaces(etype: ExtensionType, sid: SID): ExtensionType = {
+    val nonProgressRules = sid.rulesWithoutPointers
+    if (nonProgressRules.nonEmpty && !etype.representsSingleTree) {
+      logger.debug(s"Will try to apply non-progress rules to merge trees in extension type. Rules to consider: ${nonProgressRules.map(pair => s"${pair._1.defaultCall} <= ${pair._2}")}")
+      mergeWithRules(etype, nonProgressRules, sid)
+    }
+    else {
+      val msg = if (etype.representsSingleTree) "Extension type represents a single tree => No merging of trees via non-progress rules possible"
+      else "The SID does not contain any non-progress rule. Will return extension type as is."
+      logger.debug(msg)
+      etype
+    }
+  }
+
+  @tailrec private def mergeWithRules(etype: ExtensionType, rules: Seq[(Predicate, RuleBody)], sid: SID): ExtensionType = {
+    applyFirstPossibleRule(etype, rules) match {
+      case Some(etypeAfterRuleApplication) =>
+        mergeWithRules(etypeAfterRuleApplication, rules, sid)
+      case None =>
+        etype
+    }
+  }
+
+  private def applyFirstPossibleRule(etype: ExtensionType, rules: Seq[(Predicate, RuleBody)]): Option[ExtensionType] = {
+    rules.toStream.flatMap(rule => applyRule(etype, rule._2, rule._1)).headOption
+  }
+
+  private def applyRule(extensionType: ExtensionType, rule: RuleBody, pred: Predicate): Option[ExtensionType] = {
+    val callsInRule = rule.body.predCalls
+    val roots = extensionType.parts map (_.root)
+    if (callsInRule.size > roots.size)
+      // The rule contains more calls than the ETypes has parts => Rule can't be applicable
+      None
+    else {
+      // FIXME: More efficient choice of possible pairings for matching (don't brute force over all seqs)
+      val possibleMatchings = Combinators.allSeqsWithoutRepetitionOfLength(callsInRule.length, roots)
+      possibleMatchings.toStream.flatMap(tryMergeGivenRoots(extensionType, rule, pred, _)).headOption
+    }
+  }
+
+  private def tryMergeGivenRoots(extensionType: ExtensionType, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[NodeLabel]): Option[ExtensionType] = {
+    val callsInRule = rule.body.predCalls
+    assert(rootsToMerge.size == callsInRule.size)
+    val matched = callsInRule zip rootsToMerge
+    val assignmentsByVar: Map[Var, Set[Set[Var]]] = varAssignmentFromMatching(matched)
+    assignmentsByVar.find(_._2.size >= 2) match {
+      case Some(pair) =>
+        // FIXME: Do we have to implement speculative merging where we match even if we have duplicate targets, but record this as missing equality constraint in the pure constraints of the resulting extension type?
+        logger.debug(s"Can't match ${rule.body} against $rootsToMerge: ${pair._1} has to be assigned to all of ${pair._2.mkString(", ")}")
+        None
+      case None =>
+        logger.debug(s"Will put tree interfaces rooted in ${rootsToMerge.mkString(",")} under new root node labeled by $rule")
+        Some(mergeRoots(extensionType, rootsToMerge, rule, pred, assignmentsByVar.mapValues(_.head)))
+    }
+  }
+
+  private def varAssignmentFromMatching(matched: Seq[(PredCall, NodeLabel)]) = {
+    val varAssignmentSeq = for {
+      (call, root) <- matched
+      (arg, varLabel) <- (call.args, root.subst.toSeq).zipped
+    } yield (arg, varLabel)
+    val assignmentsByVar: Map[Var, Set[Set[Var]]] = varAssignmentSeq.groupBy(_._1).map {
+      case (k, vs) => (k, vs.map(_._2).toSet)
+    }
+    assignmentsByVar
+  }
+
+  private def mergeRoots(extensionType: ExtensionType, rootsToMerge: Seq[NodeLabel], rule: RuleBody, pred: Predicate, assignmentsByVar: Map[Var, Set[Var]]): ExtensionType = {
+    val (tifsToMerge, unchangedTifs) = extensionType.parts.partition(tif => rootsToMerge.contains(tif.root))
+    val subst = Substitution(rule.body.freeVars map assignmentsByVar)
+    val newRoot = RuleNodeLabel(pred, rule, subst)
+    val concatenatedLeaves = tifsToMerge.flatMap(_.leaves)
+    // Because we're not doing any unification, the usage info can simply be merged -- no propagation of unification results necessary
+    val mergedUsageInfo = tifsToMerge.map(_.usageInfo).reduceLeft(VarUsageByLabel.merge)
+    val mergedPureConstraints = tifsToMerge.map(_.pureConstraints).reduceLeft(_ compose _)
+    val tifAfterMerging = TreeInterface(newRoot, concatenatedLeaves, mergedUsageInfo, mergedPureConstraints)
+    ExtensionType(unchangedTifs + tifAfterMerging)
+  }
 }

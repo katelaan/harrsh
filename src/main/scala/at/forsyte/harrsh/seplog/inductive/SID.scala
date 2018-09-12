@@ -25,7 +25,7 @@ case class SID(startPred : String, preds : Seq[Predicate], description : String)
 
   lazy val isRooted: Boolean = preds.forall(_.isRooted)
 
-  lazy val satisfiesProgress: Boolean = {
+  lazy val satisfiesGeneralizedProgress: Boolean = {
     val violatingRules = rulesViolatingProgress
     if (violatingRules.nonEmpty) {
       logger.info(s"SID violates progress:\n${violatingRules.mkString("\n")}")
@@ -37,9 +37,13 @@ case class SID(startPred : String, preds : Seq[Predicate], description : String)
     for {
       pred <- preds
       rule <- pred.rules
-      if !rule.satisfiesProgress(pred.rootParam)
+      if !rule.satisfiesGeneralizedProgress(pred.rootParam)
     } yield (pred, rule)
   }
+
+  lazy val rulesWithoutPointers : Seq[(Predicate, RuleBody)] = preds.flatMap(p => p.rules.collect{
+    case rule if !rule.hasPointer => (p, rule)
+  })
 
   def arity(pred: String): Int = predMap.get(pred).map(_.arity).getOrElse(0)
 

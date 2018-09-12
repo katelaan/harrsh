@@ -74,7 +74,7 @@ object EntailmentParsers extends HarrshLogging {
   }
 
   private def makePredRooted(pred: Predicate): Predicate = {
-    pred.rules.find(!_.satisfiesProgress(rootOfPred = None)).map {
+    pred.rules.find(!_.satisfiesGeneralizedProgress(rootOfPred = None)).map {
       rule => throw new IllegalArgumentException(s"SID contains a rule that violates progress: $rule")
     }
 
@@ -100,9 +100,9 @@ object EntailmentParsers extends HarrshLogging {
   }
 
   private def satisfiesProgress(sid: SID): Boolean = {
-    if (!sid.satisfiesProgress)
+    if (!sid.satisfiesGeneralizedProgress)
       logger.warn(s"Discarding input because the (sub-)SID $sid does not satisfy progress.")
-    sid.satisfiesProgress
+    sid.satisfiesGeneralizedProgress
   }
 
   private def getReachablePreds(sid: SID, curr: String, visited: Set[String] = Set.empty): Set[String] = {

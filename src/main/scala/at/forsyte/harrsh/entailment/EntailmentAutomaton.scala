@@ -19,7 +19,7 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
 
   assert(rhs.args forall (_.isFree))
 
-  if (sid.preds.flatMap(_.rules).exists(!_.hasPointer)) throw new IllegalArgumentException("For the right-hand side of the entailment there is currently no support for rules that don't allocate memory")
+  //if (sid.preds.flatMap(_.rules).exists(!_.hasPointer)) throw new IllegalArgumentException("For the right-hand side of the entailment there is currently no support for rules that don't allocate memory")
 
   override val description: String = s"EntailmentAutomaton($rhs)"
 

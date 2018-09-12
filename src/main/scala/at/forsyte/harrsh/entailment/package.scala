@@ -110,6 +110,14 @@ package object entailment {
       }
     }
 
+    def merge(u1: VarUsageByLabel, u2: VarUsageByLabel): VarUsageByLabel = {
+      val keys = u1.keySet ++ u2.keySet
+      val pairs: Set[(Set[Var], VarUsage)] = keys.map{
+        k => (k, Seq(u1.getOrElse(k, VarUsage.Unused), u2.getOrElse(k, VarUsage.Unused)).max)
+      }
+      pairs.toMap
+    }
+
   }
 
 }

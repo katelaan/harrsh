@@ -22,10 +22,12 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
 
   lazy val rootParamSubsts: Seq[Set[Var]] = parts.toSeq.flatMap(_.rootParamSubsts)
 
-  def hasNamesForRootParams: Boolean = parts.forall(_.hasNamesForRootParams)
+  def hasNamesForAllRootParams: Boolean = parts.forall(_.hasNamesForRootParams)
+
+  def representsSingleTree: Boolean = parts.size == 1
 
   def isFinal(call: PredCall): Boolean = {
-    val res = if (parts.size != 1) {
+    val res = if (!representsSingleTree) {
       // Only single (abstracted) trees can be final
       false
     } else {

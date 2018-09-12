@@ -79,6 +79,16 @@ object Combinators {
     }
   }
 
+  def allSeqsWithoutRepetitionOfLength[A](length : Int, as : Set[A]) : Set[Seq[A]]= {
+    if (length == 1) as map (Seq(_))
+    else {
+      for {
+        a <- as
+        seq <- allSeqsWithoutRepetitionOfLength(length - 1, as - a)
+      } yield a +: seq
+    }
+  }
+
   def permutations[A](as : Seq[A]) : Seq[Seq[A]] = {
     if (as.isEmpty) Seq(Seq.empty)
     else {
