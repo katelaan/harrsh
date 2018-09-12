@@ -47,7 +47,7 @@ case class ConsistentTransitionETypes(etypes: Seq[Set[ExtensionType]], lab: Symb
       _ = logger.debug(s"Resulting parts of the ET:\n${combined.parts.mkString("\n")}")
       afterRuleApplications = TransitionETypes.useNonProgressRulesToMergeTreeInterfaces(combined, sid)
       _ = {
-        logger.debug(if (afterRuleApplications != combined) s"After applying non-progress rules:\n${afterRuleApplications.parts.mkString("\n")}" else "No non-progress can be applied.")
+        logger.debug(if (afterRuleApplications != combined) s"After applying non-progress rules:\n${afterRuleApplications.parts.mkString("\n")}" else "No non-progress rule can be applied.")
       }
       // Bound variables are not visible from outside the transition, so we remove them from the extension type
       restrictedToFreeVars <- restrictToFreeVars(afterRuleApplications)

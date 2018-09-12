@@ -14,19 +14,45 @@ object SIDUtils extends HarrshLogging {
     RuleBody(defaultBoundVarNames(withoutGaps), withoutGaps)
   }
 
+  def shToProgressSid(sh: SymbolicHeap, predPrefix: String, underlyingSID: SID): SID = {
+    val shComponentsByReachability = SymbolicHeapUtils.splitIntoRootedComponents(sh, underlyingSID)
+    if (shComponentsByReachability.size == 1) {
+      rootedShToProgressSid(shComponentsByReachability.head, predPrefix, underlyingSID)
+    } else {
+      val progressSIDsByReachability = shComponentsByReachability.zipWithIndex.map{
+        case (rootedSh, i) => rootedShToProgressSid(rootedSh, predPrefix + i + "_", underlyingSID)
+      }
+      val topLevelCalls = shComponentsByReachability.zipWithIndex map {
+        case (rootedSh, i) => toCall(predPrefix + i + "_1", rootedSh)
+      }
+      val topLevelSh = SymbolicHeap(topLevelCalls: _*)
+      val topLevelPred = Predicate(predPrefix, Seq(shToRuleBody(topLevelSh)))
+      mergeIntoOneSid(topLevelPred, progressSIDsByReachability, sh)
+    }
+  }
+
+  private def toCall(pred: String, rootedSh: SymbolicHeap): PredCall = {
+    PredCall(pred, rootedSh.freeVars)
+  }
+
+  private def mergeIntoOneSid(topLevelPred: Predicate, progressSIDsByReachability: List[SID], originalSh: SymbolicHeap): SID = {
+    val allPreds = Seq(topLevelPred) ++ progressSIDsByReachability.flatMap(_.preds)
+    SID(startPred = topLevelPred.head, allPreds, description = s"Progress normal form of [$originalSh]")
+  }
+
+  def rootedShToProgressSid(sh: SymbolicHeap, predPrefix: String, underlyingSID: SID): SID = {
+    val TransformationResult(headPred, otherPreds) = introduceOnePredPerPointer(sh, predPrefix)
+    logTransformationResult(headPred +: otherPreds)
+    val normalizedHeadPred = normalizeHeadPred(headPred, underlyingSID)
+    SID(normalizedHeadPred.head, normalizedHeadPred +: otherPreds, s"Progress normal form of [$sh]")
+  }
+
   private def logTransformationResult(preds: Seq[Predicate]): Unit = {
     logger.debug(s"Transformation results:")
     for (pred <- preds) {
       logger.debug(s"Introducing pred ${pred.head} with free vars ${pred.rules.head.body.freeVars}, atoms ${pred.rules.head.body.atoms}, body ${pred.rules.head.body}")
       logger.debug(s"Overall: $pred")
     }
-  }
-
-  def shToProgressSid(sh: SymbolicHeap, predPrefix: String, underlyingSID: SID): SID = {
-    val TransformationResult(headPred, otherPreds) = introduceOnePredPerPointer(sh, predPrefix)
-    logTransformationResult(headPred +: otherPreds)
-    val normalizedHeadPred = normalizeHeadPred(headPred, underlyingSID)
-    SID(normalizedHeadPred.head, normalizedHeadPred +: otherPreds, s"Progress normal form of $sh")
   }
 
   private def normalizeHeadPred(headPred: Predicate, underlyingSID: SID): Predicate = {
