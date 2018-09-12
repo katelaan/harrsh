@@ -10,11 +10,21 @@ object SymbolicHeapUtils {
 
   def splitIntoRootedComponents(sh: SymbolicHeap, sid: SID): List[SymbolicHeap] = {
     assert(sid.isRooted)
-    val rootedAtoms = sh.atoms.all map (toRootedAtom(_, sid))
-    val reach = transitiveReachability(rootedAtoms, Closure.fromSH(sh))
-    val groups = groupByReachability(rootedAtoms, reach)
-    assert(groups.flatMap(_.atoms).toSet == sh.atoms.all.toSet)
-    groups map (_.toSymbolicHeap)
+    if (sh.predCalls.isEmpty && !sh.hasPointer) {
+      // Only perform reachability analysis if there is anything to analyze
+      List(sh)
+    } else {
+      val rootedAtoms = sh.atoms.all map (toRootedAtom(_, sid))
+      val reach = transitiveReachability(rootedAtoms, Closure.fromSH(sh))
+      val groups = groupByReachability(rootedAtoms, reach)
+      assert(groups.flatMap(_.atoms).toSet == sh.atoms.all.toSet)
+      val rootedSHs = groups map (_.toSymbolicHeap)
+      if (rootedSHs.exists(sh => sh.predCalls.isEmpty && !sh.hasPointer)) {
+        // FIXME: Ensure that there is no component that consists only of pure constraints. Such a component should be incorporated with another SH
+        throw new IllegalStateException(s"Rooted component $rootedSHs contain empty component")
+      }
+      rootedSHs
+    }
   }
 
   private case class RootedAtom(atom: SepLogAtom, root: Var)
