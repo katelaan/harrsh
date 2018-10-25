@@ -73,7 +73,7 @@ object IOUtils {
     }
   }
 
-  def writeFile(fileName : String, lines : Seq[String]): Unit = writeFile(fileName, lines.mkString("\n"))
+  def writeFile(fileName : String, lines : Seq[String]): Unit = writeFile(fileName, lines.mkString("", "\n", "\n"))
 
   def writeFile(fileName : String, content : String): Unit = {
     val file = new File(fileName)

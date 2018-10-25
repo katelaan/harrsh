@@ -156,6 +156,10 @@ object Var {
 
     lazy val DefaultNaming : Naming = v => v.toString
 
+    lazy val DefaultHarrshNaming : Naming = v => v.toString.map{
+      c => if (c == BoundVarPrefix.head) 'y' else c
+    }
+
     def mkNaming(freeVars : Seq[String], boundVars : Seq[String]) : Naming = {
       val freeVarNaming = freeVars map (v => (FreeVar(v),v))
       val boundVarNaming = boundVars.zipWithIndex map (p => (BoundVar(p._2+1),p._1))

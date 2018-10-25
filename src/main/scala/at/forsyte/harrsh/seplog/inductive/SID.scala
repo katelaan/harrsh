@@ -14,8 +14,8 @@ import at.forsyte.harrsh.util.ToLatex._
 case class SID(startPred : String, preds : Seq[Predicate], description : String) extends HarrshLogging {
 
   override def toString: String = {
-    val predStrings = preds.map(_.toString.lines.map(line => s"    $line").mkString("\n"))
-    description + " (start predicate '" + startPred + "'): " + predStrings.mkString("\n", " ; \n", "")
+    val predStrings = preds.map(_.toString.lines.map(line => s"    $line ;").mkString("\n"))
+    description + " (start predicate '" + startPred + "'): " + predStrings.mkString("\n", "\n", "")
   }
 
   private lazy val predMap : Map[String,Predicate] = preds.map(p => p.head -> p).toMap
@@ -68,7 +68,7 @@ case class SID(startPred : String, preds : Seq[Predicate], description : String)
   private def predRulePairToHarrshFormatLine(predHead: String, rule: RuleBody): String = {
     val sh = rule.body
     // In Harrsh format, we have to use default names, ignoring the names in the rule object
-    val namedBody = SymbolicHeap.toHarrshFormat(sh, Naming.DefaultNaming)
+    val namedBody = SymbolicHeap.toHarrshFormat(sh, Naming.DefaultHarrshNaming)
     s"$predHead <= $namedBody"
   }
 

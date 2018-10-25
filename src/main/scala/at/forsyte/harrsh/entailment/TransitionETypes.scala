@@ -5,8 +5,6 @@ import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
-import scala.annotation.tailrec
-
 sealed trait TransitionETypes {
   def toTarget: Option[EntailmentAutomaton.State]
 }
@@ -136,10 +134,6 @@ object TransitionETypes extends HarrshLogging {
   private def applyAllPossibleRules(etype: ExtensionType, rules: Seq[(Predicate, RuleBody)]): Stream[ExtensionType] = {
     rules.toStream.flatMap(rule => applyRule(etype, rule._2, rule._1))
   }
-
-//  private def applyFirstPossibleRule(etype: ExtensionType, rules: Seq[(Predicate, RuleBody)]): Option[ExtensionType] = {
-//    rules.toStream.flatMap(rule => applyRule(etype, rule._2, rule._1)).headOption
-//  }
 
   private def applyRule(extensionType: ExtensionType, rule: RuleBody, pred: Predicate): Option[ExtensionType] = {
     val callsInRule = rule.body.predCalls

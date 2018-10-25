@@ -15,6 +15,7 @@ sealed trait ExecutionMode {
     case Show => false
     case Unfold => false
     case Analyze => false
+    case GetModel => true
     case ModelChecking => false
     case Entailment => false
     case EntailmentBatch => false
@@ -27,6 +28,7 @@ sealed trait ExecutionMode {
     case EntailmentBatch => Duration(120, SECONDS)
     case Analyze => Duration(5, SECONDS)
     case Entailment => Duration(120, SECONDS)
+    case GetModel => Duration(120, SECONDS)
     case ModelChecking => Duration(120, SECONDS)
     case ParseOnly => Duration(10, SECONDS)
     case _ => Duration(0, SECONDS)
@@ -49,6 +51,8 @@ object ExecutionMode {
   case object Unfold extends ExecutionMode
 
   case object Analyze extends ExecutionMode
+
+  case object GetModel extends ExecutionMode
 
   case object ModelChecking extends ExecutionMode
 
