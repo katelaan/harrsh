@@ -25,7 +25,7 @@ object ManualTreeConstruction {
   }
 
   def makeNodeLabel(nd: NodeDesc) : NodeLabel = nd.rule match {
-    case None => AbstractLeafNodeLabel(nd.pred, nd.labels)
+    case None => PredicateNodeLabel(nd.pred, nd.labels)
     case Some(rule) => RuleNodeLabel(nd.pred, rule, nd.labels)
   }
 

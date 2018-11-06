@@ -15,12 +15,12 @@ sealed trait NodeLabel {
 
   def isAbstractLeaf: Boolean = this match {
     case _:RuleNodeLabel => false
-    case _:AbstractLeafNodeLabel => true
+    case _:PredicateNodeLabel => true
   }
 
   def symbolicHeapLabel: String = this match {
     case RuleNodeLabel(_, rule, _) => '$' + rule.body.toLatex(rule.naming).replaceAllLiterally("α", """\alpha""") + '$'
-    case AbstractLeafNodeLabel(pred, _) => '$' + pred.defaultCall.toLatex.replaceAllLiterally("α", """\alpha""") + '$'
+    case PredicateNodeLabel(pred, _) => '$' + pred.defaultCall.toLatex.replaceAllLiterally("α", """\alpha""") + '$'
   }
 
   def freeVarSeq: Seq[FreeVar] = pred.params
@@ -36,6 +36,11 @@ sealed trait NodeLabel {
   }
 
   def varUsage(freeVar: FreeVar): VarUsage
+
+  def toPredicateNodeLabel: PredicateNodeLabel = this match {
+    case l: PredicateNodeLabel => l
+    case _ => PredicateNodeLabel(pred, subst)
+  }
 }
 
 case class RuleNodeLabel(override val pred: Predicate, rule: RuleBody, override val subst: Substitution) extends NodeLabel {
@@ -52,11 +57,11 @@ case class RuleNodeLabel(override val pred: Predicate, rule: RuleBody, override 
   }
 }
 
-case class AbstractLeafNodeLabel(override val pred: Predicate, override val subst: Substitution) extends NodeLabel {
+case class PredicateNodeLabel(override val pred: Predicate, override val subst: Substitution) extends NodeLabel {
 
-  override def toString: String = s"leaf(${pred.head}, $subst)"
+  override def toString: String = s"(${pred.head}, $subst)"
 
-  override def update(f: SubstitutionUpdate): AbstractLeafNodeLabel = copy(subst = subst.update(f))
+  override def update(f: SubstitutionUpdate): PredicateNodeLabel = copy(subst = subst.update(f))
 
   override def varUsage(freeVar: FreeVar): VarUsage = {
     // The abstract leaves themselves don't use the variables in any way

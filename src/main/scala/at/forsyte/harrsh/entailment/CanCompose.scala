@@ -11,11 +11,11 @@ trait CanCompose[A] {
 
   def root(a : A): NodeLabel
 
-  def abstractLeaves(a: A): Set[AbstractLeafNodeLabel]
+  def abstractLeaves(a: A): Set[PredicateNodeLabel]
 
   def usageInfo(a: A, n: NodeLabel): VarUsageInfo
 
-  def tryInstantiate(toInstantiate: A, abstractLeaf: AbstractLeafNodeLabel, instantiation: A, unification: Unification): Option[A]
+  def tryInstantiate(toInstantiate: A, abstractLeaf: PredicateNodeLabel, instantiation: A, unification: Unification): Option[A]
 
 }
 
@@ -35,13 +35,13 @@ object CanCompose extends HarrshLogging {
 
     (for {
       CompositionInterface(t1, t2, n2) <- compositionCandidates(shiftedFst, shiftedSnd)
-      unification <- tryUnify(t1, cc.root(t1).asInstanceOf[RuleNodeLabel], t2, n2)
+      unification <- tryUnify(t1, cc.root(t1), t2, n2)
       // Compose using the unification. (This can fail in case the unification leads to double allocation)
       instantiation <- cc.tryInstantiate(t2, n2, t1, unification)
     } yield instantiation).headOption
   }
 
-  private def tryUnify[A: CanCompose](a1: A, n1: RuleNodeLabel, a2: A, n2: AbstractLeafNodeLabel): Option[Unification] = {
+  private def tryUnify[A: CanCompose](a1: A, n1: NodeLabel, a2: A, n2: PredicateNodeLabel): Option[Unification] = {
     logger.debug(s"Will try to unify $n1 with $n2")
     val cc = CanCompose[A]
     assert(cc.root(a1) == n1)
@@ -97,14 +97,13 @@ object CanCompose extends HarrshLogging {
      Note further that under the assumption that even base rules allocate memory, such objects will anyway always
      represent double allocation (same node label implies same root), so they should anyway be discarded.
    */
-  case class CompositionInterface[A](treeToEmbed: A, embeddingTarget: A, leafToReplaceInEmbedding: AbstractLeafNodeLabel)
+  case class CompositionInterface[A](treeToEmbed: A, embeddingTarget: A, leafToReplaceInEmbedding: PredicateNodeLabel)
 
   private def compositionCandidates[A: CanCompose](fst: A, snd: A): Stream[CompositionInterface[A]] = {
     val cc = CanCompose[A]
     for {
       (treeWithRoot, treeWithAbstractLeaf) <- Stream((fst,snd), (snd,fst))
       root = cc.root(treeWithRoot)
-      if !root.isAbstractLeaf // Can't compose trivial trees consisting of nothing but an abstract root
       abstractLeaf <- cc.abstractLeaves(treeWithAbstractLeaf)
       // Only consider for composition if the labeling predicates are the same
       if root.pred == abstractLeaf.pred

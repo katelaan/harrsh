@@ -34,15 +34,15 @@ case class ConsistentTransitionETypes(etypes: Seq[Set[ExtensionType]], lab: Symb
   private def allPossibleETCompositions: Set[ExtensionType] = {
     for {
       ets <- Combinators.choices(etypes map (_.toSeq)).toSet[Seq[ExtensionType]]
-      combined <- tryToCombineETs(ets, lab)
+      combined <- tryToCombineETs(ets)
     } yield combined
   }
 
-  private def tryToCombineETs(ets: Seq[ExtensionType], lab: SymbolicHeap): Seq[ExtensionType] = {
-    logger.debug(s"Trying to combine:\n${ets.map(_.parts.mkString("ET(", "\n  ", ")")).mkString("\n")}\nw.r.t. symbolic heap $lab...")
+  private def tryToCombineETs(ets: Seq[ExtensionType]): Seq[ExtensionType] = {
+    logger.debug(s"Trying to combine:\n${ets.map(_.parts.mkString("ET(", "\n  ", ")")).mkString("\n")}")
     val res = for {
-      combined <- composeAll(ets)
-      _ = logger.debug(s"Resulting parts of the ET:\n${combined.parts.mkString("\n")}")
+      (combined, i) <- composeAll(ets).zipWithIndex
+      _ = logger.debug(s"Composed ET #${i+1}:\n${combined.parts.mkString("\n")}")
       afterRuleApplications <- TransitionETypes.useNonProgressRulesToMergeTreeInterfaces(combined, sid)
       _ = {
         logger.debug(if (afterRuleApplications != combined) s"After applying non-progress rules:\n${afterRuleApplications.parts.mkString("\n")}" else "No non-progress rule can be applied.")
@@ -53,6 +53,8 @@ case class ConsistentTransitionETypes(etypes: Seq[Set[ExtensionType]], lab: Symb
       _ = assert(restrictedToFreeVars.boundVars.isEmpty, s"Bound vars remain after restriction to free vars: $restrictedToFreeVars")
       // FIXME: Also filter out types that lack names for back pointers
       // FIXME: What to check for the top-level predicates that don't have a root parameter annotation?
+      // At the end of the composition, every root parameter needs to have a name because without having names for the roots,
+      // we can never extend the extension type to a full unfolding: There's no way to compose if you don't have names.
       if restrictedToFreeVars.hasNamesForAllRootParams
       _ = logger.debug("Extension type has names for all roots. Will keep if viable.")
       if restrictedToFreeVars.isViable(sid)
@@ -120,7 +122,7 @@ object TransitionETypes extends HarrshLogging {
 
   private def mergeWithRules(etype: ExtensionType, rules: Seq[(Predicate, RuleBody)], sid: SID): Seq[ExtensionType] = {
     val afterMerging = for {
-      etypeAfterRuleApplication <- applyAllPossibleRules(etype, rules)
+      etypeAfterRuleApplication <- applyAllPossibleRulesInMerge(etype, rules)
       afterAdditionalApplications <- mergeWithRules(etypeAfterRuleApplication, rules, sid)
     } yield afterAdditionalApplications
 
@@ -131,11 +133,12 @@ object TransitionETypes extends HarrshLogging {
     }
   }
 
-  private def applyAllPossibleRules(etype: ExtensionType, rules: Seq[(Predicate, RuleBody)]): Stream[ExtensionType] = {
-    rules.toStream.flatMap(rule => applyRule(etype, rule._2, rule._1))
+  private def applyAllPossibleRulesInMerge(etype: ExtensionType, rules: Seq[(Predicate, RuleBody)]): Stream[ExtensionType] = {
+    rules.toStream.flatMap(rule => applyRuleInMerge(etype, rule._2, rule._1))
   }
 
-  private def applyRule(extensionType: ExtensionType, rule: RuleBody, pred: Predicate): Option[ExtensionType] = {
+  private def applyRuleInMerge(extensionType: ExtensionType, rule: RuleBody, pred: Predicate): Option[ExtensionType] = {
+    assert(!rule.hasPointer)
     val callsInRule = rule.body.predCalls
     val roots = extensionType.parts map (_.root)
     if (callsInRule.size > roots.size)
@@ -148,7 +151,7 @@ object TransitionETypes extends HarrshLogging {
     }
   }
 
-  private def tryMergeGivenRoots(extensionType: ExtensionType, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[NodeLabel]): Option[ExtensionType] = {
+  private def tryMergeGivenRoots(extensionType: ExtensionType, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[PredicateNodeLabel]): Option[ExtensionType] = {
     val callsInRule = rule.body.predCalls
     assert(rootsToMerge.size == callsInRule.size)
     if (predicatesMatch(callsInRule, rootsToMerge)) {
@@ -165,7 +168,7 @@ object TransitionETypes extends HarrshLogging {
     }
   }
 
-  private def tryArgumentMatching(extensionType: ExtensionType, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[NodeLabel]): Option[ExtensionType] = {
+  private def tryArgumentMatching(extensionType: ExtensionType, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[PredicateNodeLabel]): Option[ExtensionType] = {
     val callsInRule = rule.body.predCalls
     val candidateMatching = callsInRule zip rootsToMerge
     val assignmentsByVar: Map[Var, Set[Set[Var]]] = varAssignmentFromMatching(candidateMatching)
@@ -191,13 +194,13 @@ object TransitionETypes extends HarrshLogging {
     assignmentsByVar
   }
 
-  private def mergeRoots(extensionType: ExtensionType, rootsToMerge: Seq[NodeLabel], rule: RuleBody, pred: Predicate, assignmentsByVar: Map[Var, Set[Var]]): ExtensionType = {
+  private def mergeRoots(extensionType: ExtensionType, rootsToMerge: Seq[PredicateNodeLabel], rule: RuleBody, pred: Predicate, assignmentsByVar: Map[Var, Set[Var]]): ExtensionType = {
     val (tifsToMerge, unchangedTifs) = extensionType.parts.partition(tif => rootsToMerge.contains(tif.root))
     logger.debug(s"Roots that were matched: $rootsToMerge")
     logger.debug(s"Will apply $rule to merge:\n${tifsToMerge.mkString("\n")}")
     logger.debug(s"Merge based on variable assignment $assignmentsByVar")
     val subst = Substitution(rule.body.freeVars map assignmentsByVar)
-    val newRoot = RuleNodeLabel(pred, rule, subst)
+    val newRoot = PredicateNodeLabel(pred, subst)
     val concatenatedLeaves = tifsToMerge.flatMap(_.leaves)
     val mergedUsageInfo = integrateUsageInfo(tifsToMerge, Set(newRoot) ++ concatenatedLeaves)
     val mergedPureConstraints = tifsToMerge.map(_.pureConstraints).reduceLeft(_ compose _)

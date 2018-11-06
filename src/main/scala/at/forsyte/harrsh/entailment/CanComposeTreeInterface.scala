@@ -13,9 +13,9 @@ object CanComposeTreeInterface extends HarrshLogging {
 
     override def root(a: TreeInterface): NodeLabel = a.root
 
-    override def abstractLeaves(a: TreeInterface): Set[AbstractLeafNodeLabel] = a.leaves
+    override def abstractLeaves(a: TreeInterface): Set[PredicateNodeLabel] = a.leaves
 
-    override def tryInstantiate(toInstantiate: TreeInterface, abstractLeaf: AbstractLeafNodeLabel, instantiation: TreeInterface, unification: Unification): Option[TreeInterface] = {
+    override def tryInstantiate(toInstantiate: TreeInterface, abstractLeaf: PredicateNodeLabel, instantiation: TreeInterface, unification: Unification): Option[TreeInterface] = {
       assert(TreeInterface.haveNoConflicts(toInstantiate, instantiation),
         s"Overlapping placeholders between $toInstantiate and $instantiation")
 
@@ -36,7 +36,7 @@ object CanComposeTreeInterface extends HarrshLogging {
       Some(res)
     }
 
-    private def combineUsageInfo(fst: VarUsageByLabel, snd: VarUsageByLabel, update: SubstitutionUpdate, labels: Iterable[NodeLabel]): VarUsageByLabel = {
+    private def combineUsageInfo(fst: VarUsageByLabel, snd: VarUsageByLabel, update: SubstitutionUpdate, labels: Iterable[PredicateNodeLabel]): VarUsageByLabel = {
       val fstUpdated = VarUsageByLabel.update(fst, update)
       val sndUpdated = VarUsageByLabel.update(snd, update)
       val combinedUsageInfo = VarUsageByLabel.merge(fstUpdated, sndUpdated)

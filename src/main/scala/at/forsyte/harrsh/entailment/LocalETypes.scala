@@ -46,7 +46,7 @@ object LocalETs extends HarrshLogging {
   }
 
   def localAllocToExtensionTypes(lhs: SymbolicHeap, sid: SID) : Set[ExtensionType] = {
-    logger.debug(s"Local allocation: Creating (${sid.description})-extension types from $lhs")
+    logger.trace(s"Local allocation: Creating (${sid.description})-extension types from $lhs")
     val localLhs = annotatedLocalHeap(lhs)
 
     for {
@@ -69,14 +69,14 @@ object LocalETs extends HarrshLogging {
       reversedVarAssignment <- matchResult(localLhs, varAssignment, body)
       etype <- extensionTypeFromReverseAssignment(sid, pred, rule, localLhs.ensuredPureConstraints, reversedVarAssignment)
     } yield etype
-    logger.debug(s"Found ${res.size} way(s) to match ${localLhs.sh} against rule $rule of predicate ${pred.head}")
+    logger.trace(s"Found ${res.size} way(s) to match ${localLhs.sh} against rule $rule of predicate ${pred.head}")
     res
   }
 
   private def extensionTypeFromReverseAssignment(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredConstraints: Set[PureAtom], reversedVarAssignment: Map[Var,Set[Var]]): Option[ExtensionType] = {
     // TODO: Make extension types: Split this monster of a method into smaller pieces
 
-    logger.debug(s"Local allocation: Creating extension type from ${pred.head}, $rule, $lhsEnsuredConstraints, $reversedVarAssignment")
+    logger.trace(s"Local allocation: Creating extension type from ${pred.head}, $rule, $lhsEnsuredConstraints, $reversedVarAssignment")
     val body = rule.body
     val varsNotInAssignment = body.allNonNullVars -- reversedVarAssignment.keySet
     val placeholders = (1 to varsNotInAssignment.size) map (i => Set[Var](PlaceholderVar(i).toFreeVar))
@@ -92,14 +92,14 @@ object LocalETs extends HarrshLogging {
       PredCall(name, args) <- body.predCalls
       pred = sid(name)
       subst = args map rename
-    } yield AbstractLeafNodeLabel(pred, Substitution(subst))
+    } yield PredicateNodeLabel(pred, Substitution(subst))
 
     // Compute the missing constraints
-    logger.debug(s"Pure constraints of LHS: $lhsEnsuredConstraints")
+    logger.trace(s"Pure constraints of LHS: $lhsEnsuredConstraints")
     // TODO: It's kinda stupid to construct a tracker here, but that's where we currently implement the update. Should probably do some refactoring...
     val ruleConstraints: PureConstraintTracker = PureConstraintTracker(ensured = Closure.fromSH(body).asSetOfAtoms, missing = Set.empty)
     val instantiatedRuleConstraints = ruleConstraints.update(rename)
-    logger.debug(s"Pure constraints of RHS $body: ${ruleConstraints.ensured}; after instantiation: $instantiatedRuleConstraints")
+    logger.trace(s"Pure constraints of RHS $body: ${ruleConstraints.ensured}; after instantiation: $instantiatedRuleConstraints")
 
     val nullEqs = reversedVarAssignment.getOrElse(NullConst, Set.empty).map(NullConst =:= _)
     val otherEqs = for {
@@ -109,11 +109,11 @@ object LocalETs extends HarrshLogging {
       if v < w
     } yield v =:= w
     val assignmentEqs = nullEqs ++ otherEqs
-    logger.debug(s"Variable assignment implies that we need the following equalities: $assignmentEqs")
+    logger.trace(s"Variable assignment implies that we need the following equalities: $assignmentEqs")
 
     val allRuleConstraints = instantiatedRuleConstraints.ensured ++ assignmentEqs
     val missingConstraintsOfRhs = Closure.ofAtoms(allRuleConstraints).asSetOfAtoms -- lhsEnsuredConstraints
-    logger.debug(s"Missing constraints to satisfy RHS: $missingConstraintsOfRhs")
+    logger.trace(s"Missing constraints to satisfy RHS: $missingConstraintsOfRhs")
     val propagatedConstraints = PureConstraintTracker(lhsEnsuredConstraints, missingConstraintsOfRhs)
 
     val nodeIds = NodeId.freshIds(Set.empty, childLabels.size + 1)
@@ -122,9 +122,9 @@ object LocalETs extends HarrshLogging {
     val ut = UnfoldingTree(nodeLabelsMap, nodeIds.head, childMap, convertToNormalform = false)
     assert(UnfoldingTree.isInNormalForm(ut), "UT for local alloc $ut is not in normal form")
 
-    logger.debug(s"Local allocation: Unfolding tree before conversion to ET: $ut")
+    logger.trace(s"Local allocation: Unfolding tree before conversion to ET: $ut")
     val ti = ut.interface(propagatedConstraints)
-    logger.debug(s"Tree interface for local allocation: $ti")
+    logger.trace(s"Tree interface for local allocation: $ti")
 
     if (!ti.allFreeRootParamsUsed) {
       // Discard extension types that violate connectivity
@@ -134,10 +134,10 @@ object LocalETs extends HarrshLogging {
       // can't be used either!
       // (Note that this can only happen for SIDs that are semantically but not syntactically in the BTW fragment.)
       // TODO Either document or drop support for this semantic extension of the BTW fragment.
-      logger.debug(s"Discarding extension type: Not all (free) root parameters are used")
+      logger.trace(s"Discarding extension type: Not all (free) root parameters are used")
       None
     } else if (!ti.hasNamesForUsedParams) {
-      logger.debug(s"Discarding extension type: Not all used parameters have names")
+      logger.trace(s"Discarding extension type: Not all used parameters have names")
       None
     } else {
       Some(ti.asExtensionType)
@@ -152,19 +152,19 @@ object LocalETs extends HarrshLogging {
     // TODO: Do we want to check pure entailment instead of syntactic equality? This depends on how we compute the var assignment. Since we're currently brute-forcing over all assignments, I don't think that's necessary. Revisit this as we implement direct matching.
     val res = renamed.pointers == rhs.pointers && ConsistencyCheck.isConsistent(renamed)
     if (res) {
-      logger.debug(s"Will rename using: $pairsWithPossibleDoubleCapture")
-      logger.debug(s"Renaming that avoids double capture: $pairs")
-      logger.debug(s"Used $assignment to rename ${localLhs.sh} to $renamed to match against $rhs => match result: $res")
+      logger.trace(s"Will rename using: $pairsWithPossibleDoubleCapture")
+      logger.trace(s"Renaming that avoids double capture: $pairs")
+      logger.trace(s"Used $assignment to rename ${localLhs.sh} to $renamed to match against $rhs => match result: $res")
     }
     if (res) {
       // Compute reverse assignment:
       // First of all, we simply reverse the variable assignment; since the original assignment is not injective, this yields a set-valued codomain:
       val unpropagatedReverseAssignment: Map[Var,Set[Var]] = pairs.groupBy(_._2).map(pair => (pair._1, pair._2.map(_._1).toSet[Var]))
-      logger.debug(s"Computed reverse assignment before propagation: $unpropagatedReverseAssignment")
+      logger.trace(s"Computed reverse assignment before propagation: $unpropagatedReverseAssignment")
       // However, this is not enough: We need to take equalities into account: If two variables are known to be equal,
       // both of these variables must be mapped to the same values, the union of their values before propagation:
       val reverseAssignment = propagateEqualitiesIntoReverseAssignment(localLhs.sh, rhs, unpropagatedReverseAssignment)
-      logger.debug(s"Reverse assignment after propagation: $reverseAssignment")
+      logger.trace(s"Reverse assignment after propagation: $reverseAssignment")
       Some(reverseAssignment)
     }
     else None
@@ -172,10 +172,10 @@ object LocalETs extends HarrshLogging {
 
   private def propagateEqualitiesIntoReverseAssignment(lhsLocal: SymbolicHeap, rhs: SymbolicHeap, unpropagatedReverseAssignment: Map[Var, Set[Var]]): Map[Var, Set[Var]] = {
     val rhsClosure = Closure.fromSH(rhs)
-    logger.debug(s"Reverse atom propagation: Closure of rhs: $rhsClosure")
+    logger.trace(s"Reverse atom propagation: Closure of rhs: $rhsClosure")
 
     val lhsClosure = Closure.ofAtoms(lhsLocal.pure.filter(_.isEquality))
-    logger.debug(s"Reverse atom propagation: Equalities of the LHS: $lhsClosure")
+    logger.trace(s"Reverse atom propagation: Equalities of the LHS: $lhsClosure")
 
     val reverseAssignmentPairs = for {
       // For each variable of the RHS...

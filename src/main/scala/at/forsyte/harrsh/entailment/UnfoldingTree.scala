@@ -54,7 +54,7 @@ case class UnfoldingTree private(nodeLabels: Map[NodeId,NodeLabel], root: NodeId
       case (lbl, usage) => (lbl, usage.map(_._2).max)
     }
     logger.debug(s"Usage map for $this: $usageInfoMap")
-    TreeInterface(nodeLabels(root), abstractLeaves map (nodeLabels(_).asInstanceOf[AbstractLeafNodeLabel]), usageInfoMap, diseqs, convertToNormalform = true)
+    TreeInterface(nodeLabels(root).toPredicateNodeLabel, abstractLeaves map (nodeLabels(_).asInstanceOf[PredicateNodeLabel]), usageInfoMap, diseqs, convertToNormalform = true)
   }
 
   def project(retainCalls: Boolean = false): SymbolicHeap = {
@@ -65,7 +65,7 @@ case class UnfoldingTree private(nodeLabels: Map[NodeId,NodeLabel], root: NodeId
         case RuleNodeLabel(_, rule, _) =>
           val childProjections = children(node) map projectNode
           rule.body.replaceCalls(childProjections)
-        case AbstractLeafNodeLabel(pred, _) =>
+        case PredicateNodeLabel(pred, _) =>
           if (retainCalls) pred.defaultCall else SymbolicHeap.empty
       }
       withoutSubst.copy(pure = withoutSubst.pure ++ label.subst.toAtoms(label.pred.params))
@@ -135,13 +135,13 @@ object UnfoldingTree extends HarrshLogging {
   }
 
   def singleton(sid: SID, pred: Predicate, subst: Option[Substitution] = None): UnfoldingTree = {
-    val label = AbstractLeafNodeLabel(pred, getSubstOrDefault(subst, pred))
+    val label = PredicateNodeLabel(pred, getSubstOrDefault(subst, pred))
     val id = NodeId.zero
     UnfoldingTree(Map(id -> label), id, Map(id -> Seq.empty), convertToNormalform = false)
   }
 
   def fromPredicate(sid: SID, pred: String, labeling: Substitution): UnfoldingTree = {
-    val node = AbstractLeafNodeLabel(sid(pred), labeling)
+    val node = PredicateNodeLabel(sid(pred), labeling)
     UnfoldingTree(Map(NodeId.zero -> node), NodeId.zero, Map.empty[NodeId, Seq[NodeId]], convertToNormalform = false)
   }
 

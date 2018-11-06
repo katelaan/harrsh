@@ -15,9 +15,9 @@ object CanComposeUnfoldingTree {
 
     override def root(a: UnfoldingTree): NodeLabel = a.nodeLabels(a.root)
 
-    override def abstractLeaves(a: UnfoldingTree): Set[AbstractLeafNodeLabel] = a.abstractLeaves map (a.nodeLabels(_).asInstanceOf[AbstractLeafNodeLabel])
+    override def abstractLeaves(a: UnfoldingTree): Set[PredicateNodeLabel] = a.abstractLeaves map (a.nodeLabels(_).asInstanceOf[PredicateNodeLabel])
 
-    override def tryInstantiate(toInstantiate: UnfoldingTree, abstractLeaf: AbstractLeafNodeLabel, instantiation: UnfoldingTree, unification: Unification): Option[UnfoldingTree] = {
+    override def tryInstantiate(toInstantiate: UnfoldingTree, abstractLeaf: PredicateNodeLabel, instantiation: UnfoldingTree, unification: Unification): Option[UnfoldingTree] = {
       assert(UnfoldingTree.haveNoConflicts(toInstantiate, instantiation))
 
       for {
