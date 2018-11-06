@@ -50,7 +50,7 @@ class EntailmentParsersTest extends HarrshTest {
     for {
       input <- Seq(sllEntailsSll, twoPtrsEntailsSll)
     } {
-      val res = EntailmentParsers.parse(input)
+      val res = EntailmentParsers.parse(input, computeSeparateSidsForEachSide = true)
       info(s"Entailment instance: $res")
       res should not be empty
     }

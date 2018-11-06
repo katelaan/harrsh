@@ -17,8 +17,8 @@ object EntailmentParsers extends HarrshLogging {
 
   def isAuxiliaryPred(pred: Predicate): Boolean = pred.head.startsWith(PrefixOfLhsAuxiliaryPreds) || pred.head.startsWith(PrefixOfRhsAuxiliaryPreds)
 
-  def parse(input: String): Option[EntailmentInstance] = {
-    DefaultEntailmentParser.run(input) flatMap establishProgress map logTransformationResult
+  def parse(input: String, computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = {
+    DefaultEntailmentParser.run(input) flatMap establishProgress(computeSeparateSidsForEachSide) map logTransformationResult
   }
 
   private def logTransformationResult(instance: EntailmentInstance): EntailmentInstance = {
@@ -28,19 +28,19 @@ object EntailmentParsers extends HarrshLogging {
     instance
   }
 
-  private def establishProgress(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentInstance] = {
+  private def establishProgress(computeSeparateSidsForEachSide: Boolean)(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentInstance] = {
     for {
       rootedSid <- makeRooted(parseResult.sid)
       if satisfiesProgress(rootedSid)
-      (lhsSid, lhsCall) <- establishProgress(parseResult.lhs, rootedSid, isLhs = true)
-      (rhsSid, rhsCall) <- establishProgress(parseResult.rhs, rootedSid, isLhs = false)
+      (lhsSid, lhsCall) <- establishProgress(parseResult.lhs, rootedSid, isLhs = true, computeSeparateSidsForEachSide)
+      (rhsSid, rhsCall) <- establishProgress(parseResult.rhs, rootedSid, isLhs = false, computeSeparateSidsForEachSide)
     } yield EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, parseResult.entailmentHolds)
   }
 
-  private def establishProgress(querySide: SymbolicHeap, sid: SID, isLhs: Boolean): Option[(SID, PredCall)] = {
+  private def establishProgress(querySide: SymbolicHeap, sid: SID, isLhs: Boolean, computeSeparateSidsForEachSide: Boolean): Option[(SID, PredCall)] = {
     // If the query is a single predicate call, it is not necessary to introduce a new predicate,\
     // unless the call references bound variables or null
-    val withoutNormalization = asSingleCallQuery(querySide, sid, isLhs)
+    val withoutNormalization = asSingleCallQuery(querySide, sid, isLhs, computeSeparateSidsForEachSide)
 
     if (withoutNormalization.isDefined) {
       withoutNormalization
@@ -49,7 +49,7 @@ object EntailmentParsers extends HarrshLogging {
     }
   }
 
-  private def asSingleCallQuery(querySide: SymbolicHeap, sid: SID, isLhs: Boolean): Option[(SID, PredCall)] = {
+  private def asSingleCallQuery(querySide: SymbolicHeap, sid: SID, isLhs: Boolean, computeSeparateSidsForEachSide: Boolean): Option[(SID, PredCall)] = {
     for {
       call <- toSingleCall(querySide)
       if hasCorrectArity(call, sid)
@@ -57,7 +57,7 @@ object EntailmentParsers extends HarrshLogging {
       // Without normalization, parameter reordering is only allowed on the RHS
       // (Parameter reordering on the RHS is possible, because the parameter order is part of the final state test.)
       if !isLhs || call.args == sid(call.name).params
-      querySid <- extractSidForCall(sid, call)
+      querySid <- if (computeSeparateSidsForEachSide) extractSidForCall(sid, call) else Some(sid)
     } yield (querySid, call)
   }
 

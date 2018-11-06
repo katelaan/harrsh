@@ -89,7 +89,7 @@ object EntailmentBatchMode {
   def runBenchmark(file: String): Option[String] = {
     val fileContent = IOUtils.readFile(file.toString)
     Try {
-      println(s"Checking $file..."); EntailmentParsers.parse(fileContent)
+      println(s"Checking $file..."); EntailmentParsers.parse(fileContent, computeSeparateSidsForEachSide = true)
     } match {
       case Failure(exception) => Some(s"Exception during parsing: ${exception.getMessage}")
       case Success(maybeInstance) =>

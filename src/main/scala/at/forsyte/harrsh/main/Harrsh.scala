@@ -121,6 +121,7 @@ object Harrsh {
       _ <- parseSwitch("--verbose", "-v", _.copy(verbose = true))
       _ <- parseSwitch("--showprogress", "-sp", _.copy(reportProgress = true))
       _ <- parseSwitch("--debug", "--debug", _.copy(debug = true))
+      _ <- parseSwitch("--disable-per-side-sids", "--no-per-side-sids", _.copy(computeSidsForEachSideOfEntailment = false))
     } yield ()
   }
 
@@ -137,7 +138,7 @@ object Harrsh {
 
       case Entailment =>
         val fileContent = IOUtils.readFile(config.file)
-        EntailmentParsers.parse(fileContent) match {
+        EntailmentParsers.parse(fileContent, config.computeSidsForEachSideOfEntailment) match {
           case Some(entailmentInstance) =>
             val res = EntailmentChecker.solve(entailmentInstance)
             println(if (res) "The entailment holds" else "The entailment does NOT hold")

@@ -8,17 +8,18 @@ import scala.concurrent.duration.{Duration, SECONDS}
   * Created by jens on 2/24/17.
   */
 case class Config(
-    mode : ExecutionMode,
-    oFile : Option[String],
-    oProp : Option[AutomatonTask],
-    oTimeout : Option[Duration],
-    oUnfoldingsReduced : Option[Boolean],
-    oUnfoldingDepth : Option[Int],
-    oModelFile : Option[String],
-    oNumFV : Option[Int],
-    reportProgress : Boolean,
-    verbose : Boolean,
-    debug : Boolean
+                   mode : ExecutionMode,
+                   oFile : Option[String],
+                   oProp : Option[AutomatonTask],
+                   oTimeout : Option[Duration],
+                   oUnfoldingsReduced : Option[Boolean],
+                   oUnfoldingDepth : Option[Int],
+                   oModelFile : Option[String],
+                   oNumFV : Option[Int],
+                   computeSidsForEachSideOfEntailment : Boolean,
+                   reportProgress : Boolean,
+                   verbose : Boolean,
+                   debug : Boolean
 ) {
 
   def file = oFile.get
@@ -52,7 +53,7 @@ object Config {
   /**
     * Default configuration prior to parsing command-line args
     */
-  val DefaultConfig = Config(ExecutionMode.Help, None, None, None, None, None, None, None, reportProgress = false, verbose = false, debug = false)
+  val DefaultConfig = Config(ExecutionMode.Help, None, None, None, None, None, None, None, computeSidsForEachSideOfEntailment = true, reportProgress = false, verbose = false, debug = false)
 
   /**
     * Default unfolding depth in unfolding mode
