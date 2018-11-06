@@ -1,0 +1,13 @@
+query {
+  tll2(x1, x2, x3) |= tll(x1, x2, x3)
+}
+sid {
+  tll <= x1 -> (l,r,nil) * tll(l,x2,m) * tll(r,m,x3) ;
+  tll <= x1 -> (x2,m,nil) * help(x2,m) * help(m,x3) ;
+  tll2 <= x1 -> (x2,r,nil) * tll1(x2,r,x3) ;
+  tll1 <= x1 -> (nil,nil,x2) * help(x2,x3) ;
+  help <= x1 -> (nil,nil,x2)
+}
+info {
+  status = true
+}
