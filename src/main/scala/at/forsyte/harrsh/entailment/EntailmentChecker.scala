@@ -17,7 +17,7 @@ object EntailmentChecker extends HarrshLogging {
     * @param reportProgress Produce additional output to keep track of progress
     * @return Is the result as expected?
     */
-  def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true): Boolean = {
+  def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): Boolean = {
     val entailmentHolds = solve(entailmentInstance, reportProgress)
     entailmentInstance.entailmentHolds match {
       case Some(shouldHold) =>
@@ -81,7 +81,7 @@ object EntailmentChecker extends HarrshLogging {
     * @param reportProgress Produce additional output to keep track of progress
     * @return True iff the entailment holds
     */
-  def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true): Boolean = {
+  def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): Boolean = {
     val leftAlloc = allocationInPred(entailmentInstance.lhsSid, entailmentInstance.lhsCall)
     val rightAlloc = allocationInPred(entailmentInstance.rhsSid, entailmentInstance.rhsCall)
     val entailmentHolds = (leftAlloc, rightAlloc) match {
@@ -91,7 +91,7 @@ object EntailmentChecker extends HarrshLogging {
         // Allocation is possible on the left, but not on the right => Entailment can't hold
         false
       case _ =>
-        runEntailmentAutomaton(entailmentInstance, reportProgress)
+        runEntailmentAutomaton(entailmentInstance, reportProgress, printResult, exportToLatex)
     }
 
     entailmentInstance.entailmentHolds foreach {

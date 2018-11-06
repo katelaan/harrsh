@@ -187,7 +187,7 @@ object Harrsh {
 
       case EntailmentBatch =>
         println("Will run all entailment benchmarks in " + config.file)
-        EntailmentBatchMode.runAllEntailmentsInPath(config.file)
+        EntailmentBatchMode.runAllEntailmentsInPath(config.file, config.timeout)
 
       case Show =>
         val sid = MainIO.getSidFromFile(config.file)
