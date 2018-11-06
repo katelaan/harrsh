@@ -74,11 +74,13 @@ case class TreeInterface private(root: NodeLabel, leaves: Set[AbstractLeafNodeLa
     res
   }
 
-  def allRootParamsUsed: Boolean = {
+  def allFreeRootParamsUsed: Boolean = {
     val rootsUsed = for {
       node <- labels.toStream
       rootParam <- node.pred.rootParam
       ix = node.freeVarSeq.indexOf(rootParam)
+      // If a root parameter is a placeholder (i.e., not a proper free variable)
+      if node.subst.toSeq(ix) exists PlaceholderVar.isNonPlaceholderNonNullFreeVar
       usage = usageInfoOfNode(node)
     } yield usage(ix).isUsed
     rootsUsed.forall(b => b)

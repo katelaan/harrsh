@@ -116,6 +116,26 @@ object CanCompose extends HarrshLogging {
     */
   def composeAll[A: CanCompose](as: Seq[A]): Seq[A] = sweepingMerge(Seq.empty, as)
 
+  /**
+    * Return all ways to compose zero or more of the elements of `as`.
+    */
+  def compositionOptions[A: CanCompose](as: Seq[A]): Seq[Seq[A]] = allMergeOptions(Seq.empty, as)
+
+  private def allMergeOptions[A: CanCompose](processed: Seq[A], unprocessed: Seq[A]): Seq[Seq[A]] = {
+    if (unprocessed.isEmpty) {
+      Seq(processed)
+    } else {
+      optionalMerge(processed, unprocessed) flatMap {
+        case (processedNew, unprocessedNew) => allMergeOptions(processedNew, unprocessedNew)
+      }
+    }
+  }
+
+  private def optionalMerge[A: CanCompose](processed: Seq[A], unprocessed: Seq[A]): Seq[(Seq[A], Seq[A])] = {
+    val (fst, other) = (unprocessed.head, unprocessed.tail)
+    Seq((processed :+ fst, other)) ++ tryMerge(fst, other).map(pair => (processed, pair._1 +: pair._2))
+  }
+
   @tailrec private def sweepingMerge[A: CanCompose](processed: Seq[A], unprocessed: Seq[A]): Seq[A] = {
     if (unprocessed.isEmpty) {
       processed

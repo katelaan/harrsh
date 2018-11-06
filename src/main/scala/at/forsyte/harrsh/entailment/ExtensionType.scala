@@ -1,7 +1,5 @@
 package at.forsyte.harrsh.entailment
 
-import java.awt.JobAttributes.SidesType
-
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.{PredCall, Predicate, PureAtom, SID}
@@ -100,15 +98,22 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
     ExtensionType(parts map (_.updateSubst(f, convertToNormalform = false)))
   }
 
-  def compose(other: ExtensionType): Option[ExtensionType] = {
-    val composed = CanCompose.composeAll(parts.toSeq ++ other.parts)
-    if (composed.forall(_.hasConsistentPureConstraints))
-      Some(ExtensionType(composed))
-    else {
-      logger.debug(s"Discarding extension type $composed because of inconsistent pure constraints")
-      None
-    }
+  def compositionOptions(other: ExtensionType): Seq[ExtensionType] = {
+    for {
+      composed <- CanCompose.compositionOptions(parts.toSeq ++ other.parts)
+      if composed.forall(_.hasConsistentPureConstraints)
+    } yield ExtensionType(composed)
   }
+
+//  def compose(other: ExtensionType): Option[ExtensionType] = {
+//    val composed = CanCompose.composeAll(parts.toSeq ++ other.parts)
+//    if (composed.forall(_.hasConsistentPureConstraints))
+//      Some(ExtensionType(composed))
+//    else {
+//      logger.debug(s"Discarding extension type $composed because of inconsistent pure constraints")
+//      None
+//    }
+//  }
 
 }
 

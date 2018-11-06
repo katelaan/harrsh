@@ -18,6 +18,7 @@ case class ETypesOfLocalAtoms(ets: Set[ExtensionType]) extends LocalETs
 
 object LocalETs extends HarrshLogging {
   def apply(lab: SymbolicHeap, sid: SID): LocalETs = {
+    logger.debug(s"Will compute extension types for local allocation of $lab")
     if (lab.pointers.isEmpty) {
       if (lab.pure.nonEmpty) {
         throw new IllegalArgumentException(s"Can't process symbolic heap without allocation but with pure constraints: $lab")
@@ -125,8 +126,15 @@ object LocalETs extends HarrshLogging {
     val ti = ut.interface(propagatedConstraints)
     logger.debug(s"Tree interface for local allocation: $ti")
 
-    if (!ti.allRootParamsUsed) {
-      logger.debug(s"Discarding extension type: Not all root parameters are used")
+    if (!ti.allFreeRootParamsUsed) {
+      // Discard extension types that violate connectivity
+      // TODO Can this ever be violated for BTW SIDs? Check where this occurs in the benchmarks!
+      // Note: We only care about free root parameters here. If a root parameter is a placeholder, this means that the
+      // corresponding predicate call is *not* directly connected to the local allocation of the rule, in which case it
+      // can't be used either!
+      // (Note that this can only happen for SIDs that are semantically but not syntactically in the BTW fragment.)
+      // TODO Either document or drop support for this semantic extension of the BTW fragment.
+      logger.debug(s"Discarding extension type: Not all (free) root parameters are used")
       None
     } else if (!ti.hasNamesForUsedParams) {
       logger.debug(s"Discarding extension type: Not all used parameters have names")

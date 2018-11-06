@@ -11,7 +11,7 @@ sealed trait TransitionETypes {
 
 case class UnmatchableLocalAllocation(lab: SymbolicHeap) extends TransitionETypes with HarrshLogging {
   override def toTarget: Option[EntailmentAutomaton.State] = {
-    logger.debug(s"No extension types for local allocation $lab => Return inconsistent state")
+    logger.debug(s"No extension types for local allocation of $lab => Return inconsistent state")
     Some(EntailmentAutomaton.State(Set.empty, lab.freeVars))
   }
 }
@@ -41,7 +41,7 @@ case class ConsistentTransitionETypes(etypes: Seq[Set[ExtensionType]], lab: Symb
   private def tryToCombineETs(ets: Seq[ExtensionType], lab: SymbolicHeap): Seq[ExtensionType] = {
     logger.debug(s"Trying to combine:\n${ets.map(_.parts.mkString("ET(", "\n  ", ")")).mkString("\n")}\nw.r.t. symbolic heap $lab...")
     val res = for {
-      combined <- composeAll(ets).toSeq
+      combined <- composeAll(ets)
       _ = logger.debug(s"Resulting parts of the ET:\n${combined.parts.mkString("\n")}")
       afterRuleApplications <- TransitionETypes.useNonProgressRulesToMergeTreeInterfaces(combined, sid)
       _ = {
@@ -66,10 +66,10 @@ case class ConsistentTransitionETypes(etypes: Seq[Set[ExtensionType]], lab: Symb
     res
   }
 
-  private def composeAll(ets: Seq[ExtensionType]): Option[ExtensionType] = {
-    if (ets.size <= 1) ets.headOption else {
+  private def composeAll(ets: Seq[ExtensionType]): Seq[ExtensionType] = {
+    if (ets.size <= 1) ets else {
       for {
-        combinedHead <- ets.head compose ets.tail.head
+        combinedHead <- ets.head compositionOptions ets.tail.head
         allComposed <- composeAll(combinedHead +: ets.drop(2))
       } yield allComposed
     }

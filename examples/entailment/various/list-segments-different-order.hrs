@@ -1,0 +1,19 @@
+# This only works if we don't compose the tree interfaces when computing the extension types for P',
+# i.e., if we keep separate tree interfaces for sll(x1, x2) and sll(x2, x3) as possible extension type
+# (in addition to the extension type for sll(x1, x3), which we also need for queries in which sll(x1,x3) occurs
+# in the LHS SID.)
+# Underlying reason: Merging extension types loses information in case it loses a free variable!
+query {
+  P(x1, x2, x3, x4, x5) |= Q(x1, x2, x3, x4, x5)
+}
+sid {
+  P <= x1 -> (x2, x3) * sll(x2, x4) * P'(x3, x4, x5);
+  P' <= x1 -> x2 * sll(x2, x3);
+  P' <= x1 -> y * sll(y,x2) * sll(x2, x3);
+  Q <= x1 -> (x2, x3) * sll(x2, x4) * sll(x3, x4) * sll(x4, x5);
+  sll <= x1 -> x2;
+  sll <= x1 -> y * sll(y,x2);
+}
+info {
+  status = true
+}
