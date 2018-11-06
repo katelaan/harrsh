@@ -3,20 +3,20 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
 
-object CanComposeTreeInterface extends HarrshLogging {
+object CanComposeCuts extends HarrshLogging {
 
-  val canComposeTreeInterfaces: CanCompose[TreeInterface] = new CanCompose[TreeInterface] {
-    override def makeDisjoint(fst: TreeInterface, snd: TreeInterface): (TreeInterface, TreeInterface) = {
+  val canComposeTreeInterfaces: CanCompose[TreeCut] = new CanCompose[TreeCut] {
+    override def makeDisjoint(fst: TreeCut, snd: TreeCut): (TreeCut, TreeCut) = {
       val clashAvoidanceUpdate = PlaceholderVar.placeholderClashAvoidanceUpdate(snd.placeholders)
       (fst.updateSubst(clashAvoidanceUpdate, convertToNormalform = false), snd)
     }
 
-    override def root(a: TreeInterface): NodeLabel = a.root
+    override def root(a: TreeCut): NodeLabel = a.root
 
-    override def abstractLeaves(a: TreeInterface): Set[PredicateNodeLabel] = a.leaves
+    override def abstractLeaves(a: TreeCut): Set[PredicateNodeLabel] = a.leaves
 
-    override def tryInstantiate(toInstantiate: TreeInterface, abstractLeaf: PredicateNodeLabel, instantiation: TreeInterface, unification: Unification): Option[TreeInterface] = {
-      assert(TreeInterface.haveNoConflicts(toInstantiate, instantiation),
+    override def tryInstantiate(toInstantiate: TreeCut, abstractLeaf: PredicateNodeLabel, instantiation: TreeCut, unification: Unification): Option[TreeCut] = {
+      assert(TreeCut.haveNoConflicts(toInstantiate, instantiation),
         s"Overlapping placeholders between $toInstantiate and $instantiation")
 
       val propagateUnification = SubstitutionUpdate.fromUnification(unification)
@@ -28,8 +28,8 @@ object CanComposeTreeInterface extends HarrshLogging {
       val newUsageInfo = combineUsageInfo(toInstantiate.usageInfo, instantiation.usageInfo, propagateUnification, Set(newRoot) ++ newLeaves)
       val newDiseqs = (toInstantiate.pureConstraints compose instantiation.pureConstraints).update(propagateUnification)
 
-      val res = TreeInterface(newRoot, newLeaves, newUsageInfo, newDiseqs, convertToNormalform = true)
-      assert(TreeInterface.isInNormalForm(res),
+      val res = TreeCut(newRoot, newLeaves, newUsageInfo, newDiseqs, convertToNormalform = true)
+      assert(TreeCut.isInNormalForm(res),
         s"After instantiation, placeholder vars ${res.placeholders} contain gap for tree interface $res")
 
       // FIXME: In which cases should instantiation fail? Should we e.g. check for double allocation?
@@ -43,7 +43,7 @@ object CanComposeTreeInterface extends HarrshLogging {
       VarUsageByLabel.restrictToSubstitutionsInLabels(combinedUsageInfo, labels)
     }
 
-    override def usageInfo(a: TreeInterface, n: NodeLabel): VarUsageInfo = a.usageInfoOfNode(n)
+    override def usageInfo(a: TreeCut, n: NodeLabel): VarUsageInfo = a.usageInfoOfNode(n)
   }
 
 }

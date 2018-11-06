@@ -15,9 +15,9 @@ object EntailmentChecker extends HarrshLogging {
     * @param description Description of the instance
     * @param entailmentInstance Instance to solve
     * @param reportProgress Produce additional output to keep track of progress
-    * @return Is the result as expected?
+    * @return Computed result + optionally whether the result is as expected?
     */
-  def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): Boolean = {
+  def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, Option[Boolean]) = {
     val entailmentHolds = solve(entailmentInstance, reportProgress)
     entailmentInstance.entailmentHolds match {
       case Some(shouldHold) =>
@@ -26,10 +26,10 @@ object EntailmentChecker extends HarrshLogging {
         if (!expectedResult) {
           println(s"WARNING: Unexpected result")
         }
-        expectedResult
+        (entailmentHolds, Some(expectedResult))
       case None =>
         println(s"$description: No expected result. Computed result: $entailmentHolds")
-        true
+        (entailmentHolds, None)
     }
   }
 
@@ -107,7 +107,7 @@ object EntailmentChecker extends HarrshLogging {
     val EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhsSid, rhsCall)
     val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhsSid, aut, reportProgress)
-    val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
+    val isFinal = (s: EntailmentAutomaton.CutProfile) => aut.isFinal(s)
     val entailmentHolds = reachableStatesByPred(lhsCall.name).forall(isFinal)
 
     if (printResult) {
@@ -124,35 +124,35 @@ object EntailmentChecker extends HarrshLogging {
 
   object serializeResult {
 
-    def apply(aut: EntailmentAutomaton, reachable: Map[String, Set[EntailmentAutomaton.State]]): String = {
-      val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
+    def apply(aut: EntailmentAutomaton, reachable: Map[String, Set[EntailmentAutomaton.CutProfile]]): String = {
+      val isFinal = (s: EntailmentAutomaton.CutProfile) => aut.isFinal(s)
       serializeReach(reachable, isFinal)
     }
 
     private def indent(s : String) = "  " + s
 
-    def serializeReach(statesByPred: Map[String, Set[EntailmentAutomaton.State]], isFinal: EntailmentAutomaton.State => Boolean): String = {
+    def serializeReach(statesByPred: Map[String, Set[EntailmentAutomaton.CutProfile]], isFinal: EntailmentAutomaton.CutProfile => Boolean): String = {
       val lines = Stream("RESULT {") ++ statesByPred.toStream.flatMap(pair => serializePred(pair._1, pair._2, isFinal)).map(indent) ++ Stream("}")
       lines.mkString("\n")
     }
 
-    def serializePred(pred: String, states: Set[EntailmentAutomaton.State], isFinal: EntailmentAutomaton.State => Boolean): Stream[String] = {
+    def serializePred(pred: String, states: Set[EntailmentAutomaton.CutProfile], isFinal: EntailmentAutomaton.CutProfile => Boolean): Stream[String] = {
       Stream(s"PRED $pred {") ++ states.toStream.flatMap(s => serializeState(s, isFinal)).map(indent) ++ Stream("}")
     }
 
-    def serializeState(state: EntailmentAutomaton.State, isFinal: EntailmentAutomaton.State => Boolean): Stream[String] = {
+    def serializeState(state: EntailmentAutomaton.CutProfile, isFinal: EntailmentAutomaton.CutProfile => Boolean): Stream[String] = {
       (Stream("STATE {",
         s"  PARAMS: ${state.orderedParams.mkString(", ")}")
         ++ Some("  FINAL").filter(_ => isFinal(state))
-        ++ serializeETs(state.ets) ++ Stream("}"))
+        ++ serializeETs(state.profile) ++ Stream("}"))
     }
 
-    def serializeETs(ets: Set[ExtensionType]): Stream[String] = {
+    def serializeETs(ets: Set[TreeCuts]): Stream[String] = {
       if (ets.nonEmpty) ets.toStream.flatMap(serializeET).map(indent)
       else Stream(indent("NO CONSISTENT ET"))
     }
 
-    def serializeET(et: ExtensionType): Stream[String] = {
+    def serializeET(et: TreeCuts): Stream[String] = {
       et.toString.lines.toStream
     }
 

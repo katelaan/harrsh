@@ -6,17 +6,17 @@ import at.forsyte.harrsh.seplog.inductive.{PredCall, Predicate, PureAtom, SID}
 import at.forsyte.harrsh.util.ToLatex
 
 /**
-  * A single abstracted forest, retaining only the tree interfaces rather than the full trees.
+  * A single abstracted forest, retaining only the tree cuts rather than the full trees.
   * @param parts Abstracted trees
   */
-case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
+case class TreeCuts(parts: Set[TreeCut]) extends HarrshLogging {
 
-  assert(parts forall TreeInterface.isInNormalForm,
+  assert(parts forall TreeCut.isInNormalForm,
     s"Trying to construct extension type from non-normalized parts ${parts.mkString(", ")}")
   assert(parts forall (_.hasConsistentPureConstraints),
     s"Contradictory pure constraints in tree interface ${parts.find(!_.hasConsistentPureConstraints).get}")
 
-  override def toString: String = parts.mkString("ET(", ",\n   ", ")")
+  override def toString: String = parts.mkString("Set(", ",\n    ", ")")
 
   lazy val missingPureConstraints: Set[PureAtom] = parts.flatMap(_.pureConstraints.missing)
 
@@ -61,7 +61,7 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
     (missingPureConstraints.flatMap(_.getNonNullVars) intersect varsToDrop.toSet).nonEmpty
   }
 
-  def dropVars(varsToDrop: Seq[Var]): Option[ExtensionType] = {
+  def dropVars(varsToDrop: Seq[Var]): Option[TreeCuts] = {
     if (varsToDrop.isEmpty) {
       Some(this)
     } else {
@@ -89,20 +89,20 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
         // Note: Must to normalization to get rid of gaps in results and strange order by doing normalization
         val partsAfterDropping = partsAfterDroppingPureConstraints map (_.updateSubst(replaceByPlacheolders, convertToNormalform = true))
 
-        Some(ExtensionType(partsAfterDropping))
+        Some(TreeCuts(partsAfterDropping))
       }
     }
   }
 
-  def updateSubst(f: SubstitutionUpdate): ExtensionType = {
-    ExtensionType(parts map (_.updateSubst(f, convertToNormalform = false)))
+  def updateSubst(f: SubstitutionUpdate): TreeCuts = {
+    TreeCuts(parts map (_.updateSubst(f, convertToNormalform = false)))
   }
 
-  def compositionOptions(other: ExtensionType): Seq[ExtensionType] = {
+  def compositionOptions(other: TreeCuts): Seq[TreeCuts] = {
     for {
       composed <- CanCompose.compositionOptions(parts.toSeq ++ other.parts)
       if composed.forall(_.hasConsistentPureConstraints)
-    } yield ExtensionType(composed)
+    } yield TreeCuts(composed)
   }
 
 //  def compose(other: ExtensionType): Option[ExtensionType] = {
@@ -117,10 +117,10 @@ case class ExtensionType(parts: Set[TreeInterface]) extends HarrshLogging {
 
 }
 
-object ExtensionType {
+object TreeCuts {
 
-  implicit val etypeToLatex: ToLatex[ExtensionType] = EntailmentInstanceToLatex.etypeToLatex
+  implicit val etypeToLatex: ToLatex[TreeCuts] = EntailmentInstanceToLatex.etypeToLatex
 
-  def apply(parts: Seq[TreeInterface]): ExtensionType = ExtensionType(parts.toSet)
+  def apply(parts: Seq[TreeCut]): TreeCuts = TreeCuts(parts.toSet)
 
 }

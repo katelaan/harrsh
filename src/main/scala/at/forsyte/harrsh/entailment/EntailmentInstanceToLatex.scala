@@ -10,14 +10,14 @@ import at.forsyte.harrsh.util.ToLatex._
 
 object EntailmentInstanceToLatex {
 
-  val etypeToLatex: ToLatex[ExtensionType] = (a: ExtensionType, _: Naming) => extensionTypeToLatexLines(a).mkString("\n")
+  val etypeToLatex: ToLatex[TreeCuts] = (a: TreeCuts, _: Naming) => extensionTypeToLatexLines(a).mkString("\n")
 
   object extensionTypeToLatexLines {
 
     // TODO: Less hacky latex conversion
     // TODO: Reduce code duplication with ForestsToLatex
 
-    def apply(extensionType: ExtensionType): Stream[String] = {
+    def apply(extensionType: TreeCuts): Stream[String] = {
       val ordered = extensionType.parts.toStream
       val tifpics = ordered.zipWithIndex.flatMap {
         case (tif, ix) =>
@@ -35,12 +35,12 @@ object EntailmentInstanceToLatex {
       Stream(s"\\begin{tikzpicture}$styleString") ++ lines ++ Stream("\\end{tikzpicture}")
     }
 
-    def treeInterfaceToLatexLines(tif: TreeInterface, tifId: String, rootStyle: String): Stream[String] = {
+    def treeInterfaceToLatexLines(tif: TreeCut, tifId: String, rootStyle: String): Stream[String] = {
       val rootId = tifId + "_root"
       val diseqId = tifId + "_diseqs"
       val fitId = tifId + "_fit"
 
-      val TreeInterface(root, leaves, usageInfo, diseqs) = tif
+      val TreeCut(root, leaves, usageInfo, diseqs) = tif
       val rootTikz = nodeLabelToLatexLines(root, usageInfo, rootId, rootStyle)
       val diseqsTikz = pureConstraintToTikz(diseqs, rootId, diseqId, s"right=of $rootId")
 
@@ -106,7 +106,7 @@ object EntailmentInstanceToLatex {
 
   object entailmentInstanceToLatex {
 
-    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.State]], transitions: Map[String, Set[(Seq[EntailmentAutomaton.State], RuleBody, EntailmentAutomaton.State)]]): String = {
+    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.CutProfile]], transitions: Map[String, Set[(Seq[EntailmentAutomaton.CutProfile], RuleBody, EntailmentAutomaton.CutProfile)]]): String = {
       val resultTex = entailmentCheckerResultToLatex(aut, statesByPred)
       val queryTex = s"$$${ei.lhsCall.toSymbolicHeap.toLatex} \\models ${ei.rhsCall.toSymbolicHeap.toLatex}$$"
       val combinedSid = SID(startPred = "", description = "", preds = ei.lhsSid.preds ++ ei.rhsSid.preds.filterNot(ei.lhsSid.preds.contains))
@@ -119,7 +119,7 @@ object EntailmentInstanceToLatex {
         .replace(TransitionPlaceholder, transitionsToLatex(transitions))
     }
 
-    private def transitionsToLatex(transitions: Map[String, Set[(Seq[EntailmentAutomaton.State], RuleBody, EntailmentAutomaton.State)]]): String = {
+    private def transitionsToLatex(transitions: Map[String, Set[(Seq[EntailmentAutomaton.CutProfile], RuleBody, EntailmentAutomaton.CutProfile)]]): String = {
       val byPred = for {
         (pred, ts) <- transitions
         predStr = s"\\subsection{Transitions for \\texttt{$pred}}\n\\begin{itemize}\n"
@@ -128,7 +128,7 @@ object EntailmentInstanceToLatex {
       byPred.mkString("\n\n")
     }
 
-    private def transitionToLatex(transition: (Seq[EntailmentAutomaton.State], RuleBody, EntailmentAutomaton.State)) : String = {
+    private def transitionToLatex(transition: (Seq[EntailmentAutomaton.CutProfile], RuleBody, EntailmentAutomaton.CutProfile)) : String = {
       val (srcs, rule, trg) = transition
       // TODO: Remove code duplication
       val srcStrs = (srcs map (s => entailmentCheckerResultToLatex.stateToLatex(trg, s => false).mkString("\n"))).mkString("\n\n")
@@ -143,28 +143,28 @@ object EntailmentInstanceToLatex {
 
   object entailmentCheckerResultToLatex {
 
-    def apply(aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.State]]): String = {
-      val isFinal = (s: EntailmentAutomaton.State) => aut.isFinal(s)
+    def apply(aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.CutProfile]]): String = {
+      val isFinal = (s: EntailmentAutomaton.CutProfile) => aut.isFinal(s)
       statesToLatex(statesByPred, isFinal)
     }
 
-    def statesToLatex(statesByPred: Map[String, Set[EntailmentAutomaton.State]], isFinal: EntailmentAutomaton.State => Boolean): String = {
+    def statesToLatex(statesByPred: Map[String, Set[EntailmentAutomaton.CutProfile]], isFinal: EntailmentAutomaton.CutProfile => Boolean): String = {
       val lines = Stream("\\begin{itemize}") ++ statesByPred.toStream.flatMap(pair => Stream("\\item") ++ predToLatex(pair._1, pair._2, isFinal)).map(indent) ++ Stream("\\end{itemize}")
       lines.mkString("\n")
     }
 
-    def predToLatex(pred: String, states: Set[EntailmentAutomaton.State], isFinal: EntailmentAutomaton.State => Boolean): Stream[String] = {
+    def predToLatex(pred: String, states: Set[EntailmentAutomaton.CutProfile], isFinal: EntailmentAutomaton.CutProfile => Boolean): Stream[String] = {
       Stream(s"Reachable states for \\texttt{$pred}:", "\\begin{itemize}") ++ states.toStream.flatMap(s => stateToLatex(s, isFinal)).map(indent) ++ Stream("\\end{itemize}")
     }
 
-    def stateToLatex(state: EntailmentAutomaton.State, isFinal: EntailmentAutomaton.State => Boolean): Stream[String] = {
+    def stateToLatex(state: EntailmentAutomaton.CutProfile, isFinal: EntailmentAutomaton.CutProfile => Boolean): Stream[String] = {
       val finalStr = if (isFinal(state)) "\\textbf{FINAL} " else ""
       val header = s"\\item ${finalStr}State with params ${state.orderedParams.mkString(", ")} and extension types:"
 
-      val etsStream = if (state.ets.isEmpty) {
+      val etsStream = if (state.profile.isEmpty) {
         Stream("\\item No consistent extension type (failure state)")
       } else {
-        Stream("\\item Extension types:", "\\begin{enumerate}") ++ state.ets.toStream.flatMap(et => Stream("\\item") ++ extensionTypeToLatexLines(et)) ++ Stream("\\end{enumerate}")
+        Stream("\\item Extension types:", "\\begin{enumerate}") ++ state.profile.toStream.flatMap(et => Stream("\\item") ++ extensionTypeToLatexLines(et)) ++ Stream("\\end{enumerate}")
       }
 
       Stream(header, "\\begin{itemize}") ++ etsStream ++ Stream("\\end{itemize}")

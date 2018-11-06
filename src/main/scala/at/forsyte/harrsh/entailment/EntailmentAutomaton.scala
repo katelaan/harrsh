@@ -23,12 +23,12 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
 
   override val description: String = s"EntailmentAutomaton($rhs)"
 
-  override type State = EntailmentAutomaton.State
+  override type State = EntailmentAutomaton.CutProfile
 
   override def isFinal(s: State): Boolean = {
     // A state represents all the possible ways to parse an RSH as a SID unfolding tree.
     // As long as one of those ways is a valid unfolding tree, we accept.
-    val res = s.ets.exists(_.isFinal(rhs))
+    val res = s.profile.exists(_.isFinal(rhs))
     logger.trace(s"Checked wheter $s is final => $res")
     res
   }
@@ -37,22 +37,22 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
 
   override def getTargetsFor(src: Seq[State], lab: SymbolicHeap) : Set[State] = {
     logger.debug(s"Computing target for $lab from source states:\n${src.mkString("\n")}")
-    TransitionETypes(src, lab, sid).toTarget.toSet
+    TransitionProfile(src, lab, sid).toTarget.toSet
   }
 
 }
 
 object EntailmentAutomaton extends HarrshLogging {
 
-  case class State(ets: Set[ExtensionType], orderedParams: Seq[FreeVar]) {
+  case class CutProfile(profile: Set[TreeCuts], orderedParams: Seq[FreeVar]) {
 
-    assert(ets forall (_.boundVars.isEmpty),
-      s"Trying to construct state from extension types that still contain bound vars: $ets")
+    assert(profile forall (_.boundVars.isEmpty),
+      s"Trying to construct state from cut profile that still contains bound vars: $profile")
 
-    private val freeVarsInEts = ets.flatMap(_.nonPlaceholderFreeVars)
+    private val freeVarsInEts = profile.flatMap(_.nonPlaceholderFreeVars)
 
-    if (ets.nonEmpty && !(freeVarsInEts subsetOf orderedParams.toSet)) {
-      throw new IllegalArgumentException(s"ETs contain FVs $freeVarsInEts, but constructing state for $orderedParams")
+    if (profile.nonEmpty && !(freeVarsInEts subsetOf orderedParams.toSet)) {
+      throw new IllegalArgumentException(s"Cut profile contains FVs $freeVarsInEts, but constructing state for $orderedParams")
     }
 
   }
@@ -60,7 +60,7 @@ object EntailmentAutomaton extends HarrshLogging {
   /**
     * An inconsistent state representing all "sink" states of the given parameter sequence
     */
-  def InconsistentState(orderedParams: Seq[FreeVar]) = State(Set.empty, orderedParams)
+  def InconsistentState(orderedParams: Seq[FreeVar]) = CutProfile(Set.empty, orderedParams)
 
   private def rename(sh: SymbolicHeap, perm: Seq[FreeVar]): SymbolicHeap = {
     val renamingPairs = sh.freeVars.zip(perm)

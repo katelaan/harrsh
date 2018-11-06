@@ -43,7 +43,7 @@ case class UnfoldingTree private(nodeLabels: Map[NodeId,NodeLabel], root: NodeId
 
   def isConcrete: Boolean = abstractLeaves.isEmpty
 
-  def interface(diseqs: PureConstraintTracker): TreeInterface = {
+  def interface(diseqs: PureConstraintTracker): TreeCut = {
     val interfaceNodes: Seq[NodeLabel] = Seq(nodeLabels(root)) ++ (abstractLeaves map (nodeLabels(_)))
     val allUsage: Seq[(Set[Var], VarUsage)] = for {
       node <- interfaceNodes
@@ -54,7 +54,7 @@ case class UnfoldingTree private(nodeLabels: Map[NodeId,NodeLabel], root: NodeId
       case (lbl, usage) => (lbl, usage.map(_._2).max)
     }
     logger.debug(s"Usage map for $this: $usageInfoMap")
-    TreeInterface(nodeLabels(root).toPredicateNodeLabel, abstractLeaves map (nodeLabels(_).asInstanceOf[PredicateNodeLabel]), usageInfoMap, diseqs, convertToNormalform = true)
+    TreeCut(nodeLabels(root).toPredicateNodeLabel, abstractLeaves map (nodeLabels(_).asInstanceOf[PredicateNodeLabel]), usageInfoMap, diseqs, convertToNormalform = true)
   }
 
   def project(retainCalls: Boolean = false): SymbolicHeap = {
@@ -151,7 +151,7 @@ object UnfoldingTree extends HarrshLogging {
 
   def isInNormalForm(ut: UnfoldingTree): Boolean = {
     // TODO: Check that placeholders are introduced in BFS-order
-    TreeInterface.noRedundantPlaceholders(ut.nodeLabels.values) && PlaceholderVar.noGapsInPlaceholders(ut.placeholders)
+    TreeCut.noRedundantPlaceholders(ut.nodeLabels.values) && PlaceholderVar.noGapsInPlaceholders(ut.placeholders)
   }
 
   /**

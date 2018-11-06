@@ -59,7 +59,12 @@ case class RuleNodeLabel(override val pred: Predicate, rule: RuleBody, override 
 
 case class PredicateNodeLabel(override val pred: Predicate, override val subst: Substitution) extends NodeLabel {
 
-  override def toString: String = s"(${pred.head}, $subst)"
+  override def toString: String = {
+    val args = subst.toSeq map {
+      set => if (set.size == 1) set.head else set.mkString("{", " ", "}")
+    }
+    s"${pred.head}(${args.mkString(", ")})"
+  }
 
   override def update(f: SubstitutionUpdate): PredicateNodeLabel = copy(subst = subst.update(f))
 

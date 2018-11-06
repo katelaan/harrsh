@@ -4,10 +4,10 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive.PredCall
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
 
-case class TreeInterface private(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
+case class TreeCut private(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
 
-  assert(TreeInterface.noRedundantPlaceholders(labels), s"There are redundant placeholders in $this")
-  assert(TreeInterface.nodeLabelsAndUsageInfoContainSameVars(this), s"Inconsistent tree interface $this: There is a difference between the variables in the usage info and in the substitutions")
+  assert(TreeCut.noRedundantPlaceholders(labels), s"There are redundant placeholders in $this")
+  assert(TreeCut.nodeLabelsAndUsageInfoContainSameVars(this), s"Inconsistent tree interface $this: There is a difference between the variables in the usage info and in the substitutions")
 
   lazy val labels: Seq[NodeLabel] = Seq[NodeLabel](root) ++ leaves
 
@@ -24,7 +24,7 @@ case class TreeInterface private(root: PredicateNodeLabel, leaves: Set[Predicate
     }.mkString("; ")
     val ensuredStr = pureConstraints.ensured.mkString(",")
     val missingStr = pureConstraints.missing.mkString(",")
-    s"TI(root = $root; leaves = $leavesString; usage = { $usageStr }; ensured = { $ensuredStr }; missing = { $missingStr })"
+    s"Cut(root = $root; leaves = $leavesString; usage = { $usageStr }; ensured = { $ensuredStr }; missing = { $missingStr })"
   }
 
   def isConcrete: Boolean = leaves.isEmpty
@@ -50,22 +50,22 @@ case class TreeInterface private(root: PredicateNodeLabel, leaves: Set[Predicate
     ).forall(b => b)
   }
 
-  def asExtensionType: ExtensionType = ExtensionType(Set(this))
+  def asExtensionType: TreeCuts = TreeCuts(Set(this))
 
   def nonPlaceholderFreeVars: Set[FreeVar] = {
     substs.flatMap(_.freeNonNullVars).filterNot(PlaceholderVar.isPlaceholder).toSet
   }
 
-  def updateSubst(f: SubstitutionUpdate, convertToNormalform: Boolean): TreeInterface = {
-    TreeInterface(root.update(f),
+  def updateSubst(f: SubstitutionUpdate, convertToNormalform: Boolean): TreeCut = {
+    TreeCut(root.update(f),
       leaves map (_.update(f)),
       VarUsageByLabel.update(usageInfo, f),
       pureConstraints.update(f),
       convertToNormalform)
   }
 
-  def dropVarsFromPureConstraints(varsToDrop: Set[Var]): TreeInterface = {
-    TreeInterface(root, leaves, usageInfo, pureConstraints.dropVars(varsToDrop), convertToNormalform = false)
+  def dropVarsFromPureConstraints(varsToDrop: Set[Var]): TreeCut = {
+    TreeCut(root, leaves, usageInfo, pureConstraints.dropVars(varsToDrop), convertToNormalform = false)
   }
 
   def usageInfoOfNode(n: NodeLabel): VarUsageInfo = {
@@ -101,19 +101,19 @@ case class TreeInterface private(root: PredicateNodeLabel, leaves: Set[Predicate
   }
 }
 
-object TreeInterface {
+object TreeCut {
 
-  implicit val canComposeTreeInterfaces: CanCompose[TreeInterface] = CanComposeTreeInterface.canComposeTreeInterfaces
+  implicit val canComposeTreeInterfaces: CanCompose[TreeCut] = CanComposeCuts.canComposeTreeInterfaces
 
-  def apply(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker, convertToNormalform: Boolean): TreeInterface = {
+  def apply(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker, convertToNormalform: Boolean): TreeCut = {
     if (convertToNormalform) {
       normalFormConversion(root, leaves, usageInfo, pureConstraints)
     } else {
-      new TreeInterface(root, leaves, usageInfo, pureConstraints)
+      new TreeCut(root, leaves, usageInfo, pureConstraints)
     }
   }
 
-  def normalFormConversion(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): TreeInterface = {
+  def normalFormConversion(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): TreeCut = {
     val dropper = SubstitutionUpdate.redundantPlaceholderDropper(Set(root) ++ leaves)
     val rootAfterDropping = root.update(dropper)
     val leavesAfterDropping = leaves map (_.update(dropper))
@@ -122,18 +122,18 @@ object TreeInterface {
 
     val establishNormalForm = NodeLabel.labelsToPlaceholderNormalForm(Seq(rootAfterDropping) ++ leavesAfterDropping)
 
-    new TreeInterface(
+    new TreeCut(
       rootAfterDropping.update(establishNormalForm),
       leavesAfterDropping map (_.update(establishNormalForm)),
       VarUsageByLabel.update(usageInfoAfterDropping, establishNormalForm),
       diseqsAfterDropping.update(establishNormalForm))
   }
 
-  def isInNormalForm(tif: TreeInterface): Boolean = {
+  def isInNormalForm(tif: TreeCut): Boolean = {
     noRedundantPlaceholders(tif.labels) && PlaceholderVar.noGapsInPlaceholders(tif.placeholders)
   }
 
-  def haveNoConflicts(tif1: TreeInterface, tif2: TreeInterface): Boolean = {
+  def haveNoConflicts(tif1: TreeCut, tif2: TreeCut): Boolean = {
     (tif1.placeholders intersect tif2.placeholders).isEmpty
   }
 
@@ -143,7 +143,7 @@ object TreeInterface {
     }
   }
 
-  def nodeLabelsAndUsageInfoContainSameVars(tif: TreeInterface): Boolean = {
+  def nodeLabelsAndUsageInfoContainSameVars(tif: TreeCut): Boolean = {
     val varsOccurringInNodeLabels = tif.substs.toSet[Substitution].flatMap(subst => subst.toSeq)
     val varsInUsageInfo = tif.usageInfo.keySet
     varsOccurringInNodeLabels == varsInUsageInfo

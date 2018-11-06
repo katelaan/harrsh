@@ -32,10 +32,10 @@ object EntailmentBatchMode {
   }
 
   private def reportAnalysisTimes(results: Seq[EntailmentResult]) = {
-    val headings = Seq("Benchmark", "Analysis time (ms)", "Timeout?", "Error?")
-    val minColLengths = Seq(20, 20, 10, 10)
+    val headings = Seq("Benchmark", "Computed Result", "Time (ms)", "Timeout?", "Error?")
+    val minColLengths = Seq(20, 15, 10, 10, 10)
     val entries = results map {
-      res => Seq(res.file, ""+res.time.getOrElse("-"),  ""+res.timeout, res.failureMsg.getOrElse("-"))
+      res => Seq(res.file, ""+res.computedResult.getOrElse("-"), ""+res.time.getOrElse("-"),  ""+res.timeout, res.failureMsg.getOrElse("-"))
     }
     println(StringUtils.toTable(headings, minColLengths, entries))
   }
@@ -64,50 +64,55 @@ object EntailmentBatchMode {
     }
   }
 
-  case class EntailmentResult(file: String, time: Option[Long], timeout: Boolean, failureMsg: Option[String])
+  case class EntailmentResult(file: String, computedResult: Option[Boolean], time: Option[Long], timeout: Boolean, failureMsg: Option[String])
 
   def runBenchmarkWithTimeout(file: String, timeout: Duration): EntailmentResult = {
     val startTime = System.currentTimeMillis()
 
-    val f: Future[Option[String]] = Future {
+    val f: Future[(Option[String], Option[Boolean])] = Future {
       runBenchmark(file)
     }
 
     try {
-      val maybeFailureMsg = Await.result(f, timeout)
+      val (maybeFailureMsg, maybeResult) = Await.result(f, timeout)
       val endTime = System.currentTimeMillis()
       val timeInMs = endTime - startTime
       println("Finished in " + timeInMs + "ms")
-      EntailmentResult(file, Some(timeInMs), timeout = false, maybeFailureMsg)
+      EntailmentResult(file, maybeResult, Some(timeInMs), timeout = false, maybeFailureMsg)
     } catch {
       case e : TimeoutException =>
         println("Aborting entailment check after reaching timeout (" + timeout + ")")
-        EntailmentResult(file, None, timeout = true, None)
+        EntailmentResult(file, None, None, timeout = true, None)
     }
   }
 
-  def runBenchmark(file: String): Option[String] = {
+  def runBenchmark(file: String): (Option[String], Option[Boolean]) = {
     val fileContent = IOUtils.readFile(file.toString)
     Try {
       println(s"Checking $file..."); EntailmentParsers.parse(fileContent, computeSeparateSidsForEachSide = true)
     } match {
-      case Failure(exception) => Some(s"Exception during parsing: ${exception.getMessage}")
+      case Failure(exception) => (Some(s"Exception during parsing: ${exception.getMessage}"), None)
       case Success(maybeInstance) =>
         maybeInstance match {
           case Some(instance) =>
-            runEntailmentInstance(instance, descriptionOfInstance = file.toString)
+            val res = runEntailmentInstance(instance, descriptionOfInstance = file.toString)
+            (res._1, res._2)
           case None =>
-            Some("Parse error")
+            (Some("Parse error"), None)
         }
     }
   }
 
-  private def runEntailmentInstance(instance: EntailmentInstance, descriptionOfInstance: String) = {
+  private def runEntailmentInstance(instance: EntailmentInstance, descriptionOfInstance: String): (Option[String], Option[Boolean], Option[Boolean]) = {
     Try {
-      !EntailmentChecker.check(descriptionOfInstance, instance, reportProgress = false, exportToLatex = false)
+      EntailmentChecker.check(descriptionOfInstance, instance, reportProgress = false, exportToLatex = false)
     } match {
-      case Failure(exception) => Some(s"Exception during entailment check: ${exception.getMessage}")
-      case Success(unexpectedResult) => if (unexpectedResult) Some("Unexpected result") else None
+      case Failure(exception) => (Some(s"Exception during entailment check: ${exception.getMessage}"), None, None)
+      case Success((result, asExpected)) =>
+        if (asExpected.getOrElse(true))
+          (None, Some(result), asExpected)
+        else
+          (Some("Unexpected result"), Some(result), asExpected)
     }
   }
 

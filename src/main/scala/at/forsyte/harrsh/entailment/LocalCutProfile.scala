@@ -6,30 +6,30 @@ import at.forsyte.harrsh.seplog.{NullConst, Renaming, Var}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
-sealed trait LocalETs {
+sealed trait LocalCutProfile {
   def areDefined: Boolean = this match {
-    case NoLocalETypes => true
-    case ETypesOfLocalAtoms(ets) => ets.nonEmpty
+    case NoLocalCutProfile => true
+    case CutProfileOfLocalAtoms(ets) => ets.nonEmpty
   }
 }
 
-case object NoLocalETypes extends LocalETs
-case class ETypesOfLocalAtoms(ets: Set[ExtensionType]) extends LocalETs
+case object NoLocalCutProfile extends LocalCutProfile
+case class CutProfileOfLocalAtoms(profile: Set[TreeCuts]) extends LocalCutProfile
 
-object LocalETs extends HarrshLogging {
-  def apply(lab: SymbolicHeap, sid: SID): LocalETs = {
+object LocalCutProfile extends HarrshLogging {
+  def apply(lab: SymbolicHeap, sid: SID): LocalCutProfile = {
     logger.debug(s"Will compute extension types for local allocation of $lab")
     if (lab.pointers.isEmpty) {
       if (lab.pure.nonEmpty) {
         throw new IllegalArgumentException(s"Can't process symbolic heap without allocation but with pure constraints: $lab")
       } else {
         logger.debug(s"No pointers/pure atoms in rule => don't compute local ETs")
-        NoLocalETypes
+        NoLocalCutProfile
       }
     } else {
       val res = localAllocToExtensionTypes(lab, sid)
       logger.debug(s"Extension types for local allocation of $lab:\n${res.mkString("\n")}")
-      ETypesOfLocalAtoms(res)
+      CutProfileOfLocalAtoms(res)
     }
   }
 
@@ -45,7 +45,7 @@ object LocalETs extends HarrshLogging {
     AnnotatedLocalHeap(localLhs, pointerVarSeq, ensuredPureConstraints)
   }
 
-  def localAllocToExtensionTypes(lhs: SymbolicHeap, sid: SID) : Set[ExtensionType] = {
+  def localAllocToExtensionTypes(lhs: SymbolicHeap, sid: SID) : Set[TreeCuts] = {
     logger.trace(s"Local allocation: Creating (${sid.description})-extension types from $lhs")
     val localLhs = annotatedLocalHeap(lhs)
 
@@ -57,7 +57,7 @@ object LocalETs extends HarrshLogging {
     } yield etype
   }
 
-  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, localLhs: AnnotatedLocalHeap): Set[ExtensionType] = {
+  private def mkExtensionType(sid: SID, pred: Predicate, rule: RuleBody, localLhs: AnnotatedLocalHeap): Set[TreeCuts] = {
     // Go over all ways to map a variable of the lhs to a variable of the rhs
     // FIXME: Don't brute force over assignments, but pick the suitable one(s) directly
     val body = rule.body
@@ -73,7 +73,7 @@ object LocalETs extends HarrshLogging {
     res
   }
 
-  private def extensionTypeFromReverseAssignment(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredConstraints: Set[PureAtom], reversedVarAssignment: Map[Var,Set[Var]]): Option[ExtensionType] = {
+  private def extensionTypeFromReverseAssignment(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredConstraints: Set[PureAtom], reversedVarAssignment: Map[Var,Set[Var]]): Option[TreeCuts] = {
     // TODO: Make extension types: Split this monster of a method into smaller pieces
 
     logger.trace(s"Local allocation: Creating extension type from ${pred.head}, $rule, $lhsEnsuredConstraints, $reversedVarAssignment")
