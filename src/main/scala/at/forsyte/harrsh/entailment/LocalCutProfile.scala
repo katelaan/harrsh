@@ -18,7 +18,7 @@ case class CutProfileOfLocalAtoms(profile: Set[TreeCuts]) extends LocalCutProfil
 
 object LocalCutProfile extends HarrshLogging {
   def apply(lab: SymbolicHeap, sid: SID): LocalCutProfile = {
-    logger.debug(s"Will compute extension types for local allocation of $lab")
+    logger.debug(s"Will compute cut profile for local allocation of $lab")
     if (lab.pointers.isEmpty) {
       if (lab.pure.nonEmpty) {
         throw new IllegalArgumentException(s"Can't process symbolic heap without allocation but with pure constraints: $lab")
@@ -28,7 +28,7 @@ object LocalCutProfile extends HarrshLogging {
       }
     } else {
       val res = localAllocToExtensionTypes(lab, sid)
-      logger.debug(s"Extension types for local allocation of $lab:\n${res.mkString("\n")}")
+      logger.debug(s"Cut profile for local allocation of $lab:\n${res.mkString("\n")}")
       CutProfileOfLocalAtoms(res)
     }
   }
@@ -46,7 +46,7 @@ object LocalCutProfile extends HarrshLogging {
   }
 
   def localAllocToExtensionTypes(lhs: SymbolicHeap, sid: SID) : Set[TreeCuts] = {
-    logger.trace(s"Local allocation: Creating (${sid.description})-extension types from $lhs")
+    logger.trace(s"Local allocation: Creating (${sid.description})-cut profile from $lhs")
     val localLhs = annotatedLocalHeap(lhs)
 
     for {
@@ -76,7 +76,7 @@ object LocalCutProfile extends HarrshLogging {
   private def extensionTypeFromReverseAssignment(sid: SID, pred: Predicate, rule: RuleBody, lhsEnsuredConstraints: Set[PureAtom], reversedVarAssignment: Map[Var,Set[Var]]): Option[TreeCuts] = {
     // TODO: Make extension types: Split this monster of a method into smaller pieces
 
-    logger.trace(s"Local allocation: Creating extension type from ${pred.head}, $rule, $lhsEnsuredConstraints, $reversedVarAssignment")
+    logger.trace(s"Local allocation: Creating cut profile from ${pred.head}, $rule, $lhsEnsuredConstraints, $reversedVarAssignment")
     val body = rule.body
     val varsNotInAssignment = body.allNonNullVars -- reversedVarAssignment.keySet
     val placeholders = (1 to varsNotInAssignment.size) map (i => Set[Var](PlaceholderVar(i).toFreeVar))
@@ -127,17 +127,17 @@ object LocalCutProfile extends HarrshLogging {
     logger.trace(s"Tree interface for local allocation: $ti")
 
     if (!ti.allFreeRootParamsUsed) {
-      // Discard extension types that violate connectivity
+      // Discard sets of cuts that violate connectivity
       // TODO Can this ever be violated for BTW SIDs? Check where this occurs in the benchmarks!
       // Note: We only care about free root parameters here. If a root parameter is a placeholder, this means that the
       // corresponding predicate call is *not* directly connected to the local allocation of the rule, in which case it
       // can't be used either!
       // (Note that this can only happen for SIDs that are semantically but not syntactically in the BTW fragment.)
       // TODO Either document or drop support for this semantic extension of the BTW fragment.
-      logger.trace(s"Discarding extension type: Not all (free) root parameters are used")
+      logger.trace(s"Discarding tree cuts: Not all (free) root parameters are used")
       None
     } else if (!ti.hasNamesForUsedParams) {
-      logger.trace(s"Discarding extension type: Not all used parameters have names")
+      logger.trace(s"Discarding cuts: Not all used parameters have names")
       None
     } else {
       Some(ti.asExtensionType)

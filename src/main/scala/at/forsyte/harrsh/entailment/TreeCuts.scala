@@ -65,12 +65,12 @@ case class TreeCuts(parts: Set[TreeCut]) extends HarrshLogging {
     if (varsToDrop.isEmpty) {
       Some(this)
     } else {
-      logger.debug(s"Will remove bound variables ${varsToDrop.mkString(",")} from extensionType")
+      logger.debug(s"Will remove bound variables ${varsToDrop.mkString(",")} from tree cuts")
       if (tryingToDropVarsWithMissingConstraints(varsToDrop)) {
         // We're forgetting variables for which there are still missing constraints
         // After dropping, it will no longer be possible to supply the constraints
         // We hence discard the extension type
-        logger.debug(s"Discarding extension type: Missing pure constraints $missingPureConstraints contain at least one discarded variable from ${varsToDrop.mkString(", ")}")
+        logger.debug(s"Discarding tree cuts: Missing pure constraints $missingPureConstraints contain at least one discarded variable from ${varsToDrop.mkString(", ")}")
         None
       } else {
         // From the pure constraints, we must remove the variables completely, because after forgetting a variable,
@@ -78,7 +78,7 @@ case class TreeCuts(parts: Set[TreeCut]) extends HarrshLogging {
         val partsAfterDroppingPureConstraints = parts map (_.dropVarsFromPureConstraints(varsToDrop.toSet))
 
         // ...whereas in the interface nodes/usage info, we replace the bound vars by placeholders
-        // TODO: More efficient variable dropping for extension types
+        // TODO: More efficient variable dropping for cuts
         // Rename the vars to fresh placeholder vars
         val maxPlaceholder = PlaceholderVar.maxIndex(placeholders)
         val newPlaceholders = (1 to varsToDrop.size) map (i => PlaceholderVar(maxPlaceholder + i))
@@ -104,16 +104,6 @@ case class TreeCuts(parts: Set[TreeCut]) extends HarrshLogging {
       if composed.forall(_.hasConsistentPureConstraints)
     } yield TreeCuts(composed)
   }
-
-//  def compose(other: ExtensionType): Option[ExtensionType] = {
-//    val composed = CanCompose.composeAll(parts.toSeq ++ other.parts)
-//    if (composed.forall(_.hasConsistentPureConstraints))
-//      Some(ExtensionType(composed))
-//    else {
-//      logger.debug(s"Discarding extension type $composed because of inconsistent pure constraints")
-//      None
-//    }
-//  }
 
 }
 

@@ -11,7 +11,7 @@ sealed trait TransitionProfile {
 
 case class UnmatchableLocalAllocation(lab: SymbolicHeap) extends TransitionProfile with HarrshLogging {
   override def toTarget: Option[EntailmentAutomaton.CutProfile] = {
-    logger.debug(s"No extension types for local allocation of $lab => Return inconsistent state")
+    logger.debug(s"No cut profile for local allocation of $lab => Return inconsistent state")
     Some(EntailmentAutomaton.CutProfile(Set.empty, lab.freeVars))
   }
 }
