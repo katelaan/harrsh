@@ -1,0 +1,19 @@
+# Non-empty DLLs can be unrolled from head to tail (forwards) and from
+# tail to head (backwards).
+# In this example we prove that forward unrolling entails backward unrolling.
+query {
+  dllHT(x1, x2, x3, x4) |= dllTH(x3, x4, x1, x2)
+}
+sid {
+  # points-to auxiliary predicate to obtain a simple SID
+  pto <= x1 -> (x2,x3);
+  # DLL from head to tail
+  dllHT <= x1 -> (x3,x2) * pto(x3,x4,x1);
+  dllHT <= x1 -> (y, x2) * dllHT(y, x1, x3, x4);
+  # DLL from tail to head
+  dllTH <= x1 -> (x2,x3) * pto(x3,x1,x4);
+  dllTH <= x1 -> (x2,y) * dllTH(y,x1,x3,x4);
+}
+info {
+  status = true
+}
