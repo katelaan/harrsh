@@ -18,7 +18,7 @@ object EntailmentChecker extends HarrshLogging {
     * @return Computed result + optionally whether the result is as expected?
     */
   def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, Option[Boolean]) = {
-    val entailmentHolds = solve(entailmentInstance, reportProgress)
+    val entailmentHolds = solve(entailmentInstance, reportProgress, printResult, exportToLatex)
     entailmentInstance.entailmentHolds match {
       case Some(shouldHold) =>
         val expectedResult = shouldHold == entailmentHolds
@@ -28,7 +28,7 @@ object EntailmentChecker extends HarrshLogging {
         }
         (entailmentHolds, Some(expectedResult))
       case None =>
-        println(s"$description: No expected result. Computed result: $entailmentHolds")
+        println(s"$description: No expected result specified. Computed result: $entailmentHolds")
         (entailmentHolds, None)
     }
   }

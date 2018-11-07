@@ -119,8 +119,10 @@ object MainIO extends HarrshLogging {
 
   private def printResultTable(results: Seq[(TaskConfig, AnalysisResult)]): Unit = {
     val minColLengths = Seq(20, 10, 20, 10)
+    val alignment = Seq(AlignLeft, AlignRight, AlignRight, AlignRight)
     val entries = for ((task,res) <- results) yield Seq(task.fileName.split("/").last, task.decisionProblem.toString, task.decisionProblem.resultToString(res.isEmpty), "" + res.analysisTime)
-    println(toTable(Headings, minColLengths, entries))
+    val config = TableConfig(Headings, minColLengths, alignment)
+    println(toTable(config, entries))
 
   }
 

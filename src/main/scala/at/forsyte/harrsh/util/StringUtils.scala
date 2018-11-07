@@ -10,21 +10,47 @@ object StringUtils {
 
   private def computeColumnLength(entries : Seq[Any], minLength : Int) : Int = Math.max(minLength,entries.map(_.toString.size).max + 1)
 
-  def toTable(headings: Seq[String], minColLengths: Seq[Int], entries: Seq[Seq[String]]) : String = {
+  sealed trait ColAlignment {
+    def alignRight: Boolean = this match {
+      case AlignRight => true
+      case AlignLeft => false
+    }
+    def alignLeft: Boolean = !alignRight
+  }
+  case object AlignRight extends ColAlignment
+  case object AlignLeft extends ColAlignment
+
+  case class TableConfig(headings: Seq[String], minColLengths: Seq[Int], colAlignment: Seq[ColAlignment]) {
+    if (Set(headings.length, minColLengths.length, colAlignment.length).size != 1) {
+      throw new IllegalArgumentException("Inconsistent lengths in table config")
+    }
+  }
+
+  def toTable(config: TableConfig, entries: Seq[Seq[String]]) : String = {
     val colLengths = for {
-      (minLength, ix) <- minColLengths.zipWithIndex
+      (minLength, ix) <- config.minColLengths.zipWithIndex
     } yield computeColumnLength(entries.map(line => line(ix)), minLength)
 
     val hrule = delimLine(colLengths)
 
+    val withLayout = (row: Seq[String]) => (row, colLengths, config.colAlignment).zipped.toSeq
+
     val lines = for {
       entry <- entries
-    } yield inColumns(entry zip colLengths)
+    } yield inColumns(withLayout(entry))
 
-    hrule + "\n" + inColumns(headings zip colLengths) + "\n" + hrule + "\n" + lines.mkString("\n")+"\n" + hrule
+    hrule + "\n" + inColumns(withLayout(config.headings)) + "\n" + hrule + "\n" + lines.mkString("\n")+"\n" + hrule
   }
 
-  private def inColumns(cols : Seq[(String,Int)]) : String = if (cols.isEmpty) "|" else "|" + " "*Math.max(0,cols.head._2 - cols.head._1.length) + cols.head._1 + inColumns(cols.tail)
+  private def inColumns(cols : Seq[(String,Int,ColAlignment)]) : String = {
+    if (cols.isEmpty) "|" else {
+      val (content, width, align) = cols.head
+      val padding = " "*Math.max(0,width - content.length)
+      val leftPadding = if (align.alignRight) padding else ""
+      val rightPadding = if (align.alignLeft) padding else ""
+      "|" + leftPadding + content + rightPadding + inColumns(cols.tail)
+    }
+  }
   private def delimLine(cols : Seq[Int]): String = "+" + "-"*(cols.sum+cols.size-1) + "+"
 
   def indexifyNumbers(s : String) : String = {

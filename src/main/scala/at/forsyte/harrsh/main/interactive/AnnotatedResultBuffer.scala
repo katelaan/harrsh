@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.main.interactive
 
-import at.forsyte.harrsh.util.{StringUtils}
+import at.forsyte.harrsh.util.StringUtils._
 
 /**
   * Created by jens on 4/3/17.
@@ -32,12 +32,13 @@ case class AnnotatedResultBuffer[A](var maxSize : Int, var buffer : Seq[(String,
 
   def summarize : String = {
     val headings = Seq("Index","Description","Element")
+    val alignment = Seq(AlignRight, AlignLeft, AlignRight)
     val entries : Seq[Seq[String]] = for {
       ((s,a),i) <- buffer.zipWithIndex
     } yield Seq((i+1).toString, s, a.toString.replace('\n', ' ').take(120))
-    val cols = Seq(7, Math.max(11,buffer.map(_._1).map(_.size).max + 2), Math.min(120, buffer.map(_._2).map(_.toString.size).max + 2))
-
-    StringUtils.toTable(headings,cols,entries)
+    val minColLength = Seq(7, 11, 20)
+    val config = TableConfig(headings, minColLength, alignment)
+    toTable(config,entries)
   }
 
 }

@@ -5,6 +5,7 @@ import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
 import at.forsyte.harrsh.main.ExecutionMode.EntailmentBatch
 import at.forsyte.harrsh.parsers.EntailmentParsers
 import at.forsyte.harrsh.util.{IOUtils, StringUtils}
+import at.forsyte.harrsh.util.StringUtils.{AlignLeft, AlignRight}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future, TimeoutException}
@@ -20,7 +21,7 @@ object EntailmentBatchMode {
   }
 
   def runAllEntailmentsInPath(path: String, timeout: Duration): Unit = {
-    val files = IOUtils.allFilesRecursively(path)
+    val files = IOUtils.allFilesRecursively(path).sorted
     val results = (for {
       file <- files
       if !file.toString.contains("todo")
@@ -34,10 +35,17 @@ object EntailmentBatchMode {
   private def reportAnalysisTimes(results: Seq[EntailmentResult]) = {
     val headings = Seq("Benchmark", "Computed Result", "Time (ms)", "Timeout?", "Error?")
     val minColLengths = Seq(20, 15, 10, 10, 10)
+    val alignment = Seq(AlignLeft, AlignRight, AlignRight, AlignRight, AlignLeft)
     val entries = results map {
-      res => Seq(res.file, ""+res.computedResult.getOrElse("-"), ""+res.time.getOrElse("-"),  ""+res.timeout, res.failureMsg.getOrElse("-"))
+      res => Seq(
+        res.file,
+        ""+res.computedResult.getOrElse("-"),
+        ""+res.time.getOrElse("-"),
+        if (res.timeout) "yes" else "no",
+        res.failureMsg.getOrElse("-"))
     }
-    println(StringUtils.toTable(headings, minColLengths, entries))
+    val config = StringUtils.TableConfig(headings, minColLengths, alignment)
+    println(StringUtils.toTable(config, entries))
   }
 
   private def reportFailures(results: Seq[EntailmentResult]) = {
