@@ -2,7 +2,7 @@ package at.forsyte.harrsh.refinement
 
 import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.util.StringUtils
+import at.forsyte.harrsh.util.StringUtils._
 
 import scala.concurrent._
 import scala.concurrent.duration.Duration
@@ -101,13 +101,14 @@ object RefinementAlgorithms {
     println("Analysis results for: " + sid)
     println
 
-    val shCol : Int = Math.max(40, results.map(_.witness.toString.length).max - 5)
-    val cols = Seq(20,20,shCol)
     val headings = Seq("Property", "Result", "Witness")
+    val minColLengths = Seq(20,20,40)
+    val alignment = Seq(AlignRight, AlignRight, AlignLeft)
     val entries : Seq[Seq[String]] = for {
       AnalysisResult(task,res,witness) <- results
     } yield Seq(task.toString, res.map(task.resultToString).getOrElse("TO / ERR"), witness.map(_.toString).getOrElse("-"))
-    println(StringUtils.toTable(headings, cols, entries))
+    val config = TableConfig(headings, minColLengths, alignment)
+    println(toTable(config, entries))
 
   }
 

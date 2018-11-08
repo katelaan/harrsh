@@ -14,8 +14,6 @@
         <appender-ref ref="STDOUT" />
     </root>
 
-    <logger name="at.forsyte.harrsh.entailment.LocalCutProfile" level="DEBUG" />
-
     <!---
     <logger name="at.forsyte.harrsh.refinement.RefinementAlgorithms" level="DEBUG" />
     <logger name="at.forsyte.harrsh.refinement.RefinementInstance" level="DEBUG" />
@@ -23,7 +21,7 @@
     <logger name="at.forsyte.harrsh.entailment.CanCompose" level="DEBUG" />
     <logger name="at.forsyte.harrsh.entailment.EntailmentAutomaton" level="DEBUG" />
     <logger name="at.forsyte.harrsh.entailment.EntailmentChecker" level="DEBUG" />
-
+    <logger name="at.forsyte.harrsh.entailment.LocalCutProfile" level="DEBUG" />
 
     <logger name="at.forsyte.harrsh.parsers.EntailmentParsers" level="DEBUG" />
 
