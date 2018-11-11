@@ -144,9 +144,9 @@ case class Script(sorts: List[SortDecl],
 
   def toSatBenchmark(description: String) : SatBenchmark = ScriptToSatBenchmark(this, description)
 
-  lazy val status: Option[SatBenchmark.Status] = {
+  lazy val status: Option[BenchmarkStatus] = {
     val statusMeta = meta.find(m => m.metaType == "set-info" && m.keyword == ":status")
-    statusMeta.map(_.attributeValue.asInstanceOf[Symbol].str).map(SatBenchmark.Status.fromString)
+    statusMeta.map(_.attributeValue.asInstanceOf[Symbol].str).map(BenchmarkStatus.fromString)
   }
 
   override def toString: String = {

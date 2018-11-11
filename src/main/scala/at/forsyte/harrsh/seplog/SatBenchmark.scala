@@ -1,8 +1,9 @@
 package at.forsyte.harrsh.seplog
 
+import at.forsyte.harrsh.parsers.slcomp.BenchmarkStatus
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RuleBody, SID, SymbolicHeap}
 
-case class SatBenchmark(sid: SID, query: SymbolicHeap, status: SatBenchmark.Status) {
+case class SatBenchmark(sid: SID, query: SymbolicHeap, status: BenchmarkStatus) {
 
   def StartPred = "ASSERT"
 
@@ -53,29 +54,6 @@ case class SatBenchmark(sid: SID, query: SymbolicHeap, status: SatBenchmark.Stat
       val call = heap.predCalls.head
       // ...i.e. if the call does *not* contain null + its args are pairwise different
       !call.args.exists(_.isNull) && call.args.toSet.size == call.args.size
-    }
-  }
-
-}
-
-object SatBenchmark {
-
-  sealed trait Status {
-    override def toString: String = this match {
-      case Sat => "sat"
-      case Unsat => "unsat"
-      case Unknown => "unknown"
-    }
-  }
-  case object Sat extends Status
-  case object Unsat extends Status
-  case object Unknown extends Status
-  object Status {
-    def fromString(s : String): Status = s match {
-      case "sat" => Sat
-      case "unsat" => Unsat
-      case "unknown" => Unknown
-      case other => throw new Exception(s"Can't convert $other to problem status")
     }
   }
 

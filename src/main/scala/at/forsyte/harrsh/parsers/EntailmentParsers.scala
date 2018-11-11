@@ -2,6 +2,7 @@ package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.parsers.EntailmentParser.EntailmentParseResult
 import at.forsyte.harrsh.parsers.buildingblocks.{AsciiAtoms, EmptyQuantifierPrefix}
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive._
@@ -18,7 +19,11 @@ object EntailmentParsers extends HarrshLogging {
   def isAuxiliaryPred(pred: Predicate): Boolean = pred.head.startsWith(PrefixOfLhsAuxiliaryPreds) || pred.head.startsWith(PrefixOfRhsAuxiliaryPreds)
 
   def parse(input: String, computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = {
-    DefaultEntailmentParser.run(input) flatMap establishProgress(computeSeparateSidsForEachSide) map logTransformationResult
+    DefaultEntailmentParser.run(input) flatMap (res => normalize(res, computeSeparateSidsForEachSide))
+  }
+
+  def normalize(parseRes: EntailmentParseResult, computeSeparateSidsForEachSide: Boolean) : Option[EntailmentInstance] = {
+    establishProgress(computeSeparateSidsForEachSide)(parseRes) map logTransformationResult
   }
 
   private def logTransformationResult(instance: EntailmentInstance): EntailmentInstance = {
