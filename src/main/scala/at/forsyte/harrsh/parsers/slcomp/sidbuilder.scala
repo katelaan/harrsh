@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.parsers.slcomp
 
+import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.SatBenchmark
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
@@ -143,6 +144,8 @@ case class Script(sorts: List[SortDecl],
                   tasks: List[Task]) extends SidBuilder {
 
   def toSatBenchmark(description: String) : SatBenchmark = ScriptToSatBenchmark(this, description)
+
+  def toEntailmentBenchmark(computeSidForEachSide: Boolean) : Option[EntailmentInstance] = ScriptToEntailmentInstance(this, computeSidForEachSide)
 
   lazy val status: Option[BenchmarkStatus] = {
     val statusMeta = meta.find(m => m.metaType == "set-info" && m.keyword == ":status")

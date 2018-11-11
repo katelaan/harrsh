@@ -1,11 +1,12 @@
 package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
-import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.main.{HarrshLogging, MainIO}
 import at.forsyte.harrsh.parsers.EntailmentParser.EntailmentParseResult
 import at.forsyte.harrsh.parsers.buildingblocks.{AsciiAtoms, EmptyQuantifierPrefix}
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.util.IOUtils
 
 import scala.util.{Failure, Success, Try}
 
@@ -18,7 +19,16 @@ object EntailmentParsers extends HarrshLogging {
 
   def isAuxiliaryPred(pred: Predicate): Boolean = pred.head.startsWith(PrefixOfLhsAuxiliaryPreds) || pred.head.startsWith(PrefixOfRhsAuxiliaryPreds)
 
-  def parse(input: String, computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = {
+  def fileToEntailmentInstance(file: String, computeSidsForEachSideOfEntailment: Boolean): Option[EntailmentInstance] = {
+    if (file.endsWith(MainIO.FileExtensions.SlComp)) {
+      slcomp.parseFileToEntailmentInstance(file, computeSidsForEachSideOfEntailment)
+    } else {
+      val fileContent = IOUtils.readFile(file)
+      parseHarrshEntailmentFormat(fileContent, computeSidsForEachSideOfEntailment)
+    }
+  }
+
+  def parseHarrshEntailmentFormat(input: String, computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = {
     DefaultEntailmentParser.run(input) flatMap (res => normalize(res, computeSeparateSidsForEachSide))
   }
 

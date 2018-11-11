@@ -137,8 +137,7 @@ object Harrsh {
         println(slcomp.parseFileToSatBenchmark(config.file))
 
       case Entailment =>
-        val fileContent = IOUtils.readFile(config.file)
-        EntailmentParsers.parse(fileContent, config.computeSidsForEachSideOfEntailment) match {
+        EntailmentParsers.fileToEntailmentInstance(config.file, config.computeSidsForEachSideOfEntailment) match {
           case Some(entailmentInstance) =>
             val res = EntailmentChecker.solve(entailmentInstance)
             println(if (res) "The entailment holds" else "The entailment does NOT hold")

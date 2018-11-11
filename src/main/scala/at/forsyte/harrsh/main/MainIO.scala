@@ -18,16 +18,20 @@ object MainIO extends HarrshLogging {
 
   val ResultFile = "benchmark-results.tex"
 
-  val CyclistSuffix = "defs"
-  val SidSuffix = "sid"
+  object FileExtensions {
+    val Cyclist = "defs"
+    val HarrshSid = "sid"
+    val HarrshEntailment = "hrs"
+    val SlComp = "smt2"
+  }
 
   private val Headings = Seq("File", "Property", "Result", "Time in ms")
 
-  /*
-   * Returns SID + number of free variables
+  /**
+   * Parse file into SID
    */
   def getSidFromFile(fileName : String) : SID = {
-    val parser = if (fileName.endsWith(CyclistSuffix)) {
+    val parser = if (fileName.endsWith(FileExtensions.Cyclist)) {
       logger.debug("File ends in .defs, will assume cyclist format")
       SIDParsers.CyclistSIDParser
     } else {

@@ -15,12 +15,12 @@ object ParseSIDExampleFolder {
     printLinesOf('%', 2)
     println("Parse examples in SID-Format")
     printLinesOf('%', 2)
-    parseAllFiles(PathToDatastructureExamples, SidSuffix, SIDParsers.DefaultSIDParser.runOnSID)
+    parseAllFiles(PathToDatastructureExamples, FileExtensions.HarrshSid, SIDParsers.DefaultSIDParser.runOnSID)
 
     printLinesOf('%', 2)
     println("Parse examples in Cyclist-Format")
     printLinesOf('%', 2)
-    parseAllFiles(PathToCyclistExamples, CyclistSuffix, SIDParsers.CyclistSIDParser.runOnSID)
+    parseAllFiles(PathToCyclistExamples, FileExtensions.Cyclist, SIDParsers.CyclistSIDParser.runOnSID)
 
   }
 
