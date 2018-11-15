@@ -134,7 +134,7 @@ object Harrsh {
         printUsage()
 
       case ParseOnly =>
-        println(slcomp.parseFileToSatBenchmark(config.file))
+        println(slcomp.parseFileToEntailmentInstance(config.file, config.computeSidsForEachSideOfEntailment))
 
       case Entailment =>
         EntailmentParsers.fileToEntailmentInstance(config.file, config.computeSidsForEachSideOfEntailment) match {

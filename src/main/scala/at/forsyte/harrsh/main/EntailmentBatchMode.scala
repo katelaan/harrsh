@@ -2,7 +2,6 @@ package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.entailment.EntailmentChecker
 import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
-import at.forsyte.harrsh.main.ExecutionMode.EntailmentBatch
 import at.forsyte.harrsh.parsers.EntailmentParsers
 import at.forsyte.harrsh.util.{IOUtils, StringUtils}
 import at.forsyte.harrsh.util.StringUtils.{AlignLeft, AlignRight}
@@ -14,10 +13,27 @@ import scala.util.{Failure, Success, Try}
 
 object EntailmentBatchMode {
 
+  val PathToSlcompEntailmentBenchmarks = "bench/qf_shid_entl"
   val PathToDefaultEntailmentBenchmarks = "examples/entailment"
 
   def main(args: Array[String]): Unit = {
-    runAllEntailmentsInPath(PathToDefaultEntailmentBenchmarks, EntailmentBatch.defaultTimeout)
+    parseAllEntailmentsInPath(PathToSlcompEntailmentBenchmarks, false)
+    //runAllEntailmentsInPath(PathToDefaultEntailmentBenchmarks, EntailmentBatch.defaultTimeout)
+  }
+
+  def parseAllEntailmentsInPath(path: String, computeSidsForEachSideOfEntailment: Boolean): Unit = {
+    val files = IOUtils.allFilesRecursively(path).sorted
+    val results = for {
+      file <- files
+      filename = file.toString
+      if !filename.contains("todo")
+      if !filename.endsWith("info")
+    } yield {
+      println(s"Will try to parse $filename")
+      EntailmentParsers.fileToEntailmentInstance(filename, computeSidsForEachSideOfEntailment)
+    }
+    println("All parse results:")
+    println(results.mkString("\n ******* \n"))
   }
 
   def runAllEntailmentsInPath(path: String, timeout: Duration): Unit = {
