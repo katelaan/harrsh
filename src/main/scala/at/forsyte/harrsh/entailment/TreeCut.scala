@@ -69,7 +69,7 @@ case class TreeCut private(root: PredicateNodeLabel, leaves: Set[PredicateNodeLa
   }
 
   def usageInfoOfNode(n: NodeLabel): VarUsageInfo = {
-    val res = n.subst.toSeq.map(usageInfo.getOrElse(_, VarUsage.Unused))
+    val res = n.subst.toSeq.map(usageInfo.getOrElse(_, VarUnused))
     logger.trace(s"Usage info for $n w.r.t. $this: $res")
     res
   }

@@ -1,6 +1,5 @@
 package at.forsyte.harrsh
 
-import at.forsyte.harrsh.entailment.VarUsage.{Allocated, Referenced, Unused}
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.RuleBody
@@ -74,28 +73,28 @@ package object entailment {
 
   sealed trait VarUsage {
     def isUsed: Boolean = this match {
-      case Unused => false
-      case Allocated => true
-      case Referenced => true
+      case VarUnused => false
+      case VarAllocated => true
+      case VarReferenced => true
     }
   }
+
+  case object VarUnused extends VarUsage
+  case object VarAllocated extends VarUsage
+  case object VarReferenced extends VarUsage
+
   object VarUsage {
     implicit val ord: Ordering[VarUsage] = Ordering.fromLessThan[VarUsage]{
       (left, right) => (left, right) match {
-        case (Unused, Allocated) => true
-        case (Unused, Referenced) => true
-        case (Referenced, Allocated) => true
+        case (VarUnused, VarAllocated) => true
+        case (VarUnused, VarReferenced) => true
+        case (VarReferenced, VarAllocated) => true
         case _ => false
       }
     }
-
-    case object Unused extends VarUsage
-    case object Allocated extends VarUsage
-    case object Referenced extends VarUsage
-
-    val unused: VarUsage = Unused
-    val allocated: VarUsage = Allocated
-    val referenced: VarUsage = Referenced
+    val unused: VarUsage = VarUnused
+    val allocated: VarUsage = VarAllocated
+    val referenced: VarUsage = VarReferenced
   }
 
   type VarUsageInfo = Seq[VarUsage]
@@ -113,7 +112,7 @@ package object entailment {
     def merge(u1: VarUsageByLabel, u2: VarUsageByLabel): VarUsageByLabel = {
       val keys = u1.keySet ++ u2.keySet
       val pairs: Set[(Set[Var], VarUsage)] = keys.map{
-        k => (k, Seq(u1.getOrElse(k, VarUsage.Unused), u2.getOrElse(k, VarUsage.Unused)).max)
+        k => (k, Seq(u1.getOrElse(k, VarUnused), u2.getOrElse(k, VarUnused)).max)
       }
       pairs.toMap
     }

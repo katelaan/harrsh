@@ -28,3 +28,5 @@ assemblyOption in assembly := (assemblyOption in assembly).value.copy(prependShe
 assemblyJarName in assembly := s"${name.value}"
 mainClass in assembly := Some("at.forsyte.harrsh.main.Harrsh")
 //mainClass in assembly := Some("at.forsyte.harrsh.main.SlCompMode")
+
+enablePlugins(JmhPlugin)

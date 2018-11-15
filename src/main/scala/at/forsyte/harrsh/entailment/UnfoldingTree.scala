@@ -108,14 +108,14 @@ case class UnfoldingTree private(nodeLabels: Map[NodeId,NodeLabel], root: NodeId
       ptr = sh.pointers.head
     } yield {
       // FIXME: This doesn't take into account that 'matchingVar' could only be equal to an allocated/referenced var rather than used itself!
-      if (ptr.from == matchingVar) VarUsage.Allocated
-      else if (ptr.to.contains(matchingVar)) VarUsage.Referenced
-      else VarUsage.Unused
+      if (ptr.from == matchingVar) VarAllocated
+      else if (ptr.to.contains(matchingVar)) VarReferenced
+      else VarUnused
     }
 
     val allUsages = usages ++ maybeParentUsage
 
-    if (allUsages.isEmpty) VarUsage.Unused else allUsages.max
+    if (allUsages.isEmpty) VarUnused else allUsages.max
   }
 
 }
