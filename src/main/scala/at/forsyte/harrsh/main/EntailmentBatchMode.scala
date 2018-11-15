@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.entailment.EntailmentChecker
-import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
+import at.forsyte.harrsh.entailment.EntailmentChecker.{EntailmentInstance, EntailmentStats}
 import at.forsyte.harrsh.parsers.EntailmentParsers
 import at.forsyte.harrsh.util.{IOUtils, StringUtils}
 import at.forsyte.harrsh.util.StringUtils.{AlignLeft, AlignRight}
@@ -88,54 +88,54 @@ object EntailmentBatchMode {
     }
   }
 
-  case class EntailmentResult(file: String, computedResult: Option[Boolean], time: Option[Long], timeout: Boolean, failureMsg: Option[String])
+  case class EntailmentResult(file: String, computedResult: Option[Boolean], time: Option[Long], timeout: Boolean, failureMsg: Option[String], stats: Option[EntailmentStats])
 
   def runBenchmarkWithTimeout(file: String, timeout: Duration): EntailmentResult = {
     val startTime = System.currentTimeMillis()
 
-    val f: Future[(Option[String], Option[Boolean])] = Future {
+    val f: Future[(Option[String], Option[Boolean], Option[EntailmentStats])] = Future {
       runBenchmark(file)
     }
 
     try {
-      val (maybeFailureMsg, maybeResult) = Await.result(f, timeout)
+      val (maybeFailureMsg, maybeResult, maybeStats) = Await.result(f, timeout)
       val endTime = System.currentTimeMillis()
       val timeInMs = endTime - startTime
       println("Finished in " + timeInMs + "ms")
-      EntailmentResult(file, maybeResult, Some(timeInMs), timeout = false, maybeFailureMsg)
+      EntailmentResult(file, maybeResult, Some(timeInMs), timeout = false, maybeFailureMsg, maybeStats)
     } catch {
       case e : TimeoutException =>
         println("Aborting entailment check after reaching timeout (" + timeout + ")")
-        EntailmentResult(file, None, None, timeout = true, None)
+        EntailmentResult(file, None, None, timeout = true, None, None)
     }
   }
 
-  def runBenchmark(file: String): (Option[String], Option[Boolean]) = {
+  def runBenchmark(file: String): (Option[String], Option[Boolean], Option[EntailmentStats]) = {
     Try {
       println(s"Checking $file..."); EntailmentParsers.fileToEntailmentInstance(file, computeSidsForEachSideOfEntailment = true)
     } match {
-      case Failure(exception) => (Some(s"Exception during parsing: ${exception.getMessage}"), None)
+      case Failure(exception) => (Some(s"Exception during parsing: ${exception.getMessage}"), None, None)
       case Success(maybeInstance) =>
         maybeInstance match {
           case Some(instance) =>
             val res = runEntailmentInstance(instance, descriptionOfInstance = file.toString)
-            (res._1, res._2)
+            (res._1, res._2, res._4)
           case None =>
-            (Some("Parse error"), None)
+            (Some("Parse error"), None, None)
         }
     }
   }
 
-  private def runEntailmentInstance(instance: EntailmentInstance, descriptionOfInstance: String): (Option[String], Option[Boolean], Option[Boolean]) = {
+  private def runEntailmentInstance(instance: EntailmentInstance, descriptionOfInstance: String): (Option[String], Option[Boolean], Option[Boolean], Option[EntailmentStats]) = {
     Try {
       EntailmentChecker.check(descriptionOfInstance, instance, reportProgress = false, exportToLatex = false)
     } match {
-      case Failure(exception) => (Some(s"Exception during entailment check: ${exception.getMessage}"), None, None)
-      case Success((result, asExpected)) =>
+      case Failure(exception) => (Some(s"Exception during entailment check: ${exception.getMessage}"), None, None, None)
+      case Success((result, asExpected, maybeStats)) =>
         if (asExpected.getOrElse(true))
-          (None, Some(result), asExpected)
+          (None, Some(result), asExpected, maybeStats)
         else
-          (Some("Unexpected result"), Some(result), asExpected)
+          (Some("Unexpected result"), Some(result), asExpected, maybeStats)
     }
   }
 

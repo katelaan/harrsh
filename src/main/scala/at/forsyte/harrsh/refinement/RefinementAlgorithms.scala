@@ -48,7 +48,7 @@ object RefinementAlgorithms {
         None
     }
   }
-
+  
   def fullRefinementTrace(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): (Map[String, Set[ha.State]], Map[String,Set[(Seq[ha.State], RuleBody, ha.State)]]) = {
     // TODO: Make this more readable & reduce code duplication wrt. allReachableStates
     val res = RefinementInstance(sid, ha, mode = RefinementInstance.FullRefinement, reportProgress = reportProgress).run

@@ -140,7 +140,8 @@ object Harrsh {
         EntailmentParsers.fileToEntailmentInstance(config.file, config.computeSidsForEachSideOfEntailment) match {
           case Some(entailmentInstance) =>
             val res = EntailmentChecker.solve(entailmentInstance)
-            println(if (res) "The entailment holds" else "The entailment does NOT hold")
+            println(if (res._1) "The entailment holds" else "The entailment does NOT hold")
+            res._2.foreach(stats => println(stats.prettyPrint))
           case None =>
             println("Parsing the entailment input failed.")
         }

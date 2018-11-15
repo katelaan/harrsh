@@ -10,6 +10,15 @@ object EntailmentChecker extends HarrshLogging {
 
   case class EntailmentInstance(lhsSid: SID, lhsCall: PredCall, rhsSid: SID, rhsCall: PredCall, entailmentHolds: Option[Boolean])
 
+  case class EntailmentStats(numExploredPreds: Int, numProfiles: Int, totalNumDecomps: Int, totalNumContexts: Int) {
+    def prettyPrint: String = {
+      s"#Explore predicates:         $numExploredPreds\n" +
+      s"#Compute profiles:           $numProfiles\n" +
+      s"#Decompositions in profiles: $totalNumDecomps\n" +
+      s"#Contexts in decomps.:       $totalNumContexts"
+    }
+  }
+
   /**
     * Check whether the entailment solver produces the expected result on the given instance.
     * @param description Description of the instance
@@ -17,8 +26,8 @@ object EntailmentChecker extends HarrshLogging {
     * @param reportProgress Produce additional output to keep track of progress
     * @return Computed result + optionally whether the result is as expected?
     */
-  def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, Option[Boolean]) = {
-    val entailmentHolds = solve(entailmentInstance, reportProgress, printResult, exportToLatex)
+  def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, Option[Boolean], Option[EntailmentStats]) = {
+    val (entailmentHolds,maybeStats) = solve(entailmentInstance, reportProgress, printResult, exportToLatex)
     entailmentInstance.entailmentHolds match {
       case Some(shouldHold) =>
         val expectedResult = shouldHold == entailmentHolds
@@ -26,10 +35,10 @@ object EntailmentChecker extends HarrshLogging {
         if (!expectedResult) {
           println(s"WARNING: Unexpected result")
         }
-        (entailmentHolds, Some(expectedResult))
+        (entailmentHolds, Some(expectedResult), maybeStats)
       case None =>
         println(s"$description: No expected result specified. Computed result: $entailmentHolds")
-        (entailmentHolds, None)
+        (entailmentHolds, None, maybeStats)
     }
   }
 
@@ -81,34 +90,47 @@ object EntailmentChecker extends HarrshLogging {
     * @param reportProgress Produce additional output to keep track of progress
     * @return True iff the entailment holds
     */
-  def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): Boolean = {
+  def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean,Option[EntailmentStats]) = {
     val leftAlloc = allocationInPred(entailmentInstance.lhsSid, entailmentInstance.lhsCall)
     val rightAlloc = allocationInPred(entailmentInstance.rhsSid, entailmentInstance.rhsCall)
-    val entailmentHolds = (leftAlloc, rightAlloc) match {
+    val result = (leftAlloc, rightAlloc) match {
       case (NoAllocation, _) =>
-        solveViaPureEntailment(entailmentInstance)
+        (solveViaPureEntailment(entailmentInstance), None)
       case (_, NoAllocation) =>
         // Allocation is possible on the left, but not on the right => Entailment can't hold
-        false
+        (false, None)
       case _ =>
-        runEntailmentAutomaton(entailmentInstance, reportProgress, printResult, exportToLatex)
+        val (holds, stats) = runEntailmentAutomaton(entailmentInstance, reportProgress, printResult, exportToLatex)
+        (holds, Some(stats))
     }
 
     entailmentInstance.entailmentHolds foreach {
       shouldHold =>
-        if (shouldHold != entailmentHolds)
-          println(s"Unexpected result: Entailment should hold according to input file: $shouldHold; computed result: $entailmentHolds")
+        if (shouldHold != result._1)
+          println(s"Unexpected result: Entailment should hold according to input file: $shouldHold; computed result: $result")
     }
 
-    entailmentHolds
+    result
   }
 
-  def runEntailmentAutomaton(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): Boolean = {
+  def entailmentStats(reachableStatesByPred: Map[String, Set[EntailmentAutomaton.CutProfile]]): EntailmentStats = {
+    val numExploredPreds = reachableStatesByPred.size
+    val allProfiles = reachableStatesByPred.values.flatten.toList
+    val allDecomps = for {
+      c <- allProfiles
+      s <- c.profile
+    } yield s
+    val totalNumContexts = allDecomps.map(_.parts.size).sum
+    EntailmentStats(numExploredPreds, allProfiles.size, allDecomps.size, totalNumContexts)
+  }
+
+  def runEntailmentAutomaton(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, EntailmentStats) = {
     val EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhsSid, rhsCall)
     val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhsSid, aut, reportProgress)
     val isFinal = (s: EntailmentAutomaton.CutProfile) => aut.isFinal(s)
     val entailmentHolds = reachableStatesByPred(lhsCall.name).forall(isFinal)
+    val stats = entailmentStats(reachableStatesByPred)
 
     if (printResult) {
       println(serializeResult(aut, reachableStatesByPred))
@@ -119,7 +141,7 @@ object EntailmentChecker extends HarrshLogging {
       println(" Done.")
     }
 
-    entailmentHolds
+    (entailmentHolds,stats)
   }
 
   object serializeResult {
