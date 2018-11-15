@@ -114,7 +114,7 @@ object MainIO extends HarrshLogging {
     println(summary)
     println()
     println("Will write results to " + ResultFile)
-    writeLatexFile(results, summary)
+    writeLatexFileForRefinementResults(results, summary)
   }
 
   def printAnalysisResult(task : TaskConfig, result : AnalysisResult): Unit = {
@@ -130,21 +130,32 @@ object MainIO extends HarrshLogging {
 
   }
 
-  private def writeLatexFile(results: Seq[(TaskConfig, AnalysisResult)], summary: String): Unit = {
-    val preamble =
-      """
-        |\documentclass{article}
-        |\begin{document}
-        |\begin{tabular}{llll}
-      """.stripMargin
-    val header = Headings.mkString(" & ") + "\\\\\n"
-    val resultLines = (for {
+  private def writeLatexFileForRefinementResults(results: Seq[(TaskConfig, AnalysisResult)], summary: String): Unit = {
+    val resultStrings = for {
       (task,res) <- results
-      entries : Seq[String] = Seq(task.fileName.split("/").last, task.decisionProblem.toString, task.decisionProblem.resultToString(res.isEmpty), ""+res.analysisTime)
-    } yield entries.mkString("", " & ", "\\\\")).mkString("\n")
-    val ending ="\n\\end{tabular}\n\\begin{itemize}\n" + summary.split("\n").map("\\item "+_).mkString("\n") + "\n\\end{itemize}\n\\end{document}"
+    } yield Seq(task.fileName.split("/").last, task.decisionProblem.toString, task.decisionProblem.resultToString(res.isEmpty), ""+res.analysisTime)
 
-    writeFile(ResultFile, preamble + header + resultLines + ending)
+    val bulletPoints = summary.split("\n")
+    writeLatexFile(ResultFile, Headings, resultStrings, bulletPoints)
+  }
+
+  def writeLatexFile(resultFile: String, headings: Seq[String], results: Seq[Seq[String]], bulletPoints: Seq[String] = Seq.empty): Unit = {
+    val preamble =
+      s"""
+        |\\documentclass{article}
+        |\\begin{document}
+        |\\begin{tabular}{${"l"*headings.size}}
+      """.stripMargin
+    val header = headings.mkString(" & ") + "\\\\\n"
+    val resultLines = (for {
+      row <- results
+    } yield row.mkString("", " & ", "\\\\")).mkString("\n")
+    val list = if (bulletPoints.nonEmpty) {
+      "\\begin{itemize}\n" + bulletPoints.map("\\item "+_).mkString("\n") + "\n\\end{itemize}\n"
+    } else ""
+    val ending = s"\n\\end{tabular}\n$list\\end{document}"
+
+    writeFile(resultFile, preamble + header + resultLines + ending)
   }
 
   def writeBenchmarkFile(results: Seq[(TaskConfig,AnalysisResult)], fileName : String): Unit = {
