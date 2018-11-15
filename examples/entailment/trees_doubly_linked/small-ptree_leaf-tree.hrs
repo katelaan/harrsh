@@ -26,5 +26,5 @@ sid {
   parent <= x1 -> (nil,nil,x2);
 }
 info {
-  status = true
+  status = false
 }
