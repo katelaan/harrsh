@@ -1,7 +1,5 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
-import at.forsyte.harrsh.entailment.VarUsage.{Allocated, Referenced, Unused}
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog.inductive.{PureAtom, RuleBody, SID}
@@ -88,9 +86,9 @@ object EntailmentInstanceToLatex {
       }
       val annotateWithUsageInfo = (vs: Set[Var]) => {
         usageInfo(vs) match {
-          case Unused => ""
-          case Allocated => "\\overset{\\rightsquigarrow}"
-          case Referenced => "\\overset{\\leftsquigarrow}"
+          case VarUnused => ""
+          case VarAllocated => "\\overset{\\rightsquigarrow}"
+          case VarReferenced => "\\overset{\\leftsquigarrow}"
         }
       }
 

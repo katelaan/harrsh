@@ -10,7 +10,7 @@ import at.forsyte.harrsh.seplog.{FreeVar, Var}
 /**
   * Created by jkatelaa on 10/20/16.
   */
-private[parsers] trait HarrshSIDParser extends SIDCombinatorParser with HarrshLogging {
+private[parsers] trait HarrshSIDParser extends SIDCombinatorParser {
 
   self : Atoms with QuantifierPrefix =>
 
@@ -34,7 +34,7 @@ private[parsers] trait HarrshSIDParser extends SIDCombinatorParser with HarrshLo
   def parseRule : Parser[(String,RuleBody)] = parseHead ~ ("<=" ~> parseBody) ^^ {
     case head ~ body =>
       val (renamedBody, filledFreeVars, boundVars) = HarrshSIDParser.stringSHwithHarrshNamingtoSH(body)
-      logger.debug("Assembling rule out of head " + head + " and body " + body + " yielding modified body " + renamedBody)
+      //logger.debug("Assembling rule out of head " + head + " and body " + body + " yielding modified body " + renamedBody)
       (head, RuleBody(boundVars, renamedBody.copy(freeVars = filledFreeVars.map(FreeVar))))
   }
 

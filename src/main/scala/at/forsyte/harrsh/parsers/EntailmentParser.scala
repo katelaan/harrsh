@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.parsers.EntailmentParser.EntailmentParseResult
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 
 import scala.util.Try
@@ -45,8 +44,4 @@ trait EntailmentParser extends JavaTokenParsers with HarrshLogging {
     case k ~ v => (k,v)
   }
 
-}
-
-object EntailmentParser {
-  case class EntailmentParseResult(lhs: SymbolicHeap, rhs: SymbolicHeap, sid: SID, entailmentHolds: Option[Boolean])
 }

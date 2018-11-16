@@ -51,9 +51,9 @@ case class RuleNodeLabel(override val pred: Predicate, rule: RuleBody, override 
   override def varUsage(freeVar: FreeVar): VarUsage = {
     assert(rule.body.pointers.size == 1)
     val ptr = rule.body.pointers.head
-    if (ptr.from == freeVar) VarUsage.Allocated
-    else if (ptr.to.contains(freeVar)) VarUsage.Referenced
-    else VarUsage.Unused
+    if (ptr.from == freeVar) VarAllocated
+    else if (ptr.to.contains(freeVar)) VarReferenced
+    else VarUnused
   }
 }
 
@@ -70,7 +70,7 @@ case class PredicateNodeLabel(override val pred: Predicate, override val subst: 
 
   override def varUsage(freeVar: FreeVar): VarUsage = {
     // The abstract leaves themselves don't use the variables in any way
-    VarUsage.Unused
+    VarUnused
   }
 }
 

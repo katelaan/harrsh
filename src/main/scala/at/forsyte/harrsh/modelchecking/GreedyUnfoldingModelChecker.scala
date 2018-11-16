@@ -71,27 +71,27 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
 
   private def headsToBodiesMap(sid: SID): Map[String, Seq[SymbolicHeap]] = sid.preds.map(p => (p.head,p.bodySHs)).toMap
 
+  sealed trait ModelCheckingStatus
+  case object EmptyModel extends ModelCheckingStatus
+  case object ModelAndUnfoldingHavePtr extends ModelCheckingStatus
+  case object UnfoldingHasOnlyCalls extends ModelCheckingStatus
+  case object NonEmptyModelAndEmptyUnfolding extends ModelCheckingStatus
+
   private class GreedyUnfolding(headsToBodies: Map[String, Seq[SymbolicHeap]], reportProgress : Boolean) {
 
     val IterationBound = Integer.MAX_VALUE
 
-    sealed trait Status
-    case class EmptyModel() extends Status
-    case class ModelAndUnfoldingHavePtr() extends Status
-    case class UnfoldingHasOnlyCalls() extends Status
-    case class NonEmptyModelAndEmptyUnfolding() extends Status
-
-    private def status(modelFormula : SymbolicHeap, partialUnfolding : SymbolicHeap) : Status = {
+    private def status(modelFormula : SymbolicHeap, partialUnfolding : SymbolicHeap) : ModelCheckingStatus = {
       if (!modelFormula.hasPointer) {
-        EmptyModel()
+        EmptyModel
       }
       else if (partialUnfolding.hasPointer) {
-        ModelAndUnfoldingHavePtr()
+        ModelAndUnfoldingHavePtr
       }
       else if (partialUnfolding.nonReduced) {
-        UnfoldingHasOnlyCalls()
+        UnfoldingHasOnlyCalls
       } else {
-        NonEmptyModelAndEmptyUnfolding()
+        NonEmptyModelAndEmptyUnfolding
       }
     }
 
@@ -109,12 +109,12 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
 //        }
 
         val res = status(formulaToMatch, partialUnfolding) match {
-          case EmptyModel() =>
+          case EmptyModel =>
             // No pointers left => Solve the model checking problem for empty models
             logger.debug("Remaining Model " + formulaToMatch + " is now empty")
             checkEmptyModel(formulaToMatch, partialUnfolding, history)
 
-          case ModelAndUnfoldingHavePtr() =>
+          case ModelAndUnfoldingHavePtr =>
             // Match pair of pointers that are already there
             logger.debug("Unfolding has pointer, will try to match")
             // TODO It would be better to avoid the conversion, but it would be incorrect to simply keep alloc as set, because we then wouldn't notice double allocation. Maybe optimize this later
@@ -127,12 +127,12 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
                 run(newFormulaToMatch, newPartialUnfolding, newHistory)
             }
 
-          case UnfoldingHasOnlyCalls() =>
+          case UnfoldingHasOnlyCalls =>
             // If none, unfold to (possibly) get pointers
             logger.debug("Unfolding has no pointer but has predicate call, will unfold")
             unfoldFirstCallAndRecurse(formulaToMatch, partialUnfolding, history, considerRulesSatisfying = _ => true)
 
-          case NonEmptyModelAndEmptyUnfolding() =>
+          case NonEmptyModelAndEmptyUnfolding =>
             // Unfolding empty, model non-empty => model checking failed
             logger.debug("Model-checking non-empty model against empty candidate unfolding failed, aborting branch")
             NoModel

@@ -59,13 +59,13 @@ object CanCompose extends HarrshLogging {
 
     val unifiableParams: Seq[Boolean] = (n1.freeVarSeq, n1usage, n2usage).zipped.toSeq.map{
       tuple: (FreeVar, VarUsage, VarUsage) => tuple match {
-        case (_, VarUsage.Allocated, VarUsage.Allocated) =>
+        case (_, VarAllocated, VarAllocated) =>
           // Double allocation
           false
-        case (_, VarUsage.Unused, _) =>
+        case (_, VarUnused, _) =>
           // Only used in one of the objects => Don't need to have a name in both
           true
-        case (_, _, VarUsage.Unused) =>
+        case (_, _, VarUnused) =>
           // Only used in one of the objects => Don't need to have a name in both
           true
         case (v, used1, used2) =>

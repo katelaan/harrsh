@@ -1,14 +1,6 @@
-<<<<<<< HEAD
-# non-empty DLLs can be unrolled from head to tail (forwards) and from
-# tail to head (backwards).
-# In this example we prove that backward unrolling entails forward unrolling.
-
-
-=======
 # Non-empty DLLs can be unrolled from head to tail (forwards) and from
 # tail to head (backwards).
 # In this example we prove that backward unrolling entails forward unrolling.
->>>>>>> e6a130b99fb01dc15a62b4e16e8e6be5e3d81305
 query {
   dllTH(x1, x2, x3, x4) |= dllHT(x3, x4, x1, x2)
 }
