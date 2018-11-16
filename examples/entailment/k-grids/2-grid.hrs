@@ -1,0 +1,14 @@
+query {
+  grid2(x1,x2) |= grid(x1,x2)
+}
+sid {
+  grid <= x1 -> (null, x2);
+  grid <= x1 -> (y,x2) * right(x2,z) * grid(y,z);
+  right <= x1 -> (x2,null);
+  # top
+  grid2 <= x1 -> (u,x2) * right(x2,v) * grid3(u,v); 
+  grid3 <= x1 -> (u,x2) * right(x2,v) * grid(u,v);
+}
+info {
+  status = true
+}

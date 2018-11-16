@@ -1,0 +1,12 @@
+query {
+  dlgrid(x1,x2,x3,x4,x5,x6,x7,x8) |= dlgrid(x1,x2,x3,x4,x5,x6,x7,x8)
+}
+sid {
+    dlgrid <= x1 -> (r,x2,x3,null) * dlgrid(r,b,x1,x2,x5,x6,x7,x8) * bot(x2,b,x4,x1);
+    dlgrid <= x1 -> (x5,x2,x3,null) * dlgridright(x5,x6,x1,x2,x7,x8) * bot(x2,x6,x4,x1);
+    bot <= x1 -> (x2,null,x3,x4);
+    dlgridright <= x1 -> (x5,x2,x3,null) * bot(x2,x6,x4,x1);
+}
+info {
+  status = true
+}

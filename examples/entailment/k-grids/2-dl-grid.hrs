@@ -1,0 +1,14 @@
+query {
+  dlgrid2(x1,x2,null) |= dlgrid(x1,x2,null)
+}
+sid {
+  dlgrid <= x1 -> (null, x2,x3);
+  dlgrid <= x1 -> (y,x2,x3) * right(x2,z,x1) * dlgrid(y,z,x1);
+  right <= x1 -> (x2,null,x3);
+  # top
+  dlgrid2 <= x1 -> (u,x2,x3) * right(x2,v,x1) * dlgrid3(u,v,x1); 
+  dlgrid3 <= x1 -> (u,x2,x3) * right(x2,v,x3) * dlgrid(u,v,x3);
+}
+info {
+  status = true
+}
