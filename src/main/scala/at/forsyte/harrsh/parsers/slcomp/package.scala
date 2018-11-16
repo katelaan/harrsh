@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
+import at.forsyte.harrsh.entailment.EntailmentInstance
 import at.forsyte.harrsh.seplog.SatBenchmark
 import org.antlr.v4.runtime.tree.Trees
 import org.antlr.v4.runtime.{CharStream, CharStreams, CommonTokenStream}

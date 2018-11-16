@@ -8,8 +8,6 @@ import at.forsyte.harrsh.util.IOUtils
 
 object EntailmentChecker extends HarrshLogging {
 
-  case class EntailmentInstance(lhsSid: SID, lhsCall: PredCall, rhsSid: SID, rhsCall: PredCall, entailmentHolds: Option[Boolean])
-
   case class EntailmentStats(numExploredPreds: Int, numProfiles: Int, totalNumDecomps: Int, totalNumContexts: Int) {
     def prettyPrint: String = {
       s"#Explore predicates:         $numExploredPreds\n" +
@@ -31,13 +29,13 @@ object EntailmentChecker extends HarrshLogging {
     entailmentInstance.entailmentHolds match {
       case Some(shouldHold) =>
         val expectedResult = shouldHold == entailmentHolds
-        println(s"$description: Got expected result: $expectedResult")
+        if (printResult) println(s"$description: Got expected result: $expectedResult")
         if (!expectedResult) {
           println(s"WARNING: Unexpected result")
         }
         (entailmentHolds, Some(expectedResult), maybeStats)
       case None =>
-        println(s"$description: No expected result specified. Computed result: $entailmentHolds")
+        if (printResult) println(s"$description: No expected result specified. Computed result: $entailmentHolds")
         (entailmentHolds, None, maybeStats)
     }
   }

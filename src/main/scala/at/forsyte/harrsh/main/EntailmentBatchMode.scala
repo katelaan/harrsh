@@ -1,8 +1,8 @@
 package at.forsyte.harrsh.main
 
-import at.forsyte.harrsh.entailment.EntailmentChecker
-import at.forsyte.harrsh.entailment.EntailmentChecker.{EntailmentInstance, EntailmentStats}
-import at.forsyte.harrsh.parsers.EntailmentParsers
+import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentInstance}
+import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentStats
+import at.forsyte.harrsh.parsers.{EntailmentParseResult, EntailmentParsers}
 import at.forsyte.harrsh.util.{IOUtils, StringUtils}
 import at.forsyte.harrsh.util.StringUtils.{AlignLeft, AlignRight}
 
@@ -20,23 +20,54 @@ object EntailmentBatchMode {
   case class EntailmentResult(file: String, computedResult: Option[Boolean], time: Option[Long], timeout: Boolean, failureMsg: Option[String], stats: Option[EntailmentStats])
 
   def main(args: Array[String]): Unit = {
-    parseAllEntailmentsInPath(PathToSlcompEntailmentBenchmarks, computeSidsForEachSideOfEntailment = false)
+    val results = parseAllEntailmentsInPathToInstances(PathToSlcompEntailmentBenchmarks, computeSidsForEachSideOfEntailment = false)
+    println("All parse results:")
+    println(results.mkString("\n ******* \n"))
     //runAllEntailmentsInPath(PathToDefaultEntailmentBenchmarks, EntailmentBatch.defaultTimeout)
   }
 
-  def parseAllEntailmentsInPath(path: String, computeSidsForEachSideOfEntailment: Boolean): Unit = {
+  def convertAllEntailmentsInPath(inputPath: String, outputPath: String, converter: (String, EntailmentParseResult) => Seq[(String,String)]): Unit = {
+    for {
+      (file, maybeParsed) <- parseResultsForAllFilesInPath(inputPath)
+    } maybeParsed match {
+      case Some(parseResult) =>
+        val converted = converter(file.split("/").last, parseResult)
+        if (converted.isEmpty) {
+          println(s"WARNING: Conversion of $file failed.")
+        } else {
+          for {
+            (outFile, content) <- converted
+          } IOUtils.writeFile(outputPath + '/' + outFile, content)
+        }
+      case None => println(s"WARNING: Could not parse $file")
+    }
+  }
+
+  def parseAllEntailmentsInPathToInstances(path: String, computeSidsForEachSideOfEntailment: Boolean): Seq[(String,Option[EntailmentInstance])] = {
     val files = IOUtils.allFilesRecursively(path).sorted
-    val results = for {
+    for {
       file <- files
       filename = file.toString
       if !filename.contains("todo")
       if !filename.endsWith("info")
     } yield {
-      println(s"Will try to parse $filename")
-      EntailmentParsers.fileToEntailmentInstance(filename, computeSidsForEachSideOfEntailment)
+      println(s"Parsing $filename...")
+      (filename, EntailmentParsers.fileToEntailmentInstance(filename, computeSidsForEachSideOfEntailment))
     }
-    println("All parse results:")
-    println(results.mkString("\n ******* \n"))
+  }
+
+  def parseResultsForAllFilesInPath(path: String): Seq[(String,Option[EntailmentParseResult])] = {
+    val files = IOUtils.allFilesRecursively(path).sorted
+    for {
+      file <- files
+      filename = file.toString
+      if !filename.contains("todo")
+      if !filename.endsWith("info")
+    } yield {
+      println(s"Parsing $filename...")
+      val content = IOUtils.readFile(filename)
+      (filename, EntailmentParsers.parseHarrshEntailmentFormat(content))
+    }
   }
 
   def runAllEntailmentsInPath(path: String, timeout: Duration): Unit = {
@@ -71,21 +102,21 @@ object EntailmentBatchMode {
   }
 
   private def exportResultsToLatex(results: Seq[(Option[EntailmentInstance], EntailmentResult)]): Unit = {
-    //val headings = Seq("Benchmark", "Computed Result", "Time (ms)", "Timeout?", "Error?")
-    val headings = Seq("Benchmark", "Status", "Time (ms)", "\\#preds", "\\#profiles", "\\#decomps", "\\#contexts")
+    val headings = Seq("File", "Query", "Status", "Time (ms)", "\\#profiles", "\\#decomps", "\\#contexts")
     val fromStats = (maybeStats: Option[EntailmentStats], f: EntailmentStats => Any) => maybeStats.map(f).map(""+_).getOrElse("-")
     val desc = (maybeEI: Option[EntailmentInstance], res: EntailmentResult) => maybeEI match {
       case Some(ei) => "$" + ei.lhsCall + " \\models " + ei.rhsCall + "$"
-      case None => res.file.split("/").last.replace("_","\\_")
+      case None => "-" //res.file.split("/").last.replace("_","\\_")
     }
     val entries = results map {
       case (maybeEI, res) => Seq(
+        res.file.split("/").last.replace("_","\\_"),
         desc(maybeEI, res),
         ""+res.computedResult.getOrElse("-"),
         ""+res.time.getOrElse("-"),
         //if (res.timeout) "yes" else "no",
         //res.failureMsg.getOrElse("-"))
-        fromStats(res.stats, _.numExploredPreds),
+        //fromStats(res.stats, _.numExploredPreds),
         fromStats(res.stats, _.numProfiles),
         fromStats(res.stats, _.totalNumDecomps),
         fromStats(res.stats, _.totalNumContexts)
@@ -140,15 +171,16 @@ object EntailmentBatchMode {
     }
   }
 
-  def runBenchmark(file: String): BenchmarkTrace = {
+  def runBenchmark(file: String, suppressOutput: Boolean = false): BenchmarkTrace = {
     Try {
-      println(s"Checking $file..."); EntailmentParsers.fileToEntailmentInstance(file, computeSidsForEachSideOfEntailment = true)
+      if (!suppressOutput) println(s"Checking $file...");
+      EntailmentParsers.fileToEntailmentInstance(file, computeSidsForEachSideOfEntailment = true)
     } match {
       case Failure(exception) => BenchmarkTrace(None, None, None, Some(s"Exception during parsing: ${exception.getMessage}"))
       case Success(maybeInstance) =>
         maybeInstance match {
           case Some(instance) =>
-            val res = runEntailmentInstance(instance, descriptionOfInstance = file.toString)
+            val res = runEntailmentInstance(instance, descriptionOfInstance = file.toString, suppressOutput)
             BenchmarkTrace(Some(instance), res._2, res._4, res._1)
           case None =>
             BenchmarkTrace(None, None, None, Some("Parse error"))
@@ -156,9 +188,9 @@ object EntailmentBatchMode {
     }
   }
 
-  private def runEntailmentInstance(instance: EntailmentInstance, descriptionOfInstance: String): (Option[String], Option[Boolean], Option[Boolean], Option[EntailmentStats]) = {
+  private def runEntailmentInstance(instance: EntailmentInstance, descriptionOfInstance: String, suppressOutput: Boolean = false): (Option[String], Option[Boolean], Option[Boolean], Option[EntailmentStats]) = {
     Try {
-      EntailmentChecker.check(descriptionOfInstance, instance, reportProgress = false, exportToLatex = false)
+      EntailmentChecker.check(descriptionOfInstance, instance, reportProgress = false, exportToLatex = false, printResult = !suppressOutput)
     } match {
       case Failure(exception) => (Some(s"Exception during entailment check: ${exception.getMessage}"), None, None, None)
       case Success((result, asExpected, maybeStats)) =>

@@ -1,6 +1,5 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog.inductive.{PureAtom, RuleBody, SID}

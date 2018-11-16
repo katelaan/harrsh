@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.parsers.slcomp
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.parsers.EntailmentParser.EntailmentParseResult
+import at.forsyte.harrsh.parsers.EntailmentParseResult
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.seplog._
 

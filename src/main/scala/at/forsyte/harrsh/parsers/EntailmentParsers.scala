@@ -1,8 +1,7 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
+import at.forsyte.harrsh.entailment.EntailmentInstance
 import at.forsyte.harrsh.main.{HarrshLogging, MainIO}
-import at.forsyte.harrsh.parsers.EntailmentParser.EntailmentParseResult
 import at.forsyte.harrsh.parsers.buildingblocks.{AsciiAtoms, EmptyQuantifierPrefix}
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive._
@@ -24,12 +23,16 @@ object EntailmentParsers extends HarrshLogging {
       slcomp.parseFileToEntailmentInstance(file, computeSidsForEachSideOfEntailment)
     } else {
       val fileContent = IOUtils.readFile(file)
-      parseHarrshEntailmentFormat(fileContent, computeSidsForEachSideOfEntailment)
+      harrshEntailmentFormatToProcessedInstance(fileContent, computeSidsForEachSideOfEntailment)
     }
   }
 
-  def parseHarrshEntailmentFormat(input: String, computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = {
-    DefaultEntailmentParser.run(input) flatMap (res => normalize(res, computeSeparateSidsForEachSide))
+  def parseHarrshEntailmentFormat(input: String): Option[EntailmentParseResult] = {
+    DefaultEntailmentParser.run(input)
+  }
+
+  def harrshEntailmentFormatToProcessedInstance(input: String, computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = {
+    parseHarrshEntailmentFormat(input) flatMap (res => normalize(res, computeSeparateSidsForEachSide))
   }
 
   def normalize(parseRes: EntailmentParseResult, computeSeparateSidsForEachSide: Boolean) : Option[EntailmentInstance] = {
@@ -43,7 +46,7 @@ object EntailmentParsers extends HarrshLogging {
     instance
   }
 
-  private def establishProgress(computeSeparateSidsForEachSide: Boolean)(parseResult: EntailmentParser.EntailmentParseResult): Option[EntailmentInstance] = {
+  private def establishProgress(computeSeparateSidsForEachSide: Boolean)(parseResult: EntailmentParseResult): Option[EntailmentInstance] = {
     for {
       rootedSid <- makeRooted(parseResult.sid)
       if satisfiesProgress(rootedSid)
@@ -148,7 +151,7 @@ object EntailmentParsers extends HarrshLogging {
     }
   }
 
-  private def extractSidForCalls(sid: SID, calls: Set[PredCall]): Option[SID] = {
+  def extractSidForCalls(sid: SID, calls: Set[PredCall]): Option[SID] = {
     val predsByCall: Set[(String, Set[String])] = calls.map(_.name).map(p => (p, getReachablePreds(sid, p)))
     predsByCall find (_._2.isEmpty) match {
       case Some(value) =>

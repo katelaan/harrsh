@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.parsers.slcomp
 
-import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentInstance
+import at.forsyte.harrsh.entailment.EntailmentInstance
 import at.forsyte.harrsh.parsers.EntailmentParsers
 
 object ScriptToEntailmentInstance {

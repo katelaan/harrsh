@@ -2,7 +2,7 @@ package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.entailment.EntailmentChecker
 import at.forsyte.harrsh.modelchecking.GreedyUnfoldingModelChecker
-import at.forsyte.harrsh.parsers.{EntailmentParsers, slcomp}
+import at.forsyte.harrsh.parsers.{EntailmentParseResult, EntailmentParsers, slcomp}
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
@@ -71,6 +71,7 @@ object Harrsh {
       _ <- parseSwitch("--help", "-h", _.copy(mode = Help))
       _ <- tryParseMode("--batch", "-b", RefinementBatch)
       _ <- tryParseMode("--ebatch", "-eb", EntailmentBatch)
+      _ <- tryParseMode("--convert", "-ceb", ConvertEntailmentBatch)
       _ <- tryParseMode("--refine", "-r", Refine)
       _ <- tryParseMode("--model", "-m", GetModel)
       _ <- tryParseMode("--decide", "-d", Decide)
@@ -189,6 +190,14 @@ object Harrsh {
       case EntailmentBatch =>
         println("Will run all entailment benchmarks in " + config.file)
         EntailmentBatchMode.runAllEntailmentsInPath(config.file, config.timeout)
+
+      case ConvertEntailmentBatch =>
+        println(s"Will convert all benchmarks in ${config.file} to SLIDE input format")
+        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, "export/slide", EntailmentParseResult.toSlideFormat)
+        println("Done.")
+        println(s"Will convert all benchmarks in ${config.file} to SONGBIRD input format")
+        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, "export/songbird", EntailmentParseResult.toSongbirdFormat)
+        println("Done.")
 
       case Show =>
         val sid = MainIO.getSidFromFile(config.file)
