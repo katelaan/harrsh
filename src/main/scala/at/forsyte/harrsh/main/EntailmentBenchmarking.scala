@@ -9,7 +9,6 @@ import org.openjdk.jmh.results.{AverageTimeResult, RunResult}
 import org.openjdk.jmh.runner.Runner
 import org.openjdk.jmh.runner.options.{Options, OptionsBuilder, TimeValue}
 
-import scala.collection.GenTraversableOnce
 import scala.collection.JavaConverters._
 import scala.sys.process._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -58,12 +57,28 @@ class SlideBenchmarking {
   @Param(Array("examples/entailment/tacas2019/dll_backward_forward.hrs", "examples/entailment/tacas2019/dll_forward_backward.hrs", "examples/entailment/tacas2019/even-sll_sll.hrs", "examples/entailment/tacas2019/greater-ptree_leaf-tree.hrs", "examples/entailment/tacas2019/leaf-tree_greater-ptree.hrs", "examples/entailment/tacas2019/sll_odd-sll.hrs", "examples/entailment/tacas2019/small-ptree_leaf-tree.hrs"))
   var file: String = ""
 
+  @Benchmark
+  def benchmarkSlide(): String = {
+    SlideBenchmarking.runSlide(file)
+    //slideResult(file).toString
+  }
+
+}
+object SlideBenchmarking {
+
+  var p: Option[Process] = None
+
   def runSlide(file: String): String = {
     val slideFileLeft = file + ".lhs.pred"
     val slideFileRight = file + ".rhs.pred"
     //println(sbFile)
-    val call = s"python3 ./slide/entailment.py $slideFileLeft $slideFileRight"
-    call.!!
+    //val call = s"python3 ./slide/entailment.py $slideFileLeft $slideFileRight"
+    //call.!!
+    val call = Seq("python3", "./slide/entailment.py", slideFileLeft, slideFileRight)
+    val allOutput = new StringBuilder()
+    p = Some(call run ProcessLogger(line => allOutput.appendAll(line + '\n'), line => allOutput.appendAll(line + '\n')))
+    p map (_.exitValue())
+    allOutput.mkString
   }
 
   def slideResult(file: String): ToolOutput = {
@@ -82,13 +97,6 @@ class SlideBenchmarking {
         ToolError("Crash")
     }
   }
-
-  @Benchmark
-  def benchmarkSlide(): String = {
-    runSlide(file)
-    //slideResult(file).toString
-  }
-
 }
 
 @State(Scope.Benchmark)
@@ -101,17 +109,28 @@ class SongbirdBenchmarking {
   @Param(Array("examples/entailment/tacas2019/acyc-tll_tll.hrs", "examples/entailment/tacas2019/dll_backward_forward.hrs", "examples/entailment/tacas2019/dll_forward_backward.hrs", "examples/entailment/tacas2019/even-sll_sll.hrs", "examples/entailment/tacas2019/greater-ptree_leaf-tree.hrs", "examples/entailment/tacas2019/sll_odd-sll.hrs", "examples/entailment/tacas2019/small-ptree_leaf-tree.hrs", "examples/entailment/tacas2019/tll-classes_tll.hrs", "examples/entailment/tacas2019/tll_acyc-tll.hrs"))
   var file: String = ""
 
+  @Benchmark
+  def benchmarkSongbird(): String = {
+    SongbirdBenchmarking.runSongbird(file)
+    //songbirdResult(file).toString
+  }
+
+}
+
+object SongbirdBenchmarking {
+
+  var p: Option[Process] = None
+
   def runSongbird(file: String): String = {
     val sbFile = file + ".sb"
     //println(sbFile)
-    val call = s"./songbird.native $sbFile"
-    call.!!
-  }
-
-  @Benchmark
-  def benchmarkSongbird(): String = {
-    runSongbird(file)
-    //songbirdResult(file).toString
+    //val call = s"./songbird.native $sbFile"
+    //call.!!
+    val call = Seq("./songbird.native", sbFile)
+    val allOutput = new StringBuilder()
+    p = Some(call run ProcessLogger(line => allOutput.appendAll(line + '\n'), line => allOutput.appendAll(line + '\n')))
+    p map (_.exitValue())
+    allOutput.mkString
   }
 
   def songbirdResult(file: String): ToolOutput = {
@@ -140,8 +159,12 @@ class HarrshBenchmarking {
 
   @Benchmark
   def benchmarkHarrsh(): EntailmentBatchMode.BenchmarkTrace = {
-    runHarrsh(file)
+    HarrshBenchmarking.runHarrsh(file)
   }
+
+}
+
+object HarrshBenchmarking {
 
   def runHarrsh(file: String): EntailmentBatchMode.BenchmarkTrace = {
     EntailmentBatchMode.runBenchmark(file, suppressOutput = true)
@@ -155,14 +178,13 @@ class HarrshBenchmarking {
       case None => ToolError("")
     }
   }
-
 }
 
 object ToolRunner {
 
-  val Timeout = Duration(5, SECONDS)
+  val Timeout = Duration(30, SECONDS)
 
-  def apply(file: String, run: String => ToolOutput): ToolOutput = {
+  def apply(file: String, run: String => ToolOutput, cleanup: () => Unit): ToolOutput = {
 
     val f: Future[ToolOutput] = Future {
       run(file)
@@ -172,7 +194,10 @@ object ToolRunner {
       Await.result(f, Timeout)
     } catch {
       case e : TimeoutException =>
+        println(s"Timeout reached on $file => Will execute cleanup routine.")
         ToolTimeout
+    } finally {
+      cleanup()
     }
   }
 
@@ -184,12 +209,12 @@ class EntailmentBenchmarking {
 object EntailmentBenchmarking {
 
   val ResultTexFile = "complete-results.tex"
-  val BenchmarkPath = "examples/entailment/tacas2019"
+  val BenchmarkPath = "examples/entailment"
 
   // Benchmark times
   val secs = (i: Int) => TimeValue.seconds(i)
-  val WarmupTime = secs(2)
-  val IterationTime = secs(5)
+  val WarmupTime = secs(20)
+  val IterationTime = secs(100)
   val WarmupIterations = 1
   val MeasurementIterations = 1
 
@@ -229,10 +254,18 @@ object EntailmentBenchmarking {
     BenchResult(file, byTool.map(tbr => (tbr.tool, tbr.time)).toMap)
   }
 
+  case class ToolSpec(name: String, clazz: Class[_], cmd: String => ToolOutput, cleanup: () => Unit)
+
   val toolSpecs = Seq(
-    ("HRS", classOf[HarrshBenchmarking], new HarrshBenchmarking().harrshResult(_)),
-    ("SB", classOf[SongbirdBenchmarking], new SongbirdBenchmarking().songbirdResult(_)),
-    ("SLD", classOf[SlideBenchmarking], new SlideBenchmarking().slideResult(_))
+    ToolSpec("HRS",
+      classOf[HarrshBenchmarking],
+      HarrshBenchmarking.harrshResult, () => ()),
+    ToolSpec("SB", classOf[SongbirdBenchmarking],
+      SongbirdBenchmarking.songbirdResult,
+      () => SongbirdBenchmarking.p.foreach(_.destroy())),
+    ToolSpec("SLD", classOf[SlideBenchmarking],
+      SlideBenchmarking.slideResult,
+      () => SlideBenchmarking.p.foreach(_.destroy()))
   )
 
   case class TableEntry(file: String, tools: Seq[ToolTableEntry]) {
@@ -277,14 +310,16 @@ object EntailmentBenchmarking {
     TableEntry(file, toolSpecs map (runToolOnBenchmarkFile(file, _)))
   }
 
-  private def runToolOnBenchmarkFile(file: String, toolSpec: (String, Class[_], String => ToolOutput)): ToolTableEntry = {
+  private def runToolOnBenchmarkFile(file: String, toolSpec: ToolSpec): ToolTableEntry = {
     // First see if the tool fails/times out
-    val output = ToolRunner(file, toolSpec._3)
+    val output = ToolRunner(file, toolSpec.cmd, toolSpec.cleanup)
     if (output.isSuccess) {
       // Run JMH only in case of success
-      ToolTableEntry(toolSpec._1, output, Some(runJmhBenchmarkForTool(file, toolSpec._2.getSimpleName)))
+      println(s"${toolSpec.name} solved $file before timeout => Use JMH to benchmark.")
+      ToolTableEntry(toolSpec.name, output, Some(runJmhBenchmarkForTool(file, toolSpec.clazz.getSimpleName)))
     } else {
-      ToolTableEntry(toolSpec._1, output, None)
+      println(s"${toolSpec.name} timed out or crashed on $file => Skip JMH")
+      ToolTableEntry(toolSpec.name, output, None)
     }
   }
 
@@ -309,20 +344,24 @@ object EntailmentBenchmarking {
     val bulletPoints = for {
       res <- results
       msg <- res.errorMessages
-    } yield res.file + ": " + msg
+      bulletPoint = res.file + ": " + msg
+    } yield bulletPoint.replace("_","\\_").replaceAllLiterally("<", "\\textless{}").replaceAllLiterally(">", "\\textgreater{}")
     MainIO.writeLatexFile(ResultTexFile, headings, entries, bulletPoints)
   }
 
   def main(args: Array[String]): Unit = {
     val bms = EntailmentBatchMode.allHarrshEntailmentFilesInPath(BenchmarkPath)
     //val bms = Seq("examples/entailment/tacas2019/2-grid.hrs", "examples/entailment/tacas2019/acyclic-sll_sll.hrs", "examples/entailment/tacas2019/almost-linear-treep_treep.hrs", "examples/entailment/tacas2019/dlgrid.hrs", "examples/entailment/tacas2019/dlgrid-left-right.hrs", "examples/entailment/various/list-segments-different-order.hrs")
-    //val bms = Seq("examples/entailment/tacas2019/dlgrid.hrs", "examples/entailment/tacas2019/dlgrid-left-right.hrs", "examples/entailment/various/list-segments-different-order.hrs")
+    //val bms = Seq()
 
-    val resultsByFile = bms map runBenchmarkFile
-    //val resultsByFile = aggregateResults(resultsByTool)
+    var resultsByFile: List[TableEntry] = Nil
+    for (bm <- bms) {
+      resultsByFile = resultsByFile :+ runBenchmarkFile(bm)
+      println(s"FINISHED $bm -- Results so far:")
+      println(resultsByFile.mkString("\n"))
+      println("Writing table to: " + ResultTexFile)
+      exportResultsToLatex(resultsByFile)
+    }
     println("FINISHED ALL BENCHMARKS")
-    println(resultsByFile.mkString("\n"))
-    println("Writing table to: " + ResultTexFile)
-    exportResultsToLatex(resultsByFile)
   }
 }
