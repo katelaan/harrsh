@@ -1,9 +1,11 @@
 package at.forsyte.harrsh.parsers
 
 import scala.collection.SortedSet
-
 import at.forsyte.harrsh.seplog.BoundVar
+import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.util.ToLatex
+import at.forsyte.harrsh.util.ToLatex._
 
 case class EntailmentParseResult(lhs: SymbolicHeap, rhs: SymbolicHeap, sid: SID, entailmentHolds: Option[Boolean])
 
@@ -114,10 +116,16 @@ object EntailmentParseResult {
       ptr <- r.pointers
     } yield ptr.to.length
     if (rhsSizes.size != 1)
-      throw new ConversionException("Multiple pointer arities within one benchmark not supported by Songbird exporter: " + rhsSizes)
+      throw ConversionException("Multiple pointer arities within one benchmark not supported by Songbird exporter: " + rhsSizes)
     val fields = (1 to rhsSizes.head) map (i => SbFieldPrefix + i)
     val fieldDecls = fields map (f => "    " + SbType + ' ' + f + ';')
     "data " + SbType + " {\n" + fieldDecls.mkString("\n") + "\n};"
+  }
+
+  implicit val parseResultToLatex: ToLatex[EntailmentParseResult] = (epr: EntailmentParseResult, naming: Naming) => {
+    val query = "Check entailment $" + epr.lhs.toLatex(naming) + " \\models " + epr.rhs.toLatex(naming) + "$"
+    val sid = epr.sid.toLatex(naming)
+    query + "\n%\n" + "w.r.t.\n%\n" + sid + "\n"
   }
 
 }

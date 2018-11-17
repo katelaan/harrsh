@@ -115,18 +115,17 @@ object SID extends HarrshLogging {
   }
 
   implicit val sidToLatex: ToLatex[SID] = (a: SID, _: Naming) => {
-    val predStrings = for {
+    val rulesStr = for {
       pred <- a.preds
-      if pred.rules.nonEmpty
-    } yield predToLatex(pred)
-    predStrings.mkString("\n\n")
+      rule <- predToLatex(pred)
+    } yield rule
+    """\[\begin{array}{rcl}""" + rulesStr.mkString("\n", "\\\\\n", "\n") + """\end{array}\]"""
   }
 
-  private def predToLatex(pred: Predicate): String = {
-    val rulesStr = for {
+  private def predToLatex(pred: Predicate): Seq[String] = {
+    for {
       rule <- pred.rules
-    } yield s"$$ ${pred.head} \\Longleftarrow ${rule.body.toLatex(rule.naming)} $$\n"
-    rulesStr.mkString("\n\n")
+    } yield s"  \\RuleName{${pred.head}} &\\Longleftarrow& ${rule.body.toLatex(rule.naming)}"
   }
 
 }

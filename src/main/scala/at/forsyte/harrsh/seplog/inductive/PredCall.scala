@@ -2,6 +2,7 @@ package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog.{NullConst, Renaming, Var}
+import at.forsyte.harrsh.util.ToLatex
 
 /**
   * Created by jens on 2/28/17.
@@ -24,4 +25,11 @@ case class PredCall(name : String, args : Seq[Var]) extends SepLogAtom {
   override def renameVars(f: Renaming): PredCall = copy(args = args map (_.rename(f)))
 
   override def getVars : Set[Var] = args.toSet
+}
+
+object PredCall {
+  implicit val predCallToLatex: ToLatex[PredCall] = (predCall: PredCall, naming: Naming) => {
+    val argString = predCall.args.map(naming).mkString(",")
+    s"\\RuleName{${predCall.name}}($argString)"
+  }
 }

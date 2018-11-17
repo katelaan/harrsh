@@ -1,5 +1,10 @@
 package at.forsyte.harrsh.main
 
+
+import scala.concurrent.duration.{Duration, SECONDS}
+import scalaz.State
+import scalaz.State._
+
 import at.forsyte.harrsh.entailment.EntailmentChecker
 import at.forsyte.harrsh.modelchecking.GreedyUnfoldingModelChecker
 import at.forsyte.harrsh.parsers.{EntailmentParseResult, EntailmentParsers, slcomp}
@@ -8,10 +13,7 @@ import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 import at.forsyte.harrsh.main.ExecutionMode._
 import at.forsyte.harrsh.Implicits._
-
-import scala.concurrent.duration.{Duration, SECONDS}
-import scalaz.State
-import scalaz.State._
+import at.forsyte.harrsh.util.ToLatex._
 
 /**
   * The main command-line interface of Harrsh.
@@ -194,10 +196,14 @@ object Harrsh {
       case ConvertEntailmentBatch =>
         println(s"Will convert all benchmarks in ${config.file} to SLIDE input format")
         //EntailmentBatchMode.convertAllEntailmentsInPath(config.file, "export/slide", EntailmentParseResult.toSlideFormat)
-        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, EntailmentParseResult.toSlideFormat(_,_))
+        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, EntailmentParseResult.toSlideFormat _)
         println("Done.")
         println(s"Will convert all benchmarks in ${config.file} to SONGBIRD input format")
-        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, EntailmentParseResult.toSongbirdFormat(_,_))
+        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, EntailmentParseResult.toSongbirdFormat _)
+        println("Done.")
+        println(s"Will convert all benchmarks in ${config.file} to LaTeX")
+        val toLatex = (filename: String, pr: EntailmentParseResult) => Seq((filename+".tex", pr.toLatex))
+        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, toLatex)
         println("Done.")
 
       case Show =>
