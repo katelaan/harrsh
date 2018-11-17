@@ -1,12 +1,12 @@
 # If you first construct two linked leaves and then combine them with a common root, this gives you a tll
 # Note: For twoleafptrs, you get an unfolding forest with two trees!
 query {
-  rootoftwo(x1, x2, x3) |= tll(x1, x2, x3)
+  tlllin(x1, x2, x3) |= tll(x1, x2, x3)
 }
 sid {
   tll <= x1 -> (nil,nil,x3) : {x1 = x2} ;
   tll <= x1 -> (l,r,nil) * tll(l,x2,m) * tll(r,m,x3) ;
-  rootoftwo <= x1 -> (x2,r,nil) * twoleafptrs(x2,r,x3) ;
+  tlllin <= x1 -> (x2,r,nil) * twoleafptrs(x2,r,x3) ;
   twoleafptrs <= x1 -> (nil,nil,x2) * oneptr(x2, x3) ;
   oneptr <= x1 -> (nil,nil,x2)
 }

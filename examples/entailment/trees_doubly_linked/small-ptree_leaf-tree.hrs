@@ -1,28 +1,28 @@
 # Compare different ways to construct binary trees with parent pointers
 
 query {
-  ptree(x2,x3,x1) |= leafTree(x1,x2,x3) 
+  rtree(x2,x3,x1) |= ltree(x1,x2,x3)
 }
 sid {
   # construct a binary tree with parent pointers starting at the leftmost leaf.
   # x1 = leftmost leaf
   # x2 = root
   # x3 = parent of root
-  leafTree <= x1 -> (nil,nil,p) * rtree(p,x1,x2,x3);
-  rtree <= x1 -> (x2, r, p) * treep(r,x1) * rtree(p,x1,x3,x4);
-  rtree <= x1 -> (x2, r, x3) * treep(r,x1) * rroot(x3,x1,x4);
-  rroot <= x1 -> (x2,r,x3) * treep(r,x1);
+  ltree <= x1 -> (nil,nil,p) * lltree(p,x1,x2,x3);
+  lltree <= x1 -> (x2, r, p) * tree(r,x1) * lltree(p,x1,x3,x4);
+  lltree <= x1 -> (x2, r, x3) * tree(r,x1) * lroot(x3,x1,x4);
+  lroot <= x1 -> (x2,r,x3) * tree(r,x1);
   #
   # standard construction of a binary tree with parent pointers in which we additionally
   # keep track of the leftmost leaf
   # x1 = root
-  # x2 = parent 
+  # x2 = parent
   # x3 = leftmost leaf
-  ptree <= x1 -> (x3,r,x2) * parent(x3,x1) * treep2(r,x1);
+  rtree <= x1 -> (x3,r,x2) * parent(x3,x1) * tree2(r,x1);
   # auxiliaries
-  treep2 <= x1 -> (nil, nil, x2) ;
-  treep <= x1 -> (nil, nil, x2) ;
-  treep <= x1 -> (y, z, x2) * treep(y, x1) * treep(z, x1) ;
+  tree2 <= x1 -> (nil, nil, x2) ;
+  tree <= x1 -> (nil, nil, x2) ;
+  tree <= x1 -> (y, z, x2) * tree(y, x1) * tree(z, x1) ;
   parent <= x1 -> (nil,nil,x2);
 }
 info {
