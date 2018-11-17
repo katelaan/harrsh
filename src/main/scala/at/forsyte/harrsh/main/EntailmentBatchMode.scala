@@ -83,10 +83,8 @@ object EntailmentBatchMode {
   }
 
   def runAllEntailmentsInPath(path: String, timeout: Duration): Unit = {
-    val files = IOUtils.allFilesRecursively(path).sorted
     val results = (for {
-      file <- files
-      if !file.toString.contains("todo")
+      file <- allHarrshEntailmentFilesInPath(path)
     } yield runBenchmarkWithTimeout(file.toString, timeout)).toList
 
     reportAnalysisTimes(results.map(_._2))
