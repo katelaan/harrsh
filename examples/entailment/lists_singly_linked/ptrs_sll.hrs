@@ -1,0 +1,11 @@
+# A sequence of pointers is a list
+query {
+  x1 -> y1 * y1 -> y2 * y2 -> x2 |= sll(x1, x2)
+}
+sid {
+  sll <= x1 -> x2 ;
+  sll <= x1 -> y * sll(y,x2)
+}
+info {
+  status = true
+}
