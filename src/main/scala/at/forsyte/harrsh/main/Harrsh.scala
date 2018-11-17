@@ -193,10 +193,11 @@ object Harrsh {
 
       case ConvertEntailmentBatch =>
         println(s"Will convert all benchmarks in ${config.file} to SLIDE input format")
-        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, "export/slide", EntailmentParseResult.toSlideFormat)
+        //EntailmentBatchMode.convertAllEntailmentsInPath(config.file, "export/slide", EntailmentParseResult.toSlideFormat)
+        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, EntailmentParseResult.toSlideFormat(_,_))
         println("Done.")
         println(s"Will convert all benchmarks in ${config.file} to SONGBIRD input format")
-        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, "export/songbird", EntailmentParseResult.toSongbirdFormat)
+        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, EntailmentParseResult.toSongbirdFormat(_,_))
         println("Done.")
 
       case Show =>

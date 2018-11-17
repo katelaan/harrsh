@@ -26,23 +26,29 @@ object EntailmentBatchMode {
     //runAllEntailmentsInPath(PathToDefaultEntailmentBenchmarks, EntailmentBatch.defaultTimeout)
   }
 
-  def convertAllEntailmentsInPath(inputPath: String, outputPath: String, converter: (String, EntailmentParseResult) => Seq[(String,String)]): Unit = {
+  def convertAllEntailmentsInPath(inputPath: String, outputPath: Option[String], converter: (String, EntailmentParseResult) => Seq[(String,String)]): Unit = {
     for {
       (file, maybeParsed) <- parseResultsForAllFilesInPath(inputPath)
     } maybeParsed match {
       case Some(parseResult) =>
+        val inputDir = file.split("/").init.mkString("/")
         val converted = converter(file.split("/").last, parseResult)
         if (converted.isEmpty) {
           println(s"WARNING: Conversion of $file failed.")
         } else {
           for {
             (outFile, content) <- converted
-          } IOUtils.writeFile(outputPath + '/' + outFile, content)
+          } IOUtils.writeFile(outputPath.getOrElse(inputDir) + '/' + outFile, content)
         }
       case None => println(s"WARNING: Could not parse $file")
     }
   }
 
+  def convertAllEntailmentsInPath(inputPath: String, outputPath: String, converter: (String, EntailmentParseResult) => Seq[(String,String)]): Unit = {
+    convertAllEntailmentsInPath(inputPath, Some(outputPath), converter)
+  }
+
+  // TODO: Reduce code duplication across all the different methods that read files
   def parseAllEntailmentsInPathToInstances(path: String, computeSidsForEachSideOfEntailment: Boolean): Seq[(String,Option[EntailmentInstance])] = {
     val files = IOUtils.allFilesRecursively(path).sorted
     for {
@@ -56,13 +62,19 @@ object EntailmentBatchMode {
     }
   }
 
-  def parseResultsForAllFilesInPath(path: String): Seq[(String,Option[EntailmentParseResult])] = {
+  def allHarrshEntailmentFilesInPath(path: String): Seq[String] = {
     val files = IOUtils.allFilesRecursively(path).sorted
     for {
       file <- files
       filename = file.toString
       if !filename.contains("todo")
-      if !filename.endsWith("info")
+      if filename.endsWith("hrs")
+    } yield filename
+  }
+
+  def parseResultsForAllFilesInPath(path: String): Seq[(String,Option[EntailmentParseResult])] = {
+    for {
+      filename <- allHarrshEntailmentFilesInPath(path)
     } yield {
       println(s"Parsing $filename...")
       val content = IOUtils.readFile(filename)
