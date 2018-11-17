@@ -39,6 +39,14 @@ sealed trait ToolOutput {
     case Unknown => None
     case ToolTimeout => None
   }
+
+  val result: Option[Boolean] = this match {
+    case Valid(_) => Some(true)
+    case Invalid(_) => Some(false)
+    case ToolError(toolOutput) => None
+    case Unknown => None
+    case ToolTimeout => None
+  }
 }
 
 case class Valid(stats: Option[EntailmentStats]) extends ToolOutput
@@ -213,8 +221,8 @@ object EntailmentBenchmarking {
 
   // Benchmark times
   val secs = (i: Int) => TimeValue.seconds(i)
-  val WarmupTime = secs(20)
-  val IterationTime = secs(100)
+  val WarmupTime = secs(2)
+  val IterationTime = secs(10)
   val WarmupIterations = 1
   val MeasurementIterations = 1
 
@@ -268,18 +276,28 @@ object EntailmentBenchmarking {
       () => SlideBenchmarking.p.foreach(_.destroy()))
   )
 
+  private def resultDeviationMarker(hrs: ToolTableEntry, other: ToolTableEntry) = {
+    (for {
+      hrsRes <- hrs.result
+      otherRes <- other.result
+    } yield if (hrsRes != otherRes) " (*)" else "").getOrElse("")
+  }
+
   case class TableEntry(file: String, tools: Seq[ToolTableEntry]) {
     def toColumnSeq: Seq[String] = {
       val hrs = tools.find(_.toolName == "HRS").get
       val sb = tools.find(_.toolName == "SB").get
       val sld = tools.find(_.toolName == "SLD").get
+      val sbSuffix = resultDeviationMarker(hrs, sb)
+      val sldSuffix = resultDeviationMarker(hrs, sld)
 
       val query = file.split("/").last.replace("_","\\_")
-      Seq(query, hrs.output.statusString, hrs.timeString, sb.timeString, sld.timeString) ++ hrs.statsColumns
+      Seq(query, hrs.output.statusString, hrs.timeString, sb.timeString + sbSuffix, sld.timeString + sldSuffix) ++ hrs.statsColumns
     }
 
     def errorMessages: Seq[String] = Seq() ++ tools.flatMap(_.errorMsg)
   }
+
   case class ToolTableEntry(toolName: String, output: ToolOutput, jmhRes: Option[ToolBenchResult]) {
 
     private val jmhTime = jmhRes match {
@@ -304,6 +322,8 @@ object EntailmentBenchmarking {
       case ToolError(toolOutput) => Some(s"$toolName failed. Diagnostic info (if any): $toolOutput")
       case _ => None
     }
+
+    val result = output.result
   }
 
   private def runBenchmarkFile(file: String): TableEntry = {
@@ -350,9 +370,9 @@ object EntailmentBenchmarking {
   }
 
   def main(args: Array[String]): Unit = {
-    val bms = EntailmentBatchMode.allHarrshEntailmentFilesInPath(BenchmarkPath)
+    //val bms = EntailmentBatchMode.allHarrshEntailmentFilesInPath(BenchmarkPath)
     //val bms = Seq("examples/entailment/tacas2019/2-grid.hrs", "examples/entailment/tacas2019/acyclic-sll_sll.hrs", "examples/entailment/tacas2019/almost-linear-treep_treep.hrs", "examples/entailment/tacas2019/dlgrid.hrs", "examples/entailment/tacas2019/dlgrid-left-right.hrs", "examples/entailment/various/list-segments-different-order.hrs")
-    //val bms = Seq()
+    val bms = Seq("examples/entailment/tacas2019/tll-classes_tll.hrs")
 
     var resultsByFile: List[TableEntry] = Nil
     for (bm <- bms) {
