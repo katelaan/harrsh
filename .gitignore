@@ -8,3 +8,6 @@ export/*
 *.bak
 *.aux
 *.log
+*.callargs
+*.pred
+*.sb
