@@ -14,6 +14,29 @@ import scala.sys.process._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration.{Duration, SECONDS}
+import BenchmarkingConfig._
+
+object BenchmarkingConfig {
+
+  // Tools
+  val Harrsh = "at.forsyte.harrsh.main.HarrshBenchmarking.benchmarkHarrsh"
+  val Songbird = "at.forsyte.harrsh.main.SongbirdBenchmarking.benchmarkSongbird"
+  val Slide = "at.forsyte.harrsh.main.SlideBenchmarking.benchmarkSlide"
+  val AllTools = Set(Harrsh, Songbird, Slide)
+
+  // Paths
+  val ResultTexFile = "complete-results.tex"
+  val BenchmarkPath = "examples/entailment"
+
+  // Benchmark times
+  val ShortTest = false
+  val Timeout = Duration(if (ShortTest) 3 else 180, SECONDS)
+  private val secs = (i: Int) => TimeValue.seconds(i)
+  val WarmupTime = secs(if (ShortTest) 0 else 20)
+  val IterationTime = secs(if (ShortTest) 1 else 100)
+  val WarmupIterations = 1
+  val MeasurementIterations = 1
+}
 
 sealed trait ToolOutput {
   val statusString = this match {
@@ -190,8 +213,6 @@ object HarrshBenchmarking {
 
 object ToolRunner {
 
-  val Timeout = Duration(30, SECONDS)
-
   def apply(file: String, run: String => ToolOutput, cleanup: () => Unit): ToolOutput = {
 
     val f: Future[ToolOutput] = Future {
@@ -199,7 +220,7 @@ object ToolRunner {
     }
 
     try {
-      Await.result(f, Timeout)
+      Await.result(f, BenchmarkingConfig.Timeout)
     } catch {
       case e : TimeoutException =>
         println(s"Timeout reached on $file => Will execute cleanup routine.")
@@ -215,21 +236,6 @@ class EntailmentBenchmarking {
   // Don't delete this class, otherwise JMH will crash.
 }
 object EntailmentBenchmarking {
-
-  val ResultTexFile = "complete-results.tex"
-  val BenchmarkPath = "examples/entailment"
-
-  // Benchmark times
-  val secs = (i: Int) => TimeValue.seconds(i)
-  val WarmupTime = secs(2)
-  val IterationTime = secs(10)
-  val WarmupIterations = 1
-  val MeasurementIterations = 1
-
-  val Harrsh = "at.forsyte.harrsh.main.HarrshBenchmarking.benchmarkHarrsh"
-  val Songbird = "at.forsyte.harrsh.main.SongbirdBenchmarking.benchmarkSongbird"
-  val Slide = "at.forsyte.harrsh.main.SlideBenchmarking.benchmarkSlide"
-  val AllTools = Set(Harrsh, Songbird, Slide)
 
   case class ToolBenchResult(tool: String, time: Double) {
     assert(AllTools.contains(tool))
@@ -370,9 +376,9 @@ object EntailmentBenchmarking {
   }
 
   def main(args: Array[String]): Unit = {
-    //val bms = EntailmentBatchMode.allHarrshEntailmentFilesInPath(BenchmarkPath)
+    val bms = EntailmentBatchMode.allHarrshEntailmentFilesInPath(BenchmarkPath)
     //val bms = Seq("examples/entailment/tacas2019/2-grid.hrs", "examples/entailment/tacas2019/acyclic-sll_sll.hrs", "examples/entailment/tacas2019/almost-linear-treep_treep.hrs", "examples/entailment/tacas2019/dlgrid.hrs", "examples/entailment/tacas2019/dlgrid-left-right.hrs", "examples/entailment/various/list-segments-different-order.hrs")
-    val bms = Seq("examples/entailment/tacas2019/tll-classes_tll.hrs")
+    //val bms = Seq("examples/entailment/tacas2019/tll-classes_tll.hrs")
 
     var resultsByFile: List[TableEntry] = Nil
     for (bm <- bms) {
