@@ -50,7 +50,9 @@ object EntailmentParseResult {
     }
     // TODO: The delimiter between pure formulas is just guess work
     val pureSuffix = if (pure.isEmpty) "" else " & " + pure.mkString(", ")
-    val shString = prefix + (ptrs ++ calls).mkString(" * ") + pureSuffix
+    val spatial = (ptrs ++ calls).mkString(" * ")
+    val spatialOrEmp = if (spatial.isEmpty) "emp" else spatial
+    val shString = prefix + spatialOrEmp + pureSuffix
     sanitize(shString)
   }
 
@@ -64,7 +66,7 @@ object EntailmentParseResult {
 
   def toSongbirdFormat(filename: String, pr: EntailmentParseResult): Seq[(String,String)] = {
     try {
-      val typeDecl = toSongbirdType(pr.sid)
+      val typeDecl = toSongbirdType(pr.sid, pr.lhs, pr.rhs)
       val preds = pr.sid.preds map predToSongbird
       val query = toplevelSongbirdQuery(pr.lhs, pr.rhs)
       val content = typeDecl + "\n\n" + preds.mkString("\n\n") + "\n\n" + query
@@ -109,17 +111,26 @@ object EntailmentParseResult {
     }
   }
 
-  private def toSongbirdType(sid: SID): String = {
-    val rhsSizes = for {
+  private def toSongbirdType(sid: SID, lhs: SymbolicHeap, rhs: SymbolicHeap): String = {
+    val rhsSidSizes = for {
       p <- sid.preds.toSet[Predicate]
       r <- p.bodySHs
       ptr <- r.pointers
     } yield ptr.to.length
-    if (rhsSizes.size != 1)
+    val rhsQuerySizes = for {
+      sh <- Seq(lhs, rhs)
+      ptr <- sh.pointers
+    } yield ptr.to.length
+    val rhsSizes = rhsSidSizes ++ rhsQuerySizes
+    if (rhsSizes.size > 1)
       throw ConversionException("Multiple pointer arities within one benchmark not supported by Songbird exporter: " + rhsSizes)
-    val fields = (1 to rhsSizes.head) map (i => SbFieldPrefix + i)
-    val fieldDecls = fields map (f => "    " + SbType + ' ' + f + ';')
-    "data " + SbType + " {\n" + fieldDecls.mkString("\n") + "\n};"
+    if (rhsSizes.size == 1) {
+      val fields = (1 to rhsSizes.head) map (i => SbFieldPrefix + i)
+      val fieldDecls = fields map (f => "    " + SbType + ' ' + f + ';')
+      "data " + SbType + " {\n" + fieldDecls.mkString("\n") + "\n};"
+    } else {
+      ""
+    }
   }
 
   implicit val parseResultToLatex: ToLatex[EntailmentParseResult] = (epr: EntailmentParseResult, naming: Naming) => {
