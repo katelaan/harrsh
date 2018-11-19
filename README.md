@@ -1,7 +1,15 @@
 # HARRSH #
 
 HARRSH implements Heap Automata for Reasoning about Robustness of Symbolic Heaps.
-More specifically, for various *robustness properties*, HARRSH implements
+
+## News: Effective Entailment Checking for Separation Logic with Inductive Definitions
+
+HARRSH now supports entailment checking. The paper that describes these new features is currently under review. The the [appendix with all proofs](https://github.com/katelaan/entailment/blob/master/appendix.pdf) and an archive with the full set of benchmarks -- is available [here](https://github.com/katelaan/entailment/blob/master/appendix.pdf). An [archive containing the full set of benchmarks](https://github.com/katelaan/entailment/blob/master/benchmarks.tar.gz) used to evaluate Harrsh are available [here](https://github.com/katelaan/entailment/blob/master/benchmarks.tar.gz).
+The archive contains the benchmarks in Harrsh, Songbird and Slide input formats.
+
+## Robustness Properties
+
+For various *robustness properties*, HARRSH implements
 
  1. Automatic **refinement** of a given system of inductive definitions (SID) to filter out those unfoldings that do *not* satisfy the robustness property.
  2. **Decision procedures** for deciding whether a given SID has unfoldings that satisfy the robustness property.
@@ -13,6 +21,8 @@ Currently, the following robustness properties are supported for arbitrary SIDs.
 * Reachability to show definite reachability between pairs of variables in the heap
 * Garbage freedom, i.e., absence of unreachable allocated memory locations
 * Weak acyclicity, i.e., acyclicity of all paths involving only non-dangling pointers
+
+Additionally, we now have support for **entailment** checking for the symbolic-heap fragment defined in [The Tree Width of Separation Logic with Recursive Definitions](https://link.springer.com/chapter/10.1007/978-3-642-38574-2_2)
 
 HARRSH is co-developed by [FORSYTE](http://forsyte.at) (TU Wien) and [MOVES](http://moves.rwth-aachen.de) (RWTH Aachen University).
 For more details, see the preprint of our paper ["Unified Reasoning about Robustness Properties of Symbolic-Heap Separation Logic"](https://arxiv.org/abs/1610.07041) (by Christina Jansen, Jens Katelaan, Christoph Matheja, Thomas Noll, and Florian Zuleger) on [arXiv.org](https://arxiv.org/abs/1610.07041).
