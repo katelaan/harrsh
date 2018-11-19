@@ -4,7 +4,7 @@ HARRSH implements Heap Automata for Reasoning about Robustness of Symbolic Heaps
 
 ## News: Effective Entailment Checking for Separation Logic with Inductive Definitions
 
-HARRSH now supports entailment checking. The paper that describes these new features is currently under review. The [appendix with all proofs](https://github.com/katelaan/entailment/blob/master/appendix.pdf) and an archive with the full set of benchmarks -- is available [here](https://github.com/katelaan/entailment/blob/master/appendix.pdf). An [archive containing the full set of benchmarks](https://github.com/katelaan/entailment/blob/master/benchmarks.tar.gz) used to evaluate Harrsh are available [here](https://github.com/katelaan/entailment/blob/master/benchmarks.tar.gz).
+HARRSH now supports entailment checking. The paper that describes these new features is currently under review. The [appendix with all proofs](https://github.com/katelaan/entailment/blob/master/appendix.pdf) is available [here](https://github.com/katelaan/entailment/blob/master/appendix.pdf). An [archive containing the full set of benchmarks](https://github.com/katelaan/entailment/blob/master/benchmarks.tar.gz) used to evaluate Harrsh are available [here](https://github.com/katelaan/entailment/blob/master/benchmarks.tar.gz).
 The archive contains the benchmarks in Harrsh, Songbird and Slide input formats.
 
 ## Robustness Properties
