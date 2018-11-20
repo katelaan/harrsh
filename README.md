@@ -1,7 +1,15 @@
 # HARRSH #
 
 HARRSH implements Heap Automata for Reasoning about Robustness of Symbolic Heaps.
-More specifically, for various *robustness properties*, HARRSH implements
+
+## News: Effective Entailment Checking for Separation Logic with Inductive Definitions
+
+HARRSH now supports entailment checking. The paper that describes these new features is currently under review. The [appendix with all proofs](https://github.com/katelaan/entailment/blob/master/appendix.pdf) is available [here](https://github.com/katelaan/entailment/blob/master/appendix.pdf). An [archive containing the full set of benchmarks](https://github.com/katelaan/entailment/blob/master/benchmarks.tar.gz) used to evaluate Harrsh are available [here](https://github.com/katelaan/entailment/blob/master/benchmarks.tar.gz).
+The archive contains the benchmarks in Harrsh, Songbird and Slide input formats.
+
+## Robustness Properties
+
+For various *robustness properties*, HARRSH implements
 
  1. Automatic **refinement** of a given system of inductive definitions (SID) to filter out those unfoldings that do *not* satisfy the robustness property.
  2. **Decision procedures** for deciding whether a given SID has unfoldings that satisfy the robustness property.
@@ -14,13 +22,14 @@ Currently, the following robustness properties are supported for arbitrary SIDs.
 * Garbage freedom, i.e., absence of unreachable allocated memory locations
 * Weak acyclicity, i.e., acyclicity of all paths involving only non-dangling pointers
 
+Additionally, we now have support for **entailment** checking for the symbolic-heap fragment defined in [The Tree Width of Separation Logic with Recursive Definitions](https://link.springer.com/chapter/10.1007/978-3-642-38574-2_2)
+
 HARRSH is co-developed by [FORSYTE](http://forsyte.at) (TU Wien) and [MOVES](http://moves.rwth-aachen.de) (RWTH Aachen University).
 For more details, see the preprint of our paper ["Unified Reasoning about Robustness Properties of Symbolic-Heap Separation Logic"](https://arxiv.org/abs/1610.07041) (by Christina Jansen, Jens Katelaan, Christoph Matheja, Thomas Noll, and Florian Zuleger) on [arXiv.org](https://arxiv.org/abs/1610.07041).
 
 ### Installation ###
 
-Just install [sbt](http://www.scala-sbt.org/), clone the repository and run `sbt compile` in your working copy.
-More detailed instructions are available in a separate INSTALL file.
+Just install [sbt](http://www.scala-sbt.org/), clone the repository and run `./build.sh` in your working copy. This will build an executable called `harrsh`. More detailed instructions are available in a separate INSTALL file.
 
 ### Tutorial 
 
@@ -61,7 +70,30 @@ HARRSH can read SID specifications both in the Cyclist format (`.defs` files) or
       bar <= x3->(z,y,   x2)*foo(x1,z,y):{y=z, x1    !=  x2 }
         
       # That's it. By the way: This file should parse.
-  
+
+#### Entailment Checking ####
+
+To use HARRSH for entailment checking, an SID definition has to be combined with a query. For example,
+
+    # Every list of even length is a list
+    query {
+      even(x1, x2) |= sll(x1, x2)
+    }
+    sid {
+      sll <= x1 -> x2 ;
+      sll <= x1 -> y * sll(y,x2) ;
+      odd <= x1 -> x2 ;
+      odd <= x1 -> y * even(y,x2) ;
+      even <= x1 -> y * odd(y,x2)
+    }
+    info {
+      status = true
+    }
+
+To check this entailment
+
+**Try it out!** To check the above entailment, rub `./harrsh -e examples/entailment/lists_singly_linked/even-sll_sll.hrs
+`.
 
 #### Properties ####
 
@@ -89,10 +121,10 @@ SID refinement has multiple applications:
 * Preprocessing. E.g. guaranteeing that all unfoldings of an SID are established prior to feeding it to an entailment checker. 
 * Optimization. E.g. removing irrelevant unfoldings from the SID, thus narrowing down the search space for verification tools.
 
-To execute SID refinement, run `./harrsh.sh --refine <path/to/sid> --prop <property>`, where property is in the format described above.
+To execute SID refinement, run `./harrsh --refine <path/to/sid> --prop <property>`, where property is in the format described above.
 Once refinement is complete, the refined SID is printed to `stdout`.
 
-**Try it out!** Run `./harrsh.sh --refine examples/datastructures/tll.sid --prop REACH[x3,x2]`. The file `tll.sid` defines trees with linked leaves with root `x1`, leftmost leaf `x2` and successor of rightmost leaf `x3`:
+**Try it out!** Run `./harrsh --refine examples/datastructures/tll.sid --prop REACH[x3,x2]`. The file `tll.sid` defines trees with linked leaves with root `x1`, leftmost leaf `x2` and successor of rightmost leaf `x3`:
 
     tll <= x1 -> (nil, nil, x3) : { x1 = x2 } ;
     tll <= x1 -> (l, r, nil) * tll(l, x2, z) * tll(r, z, x3)
@@ -116,7 +148,7 @@ The refinement algorithm can also be used to decide whether there exist unfoldin
 To run a single decision problem instance, run `./harrsh.sh --decide <path/to/sid> --prop <property>`.
 HARRSH can also run multiple decision problem instances in batch mode. To do so, create a benchmark file with tasks to perform (see the example folder) and feed it to HARRSH: `./harrsh.sh --batch <path/to/tasks> --timeout <timeout in seconds>`. The timeout is optional (120 seconds by default).
 
-**Try it out!** Run `./harrsh.sh --batch examples/datastructure-benchmarks.bms`. HARRSH will check various robustness properties for various simple data structure specifications and summarize the results in a table.
+**Try it out!** Run `./harrsh --batch examples/datastructure-benchmarks.bms`. HARRSH will check various robustness properties for various simple data structure specifications and summarize the results in a table.
 
 ### Who do I talk to? ###
 
