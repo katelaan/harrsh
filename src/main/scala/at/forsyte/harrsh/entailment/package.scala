@@ -77,6 +77,12 @@ package object entailment {
       case VarAllocated => true
       case VarReferenced => true
     }
+
+    def shortString: String = this match {
+      case VarUnused => "unused"
+      case VarAllocated => "alloced"
+      case VarReferenced => "refed"
+    }
   }
 
   case object VarUnused extends VarUsage

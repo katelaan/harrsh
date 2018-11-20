@@ -4,12 +4,12 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive.PredCall
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
 
-case class TreeCut private(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
+case class EntailmentContext private(root: PredicateNodeLabel, calls: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
 
-  assert(TreeCut.noRedundantPlaceholders(labels), s"There are redundant placeholders in $this")
-  assert(TreeCut.nodeLabelsAndUsageInfoContainSameVars(this), s"Inconsistent tree interface $this: There is a difference between the variables in the usage info and in the substitutions")
+  assert(EntailmentContext.noRedundantPlaceholders(labels), s"There are redundant placeholders in $this")
+  assert(EntailmentContext.nodeLabelsAndUsageInfoContainSameVars(this), s"Inconsistent tree interface $this: There is a difference between the variables in the usage info and in the substitutions")
 
-  lazy val labels: Seq[NodeLabel] = Seq[NodeLabel](root) ++ leaves
+  lazy val labels: Seq[NodeLabel] = Seq[NodeLabel](root) ++ calls
 
   lazy val placeholders: Set[PlaceholderVar] = substs.flatMap(_.placeholders).toSet
 
@@ -18,16 +18,20 @@ case class TreeCut private(root: PredicateNodeLabel, leaves: Set[PredicateNodeLa
   private lazy val substs = labels map (_.subst)
 
   override def toString: String = {
-    val leavesString = if (leaves.isEmpty) "empty" else leaves.mkString(",")
+    val callsString = if (calls.isEmpty) "empty" else calls.mkString(",")
     val usageStr = usageInfo.map{
-      case (vs, usage) => vs.mkString(",") + "->" + usage
+      case (vs, usage) => vs.mkString(",") + ": " + usage.shortString
     }.mkString("; ")
-    val ensuredStr = pureConstraints.ensured.mkString(",")
-    val missingStr = pureConstraints.missing.mkString(",")
-    s"Cut(root = $root; leaves = $leavesString; usage = { $usageStr }; ensured = { $ensuredStr }; missing = { $missingStr })"
+    val ensuredStr = if (pureConstraints.ensured.nonEmpty) {
+      pureConstraints.ensured.mkString("; ensured = {", ",", "}")
+    } else ""
+    val missingStr = if (pureConstraints.missing.nonEmpty) {
+      pureConstraints.missing.mkString("; missing = {", ",", "}")
+    } else ""
+    s"Ctx(root = $root; calls = $callsString; usage = {$usageStr}$ensuredStr$missingStr)"
   }
 
-  def isConcrete: Boolean = leaves.isEmpty
+  def isConcrete: Boolean = calls.isEmpty
 
   def hasConsistentPureConstraints: Boolean = pureConstraints.isConsistent
 
@@ -50,22 +54,22 @@ case class TreeCut private(root: PredicateNodeLabel, leaves: Set[PredicateNodeLa
     ).forall(b => b)
   }
 
-  def asExtensionType: TreeCuts = TreeCuts(Set(this))
+  def asExtensionType: ContextDecomposition = ContextDecomposition(Set(this))
 
   def nonPlaceholderFreeVars: Set[FreeVar] = {
     substs.flatMap(_.freeNonNullVars).filterNot(PlaceholderVar.isPlaceholder).toSet
   }
 
-  def updateSubst(f: SubstitutionUpdate, convertToNormalform: Boolean): TreeCut = {
-    TreeCut(root.update(f),
-      leaves map (_.update(f)),
+  def updateSubst(f: SubstitutionUpdate, convertToNormalform: Boolean): EntailmentContext = {
+    EntailmentContext(root.update(f),
+      calls map (_.update(f)),
       VarUsageByLabel.update(usageInfo, f),
       pureConstraints.update(f),
       convertToNormalform)
   }
 
-  def dropVarsFromPureConstraints(varsToDrop: Set[Var]): TreeCut = {
-    TreeCut(root, leaves, usageInfo, pureConstraints.dropVars(varsToDrop), convertToNormalform = false)
+  def dropVarsFromPureConstraints(varsToDrop: Set[Var]): EntailmentContext = {
+    EntailmentContext(root, calls, usageInfo, pureConstraints.dropVars(varsToDrop), convertToNormalform = false)
   }
 
   def usageInfoOfNode(n: NodeLabel): VarUsageInfo = {
@@ -101,19 +105,19 @@ case class TreeCut private(root: PredicateNodeLabel, leaves: Set[PredicateNodeLa
   }
 }
 
-object TreeCut {
+object EntailmentContext {
 
-  implicit val canComposeTreeInterfaces: CanCompose[TreeCut] = CanComposeCuts.canComposeTreeInterfaces
+  implicit val canComposeTreeInterfaces: CanCompose[EntailmentContext] = CanComposeEntailmentContext.canComposeTreeInterfaces
 
-  def apply(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker, convertToNormalform: Boolean): TreeCut = {
+  def apply(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker, convertToNormalform: Boolean): EntailmentContext = {
     if (convertToNormalform) {
       normalFormConversion(root, leaves, usageInfo, pureConstraints)
     } else {
-      new TreeCut(root, leaves, usageInfo, pureConstraints)
+      new EntailmentContext(root, leaves, usageInfo, pureConstraints)
     }
   }
 
-  def normalFormConversion(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): TreeCut = {
+  def normalFormConversion(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): EntailmentContext = {
     val dropper = SubstitutionUpdate.redundantPlaceholderDropper(Set(root) ++ leaves)
     val rootAfterDropping = root.update(dropper)
     val leavesAfterDropping = leaves map (_.update(dropper))
@@ -122,18 +126,18 @@ object TreeCut {
 
     val establishNormalForm = NodeLabel.labelsToPlaceholderNormalForm(Seq(rootAfterDropping) ++ leavesAfterDropping)
 
-    new TreeCut(
+    new EntailmentContext(
       rootAfterDropping.update(establishNormalForm),
       leavesAfterDropping map (_.update(establishNormalForm)),
       VarUsageByLabel.update(usageInfoAfterDropping, establishNormalForm),
       diseqsAfterDropping.update(establishNormalForm))
   }
 
-  def isInNormalForm(tif: TreeCut): Boolean = {
+  def isInNormalForm(tif: EntailmentContext): Boolean = {
     noRedundantPlaceholders(tif.labels) && PlaceholderVar.noGapsInPlaceholders(tif.placeholders)
   }
 
-  def haveNoConflicts(tif1: TreeCut, tif2: TreeCut): Boolean = {
+  def haveNoConflicts(tif1: EntailmentContext, tif2: EntailmentContext): Boolean = {
     (tif1.placeholders intersect tif2.placeholders).isEmpty
   }
 
@@ -143,7 +147,7 @@ object TreeCut {
     }
   }
 
-  def nodeLabelsAndUsageInfoContainSameVars(tif: TreeCut): Boolean = {
+  def nodeLabelsAndUsageInfoContainSameVars(tif: EntailmentContext): Boolean = {
     val varsOccurringInNodeLabels = tif.substs.toSet[Substitution].flatMap(subst => subst.toSeq)
     val varsInUsageInfo = tif.usageInfo.keySet
     varsOccurringInNodeLabels == varsInUsageInfo

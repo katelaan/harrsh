@@ -23,7 +23,7 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
 
   override val description: String = s"EntailmentAutomaton($rhs)"
 
-  override type State = EntailmentAutomaton.CutProfile
+  override type State = EntailmentAutomaton.EntailmentProfile
 
   override def isFinal(s: State): Boolean = {
     // A state represents all the possible ways to parse an RSH as a SID unfolding tree.
@@ -44,7 +44,7 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
 
 object EntailmentAutomaton extends HarrshLogging {
 
-  case class CutProfile(profile: Set[TreeCuts], orderedParams: Seq[FreeVar]) {
+  case class EntailmentProfile(profile: Set[ContextDecomposition], orderedParams: Seq[FreeVar]) {
 
     assert(profile forall (_.boundVars.isEmpty),
       s"Trying to construct state from cut profile that still contains bound vars: $profile")
@@ -60,7 +60,7 @@ object EntailmentAutomaton extends HarrshLogging {
   /**
     * An inconsistent state representing all "sink" states of the given parameter sequence
     */
-  def InconsistentState(orderedParams: Seq[FreeVar]) = CutProfile(Set.empty, orderedParams)
+  def InconsistentState(orderedParams: Seq[FreeVar]) = EntailmentProfile(Set.empty, orderedParams)
 
   private def rename(sh: SymbolicHeap, perm: Seq[FreeVar]): SymbolicHeap = {
     val renamingPairs = sh.freeVars.zip(perm)

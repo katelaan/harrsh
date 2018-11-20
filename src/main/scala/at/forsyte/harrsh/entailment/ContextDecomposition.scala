@@ -9,14 +9,12 @@ import at.forsyte.harrsh.util.ToLatex
   * A single abstracted forest, retaining only the tree cuts rather than the full trees.
   * @param parts Abstracted trees
   */
-case class TreeCuts(parts: Set[TreeCut]) extends HarrshLogging {
+case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLogging {
 
-  assert(parts forall TreeCut.isInNormalForm,
+  assert(parts forall EntailmentContext.isInNormalForm,
     s"Trying to construct extension type from non-normalized parts ${parts.mkString(", ")}")
   assert(parts forall (_.hasConsistentPureConstraints),
     s"Contradictory pure constraints in tree interface ${parts.find(!_.hasConsistentPureConstraints).get}")
-
-  override def toString: String = parts.mkString("Set(", ",\n    ", ")")
 
   lazy val missingPureConstraints: Set[PureAtom] = parts.flatMap(_.pureConstraints.missing)
 
@@ -61,7 +59,7 @@ case class TreeCuts(parts: Set[TreeCut]) extends HarrshLogging {
     (missingPureConstraints.flatMap(_.getNonNullVars) intersect varsToDrop.toSet).nonEmpty
   }
 
-  def dropVars(varsToDrop: Seq[Var]): Option[TreeCuts] = {
+  def dropVars(varsToDrop: Seq[Var]): Option[ContextDecomposition] = {
     if (varsToDrop.isEmpty) {
       Some(this)
     } else {
@@ -89,28 +87,28 @@ case class TreeCuts(parts: Set[TreeCut]) extends HarrshLogging {
         // Note: Must to normalization to get rid of gaps in results and strange order by doing normalization
         val partsAfterDropping = partsAfterDroppingPureConstraints map (_.updateSubst(replaceByPlacheolders, convertToNormalform = true))
 
-        Some(TreeCuts(partsAfterDropping))
+        Some(ContextDecomposition(partsAfterDropping))
       }
     }
   }
 
-  def updateSubst(f: SubstitutionUpdate): TreeCuts = {
-    TreeCuts(parts map (_.updateSubst(f, convertToNormalform = false)))
+  def updateSubst(f: SubstitutionUpdate): ContextDecomposition = {
+    ContextDecomposition(parts map (_.updateSubst(f, convertToNormalform = false)))
   }
 
-  def compositionOptions(other: TreeCuts): Seq[TreeCuts] = {
+  def compositionOptions(other: ContextDecomposition): Seq[ContextDecomposition] = {
     for {
       composed <- CanCompose.compositionOptions(parts.toSeq ++ other.parts)
       if composed.forall(_.hasConsistentPureConstraints)
-    } yield TreeCuts(composed)
+    } yield ContextDecomposition(composed)
   }
 
 }
 
-object TreeCuts {
+object ContextDecomposition {
 
-  implicit val etypeToLatex: ToLatex[TreeCuts] = EntailmentInstanceToLatex.etypeToLatex
+  implicit val etypeToLatex: ToLatex[ContextDecomposition] = EntailmentInstanceToLatex.decompToLatex
 
-  def apply(parts: Seq[TreeCut]): TreeCuts = TreeCuts(parts.toSet)
+  def apply(parts: Seq[EntailmentContext]): ContextDecomposition = ContextDecomposition(parts.toSet)
 
 }

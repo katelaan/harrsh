@@ -177,14 +177,14 @@ object EntailmentAutomatonTest extends TestValues {
     println(s"Success: " + (check(rhsSid, rhsCall, lhsSid) == shouldHold))
   }
 
-  def refine(sid: SID, rhs: PredCall, lhs: SID): (EntailmentAutomaton, Map[String, Set[EntailmentAutomaton.CutProfile]]) = {
+  def refine(sid: SID, rhs: PredCall, lhs: SID): (EntailmentAutomaton, Map[String, Set[EntailmentAutomaton.EntailmentProfile]]) = {
     val aut = new EntailmentAutomaton(sid, rhs)
     val reachable = RefinementAlgorithms.allReachableStates(lhs, aut, reportProgress = true)
     (aut, reachable)
   }
 
-  def verifyEntailment(aut: EntailmentAutomaton, lhsTopLevelPred: String, reachable: Map[String, Set[EntailmentAutomaton.CutProfile]]) = {
-    val isFinal = (s: EntailmentAutomaton.CutProfile) => aut.isFinal(s)
+  def verifyEntailment(aut: EntailmentAutomaton, lhsTopLevelPred: String, reachable: Map[String, Set[EntailmentAutomaton.EntailmentProfile]]) = {
+    val isFinal = (s: EntailmentAutomaton.EntailmentProfile) => aut.isFinal(s)
     if (!reachable.keySet.contains(lhsTopLevelPred)) {
       throw new IllegalArgumentException(s"Malformed test case: LHS start predicate $lhsTopLevelPred unreachable, so entailment trivially holds")
     }

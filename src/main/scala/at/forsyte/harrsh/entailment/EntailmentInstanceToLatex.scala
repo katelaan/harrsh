@@ -8,22 +8,22 @@ import at.forsyte.harrsh.util.ToLatex._
 
 object EntailmentInstanceToLatex {
 
-  val etypeToLatex: ToLatex[TreeCuts] = (a: TreeCuts, _: Naming) => extensionTypeToLatexLines(a).mkString("\n")
+  val decompToLatex: ToLatex[ContextDecomposition] = (a: ContextDecomposition, _: Naming) => decompositionToLatexLines(a).mkString("\n")
 
-  object extensionTypeToLatexLines {
+  object decompositionToLatexLines {
 
     // TODO: Less hacky latex conversion
     // TODO: Reduce code duplication with ForestsToLatex
 
-    def apply(extensionType: TreeCuts): Stream[String] = {
-      val ordered = extensionType.parts.toStream
+    def apply(decomp: ContextDecomposition): Stream[String] = {
+      val ordered = decomp.parts.toStream
       val tifpics = ordered.zipWithIndex.flatMap {
-        case (tif, ix) =>
+        case (ctx, ix) =>
           val style = if (ix == 0) "" else {
-            val bottomLeft = if (ordered(ix - 1).leaves.nonEmpty) s"tif${ix-1}_0" else s"tif${ix-1}_root"
+            val bottomLeft = if (ordered(ix - 1).calls.nonEmpty) s"ctx${ix-1}_0" else s"ctx${ix-1}_root"
               s"below=5mm of $bottomLeft"
           }
-          treeInterfaceToLatexLines(tif, "tif" + ix, style)
+          contextToLatexLines(ctx, "ctx" + ix, style)
       }
       inTikzPic(tifpics, Some(EtStyleClass))
     }
@@ -33,27 +33,27 @@ object EntailmentInstanceToLatex {
       Stream(s"\\begin{tikzpicture}$styleString") ++ lines ++ Stream("\\end{tikzpicture}")
     }
 
-    def treeInterfaceToLatexLines(tif: TreeCut, tifId: String, rootStyle: String): Stream[String] = {
-      val rootId = tifId + "_root"
-      val diseqId = tifId + "_diseqs"
-      val fitId = tifId + "_fit"
+    def contextToLatexLines(ctx: EntailmentContext, ctxId: String, rootStyle: String): Stream[String] = {
+      val rootId = ctxId + "_root"
+      val diseqId = ctxId + "_diseqs"
+      val fitId = ctxId + "_fit"
 
-      val TreeCut(root, leaves, usageInfo, diseqs) = tif
+      val EntailmentContext(root, leaves, usageInfo, diseqs) = ctx
       val rootTikz = nodeLabelToLatexLines(root, usageInfo, rootId, rootStyle)
       val diseqsTikz = pureConstraintToTikz(diseqs, rootId, diseqId, s"right=of $rootId")
 
-      val leavesTikz = leaves.toStream.zipWithIndex.flatMap {
+      val callsTikz = leaves.toStream.zipWithIndex.flatMap {
         case (leaf, ix) =>
-          val position = if (ix == 0) s"below=2mm of $rootId" else s"right=of ${tifId}_${ix-1}"
-          nodeLabelToLatexLines(leaf, usageInfo, tifId + "_" + ix, s"missing,$position")
+          val position = if (ix == 0) s"below=2mm of $rootId" else s"right=of ${ctxId}_${ix-1}"
+          nodeLabelToLatexLines(leaf, usageInfo, ctxId + "_" + ix, s"missing,$position")
       }
-      val leafIds = (0 until leaves.size) map (tifId + "_" + _)
-      val nodeIds = Seq(rootId) ++ diseqsTikz.map(_ => diseqId) ++ leafIds
+      val callIds = (0 until leaves.size) map (ctxId + "_" + _)
+      val nodeIds = Seq(rootId) ++ diseqsTikz.map(_ => diseqId) ++ callIds
       val fitConstraint = nodeIds.map("(" + _ + ")").mkString(" ")
 
       val fitTikz = Stream(s"\\node[draw=black!50, fit={$fitConstraint}] ($fitId) {};")
 
-      rootTikz ++ diseqsTikz ++ leavesTikz ++ fitTikz
+      rootTikz ++ diseqsTikz ++ callsTikz ++ fitTikz
     }
 
     private val varsToMath = (v: Var) => Naming.indexify(Naming.DefaultNaming)(v) match {
@@ -61,7 +61,7 @@ object EntailmentInstanceToLatex {
       case other => other
     }
 
-    private def pureConstraintToTikz(pureConstraints: PureConstraintTracker, tifRootId: String, nodeId: String, style: String): Option[String] = {
+    private def pureConstraintToTikz(pureConstraints: PureConstraintTracker, ctxRootId: String, nodeId: String, style: String): Option[String] = {
       val pureAtomsToLatex = (deqs: Set[PureAtom]) =>
         if (deqs.isEmpty) {
           "---"
@@ -73,7 +73,7 @@ object EntailmentInstanceToLatex {
         val ensuredLabel = s"Guaranteed: ${pureAtomsToLatex(pureConstraints.ensured)}"
         val missingLabel = s"Missing: ${pureAtomsToLatex(pureConstraints.missing)}"
         val missingStyle = if (pureConstraints.missing.nonEmpty) s"$MissingStyleClass," else ""
-        Some(s"\\node[$NodeLabelStyleClass,$style,${missingStyle}right=2mm of $tifRootId] ($nodeId) {\\footnotesize $ensuredLabel \\nodepart{two} \\footnotesize $missingLabel};")
+        Some(s"\\node[$NodeLabelStyleClass,$style,${missingStyle}right=2mm of $ctxRootId] ($nodeId) {\\footnotesize $ensuredLabel \\nodepart{two} \\footnotesize $missingLabel};")
       } else {
         None
       }
@@ -102,9 +102,9 @@ object EntailmentInstanceToLatex {
     }
   }
 
-  object entailmentInstanceToLatex {
+  object entailmentCheckingResultToLatex {
 
-    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.CutProfile]], transitions: Map[String, Set[(Seq[EntailmentAutomaton.CutProfile], RuleBody, EntailmentAutomaton.CutProfile)]]): String = {
+    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.EntailmentProfile]], transitions: Map[String, Set[(Seq[EntailmentAutomaton.EntailmentProfile], RuleBody, EntailmentAutomaton.EntailmentProfile)]]): String = {
       val resultTex = entailmentCheckerResultToLatex(aut, statesByPred)
       val queryTex = s"$$${ei.lhsCall.toSymbolicHeap.toLatex} \\models ${ei.rhsCall.toSymbolicHeap.toLatex}$$"
       val combinedSid = SID(startPred = "", description = "", preds = ei.lhsSid.preds ++ ei.rhsSid.preds.filterNot(ei.lhsSid.preds.contains))
@@ -117,7 +117,7 @@ object EntailmentInstanceToLatex {
         .replace(TransitionPlaceholder, transitionsToLatex(transitions))
     }
 
-    private def transitionsToLatex(transitions: Map[String, Set[(Seq[EntailmentAutomaton.CutProfile], RuleBody, EntailmentAutomaton.CutProfile)]]): String = {
+    private def transitionsToLatex(transitions: Map[String, Set[(Seq[EntailmentAutomaton.EntailmentProfile], RuleBody, EntailmentAutomaton.EntailmentProfile)]]): String = {
       val byPred = for {
         (pred, ts) <- transitions
         predStr = s"\\subsection{Transitions for \\texttt{$pred}}\n\\begin{itemize}\n"
@@ -126,7 +126,7 @@ object EntailmentInstanceToLatex {
       byPred.mkString("\n\n")
     }
 
-    private def transitionToLatex(transition: (Seq[EntailmentAutomaton.CutProfile], RuleBody, EntailmentAutomaton.CutProfile)) : String = {
+    private def transitionToLatex(transition: (Seq[EntailmentAutomaton.EntailmentProfile], RuleBody, EntailmentAutomaton.EntailmentProfile)) : String = {
       val (srcs, rule, trg) = transition
       // TODO: Remove code duplication
       val srcStrs = (srcs map (s => entailmentCheckerResultToLatex.stateToLatex(trg, s => false).mkString("\n"))).mkString("\n\n")
@@ -141,31 +141,31 @@ object EntailmentInstanceToLatex {
 
   object entailmentCheckerResultToLatex {
 
-    def apply(aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.CutProfile]]): String = {
-      val isFinal = (s: EntailmentAutomaton.CutProfile) => aut.isFinal(s)
+    def apply(aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.EntailmentProfile]]): String = {
+      val isFinal = (s: EntailmentAutomaton.EntailmentProfile) => aut.isFinal(s)
       statesToLatex(statesByPred, isFinal)
     }
 
-    def statesToLatex(statesByPred: Map[String, Set[EntailmentAutomaton.CutProfile]], isFinal: EntailmentAutomaton.CutProfile => Boolean): String = {
+    def statesToLatex(statesByPred: Map[String, Set[EntailmentAutomaton.EntailmentProfile]], isFinal: EntailmentAutomaton.EntailmentProfile => Boolean): String = {
       val lines = Stream("\\begin{itemize}") ++ statesByPred.toStream.flatMap(pair => Stream("\\item") ++ predToLatex(pair._1, pair._2, isFinal)).map(indent) ++ Stream("\\end{itemize}")
       lines.mkString("\n")
     }
 
-    def predToLatex(pred: String, states: Set[EntailmentAutomaton.CutProfile], isFinal: EntailmentAutomaton.CutProfile => Boolean): Stream[String] = {
+    def predToLatex(pred: String, states: Set[EntailmentAutomaton.EntailmentProfile], isFinal: EntailmentAutomaton.EntailmentProfile => Boolean): Stream[String] = {
       Stream(s"Reachable states for \\texttt{$pred}:", "\\begin{itemize}") ++ states.toStream.flatMap(s => stateToLatex(s, isFinal)).map(indent) ++ Stream("\\end{itemize}")
     }
 
-    def stateToLatex(state: EntailmentAutomaton.CutProfile, isFinal: EntailmentAutomaton.CutProfile => Boolean): Stream[String] = {
+    def stateToLatex(state: EntailmentAutomaton.EntailmentProfile, isFinal: EntailmentAutomaton.EntailmentProfile => Boolean): Stream[String] = {
       val finalStr = if (isFinal(state)) "\\textbf{FINAL} " else ""
-      val header = s"\\item ${finalStr}State with params ${state.orderedParams.mkString(", ")} and extension types:"
+      val header = s"\\item ${finalStr}State/Profile with free variables ${state.orderedParams.mkString("$<", ", ", ">$")} and context decompositions:"
 
-      val etsStream = if (state.profile.isEmpty) {
-        Stream("\\item No consistent extension type (failure state)")
+      val decompsStream = if (state.profile.isEmpty) {
+        Stream("\\item No consistent context decomposition (failure state)")
       } else {
-        Stream("\\item Extension types:", "\\begin{enumerate}") ++ state.profile.toStream.flatMap(et => Stream("\\item") ++ extensionTypeToLatexLines(et)) ++ Stream("\\end{enumerate}")
+        Stream("\\item Decompositions:", "\\begin{enumerate}") ++ state.profile.toStream.flatMap(decomp => Stream("\\item") ++ decompositionToLatexLines(decomp)) ++ Stream("\\end{enumerate}")
       }
 
-      Stream(header, "\\begin{itemize}") ++ etsStream ++ Stream("\\end{itemize}")
+      Stream(header, "\\begin{itemize}") ++ decompsStream ++ Stream("\\end{itemize}")
     }
 
     private def indent(s : String) = "  " + s
@@ -187,6 +187,7 @@ object EntailmentInstanceToLatex {
                                 |\\usepackage{amsmath,amssymb}
                                 |
                                 |\\newcommand{\\nil}{\\ensuremath{\\textnormal{\\textbf{null}}}}
+                                |\\newcommand{\\RuleName}[1]{\\mathtt{#1}}
                                 |
                                 |\\makeatletter
                                 |\\providecommand{\\leftsquigarrow}{%

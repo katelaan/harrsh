@@ -8,12 +8,12 @@ import at.forsyte.harrsh.util.IOUtils
 
 object EntailmentChecker extends HarrshLogging {
 
-  case class EntailmentStats(numExploredPreds: Int, numProfiles: Int, totalNumDecomps: Int, totalNumContexts: Int) {
+  case class EntailmentStats(numRefinedPreds: Int, numProfiles: Int, totalNumDecomps: Int, totalNumContexts: Int) {
     def prettyPrint: String = {
-      s"#Explore predicates:         $numExploredPreds\n" +
-      s"#Compute profiles:           $numProfiles\n" +
+      s"#Refined predicates:         $numRefinedPreds\n" +
+      s"#Computed profiles:          $numProfiles\n" +
       s"#Decompositions in profiles: $totalNumDecomps\n" +
-      s"#Contexts in decomps.:       $totalNumContexts"
+      s"#Contexts in decompositions: $totalNumContexts"
     }
   }
 
@@ -111,7 +111,7 @@ object EntailmentChecker extends HarrshLogging {
     result
   }
 
-  def entailmentStats(reachableStatesByPred: Map[String, Set[EntailmentAutomaton.CutProfile]]): EntailmentStats = {
+  def entailmentStats(reachableStatesByPred: Map[String, Set[EntailmentAutomaton.EntailmentProfile]]): EntailmentStats = {
     val numExploredPreds = reachableStatesByPred.size
     val allProfiles = reachableStatesByPred.values.flatten.toList
     val allDecomps = for {
@@ -126,7 +126,7 @@ object EntailmentChecker extends HarrshLogging {
     val EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhsSid, rhsCall)
     val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhsSid, aut, reportProgress)
-    val isFinal = (s: EntailmentAutomaton.CutProfile) => aut.isFinal(s)
+    val isFinal = (s: EntailmentAutomaton.EntailmentProfile) => aut.isFinal(s)
     val entailmentHolds = reachableStatesByPred(lhsCall.name).forall(isFinal)
     val stats = entailmentStats(reachableStatesByPred)
 
@@ -135,7 +135,7 @@ object EntailmentChecker extends HarrshLogging {
     }
     if (exportToLatex) {
       print("Will export result to LaTeX...")
-      IOUtils.writeFile("entailment.tex", EntailmentInstanceToLatex.entailmentInstanceToLatex(entailmentInstance, entailmentHolds, aut, reachableStatesByPred, transitionsByHeadPred))
+      IOUtils.writeFile("entailment.tex", EntailmentInstanceToLatex.entailmentCheckingResultToLatex(entailmentInstance, entailmentHolds, aut, reachableStatesByPred, transitionsByHeadPred))
       println(" Done.")
     }
 
@@ -144,36 +144,43 @@ object EntailmentChecker extends HarrshLogging {
 
   object serializeResult {
 
-    def apply(aut: EntailmentAutomaton, reachable: Map[String, Set[EntailmentAutomaton.CutProfile]]): String = {
-      val isFinal = (s: EntailmentAutomaton.CutProfile) => aut.isFinal(s)
+    def apply(aut: EntailmentAutomaton, reachable: Map[String, Set[EntailmentAutomaton.EntailmentProfile]]): String = {
+      val isFinal = (s: EntailmentAutomaton.EntailmentProfile) => aut.isFinal(s)
       serializeReach(reachable, isFinal)
     }
 
     private def indent(s : String) = "  " + s
 
-    def serializeReach(statesByPred: Map[String, Set[EntailmentAutomaton.CutProfile]], isFinal: EntailmentAutomaton.CutProfile => Boolean): String = {
+    def serializeReach(statesByPred: Map[String, Set[EntailmentAutomaton.EntailmentProfile]], isFinal: EntailmentAutomaton.EntailmentProfile => Boolean): String = {
       val lines = Stream("RESULT {") ++ statesByPred.toStream.flatMap(pair => serializePred(pair._1, pair._2, isFinal)).map(indent) ++ Stream("}")
       lines.mkString("\n")
     }
 
-    def serializePred(pred: String, states: Set[EntailmentAutomaton.CutProfile], isFinal: EntailmentAutomaton.CutProfile => Boolean): Stream[String] = {
+    def serializePred(pred: String, states: Set[EntailmentAutomaton.EntailmentProfile], isFinal: EntailmentAutomaton.EntailmentProfile => Boolean): Stream[String] = {
       Stream(s"PRED $pred {") ++ states.toStream.flatMap(s => serializeState(s, isFinal)).map(indent) ++ Stream("}")
     }
 
-    def serializeState(state: EntailmentAutomaton.CutProfile, isFinal: EntailmentAutomaton.CutProfile => Boolean): Stream[String] = {
-      (Stream("STATE {",
-        s"  PARAMS: ${state.orderedParams.mkString(", ")}")
-        ++ Some("  FINAL").filter(_ => isFinal(state))
-        ++ serializeETs(state.profile) ++ Stream("}"))
+    def serializeState(state: EntailmentAutomaton.EntailmentProfile, isFinal: EntailmentAutomaton.EntailmentProfile => Boolean): Stream[String] = {
+      (Stream("PROFILE {",
+        s"  FVS: ${state.orderedParams.mkString(", ")}")
+        ++ Some("  ACCEPTING").filter(_ => isFinal(state))
+        ++ serializeDecomps(state.profile) ++ Stream("}"))
     }
 
-    def serializeETs(ets: Set[TreeCuts]): Stream[String] = {
-      if (ets.nonEmpty) ets.toStream.flatMap(serializeET).map(indent)
-      else Stream(indent("NO CONSISTENT ET"))
+    def serializeDecomps(decomps: Set[ContextDecomposition]): Stream[String] = {
+      if (decomps.nonEmpty) decomps.toStream.flatMap(serializeContextDecomposition).map(indent)
+      else Stream(indent("NO CONSISTENT DECOMPOSITION"))
     }
 
-    def serializeET(et: TreeCuts): Stream[String] = {
-      et.toString.lines.toStream
+    def serializeContextDecomposition(decomp: ContextDecomposition): Stream[String] = {
+      val decompStrs = decomp.parts.toList map (_.toString)
+      if (decompStrs.size == 1) Stream(s"Decomp(${decompStrs.head})")
+      else {
+        val fst = decompStrs.head
+        val middle = decompStrs.tail.init
+        val last = decompStrs.last
+        Stream(s"Decomp($fst),") ++ middle.map("       " + _ + ",") :+ s"       $last)"
+      }
     }
 
   }

@@ -6,39 +6,39 @@ import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
 sealed trait TransitionProfile {
-  def toTarget: Option[EntailmentAutomaton.CutProfile]
+  def toTarget: Option[EntailmentAutomaton.EntailmentProfile]
 }
 
 case class UnmatchableLocalAllocation(lab: SymbolicHeap) extends TransitionProfile with HarrshLogging {
-  override def toTarget: Option[EntailmentAutomaton.CutProfile] = {
+  override def toTarget: Option[EntailmentAutomaton.EntailmentProfile] = {
     logger.debug(s"No cut profile for local allocation of $lab => Return inconsistent state")
-    Some(EntailmentAutomaton.CutProfile(Set.empty, lab.freeVars))
+    Some(EntailmentAutomaton.EntailmentProfile(Set.empty, lab.freeVars))
   }
 }
 
 case object InconsistentTransitionSources extends TransitionProfile with HarrshLogging {
-  override def toTarget: Option[EntailmentAutomaton.CutProfile] = {
+  override def toTarget: Option[EntailmentAutomaton.EntailmentProfile] = {
     logger.debug(s"Instantiation of transition sources is inconsistent => No target state")
     None
   }
 }
 
-case class ConsistentTransitionProfile(etypes: Seq[Set[TreeCuts]], lab: SymbolicHeap, sid: SID) extends TransitionProfile with HarrshLogging {
+case class ConsistentTransitionProfile(etypes: Seq[Set[ContextDecomposition]], lab: SymbolicHeap, sid: SID) extends TransitionProfile with HarrshLogging {
 
-  override def toTarget: Option[EntailmentAutomaton.CutProfile] = {
+  override def toTarget: Option[EntailmentAutomaton.EntailmentProfile] = {
     val targetETs = allPossibleETCompositions
     logger.debug(s"Target state:\n${if (targetETs.nonEmpty) targetETs.mkString("\n") else "empty (sink state)"}")
-    Some(EntailmentAutomaton.CutProfile(targetETs, lab.freeVars))
+    Some(EntailmentAutomaton.EntailmentProfile(targetETs, lab.freeVars))
   }
 
-  private def allPossibleETCompositions: Set[TreeCuts] = {
+  private def allPossibleETCompositions: Set[ContextDecomposition] = {
     for {
-      ets <- Combinators.choices(etypes map (_.toSeq)).toSet[Seq[TreeCuts]]
+      ets <- Combinators.choices(etypes map (_.toSeq)).toSet[Seq[ContextDecomposition]]
       combined <- tryToCombineETs(ets)
     } yield combined
   }
 
-  private def tryToCombineETs(ets: Seq[TreeCuts]): Seq[TreeCuts] = {
+  private def tryToCombineETs(ets: Seq[ContextDecomposition]): Seq[ContextDecomposition] = {
     logger.debug(s"Trying to combine:\n${ets.map(_.parts.mkString("ET(", "\n  ", ")")).mkString("\n")}")
     val res = for {
       (combined, i) <- composeAll(ets).zipWithIndex
@@ -68,7 +68,7 @@ case class ConsistentTransitionProfile(etypes: Seq[Set[TreeCuts]], lab: Symbolic
     res
   }
 
-  private def composeAll(ets: Seq[TreeCuts]): Seq[TreeCuts] = {
+  private def composeAll(ets: Seq[ContextDecomposition]): Seq[ContextDecomposition] = {
     if (ets.size <= 1) ets else {
       for {
         combinedHead <- ets.head compositionOptions ets.tail.head
@@ -77,7 +77,7 @@ case class ConsistentTransitionProfile(etypes: Seq[Set[TreeCuts]], lab: Symbolic
     }
   }
 
-  private def restrictToFreeVars(etype: TreeCuts): Option[TreeCuts] = {
+  private def restrictToFreeVars(etype: ContextDecomposition): Option[ContextDecomposition] = {
     logger.debug(s"Bound vars in result: ${etype.boundVars} (in the symbolic heap: ${lab.boundVars.mkString(",")})")
     assert(etype.boundVars.diff(lab.boundVars).isEmpty,
       s"Extension type $etype contains bound vars not in symbolic heap $lab")
@@ -88,17 +88,17 @@ case class ConsistentTransitionProfile(etypes: Seq[Set[TreeCuts]], lab: Symbolic
 
 object TransitionProfile extends HarrshLogging {
 
-  def apply(src: Seq[EntailmentAutomaton.CutProfile], lab: SymbolicHeap, sid: SID): TransitionProfile = {
+  def apply(src: Seq[EntailmentAutomaton.EntailmentProfile], lab: SymbolicHeap, sid: SID): TransitionProfile = {
     val instantiatedETs = InstantiatedSourceStates(src, lab)
     if (instantiatedETs.isConsistent) {
-      val local = LocalCutProfile(lab, sid)
+      val local = LocalProfile(lab, sid)
       combineLocalAndSourceEtypes(local, instantiatedETs, lab, sid)
     } else {
       InconsistentTransitionSources
     }
   }
 
-  private def combineLocalAndSourceEtypes(local: LocalCutProfile, instantiatedETs: InstantiatedSourceStates, lab: SymbolicHeap, sid: SID) = {
+  private def combineLocalAndSourceEtypes(local: LocalProfile, instantiatedETs: InstantiatedSourceStates, lab: SymbolicHeap, sid: SID) = {
     if (local.areDefined) {
       ConsistentTransitionProfile(local +: instantiatedETs, lab, sid)
     } else {
@@ -106,7 +106,7 @@ object TransitionProfile extends HarrshLogging {
     }
   }
 
-  def useNonProgressRulesToMergeTreeInterfaces(etype: TreeCuts, sid: SID): Seq[TreeCuts] = {
+  def useNonProgressRulesToMergeTreeInterfaces(etype: ContextDecomposition, sid: SID): Seq[ContextDecomposition] = {
     val nonProgressRules = sid.rulesWithoutPointers
     if (nonProgressRules.nonEmpty && !etype.representsSingleTree) {
       logger.debug(s"Will try to apply non-progress rules to merge trees in extension type. Rules to consider: ${nonProgressRules.map(pair => s"${pair._1.defaultCall} <= ${pair._2}")}")
@@ -120,7 +120,7 @@ object TransitionProfile extends HarrshLogging {
     }
   }
 
-  private def mergeWithRules(etype: TreeCuts, rules: Seq[(Predicate, RuleBody)], sid: SID): Seq[TreeCuts] = {
+  private def mergeWithRules(etype: ContextDecomposition, rules: Seq[(Predicate, RuleBody)], sid: SID): Seq[ContextDecomposition] = {
     val afterMerging = for {
       etypeAfterRuleApplication <- applyAllPossibleRulesInMerge(etype, rules)
       afterAdditionalApplications <- mergeWithRules(etypeAfterRuleApplication, rules, sid)
@@ -133,11 +133,11 @@ object TransitionProfile extends HarrshLogging {
     }
   }
 
-  private def applyAllPossibleRulesInMerge(etype: TreeCuts, rules: Seq[(Predicate, RuleBody)]): Stream[TreeCuts] = {
+  private def applyAllPossibleRulesInMerge(etype: ContextDecomposition, rules: Seq[(Predicate, RuleBody)]): Stream[ContextDecomposition] = {
     rules.toStream.flatMap(rule => applyRuleInMerge(etype, rule._2, rule._1))
   }
 
-  private def applyRuleInMerge(extensionType: TreeCuts, rule: RuleBody, pred: Predicate): Option[TreeCuts] = {
+  private def applyRuleInMerge(extensionType: ContextDecomposition, rule: RuleBody, pred: Predicate): Option[ContextDecomposition] = {
     assert(!rule.hasPointer)
     val callsInRule = rule.body.predCalls
     val roots = extensionType.parts map (_.root)
@@ -151,7 +151,7 @@ object TransitionProfile extends HarrshLogging {
     }
   }
 
-  private def tryMergeGivenRoots(extensionType: TreeCuts, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[PredicateNodeLabel]): Option[TreeCuts] = {
+  private def tryMergeGivenRoots(extensionType: ContextDecomposition, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[PredicateNodeLabel]): Option[ContextDecomposition] = {
     val callsInRule = rule.body.predCalls
     assert(rootsToMerge.size == callsInRule.size)
     if (predicatesMatch(callsInRule, rootsToMerge)) {
@@ -168,7 +168,7 @@ object TransitionProfile extends HarrshLogging {
     }
   }
 
-  private def tryArgumentMatching(extensionType: TreeCuts, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[PredicateNodeLabel]): Option[TreeCuts] = {
+  private def tryArgumentMatching(extensionType: ContextDecomposition, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[PredicateNodeLabel]): Option[ContextDecomposition] = {
     val callsInRule = rule.body.predCalls
     val candidateMatching = callsInRule zip rootsToMerge
     val assignmentsByVar: Map[Var, Set[Set[Var]]] = varAssignmentFromMatching(candidateMatching)
@@ -194,21 +194,21 @@ object TransitionProfile extends HarrshLogging {
     assignmentsByVar
   }
 
-  private def mergeRoots(extensionType: TreeCuts, rootsToMerge: Seq[PredicateNodeLabel], rule: RuleBody, pred: Predicate, assignmentsByVar: Map[Var, Set[Var]]): TreeCuts = {
+  private def mergeRoots(extensionType: ContextDecomposition, rootsToMerge: Seq[PredicateNodeLabel], rule: RuleBody, pred: Predicate, assignmentsByVar: Map[Var, Set[Var]]): ContextDecomposition = {
     val (tifsToMerge, unchangedTifs) = extensionType.parts.partition(tif => rootsToMerge.contains(tif.root))
     logger.debug(s"Roots that were matched: $rootsToMerge")
     logger.debug(s"Will apply $rule to merge:\n${tifsToMerge.mkString("\n")}")
     logger.debug(s"Merge based on variable assignment $assignmentsByVar")
     val subst = Substitution(rule.body.freeVars map assignmentsByVar)
     val newRoot = PredicateNodeLabel(pred, subst)
-    val concatenatedLeaves = tifsToMerge.flatMap(_.leaves)
+    val concatenatedLeaves = tifsToMerge.flatMap(_.calls)
     val mergedUsageInfo = integrateUsageInfo(tifsToMerge, Set(newRoot) ++ concatenatedLeaves)
     val mergedPureConstraints = tifsToMerge.map(_.pureConstraints).reduceLeft(_ compose _)
-    val tifAfterMerging = TreeCut(newRoot, concatenatedLeaves, mergedUsageInfo, mergedPureConstraints)
-    TreeCuts(unchangedTifs + tifAfterMerging)
+    val tifAfterMerging = EntailmentContext(newRoot, concatenatedLeaves, mergedUsageInfo, mergedPureConstraints)
+    ContextDecomposition(unchangedTifs + tifAfterMerging)
   }
 
-  private def integrateUsageInfo(tifsToMerge: Set[TreeCut], nodeLabelsInMergedInterface: Iterable[NodeLabel]) = {
+  private def integrateUsageInfo(tifsToMerge: Set[EntailmentContext], nodeLabelsInMergedInterface: Iterable[NodeLabel]) = {
     // Because we're not doing any unification, the usage info can simply be merged -- no propagation of unification results necessary
     val mergedUsageInfo = tifsToMerge.map(_.usageInfo).reduceLeft(VarUsageByLabel.merge)
     VarUsageByLabel.restrictToSubstitutionsInLabels(mergedUsageInfo, nodeLabelsInMergedInterface)
