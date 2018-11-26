@@ -1,10 +1,9 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.TestValues
+import at.forsyte.harrsh.{Implicits, TestValues}
 import at.forsyte.harrsh.test.HarrshTableTest
-import at.forsyte.harrsh.Implicits._
 
-class SIDUtilsTest extends HarrshTableTest with TestValues {
+class SIDUtilsTest extends HarrshTableTest with Implicits with TestValues {
 
   // TODO: Include test cases where normalization fails
 

@@ -1,12 +1,12 @@
 package at.forsyte.harrsh.pure
 
+import at.forsyte.harrsh.Implicits
 import at.forsyte.harrsh.test.HarrshTableTest
-import at.forsyte.harrsh.Implicits._
 
 /**
   * Created by jkatelaa on 4/11/17.
   */
-class EqualityBasedSimplificationsTest extends HarrshTableTest {
+class EqualityBasedSimplificationsTest extends HarrshTableTest with Implicits {
 
   val testVals = Table(
     ("input", "simplified output"),

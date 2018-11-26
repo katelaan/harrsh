@@ -53,10 +53,24 @@ object ExampleSIDs extends TestValues {
   )
 
   lazy val NeDll = SID("dll",
-    "Nonempty Doubly-linked list",
+    "Nonempty doubly-linked list",
     Map("dll" -> x1),
     ("dll", Seq.empty, SymbolicHeap(x1 -> (x3, x2))),
     ("dll", Seq("u"), SymbolicHeap(x1 -> (y1, x2), P("dll")(y1, x1, x3)))
+  )
+
+  lazy val NeDllEq = SID("dll",
+    "Nonempty doubly-linked list with equality in base case",
+    Map("dll" -> x1),
+    ("dll", Seq.empty, SymbolicHeap(x1 -> (x4, x2), x1 =:= x3)),
+    ("dll", Seq("y"), SymbolicHeap(x1 -> (y1, x2), P("dll")(y1, x1, x3, x4)))
+  )
+
+  lazy val NeAcycDll = SID("dll",
+    "Nonempty acyclic doubly-linked list",
+    Map("dll" -> x1),
+    ("dll", Seq.empty, SymbolicHeap(x1 -> (x4, x2), x1 =:= x3, x1 =/= x4)),
+    ("dll", Seq("y"), SymbolicHeap(x1 -> (y1, x2), P("dll")(y1, x1, x3, x4), x1 =/= x2, x1 =/= x4))
   )
 
   lazy val OddList = SID("odd",
@@ -244,6 +258,14 @@ object ExampleSIDs extends TestValues {
     "Garbage list",
     ("sll", Seq.empty, SymbolicHeap(x1 -> x2)),
     ("sll", Seq("y", "z"), SymbolicHeap(x1 -> y1, P("sll")(y1, x2)))
+  )
+
+  lazy val MixedAritySll = SID("mixedarity",
+    "Mixed Arity SLL",
+    ("mixedarity", Seq.empty, SymbolicHeap(x1 -> x2)),
+    ("mixedarity", Seq.empty, SymbolicHeap(x1 -> (x2,nil))),
+    ("mixedarity", Seq("y"), SymbolicHeap(x1 -> y1, P("mixedarity")(y1, x2))),
+    ("mixedarity", Seq("y"), SymbolicHeap(x1 -> (y1,nil), P("mixedarity")(y1, x2)))
   )
 
 }

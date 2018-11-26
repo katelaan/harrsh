@@ -1,10 +1,9 @@
 package at.forsyte.harrsh.modelchecking
 
+import at.forsyte.harrsh.Implicits
 import at.forsyte.harrsh.test.HarrshTableTest
 
-import at.forsyte.harrsh.Implicits._
-
-class ModelEvaluationTest extends HarrshTableTest {
+class ModelEvaluationTest extends HarrshTableTest with Implicits {
 
   val testCases = Table(
     ("symbolic heaps", "models", "expectation"),

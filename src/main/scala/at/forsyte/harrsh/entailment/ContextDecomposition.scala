@@ -6,8 +6,8 @@ import at.forsyte.harrsh.seplog.inductive.{PredCall, Predicate, PureAtom, SID}
 import at.forsyte.harrsh.util.ToLatex
 
 /**
-  * A single abstracted forest, retaining only the tree cuts rather than the full trees.
-  * @param parts Abstracted trees
+  * A single context decomposition
+  * @param parts Contexts that make up the decomposition
   */
 case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLogging {
 
@@ -22,9 +22,9 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
 
   def hasNamesForAllRootParams: Boolean = parts.forall(_.hasNamesForRootParams)
 
-  def representsSingleTree: Boolean = parts.size == 1
+  def isSingletonDecomposition: Boolean = parts.size == 1
 
-  def containsMultipleRootsOf(pred: Predicate): Boolean = {
+  def containsMultipleContextsWithRoots(pred: Predicate): Boolean = {
     parts.count(_.root.pred == pred) > 1
   }
 
@@ -32,11 +32,11 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
     // We don't do a full viability check (yet)
     // This overapproximation of viability discards those forests that contain two trees rooted in a predicate that can
     // occur at most once in an unfolding tree.
-    !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleRootsOf)
+    !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots)
   }
 
   def isFinal(call: PredCall): Boolean = {
-    val res = if (!representsSingleTree) {
+    val res = if (!isSingletonDecomposition) {
       // Only single (abstracted) trees can be final
       false
     } else {
@@ -63,12 +63,12 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
     if (varsToDrop.isEmpty) {
       Some(this)
     } else {
-      logger.debug(s"Will remove bound variables ${varsToDrop.mkString(",")} from tree cuts")
+      logger.debug(s"Will remove bound variables ${varsToDrop.mkString(",")} from decomposition")
       if (tryingToDropVarsWithMissingConstraints(varsToDrop)) {
         // We're forgetting variables for which there are still missing constraints
         // After dropping, it will no longer be possible to supply the constraints
         // We hence discard the extension type
-        logger.debug(s"Discarding tree cuts: Missing pure constraints $missingPureConstraints contain at least one discarded variable from ${varsToDrop.mkString(", ")}")
+        logger.debug(s"Discarding decomposition: Missing pure constraints $missingPureConstraints contain at least one discarded variable from ${varsToDrop.mkString(", ")}")
         None
       } else {
         // From the pure constraints, we must remove the variables completely, because after forgetting a variable,
@@ -76,7 +76,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
         val partsAfterDroppingPureConstraints = parts map (_.dropVarsFromPureConstraints(varsToDrop.toSet))
 
         // ...whereas in the interface nodes/usage info, we replace the bound vars by placeholders
-        // TODO: More efficient variable dropping for cuts
+        // TODO: More efficient variable dropping for decomps
         // Rename the vars to fresh placeholder vars
         val maxPlaceholder = PlaceholderVar.maxIndex(placeholders)
         val newPlaceholders = (1 to varsToDrop.size) map (i => PlaceholderVar(maxPlaceholder + i))
@@ -107,7 +107,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
 
 object ContextDecomposition {
 
-  implicit val etypeToLatex: ToLatex[ContextDecomposition] = EntailmentInstanceToLatex.decompToLatex
+  implicit val decompToLatex: ToLatex[ContextDecomposition] = EntailmentResultToLatex.decompToLatex
 
   def apply(parts: Seq[EntailmentContext]): ContextDecomposition = ContextDecomposition(parts.toSet)
 

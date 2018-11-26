@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.parsers
 
+import at.forsyte.harrsh.Implicits
 import at.forsyte.harrsh.parsers.SIDParsers.CyclistSIDParser
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 import at.forsyte.harrsh.test.HarrshTableTest
@@ -7,7 +8,7 @@ import at.forsyte.harrsh.test.HarrshTableTest
 /**
   * Created by jens on 4/7/17.
   */
-class CombinedParserTest extends HarrshTableTest {
+class CombinedParserTest extends HarrshTableTest with Implicits {
 
   val Success = true
   val Failure = false
@@ -42,8 +43,6 @@ class CombinedParserTest extends HarrshTableTest {
     ("∃y1 ∃y2 . x1 ↦ y1 * x2 ↦ y1 : {x1 ≈ y1, x2 ≈ y2}", Success),
     ("∃y1 ∃y2 . x1 ↦ y1 * P(x1,x2,y1) * x2 ↦ y1 : {x1 ≈ y1, x2 ≈ y2}", Success)
   )
-
-  import at.forsyte.harrsh.Implicits._
 
   private def isSuccess(sh : SymbolicHeap) = sh != SymbolicHeap.empty
 

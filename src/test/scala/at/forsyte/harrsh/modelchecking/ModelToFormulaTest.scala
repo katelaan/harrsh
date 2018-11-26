@@ -3,13 +3,12 @@ package at.forsyte.harrsh.modelchecking
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 import at.forsyte.harrsh.test.HarrshTableTest
-import at.forsyte.harrsh.Implicits._
-import at.forsyte.harrsh.TestValues
+import at.forsyte.harrsh.{Implicits, TestValues}
 
 /**
   * Created by jens on 2/24/17.
   */
-class ModelToFormulaTest extends HarrshTableTest with TestValues {
+class ModelToFormulaTest extends HarrshTableTest with Implicits with TestValues {
 
   // TODO Add test cases violating the assertions
 

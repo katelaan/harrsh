@@ -135,7 +135,7 @@ object EntailmentChecker extends HarrshLogging {
     }
     if (exportToLatex) {
       print("Will export result to LaTeX...")
-      IOUtils.writeFile("entailment.tex", EntailmentInstanceToLatex.entailmentCheckingResultToLatex(entailmentInstance, entailmentHolds, aut, reachableStatesByPred, transitionsByHeadPred))
+      IOUtils.writeFile("entailment.tex", EntailmentResultToLatex.entailmentCheckingResultToLatex(entailmentInstance, entailmentHolds, aut, reachableStatesByPred, transitionsByHeadPred))
       println(" Done.")
     }
 

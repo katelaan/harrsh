@@ -1,17 +1,16 @@
 package at.forsyte.harrsh.pure
 
+import at.forsyte.harrsh.Implicits
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 import at.forsyte.harrsh.test.HarrshTableTest
 
 /**
   * Created by jkatelaa on 5/16/17.
   */
-class ReducedHeapEquivalenceTest extends HarrshTableTest {
+class ReducedHeapEquivalenceTest extends HarrshTableTest with Implicits {
 
   val AreEquivalent = true
   val NotEquivalent = !AreEquivalent
-
-  import at.forsyte.harrsh.Implicits._
 
   val inputs = Table(
     ("fst", "snd", "expected"),

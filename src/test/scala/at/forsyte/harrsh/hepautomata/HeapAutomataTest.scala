@@ -1,16 +1,15 @@
 package at.forsyte.harrsh.hepautomata
 
-import at.forsyte.harrsh.{ExampleSIDs, TestValues}
+import at.forsyte.harrsh.{ExampleSIDs, Implicits, TestValues}
 import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.heapautomata.instances.{ToyExampleAutomata, TrackingAutomata}
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.test.HarrshTableTest
-import at.forsyte.harrsh.Implicits._
 
 /**
   * Created by jens on 10/15/16.
   */
-class HeapAutomataTest extends HarrshTableTest with TestValues {
+class HeapAutomataTest extends HarrshTableTest with Implicits with TestValues {
 
   val inconsistentX1X2 = TrackingInfo.inconsistentTrackingInfo(Seq(x1,x2))
 

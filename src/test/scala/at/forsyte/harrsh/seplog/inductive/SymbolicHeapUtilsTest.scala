@@ -1,10 +1,9 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.{ExampleSIDs, TestValues}
+import at.forsyte.harrsh.{ExampleSIDs, Implicits, TestValues}
 import at.forsyte.harrsh.test.HarrshTableTest
-import at.forsyte.harrsh.Implicits._
 
-class SymbolicHeapUtilsTest extends HarrshTableTest with TestValues {
+class SymbolicHeapUtilsTest extends HarrshTableTest with Implicits with TestValues {
 
   val nelSid = ExampleSIDs.Nel
 

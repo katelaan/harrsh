@@ -1,6 +1,7 @@
 package at.forsyte.harrsh
 
 import at.forsyte.harrsh.TestValues.RichPred
+import at.forsyte.harrsh.entailment.PlaceholderVar
 import at.forsyte.harrsh.heapautomata.utils.{ReachabilityInfo, ReachabilityMatrix, TrackingInfo}
 import at.forsyte.harrsh.seplog.inductive.{PredCall, PureAtom}
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
@@ -16,6 +17,7 @@ trait TestValues {
 
   val (x1,x2,x3,x4,x5,x6) = (Var.defaultFV(1), Var.defaultFV(2), Var.defaultFV(3), Var.defaultFV(4), Var.defaultFV(5), Var.defaultFV(6))
   val (y1,y2,y3,y4,y5,y6,y7,y8,y9) = (BoundVar(1),BoundVar(2),BoundVar(3),BoundVar(4),BoundVar(5),BoundVar(6),BoundVar(7),BoundVar(8),BoundVar(9))
+  val p1 :: p2 :: p3 :: p4 :: p5 :: p6 :: Nil = (1 to 6).toList map (PlaceholderVar(_).toFreeVar)
   val nil = NullConst
 
   case class Fvs(xs: FreeVar*){

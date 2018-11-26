@@ -1,12 +1,12 @@
 package at.forsyte.harrsh.pure
 
+import at.forsyte.harrsh.Implicits
 import at.forsyte.harrsh.test.HarrshTableTest
-import at.forsyte.harrsh.Implicits._
 
 /**
   * Created by jkatelaa on 5/17/17.
   */
-class ConsistencyCheckTest extends HarrshTableTest {
+class ConsistencyCheckTest extends HarrshTableTest with Implicits {
 
   val IsConsistent = true
   val Inconsistent = !IsConsistent

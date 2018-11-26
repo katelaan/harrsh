@@ -50,11 +50,12 @@ object CanCompose extends HarrshLogging {
     val (n1usage, n2usage) = (cc.usageInfo(a1, n1), cc.usageInfo(a2, n2))
 
     // Sanity check: The root parameter of the predicate is marked as used in both nodes
+    // TODO: If we want to relax the assumption about rootedness, this has to go. We'd have to ensure that this doesn't break soundness, though. See also the related TODO in LocalProfile
     n1.pred.rootParam foreach {
       param =>
         val ix = n1.freeVarSeq.indexOf(param)
         assert(n1usage(ix).isUsed && n2usage(ix).isUsed,
-          s"Root parameter ${n1.pred.rootParam.get} isn't marked as used in at least one of $n1 and $n2 (usage info: ${n1usage.mkString(",")}; ${n2usage.mkString(",")})")
+          s"Root parameter ${n1.pred.rootParam.get} isn't marked as used in at least one of $n1 and $n2 (usage info: ${(n1.subst.toSeq zip n1usage).mkString(",")}; ${(n2.subst.toSeq zip n2usage).mkString(",")})")
     }
 
     val unifiableParams: Seq[Boolean] = (n1.freeVarSeq, n1usage, n2usage).zipped.toSeq.map{

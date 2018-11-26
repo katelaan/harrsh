@@ -1,14 +1,13 @@
 package at.forsyte.harrsh.pure
 
 import at.forsyte.harrsh.test.HarrshTableTest
-import at.forsyte.harrsh.Implicits._
-import at.forsyte.harrsh.TestValues
+import at.forsyte.harrsh.{Implicits, TestValues}
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 /**
   * Created by jkatelaa on 5/18/17.
   */
-class DeterminizationTest extends HarrshTableTest with TestValues {
+class DeterminizationTest extends HarrshTableTest with Implicits with TestValues {
 
   // Note: Write variables in increasing numeric value in the expectations
   val testValsForUndeterminedRelationships = Table(

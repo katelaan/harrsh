@@ -11,7 +11,7 @@ sealed trait TransitionProfile {
 
 case class UnmatchableLocalAllocation(lab: SymbolicHeap) extends TransitionProfile with HarrshLogging {
   override def toTarget: Option[EntailmentAutomaton.EntailmentProfile] = {
-    logger.debug(s"No cut profile for local allocation of $lab => Return inconsistent state")
+    logger.debug(s"No profile for local allocation of $lab => Return inconsistent state")
     Some(EntailmentAutomaton.EntailmentProfile(Set.empty, lab.freeVars))
   }
 }
@@ -23,65 +23,65 @@ case object InconsistentTransitionSources extends TransitionProfile with HarrshL
   }
 }
 
-case class ConsistentTransitionProfile(etypes: Seq[Set[ContextDecomposition]], lab: SymbolicHeap, sid: SID) extends TransitionProfile with HarrshLogging {
+case class ConsistentTransitionProfile(decompsBySource: Seq[Set[ContextDecomposition]], lab: SymbolicHeap, sid: SID) extends TransitionProfile with HarrshLogging {
 
   override def toTarget: Option[EntailmentAutomaton.EntailmentProfile] = {
-    val targetETs = allPossibleETCompositions
-    logger.debug(s"Target state:\n${if (targetETs.nonEmpty) targetETs.mkString("\n") else "empty (sink state)"}")
-    Some(EntailmentAutomaton.EntailmentProfile(targetETs, lab.freeVars))
+    val targetProfiles = allPossibleDecompCompositions
+    logger.debug(s"Target state:\n${if (targetProfiles.nonEmpty) targetProfiles.mkString("\n") else "empty (sink state)"}")
+    Some(EntailmentAutomaton.EntailmentProfile(targetProfiles, lab.freeVars))
   }
 
-  private def allPossibleETCompositions: Set[ContextDecomposition] = {
+  private def allPossibleDecompCompositions: Set[ContextDecomposition] = {
     for {
-      ets <- Combinators.choices(etypes map (_.toSeq)).toSet[Seq[ContextDecomposition]]
-      combined <- tryToCombineETs(ets)
+      decomp <- Combinators.choices(decompsBySource map (_.toSeq)).toSet[Seq[ContextDecomposition]]
+      combined <- tryToCombineDecomps(decomp)
     } yield combined
   }
 
-  private def tryToCombineETs(ets: Seq[ContextDecomposition]): Seq[ContextDecomposition] = {
-    logger.debug(s"Trying to combine:\n${ets.map(_.parts.mkString("ET(", "\n  ", ")")).mkString("\n")}")
+  private def tryToCombineDecomps(decomps: Seq[ContextDecomposition]): Seq[ContextDecomposition] = {
+    logger.debug(s"Trying to combine:\n${decomps.map(_.parts.mkString("Decomp(", "\n  ", ")")).mkString("\n")}")
     val res = for {
-      (combined, i) <- composeAll(ets).zipWithIndex
-      _ = logger.debug(s"Composed ET #${i+1}:\n${combined.parts.mkString("\n")}")
+      (combined, i) <- composeAll(decomps).zipWithIndex
+      _ = logger.debug(s"Composed Decomp #${i+1}:\n${combined.parts.mkString("\n")}")
       afterRuleApplications <- TransitionProfile.useNonProgressRulesToMergeTreeInterfaces(combined, sid)
       _ = {
         logger.debug(if (afterRuleApplications != combined) s"After applying non-progress rules:\n${afterRuleApplications.parts.mkString("\n")}" else "No non-progress rule can be applied.")
       }
-      // Bound variables are not visible from outside the transition, so we remove them from the extension type
+      // Bound variables are not visible from outside the transition, so we remove them from the decomposition
       restrictedToFreeVars <- restrictToFreeVars(afterRuleApplications)
       _ = logger.debug(s"After restriction to free variables:\n${restrictedToFreeVars.parts.mkString("\n")}")
       _ = assert(restrictedToFreeVars.boundVars.isEmpty, s"Bound vars remain after restriction to free vars: $restrictedToFreeVars")
-      // FIXME: Also filter out types that lack names for back pointers
+      // FIXME: Also filter out types that lack names for back pointers?
       // FIXME: What to check for the top-level predicates that don't have a root parameter annotation?
       // At the end of the composition, every root parameter needs to have a name because without having names for the roots,
-      // we can never extend the extension type to a full unfolding: There's no way to compose if you don't have names.
+      // we can never extend the decomposition to a full unfolding: There's no way to compose if you don't have names.
       if restrictedToFreeVars.hasNamesForAllRootParams
-      _ = logger.debug("Extension type has names for all roots. Will keep if viable.")
+      _ = logger.debug("Decomposition has names for all roots. Will keep if viable.")
       if restrictedToFreeVars.isViable(sid)
-      _ = logger.debug("Extension type is viable, will become part of target state.")
+      _ = logger.debug("Decomposition is viable, will become part of target state.")
     } yield restrictedToFreeVars
 
     if (res.isEmpty) {
-      logger.debug("Could not combine ETs.")
+      logger.debug("Could not combine decompositions.")
     }
 
     res
   }
 
-  private def composeAll(ets: Seq[ContextDecomposition]): Seq[ContextDecomposition] = {
-    if (ets.size <= 1) ets else {
+  private def composeAll(decomps: Seq[ContextDecomposition]): Seq[ContextDecomposition] = {
+    if (decomps.size <= 1) decomps else {
       for {
-        combinedHead <- ets.head compositionOptions ets.tail.head
-        allComposed <- composeAll(combinedHead +: ets.drop(2))
+        combinedHead <- decomps.head compositionOptions decomps.tail.head
+        allComposed <- composeAll(combinedHead +: decomps.drop(2))
       } yield allComposed
     }
   }
 
-  private def restrictToFreeVars(etype: ContextDecomposition): Option[ContextDecomposition] = {
-    logger.debug(s"Bound vars in result: ${etype.boundVars} (in the symbolic heap: ${lab.boundVars.mkString(",")})")
-    assert(etype.boundVars.diff(lab.boundVars).isEmpty,
-      s"Extension type $etype contains bound vars not in symbolic heap $lab")
-    etype.dropVars(lab.boundVars.toSeq)
+  private def restrictToFreeVars(decomp: ContextDecomposition): Option[ContextDecomposition] = {
+    logger.debug(s"Bound vars in result: ${decomp.boundVars} (in the symbolic heap: ${lab.boundVars.mkString(",")})")
+    assert(decomp.boundVars.diff(lab.boundVars).isEmpty,
+      s"Decomposition $decomp contains bound vars not in symbolic heap $lab")
+    decomp.dropVars(lab.boundVars.toSeq)
   }
 
 }
@@ -98,9 +98,9 @@ object TransitionProfile extends HarrshLogging {
     }
   }
 
-  private def combineLocalAndSourceEtypes(local: LocalProfile, instantiatedETs: InstantiatedSourceStates, lab: SymbolicHeap, sid: SID) = {
+  private def combineLocalAndSourceEtypes(local: LocalProfile, instantiatedProfiles: InstantiatedSourceStates, lab: SymbolicHeap, sid: SID) = {
     if (local.areDefined) {
-      ConsistentTransitionProfile(local +: instantiatedETs, lab, sid)
+      ConsistentTransitionProfile(local +: instantiatedProfiles, lab, sid)
     } else {
       UnmatchableLocalAllocation(lab)
     }
@@ -108,13 +108,13 @@ object TransitionProfile extends HarrshLogging {
 
   def useNonProgressRulesToMergeTreeInterfaces(etype: ContextDecomposition, sid: SID): Seq[ContextDecomposition] = {
     val nonProgressRules = sid.rulesWithoutPointers
-    if (nonProgressRules.nonEmpty && !etype.representsSingleTree) {
-      logger.debug(s"Will try to apply non-progress rules to merge trees in extension type. Rules to consider: ${nonProgressRules.map(pair => s"${pair._1.defaultCall} <= ${pair._2}")}")
+    if (nonProgressRules.nonEmpty && !etype.isSingletonDecomposition) {
+      logger.debug(s"Will try to apply non-progress rules to contexts in decomposition. Rules to consider: ${nonProgressRules.map(pair => s"${pair._1.defaultCall} <= ${pair._2}")}")
       mergeWithRules(etype, nonProgressRules, sid)
     }
     else {
-      val msg = if (etype.representsSingleTree) "Extension type represents a single tree => No merging of trees via non-progress rules possible"
-      else "The SID does not contain any non-progress rule. Will return extension type as is."
+      val msg = if (etype.isSingletonDecomposition) "Decomposition represents a single tree => No merging of trees via non-progress rules possible"
+      else "The SID does not contain any non-progress rule. Will return decomposition as is."
       logger.debug(msg)
       Seq(etype)
     }

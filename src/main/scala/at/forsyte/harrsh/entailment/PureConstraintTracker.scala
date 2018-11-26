@@ -15,6 +15,8 @@ case class PureConstraintTracker private(ensured: Set[PureAtom], missing: Set[Pu
 
   lazy val isConsistent: Boolean = ensured.forall(_.isConsistent) && missing.forall(_.isConsistent)
 
+  lazy val closure: Closure = Closure.ofAtoms(ensured ++ missing)
+
   def compose(other: PureConstraintTracker): PureConstraintTracker = {
     val combinedEnsured = Closure.ofAtoms(ensured ++ other.ensured).asSetOfAtoms
     val combinedMissing = (missing ++ other.missing) -- combinedEnsured

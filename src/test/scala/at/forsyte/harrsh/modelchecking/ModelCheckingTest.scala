@@ -1,12 +1,12 @@
 package at.forsyte.harrsh.modelchecking
 
-import at.forsyte.harrsh.Implicits._
+import at.forsyte.harrsh.Implicits
 import at.forsyte.harrsh.test.HarrshTableTest
 
 /**
   * Created by jens on 3/5/17.
   */
-class ModelCheckingTest extends HarrshTableTest {
+class ModelCheckingTest extends HarrshTableTest with Implicits {
 
   // TODO Add test cases with SIDs that add more pure formulas
   val testCases = Table(

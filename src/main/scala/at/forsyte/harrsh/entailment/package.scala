@@ -61,7 +61,7 @@ package object entailment {
       }
       val equivalenceClasses = Substitution.extractVarEquivClasses(nodeLabels map (_.subst))
       val redundantVars = equivalenceClasses.flatMap(getRedundantVars)
-      logger.debug(s"Redundant vars: $redundantVars")
+      logger.trace(s"Redundant vars: $redundantVars")
 
       val updateF: SubstitutionUpdate = {
         v => if (redundantVars.contains(v)) Set.empty else Set(v)

@@ -122,9 +122,6 @@ case class UnfoldingTree private(nodeLabels: Map[NodeId,NodeLabel], root: NodeId
 
 object UnfoldingTree extends HarrshLogging {
 
-  implicit val treeToLatex: ToLatex[UnfoldingTree] = ForestsToLatex.treeToLatex
-  implicit val canComposeUT: CanCompose[UnfoldingTree] = CanComposeUnfoldingTree.canComposeUT
-
   def apply(nodeLabels: Map[NodeId,NodeLabel], root: NodeId, children: Map[NodeId, Seq[NodeId]], convertToNormalform: Boolean): UnfoldingTree = {
     val processedNodeLabels = if (convertToNormalform) normalFormConversion(nodeLabels, root, children) else nodeLabels
     new UnfoldingTree(processedNodeLabels, root, children)
@@ -199,3 +196,4 @@ object UnfoldingTree extends HarrshLogging {
   }
 
 }
+

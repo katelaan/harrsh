@@ -3,8 +3,8 @@ package at.forsyte.harrsh.seplog.inductive
 import scala.collection.SortedSet
 import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.main._
-import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog._
+import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.util.{Combinators, StringUtils, ToLatex}
 import ToLatex._
 
@@ -88,7 +88,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
   /**
     * If the renaming introduces additional free variables, the resulting free var sequence must be provided; otherwise, the ordering of the free variables would be underconstrained.
     * @param f Renaming to apply
-    * @param overrideFreeVars New sequence of free vars, if the renaming introduces original free vars
+    * @param overrideFreeVars New sequence of free vars, if the renaming introduces additional free vars
     * @return
     */
   def rename(f: Renaming, overrideFreeVars: Option[Seq[FreeVar]]): SymbolicHeap = {
@@ -96,10 +96,11 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     overrideFreeVars match {
       case Some(newFreeVarSeq) =>
         val res = SymbolicHeap(renamedAtoms, newFreeVarSeq)
-        if (res.freeVars.sorted == res.atoms.freeVarSeq) {
+        if (res.freeVars.toSet == res.atoms.freeVarSeq.toSet) {
           res
         } else {
-          throw new IllegalArgumentException(s"Original free vars are $freeVars, new free vars are ${res.atoms.freeVarSeq}, but no order for the new sequence was provided")
+          throw new IllegalArgumentException(s"Free vars supposed to be in result are ${res.freeVars.toSet}, but new free vars actually are ${res.atoms.freeVarSeq}")
+          //throw new IllegalArgumentException(s"Original free vars are $freeVars, new free vars are ${res.atoms.freeVarSeq}, but no order for the new sequence was provided")
         }
       case None =>
         val res = SymbolicHeap(renamedAtoms, Var.freeNonNullVars(freeVars.map(f.apply)))

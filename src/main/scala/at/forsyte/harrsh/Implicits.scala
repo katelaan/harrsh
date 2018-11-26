@@ -1,5 +1,6 @@
 package at.forsyte.harrsh
 
+import at.forsyte.harrsh.Implicits._
 import at.forsyte.harrsh.modelchecking.{GreedyUnfoldingModelChecker, Model, ReducedEntailment}
 import at.forsyte.harrsh.main.MainIO
 import at.forsyte.harrsh.parsers.SIDParsers
@@ -18,7 +19,23 @@ import scala.language.implicitConversions
 /**
   * Created by jens on 4/7/17.
   */
-object Implicits {
+trait Implicits {
+  implicit val richSymbolicHeapToLatex: ToLatex[RichSymbolicHeap] = (a: RichSymbolicHeap, naming: Naming) => a.sh.toLatex(naming)
+
+  implicit def ruleToHeap(rule : RuleBody) : SymbolicHeap = rule.body
+
+  implicit def sidToRichSID(sid : SID) : RichSID = new RichSID(sid)
+
+  implicit def sidToRichSH(sh : SymbolicHeap) : RichSymbolicHeap = new RichSymbolicHeap(sh)
+
+  implicit def stringToInteractiveString(s : String) : ParsableString = new ParsableString(s)
+
+  implicit def stringToSH(s : String) : RichSymbolicHeap = s.parse
+
+  implicit def modelToRichModel(model : Model) : RichModel = new RichModel(model)
+}
+
+object Implicits extends Implicits {
 
   private val InteractiveTimeout = Duration(30, duration.SECONDS)
 
@@ -199,8 +216,6 @@ object Implicits {
     }
   }
 
-  implicit val richSymbolicHeapToLatex: ToLatex[RichSymbolicHeap] = (a: RichSymbolicHeap, naming: Naming) => a.sh.toLatex(naming)
-
   class RichModel(model : Model) {
     def isModelOf(sh : SymbolicHeap) : Boolean = {
       if (sh.nonReduced) throw new Throwable("Can't model-check non-reduced heaps without reference to an SID")
@@ -209,17 +224,5 @@ object Implicits {
 
     def isModelOf(sid : SID) : Boolean = GreedyUnfoldingModelChecker.isModel(model, sid)
   }
-
-  implicit def ruleToHeap(rule : RuleBody) : SymbolicHeap = rule.body
-
-  implicit def sidToRichSID(sid : SID) : RichSID = new RichSID(sid)
-
-  implicit def sidToRichSH(sh : SymbolicHeap) : RichSymbolicHeap = new RichSymbolicHeap(sh)
-
-  implicit def stringToInteractiveString(s : String) : ParsableString = new ParsableString(s)
-
-  implicit def stringToSH(s : String) : RichSymbolicHeap = s.parse
-
-  implicit def modelToRichModel(model : Model) : RichModel = new RichModel(model)
 
 }

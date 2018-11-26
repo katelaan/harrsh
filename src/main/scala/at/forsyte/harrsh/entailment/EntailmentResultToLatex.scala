@@ -6,14 +6,13 @@ import at.forsyte.harrsh.seplog.inductive.{PureAtom, RuleBody, SID}
 import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
 
-object EntailmentInstanceToLatex {
+object EntailmentResultToLatex {
 
   val decompToLatex: ToLatex[ContextDecomposition] = (a: ContextDecomposition, _: Naming) => decompositionToLatexLines(a).mkString("\n")
 
   object decompositionToLatexLines {
 
     // TODO: Less hacky latex conversion
-    // TODO: Reduce code duplication with ForestsToLatex
 
     def apply(decomp: ContextDecomposition): Stream[String] = {
       val ordered = decomp.parts.toStream
@@ -25,7 +24,7 @@ object EntailmentInstanceToLatex {
           }
           contextToLatexLines(ctx, "ctx" + ix, style)
       }
-      inTikzPic(tifpics, Some(EtStyleClass))
+      inTikzPic(tifpics, Some(DecompStyleClass))
     }
 
     def inTikzPic(lines: Stream[String], style: Option[String] = None): Stream[String] = {
@@ -172,8 +171,8 @@ object EntailmentInstanceToLatex {
 
   }
 
-  private val EtStyleClass = "et"
-  private val NodeLabelStyleClass = "utnode"
+  private val DecompStyleClass = "decomp"
+  private val NodeLabelStyleClass = "pcall"
   private val MissingStyleClass = "missing"
   private val SidPlaceholder = "SIDPLACEHOLDER"
   private val QueryPlaceholder = "QUERYPLACEHOLDER"
@@ -201,7 +200,7 @@ object EntailmentInstanceToLatex {
                                 |\\usepackage{tikz}
                                 |\\usetikzlibrary{backgrounds,arrows,shapes,positioning,fit}
                                 |
-                                |\\tikzset{$EtStyleClass/.style={background rectangle/.style={fill=orange!30}, show background rectangle}}
+                                |\\tikzset{$DecompStyleClass/.style={background rectangle/.style={fill=orange!30}, show background rectangle}}
                                 |\\tikzset{$NodeLabelStyleClass/.style={draw,rectangle split, rectangle split
                                 |    parts=2,inner sep=2pt}}
                                 |\\tikzset{$MissingStyleClass/.style={fill=red!30}}

@@ -1,7 +1,8 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.seplog.{FreeVar, Var}
+import at.forsyte.harrsh.seplog.{FreeVar, Renaming, Var}
 import PlaceholderVar._
+import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 
 import scala.util.Try
 
@@ -24,6 +25,26 @@ object PlaceholderVar {
       }
     case _ => None
   }
+
+  def replaceVarsWithPlaceholders(sh: SymbolicHeap, vars: Seq[Var]): SymbolicHeap = {
+    val allUnusedPlaceholders: Seq[Var] = PlaceholderVar.allUnusedPlaceholders(used = Set.empty)
+    val boundVarsToPlaceholders = vars.zip(allUnusedPlaceholders).toMap
+    val renaming = Renaming.fromMap(boundVarsToPlaceholders)
+    // We keep the order of the original FVs unchanged and append any additional free vars introduced (by replacing bound vars by free vars)
+    val renamedFvs = sh.freeVars map (renaming(_))
+    val additionalFvs = boundVarsToPlaceholders.filterNot(_._1.isFree).map(_._2)
+    val newFvs = renamedFvs ++ additionalFvs
+    sh.rename(renaming, Some(newFvs.map(_.asInstanceOf[FreeVar])))
+    //sh.rename(renaming, Some(sh.freeVars.filterNot(vars.contains) ++ boundVarsToPlaceholders.values.map(_.asInstanceOf[FreeVar])))
+  }
+
+//  def replaceBoundVarsWithPlaceholders(sh: SymbolicHeap): SymbolicHeap = {
+//    val boundVars: Seq[Var] = sh.boundVars.toSeq
+//    val allUnusedPlaceholders: Seq[Var] = PlaceholderVar.allUnusedPlaceholders(used = Set.empty)
+//    val boundVarsToPlaceholders = boundVars.zip(allUnusedPlaceholders).toMap
+//    val renaming = Renaming.fromMap(boundVarsToPlaceholders)
+//    sh.rename(renaming, Some(sh.freeVars ++ boundVarsToPlaceholders.values.map(_.asInstanceOf[FreeVar])))
+//  }
 
   def isPlaceholder(v : Var): Boolean = fromVar(v).nonEmpty
 
@@ -59,10 +80,6 @@ object PlaceholderVar {
 
   def noGapsInPlaceholders(phs: Iterable[PlaceholderVar]): Boolean = {
     phs.isEmpty || phs.map(_.index).max == phs.size
-  }
-  
-  def placeholderClashAvoidanceUpdate(ut: UnfoldingTree) : SubstitutionUpdate = {
-    placeholderClashAvoidanceUpdate(ut.placeholders)
   }
 
   def placeholderClashAvoidanceUpdate(phs: Set[PlaceholderVar]) : SubstitutionUpdate = {

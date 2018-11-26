@@ -2,12 +2,13 @@ package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Renaming, Var}
+import at.forsyte.harrsh.seplog.Var._
 
 import scala.collection.SortedSet
 
 case class AtomContainer(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls : Seq[PredCall]) extends HarrshLogging {
 
-  lazy val vars = Set.empty ++ all.flatMap(_.getNonNullVars)
+  lazy val vars: Set[Var] = Set.empty ++ all.flatMap(_.getNonNullVars)
 
   lazy val freeVarSeq: Seq[FreeVar] = {
     Var.freeNonNullVars(vars).toSeq.sorted
@@ -15,10 +16,8 @@ case class AtomContainer(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCall
 
   def all: Stream[SepLogAtom] = pure.toStream ++ pointers ++ predCalls
 
-  private val boundVarOrdering = Ordering.fromLessThan[BoundVar](_ < _)
-
   lazy val boundVars: SortedSet[BoundVar] = {
-    SortedSet.empty(boundVarOrdering) ++ Var.boundVars(vars)
+    SortedSet.empty(AtomContainer.boundVarOrdering) ++ Var.boundVars(vars)
   }
 
   private def renameWithoutDoubleCaptureCheck(f : Renaming) : AtomContainer = {
@@ -34,26 +33,26 @@ case class AtomContainer(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCall
   def rename(f : Renaming, avoidDoubleCapture : Boolean) : AtomContainer = {
     if (avoidDoubleCapture) renameWithoutDoubleCapture(f)._1 else {
       val res = renameWithoutDoubleCaptureCheck(f)
-      logger.debug(s"After renaming: $res")
+      logger.trace(s"After renaming: $res")
       res
     }
   }
 
   def renameWithoutDoubleCapture(f : Renaming) : (AtomContainer, Renaming) = {
-    logger.info(s"Renaming vars in $this")
+    logger.trace(s"Renaming vars in $this")
 
     val extendedF : Renaming = {
-      logger.debug(s"Will check whether any vars in $boundVars have to be renamed")
+      logger.trace(s"Will check whether any vars in $boundVars have to be renamed")
       boundVars.foldLeft(f)({
         case (intermediateF, v) =>
           if (!f.isDefinedAt(v)) intermediateF.addBoundVarWithOptionalAlphaConversion(v) else intermediateF
         //intermediateF.addBoundVarWithOptionalAlphaConversion(v)
       })
     }
-    logger.debug(s"Map for renaming $f extended to $extendedF")
+    logger.trace(s"Map for renaming $f extended to $extendedF")
 
     val res = renameWithoutDoubleCaptureCheck(extendedF)
-    logger.debug(s"After renaming: $res")
+    logger.trace(s"After renaming: $res")
     (res, extendedF)
   }
 
@@ -93,11 +92,17 @@ case class AtomContainer(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCall
       logger.trace("Will close gaps by renaming " + renamingPairs.mkString(", "))
       val renaming = Renaming.fromPairs(renamingPairs)
       val res = renameWithoutDoubleCaptureCheck(renaming)
-      logger.debug(s"Closed gaps in $this yielding: $res")
+      logger.trace(s"Closed gaps in $this yielding: $res")
       res
     } else {
       this
     }
   }
+
+}
+
+object AtomContainer {
+
+  val boundVarOrdering = Ordering.fromLessThan[BoundVar](_ < _)
 
 }

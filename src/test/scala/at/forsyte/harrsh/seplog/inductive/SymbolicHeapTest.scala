@@ -1,15 +1,13 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.TestValues
+import at.forsyte.harrsh.{Implicits, TestValues}
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Renaming, Var}
 import at.forsyte.harrsh.test.HarrshTest
 
 /**
   * Created by jkatelaa on 3/31/17.
   */
-class SymbolicHeapTest extends HarrshTest with TestValues {
-
-  import at.forsyte.harrsh.Implicits._
+class SymbolicHeapTest extends HarrshTest with Implicits with TestValues {
 
   behavior of "A symbolic heap"
 

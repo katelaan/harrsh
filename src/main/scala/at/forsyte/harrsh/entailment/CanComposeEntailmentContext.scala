@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog.Var
 
 object CanComposeEntailmentContext extends HarrshLogging {
 
-  val canComposeTreeInterfaces: CanCompose[EntailmentContext] = new CanCompose[EntailmentContext] {
+  val canComposeEntailmentContext: CanCompose[EntailmentContext] = new CanCompose[EntailmentContext] {
     override def makeDisjoint(fst: EntailmentContext, snd: EntailmentContext): (EntailmentContext, EntailmentContext) = {
       val clashAvoidanceUpdate = PlaceholderVar.placeholderClashAvoidanceUpdate(snd.placeholders)
       (fst.updateSubst(clashAvoidanceUpdate, convertToNormalform = false), snd)

@@ -2,12 +2,12 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive.PredCall
-import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
+import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 
 case class EntailmentContext private(root: PredicateNodeLabel, calls: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
 
   assert(EntailmentContext.noRedundantPlaceholders(labels), s"There are redundant placeholders in $this")
-  assert(EntailmentContext.nodeLabelsAndUsageInfoContainSameVars(this), s"Inconsistent tree interface $this: There is a difference between the variables in the usage info and in the substitutions")
+  assert(EntailmentContext.nodeLabelsAndUsageInfoContainSameVars(this), s"Inconsistent entailment context $this: There is a difference between the variables in the usage info and in the substitutions")
 
   lazy val labels: Seq[NodeLabel] = Seq[NodeLabel](root) ++ calls
 
@@ -74,7 +74,7 @@ case class EntailmentContext private(root: PredicateNodeLabel, calls: Set[Predic
 
   def usageInfoOfNode(n: NodeLabel): VarUsageInfo = {
     val res = n.subst.toSeq.map(usageInfo.getOrElse(_, VarUnused))
-    logger.trace(s"Usage info for $n w.r.t. $this: $res")
+    logger.debug(s"Usage info for $n w.r.t. $this: $res")
     res
   }
 
@@ -105,9 +105,9 @@ case class EntailmentContext private(root: PredicateNodeLabel, calls: Set[Predic
   }
 }
 
-object EntailmentContext {
+object EntailmentContext extends HarrshLogging {
 
-  implicit val canComposeTreeInterfaces: CanCompose[EntailmentContext] = CanComposeEntailmentContext.canComposeTreeInterfaces
+  implicit val canComposeEntailmentContext: CanCompose[EntailmentContext] = CanComposeEntailmentContext.canComposeEntailmentContext
 
   def apply(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker, convertToNormalform: Boolean): EntailmentContext = {
     if (convertToNormalform) {
@@ -133,12 +133,12 @@ object EntailmentContext {
       diseqsAfterDropping.update(establishNormalForm))
   }
 
-  def isInNormalForm(tif: EntailmentContext): Boolean = {
-    noRedundantPlaceholders(tif.labels) && PlaceholderVar.noGapsInPlaceholders(tif.placeholders)
+  def isInNormalForm(ctx: EntailmentContext): Boolean = {
+    noRedundantPlaceholders(ctx.labels) && PlaceholderVar.noGapsInPlaceholders(ctx.placeholders)
   }
 
-  def haveNoConflicts(tif1: EntailmentContext, tif2: EntailmentContext): Boolean = {
-    (tif1.placeholders intersect tif2.placeholders).isEmpty
+  def haveNoConflicts(ctx1: EntailmentContext, ctx2: EntailmentContext): Boolean = {
+    (ctx1.placeholders intersect ctx2.placeholders).isEmpty
   }
 
   def noRedundantPlaceholders(labels: Iterable[NodeLabel]): Boolean = {
@@ -147,10 +147,15 @@ object EntailmentContext {
     }
   }
 
-  def nodeLabelsAndUsageInfoContainSameVars(tif: EntailmentContext): Boolean = {
-    val varsOccurringInNodeLabels = tif.substs.toSet[Substitution].flatMap(subst => subst.toSeq)
-    val varsInUsageInfo = tif.usageInfo.keySet
-    varsOccurringInNodeLabels == varsInUsageInfo
+  def nodeLabelsAndUsageInfoContainSameVars(ctx: EntailmentContext): Boolean = {
+    val varsOccurringInNodeLabels: Set[Set[Var]] = ctx.substs.toSet[Substitution].flatMap(subst => subst.toSeq)
+    val varsInUsageInfo = ctx.usageInfo.keySet
+    logger.debug(s"Vars in node labels: $varsOccurringInNodeLabels / Vars in usage info: $varsInUsageInfo")
+    // FIXME: [ENTAILMENT CLEANUP] Does it make sense to drop null here?
+    // FIXME: [ENTAILMENT CLEANUP] Do we really have to enforce that the variables are the same? Isn't it enough that we have usage info for everything that occurs in the nodes? (Supposing that forgetting free vars works correctly, that should be sound? It might even be the only sound thing to do, because we might otherwise lose info about double allocation?)
+    // varsOccurringInNodeLabels == varsInUsageInfo
+    //varsOccurringInNodeLabels.filterNot(_.contains(NullConst)) == varsInUsageInfo.filterNot(_.contains(NullConst))
+    varsOccurringInNodeLabels.filterNot(_.contains(NullConst)) subsetOf varsInUsageInfo.filterNot(_.contains(NullConst))
   }
 
 }

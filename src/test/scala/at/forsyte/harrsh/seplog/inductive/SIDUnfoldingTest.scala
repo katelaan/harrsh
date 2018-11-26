@@ -1,12 +1,12 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.Implicits._
+import at.forsyte.harrsh.Implicits
 import at.forsyte.harrsh.test.HarrshTest
 
 /**
   * Created by jkatelaa on 4/20/17.
   */
-class SIDUnfoldingTest extends HarrshTest {
+class SIDUnfoldingTest extends HarrshTest with Implicits {
 
   behavior of "The SID unfolding"
 

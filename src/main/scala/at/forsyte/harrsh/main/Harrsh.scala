@@ -1,10 +1,11 @@
 package at.forsyte.harrsh.main
 
 
+import at.forsyte.harrsh.Implicits
+
 import scala.concurrent.duration.{Duration, SECONDS}
 import scalaz.State
 import scalaz.State._
-
 import at.forsyte.harrsh.entailment.EntailmentChecker
 import at.forsyte.harrsh.modelchecking.GreedyUnfoldingModelChecker
 import at.forsyte.harrsh.parsers.{EntailmentParseResult, EntailmentParsers, slcomp}
@@ -12,13 +13,12 @@ import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, Refineme
 import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 import at.forsyte.harrsh.main.ExecutionMode._
-import at.forsyte.harrsh.Implicits._
 import at.forsyte.harrsh.util.ToLatex._
 
 /**
   * The main command-line interface of Harrsh.
   */
-object Harrsh {
+object Harrsh extends Implicits {
   // TODO Option to feed in arbitrary symbolic heaps in addition to SID (and then automatically adapt the SID with new start predicate)
 
   val PreviousSidFileName = "result.sid"
