@@ -1,0 +1,14 @@
+# Test proper treatment of equalities
+query {
+  p(x1, x2) |= r(x1, x2)
+}
+sid {
+  r <= x1 -> y * s(y, x2) ;
+  s <= x1 -> x2 : {x1 = x2} ;
+  p <= x1 -> y * q(y, x2) : {x2 = null} ;
+  q <= x1 -> x2
+
+}
+info {
+  status = false
+}

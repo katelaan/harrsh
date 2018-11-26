@@ -205,14 +205,10 @@ object LocalProfile extends HarrshLogging {
       } yield v1 =:= v2
 
       val nullConstraints = for {
-        (rhs, lhsVs) <- rhsToLhsPointerMatching
-        if rhs.isNull
+        (rhs, lhsVs) <- rhsToLhsPointerMatching.find(_._1.isNull).toSeq
         v <- lhsVs
         if !v.isNull
-        // TODO: For consistency with the original implementation, we must explicitly add the disequality between the allocated var and the null var here. Check if this is actually necessary (or null=v is sufficient) once we pass all tests
-        allocedVs = rhsToLhsPointerMatching(rhsPto.head)
-        constraint <- (NullConst =:= v) +: (allocedVs map (_ =/= v))
-      } yield constraint //yield NullConst =:= v
+      } yield NullConst =:= v
 
       // TODO: This should always be empty or a singleton, i.e., it should be an option value not a stream, right?
       (Combinators.choices(candidatesByFv).toStream, aliasingConstraints.toSet ++ nullConstraints)
