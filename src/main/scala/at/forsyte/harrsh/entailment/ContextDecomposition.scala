@@ -98,7 +98,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
 
   def compositionOptions(other: ContextDecomposition): Seq[ContextDecomposition] = {
     for {
-      composed <- CanCompose.compositionOptions(parts.toSeq ++ other.parts)
+      composed <- EntailmentContextComposition.compositionOptions(parts.toSeq ++ other.parts)
       if composed.forall(_.hasConsistentPureConstraints)
     } yield ContextDecomposition(composed)
   }

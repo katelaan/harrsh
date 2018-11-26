@@ -107,8 +107,6 @@ case class EntailmentContext private(root: PredicateNodeLabel, calls: Set[Predic
 
 object EntailmentContext extends HarrshLogging {
 
-  implicit val canComposeEntailmentContext: CanCompose[EntailmentContext] = CanComposeEntailmentContext.canComposeEntailmentContext
-
   def apply(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker, convertToNormalform: Boolean): EntailmentContext = {
     if (convertToNormalform) {
       normalFormConversion(root, leaves, usageInfo, pureConstraints)

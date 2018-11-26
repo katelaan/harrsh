@@ -5,49 +5,71 @@ import at.forsyte.harrsh.seplog.FreeVar
 
 import scala.annotation.tailrec
 
-trait CanCompose[A] {
+object EntailmentContextComposition extends HarrshLogging {
 
-  def makeDisjoint(fst: A, snd: A): (A, A)
+  /**
+    * Execute as many composition steps as possible on `as`, returning a result where no further composition steps are possible.
+    */
+  def composeAll(as: Seq[EntailmentContext]): Seq[EntailmentContext] = sweepingMerge(Seq.empty, as)
 
-  def root(a : A): NodeLabel
+  /**
+    * Return all ways to compose zero or more of the elements of `as`.
+    */
+  def compositionOptions(as: Seq[EntailmentContext]): Seq[Seq[EntailmentContext]] = allMergeOptions(Seq.empty, as)
 
-  def abstractLeaves(a: A): Set[PredicateNodeLabel]
-
-  def usageInfo(a: A, n: NodeLabel): VarUsageInfo
-
-  def tryInstantiate(toInstantiate: A, abstractLeaf: PredicateNodeLabel, instantiation: A, unification: Unification): Option[A]
-
-}
-
-object CanCompose extends HarrshLogging {
-  def apply[A](implicit cc: CanCompose[A]): CanCompose[A] = cc
-
-  implicit class CanComposeOps[A: CanCompose](fst: A) {
-    def compose(snd: A) : Option[A] = CanCompose.compose(fst, snd)
-  }
-
-  def compose[A: CanCompose](fst: A, snd: A): Option[A] = {
-    val cc = CanCompose[A]
+  def compose(fst: EntailmentContext, snd: EntailmentContext): Option[EntailmentContext] = {
     logger.debug(s"Will try to compose $fst with $snd.")
 
-    val shifted@(shiftedFst, shiftedSnd) = cc.makeDisjoint(fst, snd)
+    val shifted@(shiftedFst, shiftedSnd) = makeDisjoint(fst, snd)
     logger.debug(s"After shifting: $shifted")
 
     (for {
       CompositionInterface(t1, t2, n2) <- compositionCandidates(shiftedFst, shiftedSnd)
-      unification <- tryUnify(t1, cc.root(t1), t2, n2)
+      unification <- tryUnify(t1, t1.root, t2, n2)
       // Compose using the unification. (This can fail in case the unification leads to double allocation)
-      instantiation <- cc.tryInstantiate(t2, n2, t1, unification)
+      instantiation <- tryInstantiate(t2, n2, t1, unification)
     } yield instantiation).headOption
   }
 
-  private def tryUnify[A: CanCompose](a1: A, n1: NodeLabel, a2: A, n2: PredicateNodeLabel): Option[Unification] = {
+  def makeDisjoint(fst: EntailmentContext, snd: EntailmentContext): (EntailmentContext, EntailmentContext) = {
+    val clashAvoidanceUpdate = PlaceholderVar.placeholderClashAvoidanceUpdate(snd.placeholders)
+    (fst.updateSubst(clashAvoidanceUpdate, convertToNormalform = false), snd)
+  }
+
+  def tryInstantiate(toInstantiate: EntailmentContext, abstractLeaf: PredicateNodeLabel, instantiation: EntailmentContext, unification: Unification): Option[EntailmentContext] = {
+    assert(EntailmentContext.haveNoConflicts(toInstantiate, instantiation),
+      s"Overlapping placeholders between $toInstantiate and $instantiation")
+
+    val propagateUnification = SubstitutionUpdate.fromUnification(unification)
+
+    val newRoot = toInstantiate.root.update(propagateUnification)
+    val allLeaves = (toInstantiate.calls - abstractLeaf) ++ instantiation.calls
+    val newLeaves = allLeaves.map(_.update(propagateUnification))
+
+    val newUsageInfo = combineUsageInfo(toInstantiate.usageInfo, instantiation.usageInfo, propagateUnification, Set(newRoot) ++ newLeaves)
+    val newDiseqs = (toInstantiate.pureConstraints compose instantiation.pureConstraints).update(propagateUnification)
+
+    val res = EntailmentContext(newRoot, newLeaves, newUsageInfo, newDiseqs, convertToNormalform = true)
+    assert(EntailmentContext.isInNormalForm(res),
+      s"After instantiation, placeholder vars ${res.placeholders} contain gap for tree interface $res")
+
+    // FIXME: In which cases should instantiation fail? Should we e.g. check for double allocation?
+    Some(res)
+  }
+
+  private def combineUsageInfo(fst: VarUsageByLabel, snd: VarUsageByLabel, update: SubstitutionUpdate, labels: Iterable[PredicateNodeLabel]): VarUsageByLabel = {
+    val fstUpdated = VarUsageByLabel.update(fst, update)
+    val sndUpdated = VarUsageByLabel.update(snd, update)
+    val combinedUsageInfo = VarUsageByLabel.merge(fstUpdated, sndUpdated)
+    VarUsageByLabel.restrictToSubstitutionsInLabels(combinedUsageInfo, labels)
+  }
+
+  private def tryUnify(a1: EntailmentContext, n1: NodeLabel, a2: EntailmentContext, n2: PredicateNodeLabel): Option[Unification] = {
     logger.debug(s"Will try to unify $n1 with $n2")
-    val cc = CanCompose[A]
-    assert(cc.root(a1) == n1)
-    assert(cc.abstractLeaves(a2).contains(n2))
+    assert(a1.root == n1)
+    assert(a2.calls.contains(n2))
     assert(n1.freeVarSeq == n2.freeVarSeq)
-    val (n1usage, n2usage) = (cc.usageInfo(a1, n1), cc.usageInfo(a2, n2))
+    val (n1usage, n2usage) = (a1.usageInfoOfNode(n1), a2.usageInfoOfNode(n2))
 
     // Sanity check: The root parameter of the predicate is marked as used in both nodes
     // TODO: If we want to relax the assumption about rootedness, this has to go. We'd have to ensure that this doesn't break soundness, though. See also the related TODO in LocalProfile
@@ -98,30 +120,19 @@ object CanCompose extends HarrshLogging {
      Note further that under the assumption that even base rules allocate memory, such objects will anyway always
      represent double allocation (same node label implies same root), so they should anyway be discarded.
    */
-  case class CompositionInterface[A](treeToEmbed: A, embeddingTarget: A, leafToReplaceInEmbedding: PredicateNodeLabel)
+  case class CompositionInterface(treeToEmbed: EntailmentContext, embeddingTarget: EntailmentContext, leafToReplaceInEmbedding: PredicateNodeLabel)
 
-  private def compositionCandidates[A: CanCompose](fst: A, snd: A): Stream[CompositionInterface[A]] = {
-    val cc = CanCompose[A]
+  private def compositionCandidates(fst: EntailmentContext, snd: EntailmentContext): Stream[CompositionInterface] = {
     for {
       (treeWithRoot, treeWithAbstractLeaf) <- Stream((fst,snd), (snd,fst))
-      root = cc.root(treeWithRoot)
-      abstractLeaf <- cc.abstractLeaves(treeWithAbstractLeaf)
+      root = treeWithRoot.root
+      abstractLeaf <- treeWithAbstractLeaf.calls
       // Only consider for composition if the labeling predicates are the same
       if root.pred == abstractLeaf.pred
     } yield CompositionInterface(treeWithRoot, treeWithAbstractLeaf, abstractLeaf)
   }
 
-  /**
-    * Execute as many composition steps as possible on `as`, returning a result where no further composition steps are possible.
-    */
-  def composeAll[A: CanCompose](as: Seq[A]): Seq[A] = sweepingMerge(Seq.empty, as)
-
-  /**
-    * Return all ways to compose zero or more of the elements of `as`.
-    */
-  def compositionOptions[A: CanCompose](as: Seq[A]): Seq[Seq[A]] = allMergeOptions(Seq.empty, as)
-
-  private def allMergeOptions[A: CanCompose](processed: Seq[A], unprocessed: Seq[A]): Seq[Seq[A]] = {
+  private def allMergeOptions(processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext]): Seq[Seq[EntailmentContext]] = {
     if (unprocessed.isEmpty) {
       Seq(processed)
     } else {
@@ -131,12 +142,12 @@ object CanCompose extends HarrshLogging {
     }
   }
 
-  private def optionalMerge[A: CanCompose](processed: Seq[A], unprocessed: Seq[A]): Seq[(Seq[A], Seq[A])] = {
+  private def optionalMerge(processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext]): Seq[(Seq[EntailmentContext], Seq[EntailmentContext])] = {
     val (fst, other) = (unprocessed.head, unprocessed.tail)
     Seq((processed :+ fst, other)) ++ tryMerge(fst, other).map(pair => (processed, pair._1 +: pair._2))
   }
 
-  @tailrec private def sweepingMerge[A: CanCompose](processed: Seq[A], unprocessed: Seq[A]): Seq[A] = {
+  @tailrec private def sweepingMerge(processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext]): Seq[EntailmentContext] = {
     if (unprocessed.isEmpty) {
       processed
     } else {
@@ -147,11 +158,11 @@ object CanCompose extends HarrshLogging {
     }
   }
 
-  private def tryMerge[A: CanCompose](fst: A, other: Seq[A]): Option[(A, Seq[A])] = {
+  private def tryMerge(fst: EntailmentContext, other: Seq[EntailmentContext]): Option[(EntailmentContext, Seq[EntailmentContext])] = {
     (for {
       candidate <- other.toStream
-      composed <- CanCompose.compose(fst, candidate)
+      composed <- compose(fst, candidate)
     } yield (composed, other.filter(_ != candidate))).headOption
   }
-
+  
 }
