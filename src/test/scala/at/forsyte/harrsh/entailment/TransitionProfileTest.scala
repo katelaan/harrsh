@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.ExampleSIDs._
-import at.forsyte.harrsh.entailment.EntailmentAutomaton.EntailmentProfile
 
 class TransitionProfileTest extends TestWithSyntacticSugarForDecompositions {
 

@@ -6,18 +6,18 @@ import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
 sealed trait TransitionProfile {
-  def toTarget: Option[EntailmentAutomaton.EntailmentProfile]
+  def toTarget: Option[EntailmentProfile]
 }
 
 case class UnmatchableLocalAllocation(lab: SymbolicHeap) extends TransitionProfile with HarrshLogging {
-  override def toTarget: Option[EntailmentAutomaton.EntailmentProfile] = {
+  override def toTarget: Option[EntailmentProfile] = {
     logger.debug(s"No profile for local allocation of $lab => Return inconsistent state")
-    Some(EntailmentAutomaton.EntailmentProfile(Set.empty, lab.freeVars))
+    Some(EntailmentProfile(Set.empty, lab.freeVars))
   }
 }
 
 case object InconsistentTransitionSources extends TransitionProfile with HarrshLogging {
-  override def toTarget: Option[EntailmentAutomaton.EntailmentProfile] = {
+  override def toTarget: Option[EntailmentProfile] = {
     logger.debug(s"Instantiation of transition sources is inconsistent => No target state")
     None
   }
@@ -25,10 +25,10 @@ case object InconsistentTransitionSources extends TransitionProfile with HarrshL
 
 case class ConsistentTransitionProfile(decompsBySource: Seq[Set[ContextDecomposition]], lab: SymbolicHeap, sid: SID) extends TransitionProfile with HarrshLogging {
 
-  override def toTarget: Option[EntailmentAutomaton.EntailmentProfile] = {
+  override def toTarget: Option[EntailmentProfile] = {
     val targetProfiles = allPossibleDecompCompositions
     logger.debug(s"Target state:\n${if (targetProfiles.nonEmpty) targetProfiles.mkString("\n") else "empty (sink state)"}")
-    Some(EntailmentAutomaton.EntailmentProfile(targetProfiles, lab.freeVars))
+    Some(EntailmentProfile(targetProfiles, lab.freeVars))
   }
 
   private def allPossibleDecompCompositions: Set[ContextDecomposition] = {
@@ -88,7 +88,7 @@ case class ConsistentTransitionProfile(decompsBySource: Seq[Set[ContextDecomposi
 
 object TransitionProfile extends HarrshLogging {
 
-  def apply(src: Seq[EntailmentAutomaton.EntailmentProfile], lab: SymbolicHeap, sid: SID): TransitionProfile = {
+  def apply(src: Seq[EntailmentProfile], lab: SymbolicHeap, sid: SID): TransitionProfile = {
     val instantiatedETs = InstantiatedSourceStates(src, lab)
     if (instantiatedETs.isConsistent) {
       val local = LocalProfile(lab, sid)

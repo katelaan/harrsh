@@ -32,7 +32,7 @@ case class ConsistentInstantiatedSourceStates(instantiatedEtypesByState: Seq[Set
 
 object InstantiatedSourceStates extends HarrshLogging {
 
-  def apply(src: Seq[EntailmentAutomaton.EntailmentProfile], lab: SymbolicHeap): InstantiatedSourceStates = {
+  def apply(src: Seq[EntailmentProfile], lab: SymbolicHeap): InstantiatedSourceStates = {
     val instantiatedETs = instantiatedSourceStates(src, lab)
     val consistentEts = instantiatedETs map (_ filterNot isInconsistent)
     if (consistentEts forall (_.nonEmpty))
@@ -41,7 +41,7 @@ object InstantiatedSourceStates extends HarrshLogging {
       InconsistentInstantiatedSourceStates
   }
 
-  private def instantiatedSourceStates(src: Seq[EntailmentAutomaton.EntailmentProfile], lab: SymbolicHeap): Seq[Set[ContextDecomposition]] = {
+  private def instantiatedSourceStates(src: Seq[EntailmentProfile], lab: SymbolicHeap): Seq[Set[ContextDecomposition]] = {
     val instantiatedETs = (src, lab.predCalls).zipped.map(instantiateETsForCall)
     for {
       (src, renamed, call) <- (src, instantiatedETs, lab.predCalls).zipped
@@ -51,8 +51,8 @@ object InstantiatedSourceStates extends HarrshLogging {
     instantiatedETs
   }
 
-  private def instantiateETsForCall(state: EntailmentAutomaton.EntailmentProfile, call: PredCall): Set[ContextDecomposition] = {
-    val EntailmentAutomaton.EntailmentProfile(ets, params) = state
+  private def instantiateETsForCall(state: EntailmentProfile, call: PredCall): Set[ContextDecomposition] = {
+    val EntailmentProfile(ets, params) = state
     val callUpdate: SubstitutionUpdate = v => {
       // If v is the i-th free variable of the predicate, replace it with the i-th argument of the call;
       // otherwise, return the variable as is

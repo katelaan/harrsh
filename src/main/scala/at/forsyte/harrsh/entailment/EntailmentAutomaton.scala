@@ -23,7 +23,7 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
 
   override val description: String = s"EntailmentAutomaton($rhs)"
 
-  override type State = EntailmentAutomaton.EntailmentProfile
+  override type State = EntailmentProfile
 
   override def isFinal(s: State): Boolean = {
     // A state represents all the possible ways to parse an RSH as a SID unfolding tree.
@@ -43,19 +43,6 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
 }
 
 object EntailmentAutomaton extends HarrshLogging {
-
-  case class EntailmentProfile(profile: Set[ContextDecomposition], orderedParams: Seq[FreeVar]) {
-
-    assert(profile forall (_.boundVars.isEmpty),
-      s"Trying to construct state from cut profile that still contains bound vars: $profile")
-
-    private val freeVarsInEts = profile.flatMap(_.nonPlaceholderFreeVars)
-
-    if (profile.nonEmpty && !(freeVarsInEts subsetOf orderedParams.toSet)) {
-      throw new IllegalArgumentException(s"Cut profile contains FVs $freeVarsInEts, but constructing state for $orderedParams")
-    }
-
-  }
 
   /**
     * An inconsistent state representing all "sink" states of the given parameter sequence

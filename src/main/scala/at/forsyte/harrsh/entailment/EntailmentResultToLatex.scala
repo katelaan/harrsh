@@ -103,7 +103,7 @@ object EntailmentResultToLatex {
 
   object entailmentCheckingResultToLatex {
 
-    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.EntailmentProfile]], transitions: Map[String, Set[(Seq[EntailmentAutomaton.EntailmentProfile], RuleBody, EntailmentAutomaton.EntailmentProfile)]]): String = {
+    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentProfile]], transitions: Map[String, Set[(Seq[EntailmentProfile], RuleBody, EntailmentProfile)]]): String = {
       val resultTex = entailmentCheckerResultToLatex(aut, statesByPred)
       val queryTex = s"$$${ei.lhsCall.toSymbolicHeap.toLatex} \\models ${ei.rhsCall.toSymbolicHeap.toLatex}$$"
       val combinedSid = SID(startPred = "", description = "", preds = ei.lhsSid.preds ++ ei.rhsSid.preds.filterNot(ei.lhsSid.preds.contains))
@@ -116,7 +116,7 @@ object EntailmentResultToLatex {
         .replace(TransitionPlaceholder, transitionsToLatex(transitions))
     }
 
-    private def transitionsToLatex(transitions: Map[String, Set[(Seq[EntailmentAutomaton.EntailmentProfile], RuleBody, EntailmentAutomaton.EntailmentProfile)]]): String = {
+    private def transitionsToLatex(transitions: Map[String, Set[(Seq[EntailmentProfile], RuleBody, EntailmentProfile)]]): String = {
       val byPred = for {
         (pred, ts) <- transitions
         predStr = s"\\subsection{Transitions for \\texttt{$pred}}\n\\begin{itemize}\n"
@@ -125,7 +125,7 @@ object EntailmentResultToLatex {
       byPred.mkString("\n\n")
     }
 
-    private def transitionToLatex(transition: (Seq[EntailmentAutomaton.EntailmentProfile], RuleBody, EntailmentAutomaton.EntailmentProfile)) : String = {
+    private def transitionToLatex(transition: (Seq[EntailmentProfile], RuleBody, EntailmentProfile)) : String = {
       val (srcs, rule, trg) = transition
       // TODO: Remove code duplication
       val srcStrs = (srcs map (s => entailmentCheckerResultToLatex.stateToLatex(trg, s => false).mkString("\n"))).mkString("\n\n")
@@ -140,21 +140,21 @@ object EntailmentResultToLatex {
 
   object entailmentCheckerResultToLatex {
 
-    def apply(aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentAutomaton.EntailmentProfile]]): String = {
-      val isFinal = (s: EntailmentAutomaton.EntailmentProfile) => aut.isFinal(s)
+    def apply(aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentProfile]]): String = {
+      val isFinal = (s: EntailmentProfile) => aut.isFinal(s)
       statesToLatex(statesByPred, isFinal)
     }
 
-    def statesToLatex(statesByPred: Map[String, Set[EntailmentAutomaton.EntailmentProfile]], isFinal: EntailmentAutomaton.EntailmentProfile => Boolean): String = {
+    def statesToLatex(statesByPred: Map[String, Set[EntailmentProfile]], isFinal: EntailmentProfile => Boolean): String = {
       val lines = Stream("\\begin{itemize}") ++ statesByPred.toStream.flatMap(pair => Stream("\\item") ++ predToLatex(pair._1, pair._2, isFinal)).map(indent) ++ Stream("\\end{itemize}")
       lines.mkString("\n")
     }
 
-    def predToLatex(pred: String, states: Set[EntailmentAutomaton.EntailmentProfile], isFinal: EntailmentAutomaton.EntailmentProfile => Boolean): Stream[String] = {
+    def predToLatex(pred: String, states: Set[EntailmentProfile], isFinal: EntailmentProfile => Boolean): Stream[String] = {
       Stream(s"Reachable states for \\texttt{$pred}:", "\\begin{itemize}") ++ states.toStream.flatMap(s => stateToLatex(s, isFinal)).map(indent) ++ Stream("\\end{itemize}")
     }
 
-    def stateToLatex(state: EntailmentAutomaton.EntailmentProfile, isFinal: EntailmentAutomaton.EntailmentProfile => Boolean): Stream[String] = {
+    def stateToLatex(state: EntailmentProfile, isFinal: EntailmentProfile => Boolean): Stream[String] = {
       val finalStr = if (isFinal(state)) "\\textbf{FINAL} " else ""
       val header = s"\\item ${finalStr}State/Profile with free variables ${state.orderedParams.mkString("$<", ", ", ">$")} and context decompositions:"
 

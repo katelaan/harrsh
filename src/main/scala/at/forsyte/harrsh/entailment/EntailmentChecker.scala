@@ -111,7 +111,7 @@ object EntailmentChecker extends HarrshLogging {
     result
   }
 
-  def entailmentStats(reachableStatesByPred: Map[String, Set[EntailmentAutomaton.EntailmentProfile]]): EntailmentStats = {
+  def entailmentStats(reachableStatesByPred: Map[String, Set[EntailmentProfile]]): EntailmentStats = {
     val numExploredPreds = reachableStatesByPred.size
     val allProfiles = reachableStatesByPred.values.flatten.toList
     val allDecomps = for {
@@ -126,7 +126,7 @@ object EntailmentChecker extends HarrshLogging {
     val EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhsSid, rhsCall)
     val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhsSid, aut, reportProgress)
-    val isFinal = (s: EntailmentAutomaton.EntailmentProfile) => aut.isFinal(s)
+    val isFinal = (s: EntailmentProfile) => aut.isFinal(s)
     val entailmentHolds = reachableStatesByPred(lhsCall.name).forall(isFinal)
     val stats = entailmentStats(reachableStatesByPred)
 
@@ -144,23 +144,23 @@ object EntailmentChecker extends HarrshLogging {
 
   object serializeResult {
 
-    def apply(aut: EntailmentAutomaton, reachable: Map[String, Set[EntailmentAutomaton.EntailmentProfile]]): String = {
-      val isFinal = (s: EntailmentAutomaton.EntailmentProfile) => aut.isFinal(s)
+    def apply(aut: EntailmentAutomaton, reachable: Map[String, Set[EntailmentProfile]]): String = {
+      val isFinal = (s: EntailmentProfile) => aut.isFinal(s)
       serializeReach(reachable, isFinal)
     }
 
     private def indent(s : String) = "  " + s
 
-    def serializeReach(statesByPred: Map[String, Set[EntailmentAutomaton.EntailmentProfile]], isFinal: EntailmentAutomaton.EntailmentProfile => Boolean): String = {
+    def serializeReach(statesByPred: Map[String, Set[EntailmentProfile]], isFinal: EntailmentProfile => Boolean): String = {
       val lines = Stream("RESULT {") ++ statesByPred.toStream.flatMap(pair => serializePred(pair._1, pair._2, isFinal)).map(indent) ++ Stream("}")
       lines.mkString("\n")
     }
 
-    def serializePred(pred: String, states: Set[EntailmentAutomaton.EntailmentProfile], isFinal: EntailmentAutomaton.EntailmentProfile => Boolean): Stream[String] = {
+    def serializePred(pred: String, states: Set[EntailmentProfile], isFinal: EntailmentProfile => Boolean): Stream[String] = {
       Stream(s"PRED $pred {") ++ states.toStream.flatMap(s => serializeState(s, isFinal)).map(indent) ++ Stream("}")
     }
 
-    def serializeState(state: EntailmentAutomaton.EntailmentProfile, isFinal: EntailmentAutomaton.EntailmentProfile => Boolean): Stream[String] = {
+    def serializeState(state: EntailmentProfile, isFinal: EntailmentProfile => Boolean): Stream[String] = {
       (Stream("PROFILE {",
         s"  FVS: ${state.orderedParams.mkString(", ")}")
         ++ Some("  ACCEPTING").filter(_ => isFinal(state))
