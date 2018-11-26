@@ -44,27 +44,15 @@ class LocalProfileTest extends TestWithSyntacticSugarForDecompositions {
       ))
     )
 
-    val Both = true
-    //val Both = false
 
     for {
       (lhs, sid, expectedProfile) <- inputs
-    }{
-      info(s"Computing profile for $lhs wrt. $sid using old approach")
+    } {
+      info(s"Computing profile for $lhs wrt. $sid using new approach")
       val actualProfile = LocalProfile.localAllocToDecomps(lhs.parse, sid)
-      info(s"Result: $actualProfile")
       actualProfile shouldEqual expectedProfile
     }
 
-    if (Both) {
-      for {
-        (lhs, sid, expectedProfile) <- inputs
-      } {
-        info(s"Computing profile for $lhs wrt. $sid using new approach")
-        val actualProfile = LocalProfile.localAllocToDecompsNew(lhs.parse, sid)
-        actualProfile shouldEqual expectedProfile
-      }
-    }
 
   }
 
