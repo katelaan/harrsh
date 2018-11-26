@@ -176,74 +176,95 @@ object LocalProfile extends HarrshLogging {
     }
   }
 
-  private case class MatchResult(renaming: Seq[Var], abducedPureConstraints: Set[PureAtom])
+  private case class MatchResult(renamingTargets: Seq[Var], abducedPureConstraints: Set[PureAtom])
 
   private def matchPointers(lhs: SymbolicHeap, rhs: SymbolicHeap, rhsClosure: Closure): MatchResult = {
+    // Map the RHS vars to the LHS vars based on the points-to assertion in RHS and LHS
+    val rhsToLhsPointerMatching = rhsToLhsMap(rhs, lhs)
+    logger.debug(s"Computed pointer matching: $rhsToLhsPointerMatching")
+    // Execute the renaming based on the matching
+    val renamingTargets = renameByMatching(rhs, rhsClosure, rhsToLhsPointerMatching)
+    // Collect aliasing and non-null constraints that must hold for the matching to work
+    val abducedPureConstraints = abduceConstraints(rhsToLhsPointerMatching)
+    MatchResult(renamingTargets, abducedPureConstraints)
+  }
+
+  private def renameByMatching(rhs: SymbolicHeap, rhsClosure: Closure, rhsToLhsPointerMatching: Map[Var, Seq[Var]]): Seq[Var] = {
+    val rhsToLhsMapper = rhsVarToLhsVar(rhsToLhsPointerMatching, rhsClosure)_
+    rhs.freeVars map rhsToLhsMapper
+  }
+
+  private def rhsToLhsMap(rhs: SymbolicHeap, lhs: SymbolicHeap): Map[Var,Seq[Var]] = {
     //Rename free vars in body rhs according to lhs
     val rhsPto = rhs.pointers.head.args
     val lhsPto = lhs.pointers.head.args
     logger.debug(s"Trying to find renaming to match $lhsPto |= $rhsPto")
     val renamingTargets = NullConst +: lhs.freeVars // The vars that we can rename to. Only those that actually appear in the LHS pointer
-    val rhsToLhsPointerMatching: Map[Var, Seq[Var]] = (rhsPto zip lhsPto).groupBy(_._1) map {
+    (rhsPto zip lhsPto).groupBy(_._1) map {
       case (rhsVar, tuples) => (rhsVar, tuples.map(_._2))
     }
-    logger.debug(s"Computed pointer matching: $rhsToLhsPointerMatching")
-    val candidatesByFv: Seq[Var] = rhs.freeVars map {
-      fv =>
-        rhsToLhsPointerMatching.get(fv) match {
-          case Some(lhsV) =>
-            if (lhsV.exists(_.isFreeNonNull)) {
-              // All free vars that occur in the pointer have a fixed mapping (matching the points-to assertions)
-              // Since all variables in lhsV must alias, it's enough to consider one of those for the substitution
-              lhsV.collect{
+  }
+
+  private def rhsVarToLhsVar(rhsToLhsPointerMatching: Map[Var,Seq[Var]], rhsClosure: Closure)(fv: Var): Var = {
+    rhsToLhsPointerMatching.get(fv) match {
+      case Some(lhsV) =>
+        if (lhsV.exists(_.isFreeNonNull)) {
+          // All free vars that occur in the pointer have a fixed mapping (matching the points-to assertions)
+          // Since all variables in lhsV must alias, it's enough to consider one of those for the substitution
+          lhsV.collect{
+            case fv: FreeVar => fv
+            case NullConst => NullConst
+          }.head
+        } else {
+          // Quantified on the left, parameter on the right
+          // Note: Perhaps counterintuitively, the rule can be matched regardless;
+          // This is because we compute on the original LHS pointer, not on the "local" pointer that has additional fvs
+          // TODO: This would become unreachable if we used the rename-compose-forget semantics as presented in the paper (where there simply aren't any bound variables when we compute the local profile, because we drop the quantifier prefix and only reintroduce it later via the forget)
+          lhsV.head
+        }
+      case None =>
+        // fv does not occur in the pointer
+        if (PlaceholderVar.isPlaceholder(fv)) {
+          // If it's a placeholder, it must remain unchanged
+          fv
+        } else {
+          // If not, there must be aliasing effects that determine the mapping
+          rhsClosure.getEquivalenceClass(fv).flatMap(rhsToLhsPointerMatching.get).headOption match {
+            case Some(lhsVars) =>
+              lhsVars.collect{
                 case fv: FreeVar => fv
                 case NullConst => NullConst
               }.head
-            } else {
-              // Quantified on the left, parameter on the right
-              // Note: Perhaps counterintuitively, the rule can be matched regardless;
-              // This is because we compute on the original LHS pointer, not on the "local" pointer that has additional fvs
-              // TODO: This would become unreachable if we used the rename-compose-forget semantics as presented in the paper (where there simply aren't any bound variables when we compute the local profile, because we drop the quantifier prefix and only reintroduce it later via the forget)
-              lhsV.head
-            }
-          case None =>
-            // fv does not occur in the pointer
-            if (PlaceholderVar.isPlaceholder(fv)) {
-              // If it's a placeholder, it must remain unchanged
-              fv
-            } else {
-              // If not, there must be aliasing effects that determine the mapping
-              rhsClosure.getEquivalenceClass(fv).flatMap(rhsToLhsPointerMatching.get).headOption match {
-                case Some(lhsVars) =>
-                  lhsVars.collect{
-                    case fv: FreeVar => fv
-                    case NullConst => NullConst
-                  }.head
-                case None =>
-                  // All completely unused free vars should have been replaced by placeholders
-                  throw new IllegalStateException(s"This should be unreachable. There shouldn't be a nonplaceholder var that doesn't occur in the pointer, but there is $fv")
-              }
-            }
+            case None =>
+              // All completely unused free vars should have been replaced by placeholders
+              throw new IllegalStateException(s"This should be unreachable. There shouldn't be a nonplaceholder var that doesn't occur in the pointer, but there is $fv")
+          }
         }
     }
+  }
 
+  private def abduceConstraints(rhsToLhsPointerMatching: Map[Var,Seq[Var]]): Set[PureAtom] = {
+    aliasingConstraints(rhsToLhsPointerMatching) ++ nullConstraints(rhsToLhsPointerMatching)
+  }
+
+  private def nullConstraints(rhsToLhsPointerMatching: Map[Var,Seq[Var]]): Set[PureAtom] = {
+    for {
+      (rhs, lhsVs) <- rhsToLhsPointerMatching.find(_._1.isNull).toSet
+      v <- lhsVs
+      if !v.isNull
+    } yield NullConst =:= v
+  }
+
+  private def aliasingConstraints(rhsToLhsPointerMatching: Map[Var,Seq[Var]]): Set[PureAtom] = {
     // If an RHS variable has to be mapped to multiple LHS variables, we must compute the corresponding aliasing constraints for that.
     // E.g. matching LHS x1 -> (x2, x3) against RHS x1 -> (x2, x2). This should be possible, but lead to aliasing constraint x2 = x3
-    val aliasingConstraints = for {
+    (for {
       (rhs, lhsVs) <- rhsToLhsPointerMatching
       if lhsVs.size > 1
       v1 <- lhsVs
       v2 <- lhsVs
       if v1 < v2
-    } yield v1 =:= v2
-
-    val nullConstraints = for {
-      (rhs, lhsVs) <- rhsToLhsPointerMatching.find(_._1.isNull).toSeq
-      v <- lhsVs
-      if !v.isNull
-    } yield NullConst =:= v
-
-    MatchResult(candidatesByFv, aliasingConstraints.toSet ++ nullConstraints)
+    } yield v1 =:= v2).toSet
   }
 
 }
