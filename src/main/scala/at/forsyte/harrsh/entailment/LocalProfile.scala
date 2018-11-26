@@ -52,7 +52,8 @@ object LocalProfile extends HarrshLogging {
       None
     } else {
       for {
-        decomp <- computeDecomps(sid, predicate, lhs, rhs)
+        ctx <- computeContextFromHeaps(sid, predicate, lhs, rhs)
+        decomp = ContextDecomposition(Seq(ctx))
         // TODO: If we want to relax the assumption about rootedness, this call has to go
         if allRootParamsUsed(decomp, sid)
         if hasNamesForUsedParams(decomp, sid)
@@ -90,60 +91,56 @@ object LocalProfile extends HarrshLogging {
     enoughNamesByNodeAndParam.forall(b => b)
   }
 
-  private def computeDecomps(sid: SID, predicate: Predicate, lhs: SymbolicHeap, rhs: SymbolicHeap): Option[ContextDecomposition] = {
+  private def computeContextFromHeaps(sid: SID, predicate: Predicate, lhs: SymbolicHeap, rhs: SymbolicHeap): Option[EntailmentContext] = {
     logger.debug(s"Trying to construct context for $lhs |= $rhs")
-    // Idea:
-    // 1.) Replace all FVs that don't occur in the RHS pointer by placeholders
+
+    // 1.) In the rule body, replace all bound vars and all FVs that don't occur by placeholders
     val closure = Closure.fromSH(rhs)
-    val usedFvs = Var.freeNonNullVars(rhs.pointers.head.args) flatMap (closure.getEquivalenceClass(_))
+    val withPlaceholders = introducePlaceholders(rhs, closure)
+    logger.debug(s"RHS after placeholder introduction: $withPlaceholders")
+
+    // 2.) Perform a speculative matching of the LHS against the thus-modified RHS
+    val MatchResult(renamingTargets, pureConstraintsAbducedByMatching) = matchPointers(lhs, withPlaceholders, closure)
+
+    // 3.) Rename free vars in the rule body to LHS vars based on the match result
+    val ruleArity = rhs.freeVars.size
+    val (renamedRhs, newParams) = renameRuleBody(ruleArity, withPlaceholders, renamingTargets)
+
+    // 4.) Compute pure constraints enforced by the LHS, the RHS and the specific matching
+    val pure = pureConstraints(lhs, renamedRhs, pureConstraintsAbducedByMatching)
+
+    // 5.) If that's consistent, return the corresponding context, converting it to normalform first
+    contextFromConstraints(renamedRhs, newParams, pure, sid, predicate)
+  }
+
+  private def introducePlaceholders(rhs: SymbolicHeap, rhsClosure: Closure): SymbolicHeap = {
+    // 1.) Replace all FVs that don't occur in the RHS pointer by placeholders
+    val usedFvs = Var.freeNonNullVars(rhs.pointers.head.args) flatMap (rhsClosure.getEquivalenceClass(_))
     val unused = rhs.freeVars.filterNot(usedFvs.contains)
     // 2.) Replace all bound vars in body by placeholder vars
     val bvs = rhs.boundVars
-    val withPlaceholders = PlaceholderVar.replaceVarsWithPlaceholders(rhs, unused ++ bvs)
-    logger.debug(s"RHS after placeholder introduction: $withPlaceholders")
+    PlaceholderVar.replaceVarsWithPlaceholders(rhs, unused ++ bvs)
+  }
 
-    val lhsEnsuredConstraints = Closure.fromSH(lhs).asSetOfAtoms
-
-    val MatchResult(renamingTargets, pureConstraintsImposedByMatching) = matchPointers(lhs, withPlaceholders, closure)
-
-    // 3.) Rename free vars in body (rhs) according to lhs
-    assert(withPlaceholders.freeVars.size == renamingTargets.size)
-    val renaming = Renaming.fromPairs(withPlaceholders.freeVars zip renamingTargets)
+  private def renameRuleBody(ruleArity: Int, rhsWithPlaceholders: SymbolicHeap, renamingTargets: Seq[Var]) = {
+    assert(rhsWithPlaceholders.freeVars.size == renamingTargets.size)
+    val renaming = Renaming.fromPairs(rhsWithPlaceholders.freeVars zip renamingTargets)
     // Note: Targets may contain null, so filter for non-null FVs
-    val renamedRhs = withPlaceholders.rename(renaming, overrideFreeVars = Some(Var.freeNonNullVars(renamingTargets)))
+    val renamedRhs = rhsWithPlaceholders.rename(renaming, overrideFreeVars = Some(Var.freeNonNullVars(renamingTargets)))
+    val newParams = rhsWithPlaceholders.freeVars.take(ruleArity).map(renaming(_))
+    (renamedRhs, newParams)
+  }
 
-    // 4.) Compute substitution, ensured and missing for symbolic heap in rule body
-    val rhsToEnsure = Closure.fromSH(renamedRhs).asSetOfAtoms ++ pureConstraintsImposedByMatching
+  private def pureConstraints(lhs: SymbolicHeap, renamedRhs: SymbolicHeap, pureConstraintsAbducedByMatching: Set[PureAtom]): PureConstraintTracker = {
+    val rhsToEnsure = Closure.fromSH(renamedRhs).asSetOfAtoms ++ pureConstraintsAbducedByMatching
+    val lhsEnsuredConstraints = Closure.fromSH(lhs).asSetOfAtoms
     val rhsMissing = rhsToEnsure -- lhsEnsuredConstraints
-    val pure = PureConstraintTracker(lhsEnsuredConstraints, rhsMissing)
+    PureConstraintTracker(lhsEnsuredConstraints, rhsMissing)
+  }
 
-    // 5.) If that's consistent, return the corresponding context, converting it to normalform first
+  private def contextFromConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], pure: PureConstraintTracker, sid: SID, predicate: Predicate): Option[EntailmentContext] = {
     if (pure.isConsistent) {
-      val allEnsured = pure.closure
-      val toSet = (v: Var) => allEnsured.getEquivalenceClass(v)
-      val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
-      val newParams = withPlaceholders.freeVars.take(rhs.freeVars.size).map(renaming(_))
-      val root = PredicateNodeLabel(predicate, toSubst(newParams))
-      val leaves = renamedRhs.predCalls map {
-        case PredCall(name, args) => PredicateNodeLabel(sid(name), toSubst(args))
-      }
-      val leavesAsSet = leaves.toSet
-      if (leavesAsSet.size == leaves.size) {
-        // Compute usage
-        val renamedPtr = renamedRhs.pointers.head
-        val varToUsageInfo = (v: Var) => {
-          if (toSet(v).contains(renamedPtr.from)) VarAllocated
-          else if (renamedPtr.to.flatMap(toSet).contains(v)) VarReferenced
-          else VarUnused
-        }
-        val usageInfo: VarUsageByLabel = renamedRhs.allNonNullVars.map(v => (toSet(v), varToUsageInfo(v))).toMap
-        Some(ContextDecomposition(Seq(EntailmentContext(root, leavesAsSet, usageInfo, pure, convertToNormalform = true))))
-      } else {
-        // Otherwise we've set the parameters for two calls to be equal,
-        // which always corresponds to an unsatisfiable unfolding for SIDs that satisfy progress.
-        // We must not make it satisfiable by accidentally identifying these calls in the set conversion
-        None
-      }
+      contextFromConsistentConstraints(renamedRhs, rootParams, pure, sid, predicate)
     }
     else {
       // Inconsistent pure constraints => Discard matching
@@ -151,7 +148,35 @@ object LocalProfile extends HarrshLogging {
     }
   }
 
-  private case class MatchResult(renaming: Seq[Var], enforcedPureConstraints: Set[PureAtom])
+  private def contextFromConsistentConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], pure: PureConstraintTracker, sid: SID, predicate: Predicate): Option[EntailmentContext] = {
+    val allEnsured = pure.closure
+    val toSet = (v: Var) => allEnsured.getEquivalenceClass(v)
+    val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
+
+    val root = PredicateNodeLabel(predicate, toSubst(rootParams))
+    val leaves = renamedRhs.predCalls map {
+      case PredCall(name, args) => PredicateNodeLabel(sid(name), toSubst(args))
+    }
+    val leavesAsSet = leaves.toSet
+    if (leavesAsSet.size == leaves.size) {
+      // Compute usage
+      val renamedPtr = renamedRhs.pointers.head
+      val varToUsageInfo = (v: Var) => {
+        if (toSet(v).contains(renamedPtr.from)) VarAllocated
+        else if (renamedPtr.to.flatMap(toSet).contains(v)) VarReferenced
+        else VarUnused
+      }
+      val usageInfo: VarUsageByLabel = renamedRhs.allNonNullVars.map(v => (toSet(v), varToUsageInfo(v))).toMap
+      Some(EntailmentContext(root, leavesAsSet, usageInfo, pure, convertToNormalform = true))
+    } else {
+      // Otherwise we've set the parameters for two calls to be equal,
+      // which always corresponds to an unsatisfiable unfolding for SIDs that satisfy progress.
+      // We must not make it satisfiable by accidentally identifying these calls in the set conversion
+      None
+    }
+  }
+
+  private case class MatchResult(renaming: Seq[Var], abducedPureConstraints: Set[PureAtom])
 
   private def matchPointers(lhs: SymbolicHeap, rhs: SymbolicHeap, rhsClosure: Closure): MatchResult = {
     //Rename free vars in body rhs according to lhs
