@@ -47,9 +47,9 @@ object LocalProfile extends HarrshLogging {
     } yield decomp
   }
 
-  private def mkDecomp(sid: SID, predicate: Predicate, lhs: SymbolicHeap, rhs: SymbolicHeap): Set[ContextDecomposition] = {
+  private def mkDecomp(sid: SID, predicate: Predicate, lhs: SymbolicHeap, rhs: SymbolicHeap): Option[ContextDecomposition] = {
     if (lhs.pointers.head.to.size != rhs.pointers.head.to.size) {
-      Set.empty
+      None
     } else {
       for {
         decomp <- computeDecomps(sid, predicate, lhs, rhs)
@@ -90,7 +90,7 @@ object LocalProfile extends HarrshLogging {
     enoughNamesByNodeAndParam.forall(b => b)
   }
 
-  private def computeDecomps(sid: SID, predicate: Predicate, lhs: SymbolicHeap, rhs: SymbolicHeap): Set[ContextDecomposition] = {
+  private def computeDecomps(sid: SID, predicate: Predicate, lhs: SymbolicHeap, rhs: SymbolicHeap): Option[ContextDecomposition] = {
     logger.debug(s"Trying to construct context for $lhs |= $rhs")
     // Idea:
     // 1.) Replace all FVs that don't occur in the RHS pointer by placeholders
@@ -104,49 +104,56 @@ object LocalProfile extends HarrshLogging {
 
     val lhsEnsuredConstraints = Closure.fromSH(lhs).asSetOfAtoms
 
-    val (renamings, aliasing) = compatibleRenamings(lhs, withPlaceholders, closure)
+    val MatchResult(renamingTargets, pureConstraintsImposedByMatching) = matchPointers(lhs, withPlaceholders, closure)
 
     // 3.) Rename free vars in body (rhs) according to lhs
-    val ctxs = for {
-      targets <- renamings
-      _ = assert(withPlaceholders.freeVars.size == targets.size)
-      renaming = Renaming.fromPairs(withPlaceholders.freeVars zip targets)
-      // Note: Targets may contain null, so filter for non-null FVs
-      renamedRhs = withPlaceholders.rename(renaming, Some(Var.freeNonNullVars(targets)))
-      //renamedRhs = rhs.rename(renaming, Some(Var.freeNonNullVars(targets) ++ withPlaceholders.freeVars.drop(targets.size)))
-      // 4.) Compute substitution, ensured and missing for symbolic heap in rule body
-      rhsToEnsure = Closure.fromSH(renamedRhs).asSetOfAtoms ++ aliasing
-      rhsMissing = rhsToEnsure -- lhsEnsuredConstraints
-      pure = PureConstraintTracker(lhsEnsuredConstraints, rhsMissing)
-      // 5.) If that's consistent, return the corresponding context, converting it to normalform first
-      if pure.isConsistent
-      allEnsured = pure.closure
-      toSet = (v: Var) => allEnsured.getEquivalenceClass(v)
-      toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
-      //newParams = renamedRhs.freeVars.take(rhs.freeVars.size)
-      newParams = withPlaceholders.freeVars.take(rhs.freeVars.size).map(renaming(_))
-      root = PredicateNodeLabel(predicate, toSubst(newParams))
-      leaves = renamedRhs.predCalls map {
+    assert(withPlaceholders.freeVars.size == renamingTargets.size)
+    val renaming = Renaming.fromPairs(withPlaceholders.freeVars zip renamingTargets)
+    // Note: Targets may contain null, so filter for non-null FVs
+    val renamedRhs = withPlaceholders.rename(renaming, overrideFreeVars = Some(Var.freeNonNullVars(renamingTargets)))
+
+    // 4.) Compute substitution, ensured and missing for symbolic heap in rule body
+    val rhsToEnsure = Closure.fromSH(renamedRhs).asSetOfAtoms ++ pureConstraintsImposedByMatching
+    val rhsMissing = rhsToEnsure -- lhsEnsuredConstraints
+    val pure = PureConstraintTracker(lhsEnsuredConstraints, rhsMissing)
+
+    // 5.) If that's consistent, return the corresponding context, converting it to normalform first
+    if (pure.isConsistent) {
+      val allEnsured = pure.closure
+      val toSet = (v: Var) => allEnsured.getEquivalenceClass(v)
+      val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
+      val newParams = withPlaceholders.freeVars.take(rhs.freeVars.size).map(renaming(_))
+      val root = PredicateNodeLabel(predicate, toSubst(newParams))
+      val leaves = renamedRhs.predCalls map {
         case PredCall(name, args) => PredicateNodeLabel(sid(name), toSubst(args))
       }
-      leavesAsSet = leaves.toSet
-      if leavesAsSet.size == leaves.size // Otherwise we've set the parameters for two calls to be equal,
-      // which always corresponds to an unsatisfiable unfolding for SIDs that satisfy progress.
-      // We must not make it satisfiable by accidentally identifying these calls in the set conversion
-
-      // Compute usage
-      renamedPtr = renamedRhs.pointers.head
-      varToUsageInfo = (v: Var) => {
-        if (toSet(v).contains(renamedPtr.from)) VarAllocated
-        else if (renamedPtr.to.flatMap(toSet).contains(v)) VarReferenced
-        else VarUnused
+      val leavesAsSet = leaves.toSet
+      if (leavesAsSet.size == leaves.size) {
+        // Compute usage
+        val renamedPtr = renamedRhs.pointers.head
+        val varToUsageInfo = (v: Var) => {
+          if (toSet(v).contains(renamedPtr.from)) VarAllocated
+          else if (renamedPtr.to.flatMap(toSet).contains(v)) VarReferenced
+          else VarUnused
+        }
+        val usageInfo: VarUsageByLabel = renamedRhs.allNonNullVars.map(v => (toSet(v), varToUsageInfo(v))).toMap
+        Some(ContextDecomposition(Seq(EntailmentContext(root, leavesAsSet, usageInfo, pure, convertToNormalform = true))))
+      } else {
+        // Otherwise we've set the parameters for two calls to be equal,
+        // which always corresponds to an unsatisfiable unfolding for SIDs that satisfy progress.
+        // We must not make it satisfiable by accidentally identifying these calls in the set conversion
+        None
       }
-      usageInfo: VarUsageByLabel = renamedRhs.allNonNullVars.map(v => (toSet(v), varToUsageInfo(v))).toMap
-    } yield EntailmentContext(root, leavesAsSet, usageInfo, pure, convertToNormalform = true)
-    (ctxs map (ctx => ContextDecomposition(Seq(ctx)))).toSet
+    }
+    else {
+      // Inconsistent pure constraints => Discard matching
+      None
+    }
   }
 
-  private def compatibleRenamings(lhs: SymbolicHeap, rhs: SymbolicHeap, rhsClosure: Closure): (Stream[Seq[Var]],Set[PureAtom]) = {
+  private case class MatchResult(renaming: Seq[Var], enforcedPureConstraints: Set[PureAtom])
+
+  private def matchPointers(lhs: SymbolicHeap, rhs: SymbolicHeap, rhsClosure: Closure): MatchResult = {
     //Rename free vars in body rhs according to lhs
     val rhsPto = rhs.pointers.head.args
     val lhsPto = lhs.pointers.head.args
@@ -156,63 +163,62 @@ object LocalProfile extends HarrshLogging {
       case (rhsVar, tuples) => (rhsVar, tuples.map(_._2))
     }
     logger.debug(s"Computed pointer matching: $rhsToLhsPointerMatching")
-    val candidatesByFv: Seq[Seq[Var]] = rhs.freeVars map {
+    val candidatesByFv: Seq[Var] = rhs.freeVars map {
       fv =>
         rhsToLhsPointerMatching.get(fv) match {
           case Some(lhsV) =>
             if (lhsV.exists(_.isFreeNonNull)) {
               // All free vars that occur in the pointer have a fixed mapping (matching the points-to assertions)
               // Since all variables in lhsV must alias, it's enough to consider one of those for the substitution
-              Seq(lhsV.collect{
+              lhsV.collect{
                 case fv: FreeVar => fv
-                case NullConst => NullConst}.head)
+                case NullConst => NullConst
+              }.head
             } else {
               // Quantified on the left, parameter on the right
               // Note: Perhaps counterintuitively, the rule can be matched regardless;
               // This is because we compute on the original LHS pointer, not on the "local" pointer that has additional fvs
-              Seq(lhsV.head)
+              // TODO: This would become unreachable if we used the rename-compose-forget semantics as presented in the paper (where there simply aren't any bound variables when we compute the local profile, because we drop the quantifier prefix and only reintroduce it later via the forget)
+              lhsV.head
             }
           case None =>
             // fv does not occur in the pointer
             if (PlaceholderVar.isPlaceholder(fv)) {
               // If it's a placeholder, it must remain unchanged
-              Seq(fv)
+              fv
             } else {
               // If not, there must be aliasing effects that determine the mapping
               rhsClosure.getEquivalenceClass(fv).flatMap(rhsToLhsPointerMatching.get).headOption match {
-                case Some(lhsVars) => lhsVars
+                case Some(lhsVars) =>
+                  lhsVars.collect{
+                    case fv: FreeVar => fv
+                    case NullConst => NullConst
+                  }.head
                 case None =>
                   // All completely unused free vars should have been replaced by placeholders
-                  assert(false, s"This should be unreachable. There shouldn't be a nonplaceholder var that doesn't occur in the pointer, but there is $fv")
-                  renamingTargets
+                  throw new IllegalStateException(s"This should be unreachable. There shouldn't be a nonplaceholder var that doesn't occur in the pointer, but there is $fv")
               }
             }
         }
     }
 
-    if (candidatesByFv.exists(_.isEmpty)) {
-      logger.debug(s"One or more points-to arguments are not matchable in $lhsPto |= $rhsPto")
-      (Stream.empty, Set.empty)
-    } else {
-      // If an RHS variable has to be mapped to multiple LHS variables, we must compute the corresponding aliasing constraints for that.
-      // E.g. matching LHS x1 -> (x2, x3) against RHS x1 -> (x2, x2). This should be possible, but lead to aliasing constraint x2 = x3
-      val aliasingConstraints = for {
-        (rhs, lhsVs) <- rhsToLhsPointerMatching
-        if lhsVs.size > 1
-        v1 <- lhsVs
-        v2 <- lhsVs
-        if v1 < v2
-      } yield v1 =:= v2
+    // If an RHS variable has to be mapped to multiple LHS variables, we must compute the corresponding aliasing constraints for that.
+    // E.g. matching LHS x1 -> (x2, x3) against RHS x1 -> (x2, x2). This should be possible, but lead to aliasing constraint x2 = x3
+    val aliasingConstraints = for {
+      (rhs, lhsVs) <- rhsToLhsPointerMatching
+      if lhsVs.size > 1
+      v1 <- lhsVs
+      v2 <- lhsVs
+      if v1 < v2
+    } yield v1 =:= v2
 
-      val nullConstraints = for {
-        (rhs, lhsVs) <- rhsToLhsPointerMatching.find(_._1.isNull).toSeq
-        v <- lhsVs
-        if !v.isNull
-      } yield NullConst =:= v
+    val nullConstraints = for {
+      (rhs, lhsVs) <- rhsToLhsPointerMatching.find(_._1.isNull).toSeq
+      v <- lhsVs
+      if !v.isNull
+    } yield NullConst =:= v
 
-      // TODO: This should always be empty or a singleton, i.e., it should be an option value not a stream, right?
-      (Combinators.choices(candidatesByFv).toStream, aliasingConstraints.toSet ++ nullConstraints)
-    }
+    MatchResult(candidatesByFv, aliasingConstraints.toSet ++ nullConstraints)
   }
 
 }
