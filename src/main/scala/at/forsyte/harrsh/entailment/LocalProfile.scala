@@ -157,9 +157,9 @@ object LocalProfile extends HarrshLogging {
     val toSet = (v: Var) => allEnsured.getEquivalenceClass(v)
     val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
 
-    val root = PredicateNodeLabel(predicate, toSubst(rootParams))
+    val root = ContextPredCall(predicate, toSubst(rootParams))
     val leaves = renamedRhs.predCalls map {
-      case PredCall(name, args) => PredicateNodeLabel(sid(name), toSubst(args))
+      case PredCall(name, args) => ContextPredCall(sid(name), toSubst(args))
     }
     val leavesAsSet = leaves.toSet
     if (leavesAsSet.size == leaves.size) {

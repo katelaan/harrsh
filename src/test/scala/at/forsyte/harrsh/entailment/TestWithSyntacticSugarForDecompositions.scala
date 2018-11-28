@@ -13,7 +13,7 @@ trait TestWithSyntacticSugarForDecompositions extends HarrshTableTest with Impli
   case class CA[A <: Var](calls: Seq[(String,Seq[Set[Var]])], usageInfo: Map[Set[A],VarUsage], ensured: Set[PureAtom], missing: Set[PureAtom] = Set.empty) {
     def toEntailmentContext(sid: SID): EntailmentContext = {
       val labels = calls map {
-        case (ident, subst) => PredicateNodeLabel(sid(ident), Substitution(subst))
+        case (ident, subst) => ContextPredCall(sid(ident), Substitution(subst))
       }
       val root = labels.head
       val leaves = labels.tail.toSet

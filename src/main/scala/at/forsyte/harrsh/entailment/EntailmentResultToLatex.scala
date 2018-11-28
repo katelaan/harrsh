@@ -78,11 +78,8 @@ object EntailmentResultToLatex {
       }
     }
 
-    private def nodeLabelToLatexLines(nodeLabel: NodeLabel, usageInfo: VarUsageByLabel, nodeId: String, style: String): Stream[String] = {
-      val tikzNodeLabel = nodeLabel match {
-        case _:RuleNodeLabel => nodeLabel.pred.head + ": " + nodeLabel.symbolicHeapLabel
-        case _:PredicateNodeLabel => nodeLabel.symbolicHeapLabel
-      }
+    private def nodeLabelToLatexLines(nodeLabel: ContextPredCall, usageInfo: VarUsageByLabel, nodeId: String, style: String): Stream[String] = {
+      val tikzNodeLabel = nodeLabel.symbolicHeapLabel
       val annotateWithUsageInfo = (vs: Set[Var]) => {
         usageInfo(vs) match {
           case VarUnused => ""

@@ -47,7 +47,7 @@ package object entailment {
       renameArgs
     }
 
-    def redundantPlaceholderDropper(nodeLabels: Iterable[NodeLabel]): SubstitutionUpdate = {
+    def redundantPlaceholderDropper(nodeLabels: Iterable[ContextPredCall]): SubstitutionUpdate = {
       def getRedundantVars(vs: Set[Var]): Set[Var] = {
         val (phs, nonPhs) = vs.partition(PlaceholderVar.isPlaceholder)
         if (nonPhs.nonEmpty) {
@@ -123,8 +123,8 @@ package object entailment {
       pairs.toMap
     }
 
-    def restrictToSubstitutionsInLabels(usageInfo: VarUsageByLabel, nodeLabels: Iterable[NodeLabel]): VarUsageByLabel = {
-      val occurringSubstitutions: Set[Set[Var]] = nodeLabels.toSet[NodeLabel].flatMap(_.subst.toSeq)
+    def restrictToSubstitutionsInLabels(usageInfo: VarUsageByLabel, nodeLabels: Iterable[ContextPredCall]): VarUsageByLabel = {
+      val occurringSubstitutions: Set[Set[Var]] = nodeLabels.toSet[ContextPredCall].flatMap(_.subst.toSeq)
       usageInfo.filter(pair => occurringSubstitutions.contains(pair._1))
     }
 

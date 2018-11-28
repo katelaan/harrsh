@@ -4,12 +4,12 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive.PredCall
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 
-case class EntailmentContext private(root: PredicateNodeLabel, calls: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
+case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPredCall], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
 
   assert(EntailmentContext.noRedundantPlaceholders(labels), s"There are redundant placeholders in $this")
   assert(EntailmentContext.nodeLabelsAndUsageInfoContainSameVars(this), s"Inconsistent entailment context $this: There is a difference between the variables in the usage info and in the substitutions")
 
-  lazy val labels: Seq[NodeLabel] = Seq[NodeLabel](root) ++ calls
+  lazy val labels: Seq[ContextPredCall] = Seq(root) ++ calls
 
   lazy val placeholders: Set[PlaceholderVar] = substs.flatMap(_.placeholders).toSet
 
@@ -72,7 +72,7 @@ case class EntailmentContext private(root: PredicateNodeLabel, calls: Set[Predic
     EntailmentContext(root, calls, usageInfo, pureConstraints.dropVars(varsToDrop), convertToNormalform = false)
   }
 
-  def usageInfoOfNode(n: NodeLabel): VarUsageInfo = {
+  def usageInfoOfNode(n: ContextPredCall): VarUsageInfo = {
     val res = n.subst.toSeq.map(usageInfo.getOrElse(_, VarUnused))
     logger.debug(s"Usage info for $n w.r.t. $this: $res")
     res
@@ -107,7 +107,7 @@ case class EntailmentContext private(root: PredicateNodeLabel, calls: Set[Predic
 
 object EntailmentContext extends HarrshLogging {
 
-  def apply(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker, convertToNormalform: Boolean): EntailmentContext = {
+  def apply(root: ContextPredCall, leaves: Set[ContextPredCall], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker, convertToNormalform: Boolean): EntailmentContext = {
     if (convertToNormalform) {
       normalFormConversion(root, leaves, usageInfo, pureConstraints)
     } else {
@@ -115,14 +115,14 @@ object EntailmentContext extends HarrshLogging {
     }
   }
 
-  def normalFormConversion(root: PredicateNodeLabel, leaves: Set[PredicateNodeLabel], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): EntailmentContext = {
+  def normalFormConversion(root: ContextPredCall, leaves: Set[ContextPredCall], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): EntailmentContext = {
     val dropper = SubstitutionUpdate.redundantPlaceholderDropper(Set(root) ++ leaves)
     val rootAfterDropping = root.update(dropper)
     val leavesAfterDropping = leaves map (_.update(dropper))
     val usageInfoAfterDropping = VarUsageByLabel.update(usageInfo, dropper)
     val diseqsAfterDropping = pureConstraints.update(dropper)
 
-    val establishNormalForm = NodeLabel.labelsToPlaceholderNormalForm(Seq(rootAfterDropping) ++ leavesAfterDropping)
+    val establishNormalForm = ContextPredCall.toPlaceholderNormalForm(Seq(rootAfterDropping) ++ leavesAfterDropping)
 
     new EntailmentContext(
       rootAfterDropping.update(establishNormalForm),
@@ -139,7 +139,7 @@ object EntailmentContext extends HarrshLogging {
     (ctx1.placeholders intersect ctx2.placeholders).isEmpty
   }
 
-  def noRedundantPlaceholders(labels: Iterable[NodeLabel]): Boolean = {
+  def noRedundantPlaceholders(labels: Iterable[ContextPredCall]): Boolean = {
     labels.forall{
       nodeLabel => nodeLabel.subst.toSeq.forall(PlaceholderVar.containsNoRedundantPlaceholder)
     }

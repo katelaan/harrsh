@@ -36,7 +36,7 @@ object EntailmentContextComposition extends HarrshLogging {
     (fst.updateSubst(clashAvoidanceUpdate, convertToNormalform = false), snd)
   }
 
-  def tryInstantiate(toInstantiate: EntailmentContext, abstractLeaf: PredicateNodeLabel, instantiation: EntailmentContext, unification: Unification): Option[EntailmentContext] = {
+  def tryInstantiate(toInstantiate: EntailmentContext, abstractLeaf: ContextPredCall, instantiation: EntailmentContext, unification: Unification): Option[EntailmentContext] = {
     assert(EntailmentContext.haveNoConflicts(toInstantiate, instantiation),
       s"Overlapping placeholders between $toInstantiate and $instantiation")
 
@@ -57,14 +57,14 @@ object EntailmentContextComposition extends HarrshLogging {
     Some(res)
   }
 
-  private def combineUsageInfo(fst: VarUsageByLabel, snd: VarUsageByLabel, update: SubstitutionUpdate, labels: Iterable[PredicateNodeLabel]): VarUsageByLabel = {
+  private def combineUsageInfo(fst: VarUsageByLabel, snd: VarUsageByLabel, update: SubstitutionUpdate, labels: Iterable[ContextPredCall]): VarUsageByLabel = {
     val fstUpdated = VarUsageByLabel.update(fst, update)
     val sndUpdated = VarUsageByLabel.update(snd, update)
     val combinedUsageInfo = VarUsageByLabel.merge(fstUpdated, sndUpdated)
     VarUsageByLabel.restrictToSubstitutionsInLabels(combinedUsageInfo, labels)
   }
 
-  private def tryUnify(a1: EntailmentContext, n1: NodeLabel, a2: EntailmentContext, n2: PredicateNodeLabel): Option[Unification] = {
+  private def tryUnify(a1: EntailmentContext, n1: ContextPredCall, a2: EntailmentContext, n2: ContextPredCall): Option[Unification] = {
     logger.debug(s"Will try to unify $n1 with $n2")
     assert(a1.root == n1)
     assert(a2.calls.contains(n2))
@@ -120,7 +120,7 @@ object EntailmentContextComposition extends HarrshLogging {
      Note further that under the assumption that even base rules allocate memory, such objects will anyway always
      represent double allocation (same node label implies same root), so they should anyway be discarded.
    */
-  case class CompositionInterface(treeToEmbed: EntailmentContext, embeddingTarget: EntailmentContext, leafToReplaceInEmbedding: PredicateNodeLabel)
+  case class CompositionInterface(treeToEmbed: EntailmentContext, embeddingTarget: EntailmentContext, leafToReplaceInEmbedding: ContextPredCall)
 
   private def compositionCandidates(fst: EntailmentContext, snd: EntailmentContext): Stream[CompositionInterface] = {
     for {

@@ -91,7 +91,7 @@ object ComposeProfiles extends HarrshLogging {
       }
     }
 
-    private def tryMergeGivenRoots(decomp: ContextDecomposition, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[PredicateNodeLabel]): Option[ContextDecomposition] = {
+    private def tryMergeGivenRoots(decomp: ContextDecomposition, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[ContextPredCall]): Option[ContextDecomposition] = {
       val callsInRule = rule.body.predCalls
       assert(rootsToMerge.size == callsInRule.size)
       if (predicatesMatch(callsInRule, rootsToMerge)) {
@@ -102,13 +102,13 @@ object ComposeProfiles extends HarrshLogging {
       }
     }
 
-    private def predicatesMatch(calls: Seq[PredCall], labels: Seq[NodeLabel]): Boolean = {
+    private def predicatesMatch(calls: Seq[PredCall], labels: Seq[ContextPredCall]): Boolean = {
       (calls, labels).zipped forall {
         case (call, label) => call.name == label.pred.head
       }
     }
 
-    private def tryArgumentMatching(decomp: ContextDecomposition, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[PredicateNodeLabel]): Option[ContextDecomposition] = {
+    private def tryArgumentMatching(decomp: ContextDecomposition, rule: RuleBody, pred: Predicate, rootsToMerge: Seq[ContextPredCall]): Option[ContextDecomposition] = {
       val callsInRule = rule.body.predCalls
       val candidateMatching = callsInRule zip rootsToMerge
       val assignmentsByVar: Map[Var, Set[Set[Var]]] = varAssignmentFromMatching(candidateMatching)
@@ -123,7 +123,7 @@ object ComposeProfiles extends HarrshLogging {
       }
     }
 
-    private def varAssignmentFromMatching(matched: Seq[(PredCall, NodeLabel)]) = {
+    private def varAssignmentFromMatching(matched: Seq[(PredCall, ContextPredCall)]) = {
       val varAssignmentSeq = for {
         (call, root) <- matched
         (arg, varLabel) <- (call.args, root.subst.toSeq).zipped
@@ -134,13 +134,13 @@ object ComposeProfiles extends HarrshLogging {
       assignmentsByVar
     }
 
-    private def mergeRoots(decomp: ContextDecomposition, rootsToMerge: Seq[PredicateNodeLabel], rule: RuleBody, pred: Predicate, assignmentsByVar: Map[Var, Set[Var]]): ContextDecomposition = {
+    private def mergeRoots(decomp: ContextDecomposition, rootsToMerge: Seq[ContextPredCall], rule: RuleBody, pred: Predicate, assignmentsByVar: Map[Var, Set[Var]]): ContextDecomposition = {
       val (tifsToMerge, unchangedTifs) = decomp.parts.partition(tif => rootsToMerge.contains(tif.root))
       logger.debug(s"Roots that were matched: $rootsToMerge")
       logger.debug(s"Will apply $rule to merge:\n${tifsToMerge.mkString("\n")}")
       logger.debug(s"Merge based on variable assignment $assignmentsByVar")
       val subst = Substitution(rule.body.freeVars map assignmentsByVar)
-      val newRoot = PredicateNodeLabel(pred, subst)
+      val newRoot = ContextPredCall(pred, subst)
       val concatenatedLeaves = tifsToMerge.flatMap(_.calls)
       val mergedUsageInfo = integrateUsageInfo(tifsToMerge, Set(newRoot) ++ concatenatedLeaves)
       val mergedPureConstraints = tifsToMerge.map(_.pureConstraints).reduceLeft(_ compose _)
@@ -148,7 +148,7 @@ object ComposeProfiles extends HarrshLogging {
       ContextDecomposition(unchangedTifs + ctxAfterMerging)
     }
 
-    private def integrateUsageInfo(ctxsToMerge: Set[EntailmentContext], nodeLabelsInMergedInterface: Iterable[NodeLabel]) = {
+    private def integrateUsageInfo(ctxsToMerge: Set[EntailmentContext], nodeLabelsInMergedInterface: Iterable[ContextPredCall]) = {
       // Because we're not doing any unification, the usage info can simply be merged -- no propagation of unification results necessary
       val mergedUsageInfo = ctxsToMerge.map(_.usageInfo).reduceLeft(VarUsageByLabel.merge)
       VarUsageByLabel.restrictToSubstitutionsInLabels(mergedUsageInfo, nodeLabelsInMergedInterface)
