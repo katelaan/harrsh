@@ -89,7 +89,7 @@ case class ConsistentTransitionProfile(decompsBySource: Seq[Set[ContextDecomposi
 object TransitionProfile extends HarrshLogging {
 
   def apply(src: Seq[EntailmentProfile], lab: SymbolicHeap, sid: SID): TransitionProfile = {
-    val instantiatedETs = InstantiatedSourceStates(src, lab)
+    val instantiatedETs = RenamedSourceStates(src, lab)
     if (instantiatedETs.isConsistent) {
       val local = LocalProfile(lab, sid)
       combineLocalAndSourceEtypes(local, instantiatedETs, lab, sid)
@@ -98,7 +98,7 @@ object TransitionProfile extends HarrshLogging {
     }
   }
 
-  private def combineLocalAndSourceEtypes(local: LocalProfile, instantiatedProfiles: InstantiatedSourceStates, lab: SymbolicHeap, sid: SID) = {
+  private def combineLocalAndSourceEtypes(local: LocalProfile, instantiatedProfiles: RenamedSourceStates, lab: SymbolicHeap, sid: SID) = {
     if (local.areDefined) {
       ConsistentTransitionProfile(local +: instantiatedProfiles, lab, sid)
     } else {

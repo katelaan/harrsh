@@ -56,8 +56,8 @@ case class EntailmentContext private(root: PredicateNodeLabel, calls: Set[Predic
 
   def asExtensionType: ContextDecomposition = ContextDecomposition(Set(this))
 
-  def nonPlaceholderFreeVars: Set[FreeVar] = {
-    substs.flatMap(_.freeNonNullVars).filterNot(PlaceholderVar.isPlaceholder).toSet
+  def nonNullNonPlaceholderVars: Set[Var] = {
+    substs.flatMap(_.nonNullVars).filterNot(PlaceholderVar.isPlaceholder).toSet
   }
 
   def updateSubst(f: SubstitutionUpdate, convertToNormalform: Boolean): EntailmentContext = {

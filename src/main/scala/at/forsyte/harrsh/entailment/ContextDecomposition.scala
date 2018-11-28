@@ -46,7 +46,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
     res
   }
 
-  lazy val nonPlaceholderFreeVars: Set[FreeVar] = parts.flatMap(_.nonPlaceholderFreeVars)
+  lazy val nonNullNonPlaceholderVars: Set[Var] = parts.flatMap(_.nonNullNonPlaceholderVars)
 
   lazy val boundVars: Set[BoundVar] = parts.flatMap(_.boundVars)
 
@@ -101,6 +101,22 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
       composed <- EntailmentContextComposition.compositionOptions(parts.toSeq ++ other.parts)
       if composed.forall(_.hasConsistentPureConstraints)
     } yield ContextDecomposition(composed)
+  }
+
+  def isInconsistent: Boolean = {
+    allocsNull || doubleAlloc
+  }
+
+  private def allocsNull: Boolean = {
+    rootParamSubsts exists Var.containsNull
+  }
+
+  private def doubleAlloc: Boolean = {
+    val doublyAlloced = for {
+      (k, vs) <- rootParamSubsts.groupBy(vs => vs).toStream
+      if vs.size > 1
+    } yield k
+    doublyAlloced.nonEmpty
   }
 
 }

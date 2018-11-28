@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.seplog.inductive.PureAtom
-import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
+import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 
 import scala.annotation.tailrec
 
@@ -19,7 +19,7 @@ case class Substitution(toSeq: Seq[Set[Var]]) extends AnyVal {
     } yield p
   }
 
-  def freeNonNullVars: Set[FreeVar] = Var.freeNonNullVars(toSeq.flatten).toSet
+  def nonNullVars: Set[Var] = toSeq.toSet.flatten - NullConst
 
   def boundVars: Set[BoundVar] = toSeq.flatten.collect{
     case bv: BoundVar => bv
