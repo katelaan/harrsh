@@ -11,7 +11,7 @@ Install sbt; see http://www.scala-sbt.org/download.html for instructions.
 3. Get the source
 -----------------
 
-git clone https://bitbucket.org/jkatelaan/harrsh.git
+git clone https://github.com/katelaan/harrsh.git
 cd harrsh
 
 4. Compile
