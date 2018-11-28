@@ -55,32 +55,32 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
   /**
     * Check whether dropping the given var would put one or missing constraints out of scope---thus meaning the entailment can never become true.
     */
-  private def tryingToDropVarsWithMissingConstraints(varsToDrop: Seq[Var]): Boolean = {
-    (missingPureConstraints.flatMap(_.getNonNullVars) intersect varsToDrop.toSet).nonEmpty
+  private def tryingToDropVarsWithMissingConstraints(varsToDrop: Set[Var]): Boolean = {
+    (missingPureConstraints.flatMap(_.getNonNullVars) intersect varsToDrop).nonEmpty
   }
 
-  def dropVars(varsToDrop: Seq[Var]): Option[ContextDecomposition] = {
-    if (varsToDrop.isEmpty) {
+  def forget(varsToForget: Set[Var]): Option[ContextDecomposition] = {
+    if (varsToForget.isEmpty) {
       Some(this)
     } else {
-      logger.debug(s"Will remove bound variables ${varsToDrop.mkString(",")} from decomposition")
-      if (tryingToDropVarsWithMissingConstraints(varsToDrop)) {
+      logger.debug(s"Will remove bound variables ${varsToForget.mkString(",")} from decomposition")
+      if (tryingToDropVarsWithMissingConstraints(varsToForget)) {
         // We're forgetting variables for which there are still missing constraints
         // After dropping, it will no longer be possible to supply the constraints
         // We hence discard the extension type
-        logger.debug(s"Discarding decomposition: Missing pure constraints $missingPureConstraints contain at least one discarded variable from ${varsToDrop.mkString(", ")}")
+        logger.debug(s"Discarding decomposition: Missing pure constraints $missingPureConstraints contain at least one discarded variable from ${varsToForget.mkString(", ")}")
         None
       } else {
         // From the pure constraints, we must remove the variables completely, because after forgetting a variable,
         // the (ensured) constraints become meaningless for the context...
-        val partsAfterDroppingPureConstraints = parts map (_.dropVarsFromPureConstraints(varsToDrop.toSet))
+        val partsAfterDroppingPureConstraints = parts map (_.dropVarsFromPureConstraints(varsToForget.toSet))
 
         // ...whereas in the interface nodes/usage info, we replace the bound vars by placeholders
         // TODO: More efficient variable dropping for decomps
         // Rename the vars to fresh placeholder vars
         val maxPlaceholder = PlaceholderVar.maxIndex(placeholders)
-        val newPlaceholders = (1 to varsToDrop.size) map (i => PlaceholderVar(maxPlaceholder + i))
-        val pairs: Seq[(Var, Var)] = varsToDrop.zip(newPlaceholders.map(_.toFreeVar))
+        val newPlaceholders = (1 to varsToForget.size) map (i => PlaceholderVar(maxPlaceholder + i))
+        val pairs: Seq[(Var, Var)] = varsToForget.toSeq.zip(newPlaceholders.map(_.toFreeVar))
         val replaceByPlacheolders: SubstitutionUpdate = SubstitutionUpdate.fromPairs(pairs)
 
 

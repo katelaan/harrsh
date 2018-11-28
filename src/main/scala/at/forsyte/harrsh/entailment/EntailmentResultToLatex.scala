@@ -158,10 +158,10 @@ object EntailmentResultToLatex {
       val finalStr = if (isFinal(state)) "\\textbf{FINAL} " else ""
       val header = s"\\item ${finalStr}State/Profile with free variables ${state.orderedParams.mkString("$<", ", ", ">$")} and context decompositions:"
 
-      val decompsStream = if (state.profile.isEmpty) {
+      val decompsStream = if (state.decomps.isEmpty) {
         Stream("\\item No consistent context decomposition (failure state)")
       } else {
-        Stream("\\item Decompositions:", "\\begin{enumerate}") ++ state.profile.toStream.flatMap(decomp => Stream("\\item") ++ decompositionToLatexLines(decomp)) ++ Stream("\\end{enumerate}")
+        Stream("\\item Decompositions:", "\\begin{enumerate}") ++ state.decomps.toStream.flatMap(decomp => Stream("\\item") ++ decompositionToLatexLines(decomp)) ++ Stream("\\end{enumerate}")
       }
 
       Stream(header, "\\begin{itemize}") ++ decompsStream ++ Stream("\\end{itemize}")

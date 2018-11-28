@@ -4,39 +4,43 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.seplog.{FreeVar, NullConst, Renaming, Var}
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.util.Combinators
-
-sealed trait LocalProfile {
-  def areDefined: Boolean = this match {
-    case NoLocalProfile => true
-    case ProfileOfLocalAtoms(ets) => ets.nonEmpty
-  }
-}
-
-case object NoLocalProfile extends LocalProfile
-case class ProfileOfLocalAtoms(profile: Set[ContextDecomposition]) extends LocalProfile
 
 object LocalProfile extends HarrshLogging {
 
-  def apply(lab: SymbolicHeap, sid: SID): LocalProfile = {
+  def apply(lab: SymbolicHeap, sid: SID): Option[EntailmentProfile] = {
     logger.debug(s"Will compute profile for local allocation of $lab")
+    val decomps = decompsOfLocalAllocation(lab, sid)
+    logger.debug(s"Decompositions for local allocation of $lab:\n${decomps.mkString("\n")}")
+    val params = varsInLocalAllocation(lab)
+    decomps map (EntailmentProfile(_, params))
+  }
+
+  private def decompsOfLocalAllocation(lab: SymbolicHeap, sid: SID): Option[Set[ContextDecomposition]] = {
     if (lab.pointers.isEmpty) {
-      if (lab.pure.nonEmpty) {
-        // TODO: It seems like we could get support for empty base rules on the LHS by returning a profile consisting of a zero-element decomposition with an ensured set of pure constraints matching those in lab. Is that correct?
-        throw new IllegalArgumentException(s"Can't process symbolic heap without allocation but with pure constraints: $lab")
-      } else {
-        logger.debug(s"No pointers/pure atoms in rule => don't compute local profile")
-        NoLocalProfile
-      }
+      decompsIfNoAllocation(lab)
     } else {
       assert(lab.pointers.size == 1)
-      val res = localAllocToDecomps(lab, sid)
-      logger.debug(s"Profile for local allocation of $lab:\n${res.mkString("\n")}")
-      ProfileOfLocalAtoms(res)
+      Some(decompsOfNonemptyLocalAllocation(lab, sid))
     }
   }
 
-  def localAllocToDecomps(lhs: SymbolicHeap, sid: SID) : Set[ContextDecomposition] = {
+  private def varsInLocalAllocation(lab: SymbolicHeap): Seq[Var] = {
+    val varsInPtrs = lab.pointers.flatMap(_.getNonNullVars)
+    val varsInPure = lab.pure.flatMap(_.getNonNullVars)
+    (varsInPtrs ++ varsInPure).distinct
+  }
+
+  private def decompsIfNoAllocation(lab: SymbolicHeap): Option[Set[ContextDecomposition]] = {
+    if (lab.pure.nonEmpty) {
+      // TODO: It seems like we could get support for empty base rules on the LHS by returning a profile consisting of a zero-element decomposition with an ensured set of pure constraints matching those in lab. Is that correct?
+      throw new IllegalArgumentException(s"Can't process symbolic heap without allocation but with pure constraints: $lab")
+    } else {
+      logger.debug(s"No pointers/pure atoms in rule => don't compute local profile")
+      None
+    }
+  }
+
+  def decompsOfNonemptyLocalAllocation(lhs: SymbolicHeap, sid: SID) : Set[ContextDecomposition] = {
     logger.debug(s"Local allocation: Creating (${sid.description})-profile from $lhs")
 
     for {

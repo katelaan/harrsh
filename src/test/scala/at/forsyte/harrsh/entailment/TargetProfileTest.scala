@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.ExampleSIDs._
 
-class TransitionProfileTest extends TestWithSyntacticSugarForDecompositions {
+class TargetProfileTest extends TestWithSyntacticSugarForDecompositions {
 
   property("Correctness of local profile computation") {
 
@@ -50,7 +50,7 @@ class TransitionProfileTest extends TestWithSyntacticSugarForDecompositions {
       (lhs, sid, sourceProfiles, expectedProfile) <- inputs
     } {
       info(s"Computing target profile for $lhs wrt. $sid from sources ${sourceProfiles.mkString(",\n")}")
-      val actualProfile = TransitionProfile(sourceProfiles, lhs.parse, sid).toTarget.get
+      val actualProfile = TargetProfile(sourceProfiles, lhs.parse, sid).get.get
       info(s"Computed target profile: $actualProfile")
       actualProfile shouldEqual expectedProfile
     }

@@ -7,24 +7,24 @@ import at.forsyte.harrsh.seplog.inductive.{PredCall, SymbolicHeap}
 sealed trait RenamedSourceStates {
   def isConsistent: Boolean = this match {
     case InconsistentRenamedSourceStates => false
-    case ConsistentRenamedSourceStates(instantiatedEtypesByState) => true
+    case ConsistentRenamedSourceStates(_) => true
   }
 
-  def +:(other: LocalProfile) : Seq[Set[ContextDecomposition]]
+  def +:(other: Option[EntailmentProfile]) : Seq[EntailmentProfile]
 }
 
 case object InconsistentRenamedSourceStates extends RenamedSourceStates {
 
-  def +:(other: LocalProfile) : Seq[Set[ContextDecomposition]] = throw new IllegalStateException("Can't process inconsistent source states")
+  def +:(other: Option[EntailmentProfile]) : Seq[EntailmentProfile] = throw new IllegalStateException("Can't process inconsistent source states")
 
 }
 
 case class ConsistentRenamedSourceStates(renamedProfilesByState: Seq[EntailmentProfile]) extends RenamedSourceStates {
 
-  def +:(other: LocalProfile) : Seq[Set[ContextDecomposition]] = {
+  def +:(other: Option[EntailmentProfile]) : Seq[EntailmentProfile] = {
     other match {
-      case NoLocalProfile => renamedProfilesByState.map(_.profile)
-      case ProfileOfLocalAtoms(decomps) => decomps +: renamedProfilesByState.map(_.profile)
+      case None => renamedProfilesByState
+      case Some(localProfile) => localProfile +: renamedProfilesByState
     }
   }
 

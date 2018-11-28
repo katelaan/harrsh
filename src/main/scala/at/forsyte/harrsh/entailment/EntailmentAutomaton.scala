@@ -28,7 +28,7 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
   override def isFinal(s: State): Boolean = {
     // A state represents all the possible ways to parse an RSH as a SID unfolding tree.
     // As long as one of those ways is a valid unfolding tree, we accept.
-    val res = s.profile.exists(_.isFinal(rhs))
+    val res = s.decomps.exists(_.isFinal(rhs))
     logger.trace(s"Checked wheter $s is final => $res")
     res
   }
@@ -37,7 +37,7 @@ class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with In
 
   override def getTargetsFor(src: Seq[State], lab: SymbolicHeap) : Set[State] = {
     logger.debug(s"Computing target for $lab from source states:\n${src.mkString("\n")}")
-    TransitionProfile(src, lab, sid).toTarget.toSet
+    TargetProfile(src, lab, sid).get.toSet
   }
 
 }

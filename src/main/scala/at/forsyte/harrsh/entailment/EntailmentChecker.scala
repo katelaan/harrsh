@@ -116,7 +116,7 @@ object EntailmentChecker extends HarrshLogging {
     val allProfiles = reachableStatesByPred.values.flatten.toList
     val allDecomps = for {
       c <- allProfiles
-      s <- c.profile
+      s <- c.decomps
     } yield s
     val totalNumContexts = allDecomps.map(_.parts.size).sum
     EntailmentStats(numExploredPreds, allProfiles.size, allDecomps.size, totalNumContexts)
@@ -164,7 +164,7 @@ object EntailmentChecker extends HarrshLogging {
       (Stream("PROFILE {",
         s"  FVS: ${state.orderedParams.mkString(", ")}")
         ++ Some("  ACCEPTING").filter(_ => isFinal(state))
-        ++ serializeDecomps(state.profile) ++ Stream("}"))
+        ++ serializeDecomps(state.decomps) ++ Stream("}"))
     }
 
     def serializeDecomps(decomps: Set[ContextDecomposition]): Stream[String] = {

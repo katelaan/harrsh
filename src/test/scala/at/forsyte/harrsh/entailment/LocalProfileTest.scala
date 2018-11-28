@@ -49,7 +49,7 @@ class LocalProfileTest extends TestWithSyntacticSugarForDecompositions {
       (lhs, sid, expectedProfile) <- inputs
     } {
       info(s"Computing profile for $lhs wrt. $sid using new approach")
-      val actualProfile = LocalProfile.localAllocToDecomps(lhs.parse, sid)
+      val actualProfile = LocalProfile.decompsOfNonemptyLocalAllocation(lhs.parse, sid)
       actualProfile shouldEqual expectedProfile
     }
 
