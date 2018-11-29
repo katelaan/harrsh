@@ -40,17 +40,6 @@ object EntailmentChecker extends HarrshLogging {
     }
   }
 
-  def contradictoryAllocationIn(instance: EntailmentInstance): Boolean = {
-    // TODO: This no longer makes sense if we have explicit multi-call queries (rather than toplevel non-progress predicates), hence the following assertion
-    assert(instance.lhs.calls.size == 1 && instance.rhs.calls.size == 1)
-    (for {
-      (sid, call) <- Seq((instance.lhs.sid, instance.lhs.calls.calls.head), (instance.rhs.sid, instance.rhs.calls.calls.head))
-      startPred = sid(call.name)
-      rule <- startPred.rules
-      body = rule.body
-    } yield body.pointers.isEmpty && body.predCalls.isEmpty).forall(b => b)
-  }
-
   sealed trait Allocation
   case object NoAllocation extends Allocation
   case object AllocationInSomeRules extends Allocation
@@ -63,16 +52,27 @@ object EntailmentChecker extends HarrshLogging {
     body.pointers.isEmpty && body.predCalls.isEmpty
   }
 
-  def allocationInPred(sid: SID, predCall: PredCall): Allocation = {
-    val pred = sid(predCall.name)
-    val (withoutAlloc, withAlloc) = pred.rules.partition(noAllocationIn)
-    if (withAlloc.isEmpty) NoAllocation
-    else if (withoutAlloc.isEmpty) AllocationInAllRules
-    else AllocationInSomeRules
+  def allocationInPreds(sid: SID, predCalls: PredCalls): Allocation = {
+    val allocs = for {
+      predCall <- predCalls.calls.toSet[PredCall]
+      pred = sid(predCall.name)
+      (withoutAlloc, withAlloc) = pred.rules.partition(noAllocationIn)
+    } yield {
+      if (withAlloc.isEmpty) NoAllocation
+      else if (withoutAlloc.isEmpty) AllocationInAllRules
+      else AllocationInSomeRules
+    }
+
+    if (allocs.contains(AllocationInSomeRules)) AllocationInSomeRules
+    else if (Set(AllocationInAllRules,NoAllocation) subsetOf allocs) AllocationInSomeRules
+    else {
+      assert(allocs.size == 1)
+      allocs.head
+    }
   }
 
   def solveViaPureEntailment(entailmentInstance: EntailmentInstance): Boolean = {
-    // TODO: This no longer makes sense if we have explicit multi-call queries (rather than toplevel non-progress predicates), hence the following assertion
+    // The only way that there is no allocation at all on both sides is that there's in fact just one call per side
     assert(entailmentInstance.lhs.calls.size == 1 && entailmentInstance.rhs.calls.size == 1)
     // The entailment holds if for every LHS rule there exists an RHS rule such that the entailment holds between the pair of rules
     val lhsRules = entailmentInstance.lhs.sid(entailmentInstance.lhs.calls.calls.head.name).rules
@@ -93,10 +93,8 @@ object EntailmentChecker extends HarrshLogging {
     * @return True iff the entailment holds
     */
   def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean,Option[EntailmentStats]) = {
-    // TODO: This no longer makes sense if we have explicit multi-call queries (rather than toplevel non-progress predicates), hence the following assertion
-    assert(entailmentInstance.lhs.calls.size == 1 && entailmentInstance.rhs.calls.size == 1)
-    val leftAlloc = allocationInPred(entailmentInstance.lhs.sid, entailmentInstance.lhs.calls.calls.head)
-    val rightAlloc = allocationInPred(entailmentInstance.rhs.sid, entailmentInstance.rhs.calls.calls.head)
+    val leftAlloc = allocationInPreds(entailmentInstance.lhs.sid, entailmentInstance.lhs.calls)
+    val rightAlloc = allocationInPreds(entailmentInstance.rhs.sid, entailmentInstance.rhs.calls)
     val result = (leftAlloc, rightAlloc) match {
       case (NoAllocation, _) =>
         (solveViaPureEntailment(entailmentInstance), None)
