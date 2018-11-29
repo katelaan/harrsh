@@ -102,8 +102,8 @@ object EntailmentResultToLatex {
 
     def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentProfile]], transitions: Map[String, Set[(Seq[EntailmentProfile], RuleBody, EntailmentProfile)]]): String = {
       val resultTex = entailmentCheckerResultToLatex(aut, statesByPred)
-      val queryTex = s"$$${ei.lhsCall.toSymbolicHeap.toLatex} \\models ${ei.rhsCall.toSymbolicHeap.toLatex}$$"
-      val combinedSid = SID(startPred = "", description = "", preds = ei.lhsSid.preds ++ ei.rhsSid.preds.filterNot(ei.lhsSid.preds.contains))
+      val queryTex = s"$$${ei.lhs.calls.toSymbolicHeap.toLatex} \\models ${ei.rhs.calls.toSymbolicHeap.toLatex}$$"
+      val combinedSid = SID(startPred = "", description = "", preds = ei.lhs.sid.preds ++ ei.rhs.sid.preds.filterNot(ei.lhs.sid.preds.contains))
       val sidTex = combinedSid.toLatex
       latexTemplate.replace(ResultPlaceholder, resultTex)
         .replace(QueryPlaceholder, queryTex)

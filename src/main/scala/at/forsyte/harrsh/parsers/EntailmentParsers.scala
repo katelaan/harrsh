@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.entailment.EntailmentInstance
+import at.forsyte.harrsh.entailment.{EntailmentInstance, EntailmentQuerySide, PredCalls}
 import at.forsyte.harrsh.main.{HarrshLogging, MainIO}
 import at.forsyte.harrsh.parsers.buildingblocks.{AsciiAtoms, EmptyQuantifierPrefix}
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
@@ -36,23 +36,25 @@ object EntailmentParsers extends HarrshLogging {
   }
 
   def normalize(parseRes: EntailmentParseResult, computeSeparateSidsForEachSide: Boolean) : Option[EntailmentInstance] = {
-    establishProgress(computeSeparateSidsForEachSide)(parseRes) map logTransformationResult
+    generalizedProgressNormalform(computeSeparateSidsForEachSide)(parseRes) map logTransformationResult
   }
 
   private def logTransformationResult(instance: EntailmentInstance): EntailmentInstance = {
-    logger.debug(s"Will perform entailment check ${instance.lhsCall} |= ${instance.rhsCall} w.r.t. SIDs in progress normal form:")
-    logger.debug(s"LHS SID:\n${instance.lhsSid}")
-    logger.debug(s"RHS SID:\n${instance.rhsSid}")
+    logger.debug(s"Will perform entailment check ${instance.queryString} w.r.t. SIDs in progress normal form:")
+    logger.debug(s"LHS SID:\n${instance.lhs.sid}")
+    logger.debug(s"RHS SID:\n${instance.rhs.sid}")
     instance
   }
 
-  private def establishProgress(computeSeparateSidsForEachSide: Boolean)(parseResult: EntailmentParseResult): Option[EntailmentInstance] = {
+  private def generalizedProgressNormalform(computeSeparateSidsForEachSide: Boolean)(parseResult: EntailmentParseResult): Option[EntailmentInstance] = {
     for {
-      rootedSid <- makeRooted(parseResult.sid)
-      if satisfiesProgress(rootedSid)
+      rootedSid <- annotateSidWithRootParams(parseResult.sid)
+      if satisfiesGeneralizedProgress(rootedSid)
       (lhsSid, lhsCall) <- establishProgress(parseResult.lhs, rootedSid, isLhs = true, computeSeparateSidsForEachSide)
+      lhs = EntailmentQuerySide(lhsSid, PredCalls(Seq(lhsCall)), parseResult.lhs)
       (rhsSid, rhsCall) <- establishProgress(parseResult.rhs, rootedSid, isLhs = false, computeSeparateSidsForEachSide)
-    } yield EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, parseResult.entailmentHolds)
+      rhs = EntailmentQuerySide(rhsSid, PredCalls(Seq(rhsCall)), parseResult.rhs)
+    } yield EntailmentInstance(lhs, rhs, parseResult.entailmentHolds)
   }
 
   private def establishProgress(querySide: SymbolicHeap, sid: SID, isLhs: Boolean, computeSeparateSidsForEachSide: Boolean): Option[(SID, PredCall)] = {
@@ -96,35 +98,40 @@ object EntailmentParsers extends HarrshLogging {
     res
   }
 
-  private def makePredRooted(pred: Predicate): Predicate = {
-    pred.rules.find(!_.satisfiesGeneralizedProgress(rootOfPred = None)).map {
-      rule => throw new IllegalArgumentException(s"SID contains a rule that violates progress: $rule")
+  object annotateSidWithRootParams {
+
+    def apply(sid: SID): Option[SID] = {
+      Try {
+        val rootedPreds = sid.preds map annotatePredWithRoot
+        sid.copy(preds = rootedPreds)
+      } match {
+        case Failure(exception) =>
+          logger.warn(s"Can't annotate SID with root parameters: ${exception.getMessage}")
+          None
+        case Success(annotatedSID) => Some(annotatedSID)
+      }
     }
 
-    val rootVars = sourcesOfHeadPtrs(pred)
-    if (rootVars.size == 1) pred.copy(rootParam = rootVars.headOption.map(_.asInstanceOf[FreeVar]))
-    else throw new IllegalArgumentException(s"No unique root parameter in predicate $pred; roots: $rootVars")
-  }
+    private def annotatePredWithRoot(pred: Predicate): Predicate = {
+      pred.rules.find(!_.satisfiesGeneralizedProgress(rootOfPred = None)).map {
+        rule => throw new IllegalArgumentException(s"SID contains a rule that violates progress: $rule")
+      }
 
-  private def sourcesOfHeadPtrs(pred: Predicate): Set[Var] = {
-    pred.rules.flatMap(_.body.pointers.headOption.map(_.from)).toSet
-  }
-
-  private def makeRooted(sid: SID): Option[SID] = {
-    Try {
-      val rootedPreds = sid.preds map makePredRooted
-      sid.copy(preds = rootedPreds)
-    } match {
-      case Failure(exception) =>
-        logger.warn(s"Can't annotate SID with root parameters: ${exception.getMessage}")
-        None
-      case Success(annotatedSID) => Some(annotatedSID)
+      // TODO: The following fails for SIDs that satisfy generalized progress but not strict progress (rootVars will then be empty). This could be fixed if we wanted to add support for generalized progress in the inputs (as opposed to only for the generated top-level predicates)
+      val rootVars = sourcesOfHeadPtrs(pred)
+      if (rootVars.size == 1) pred.copy(rootParam = rootVars.headOption.map(_.asInstanceOf[FreeVar]))
+      else throw new IllegalArgumentException(s"No unique root parameter in predicate $pred; roots: $rootVars")
     }
+
+    private def sourcesOfHeadPtrs(pred: Predicate): Set[Var] = {
+      pred.rules.flatMap(_.body.pointers.headOption.map(_.from)).toSet
+    }
+
   }
 
-  private def satisfiesProgress(sid: SID): Boolean = {
+  private def satisfiesGeneralizedProgress(sid: SID): Boolean = {
     if (!sid.satisfiesGeneralizedProgress)
-      logger.warn(s"Discarding input because the (sub-)SID $sid does not satisfy progress.")
+      logger.warn(s"Discarding input because the SID $sid does not satisfy progress.")
     sid.satisfiesGeneralizedProgress
   }
 

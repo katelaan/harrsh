@@ -115,7 +115,7 @@ object EntailmentBatchMode {
     val headings = Seq("File", "Query", "Status", "Time (ms)", "\\#profiles", "\\#decomps", "\\#contexts")
     val fromStats = (maybeStats: Option[EntailmentStats], f: EntailmentStats => Any) => maybeStats.map(f).map(""+_).getOrElse("-")
     val desc = (maybeEI: Option[EntailmentInstance], res: EntailmentResult) => maybeEI match {
-      case Some(ei) => "$" + ei.lhsCall + " \\models " + ei.rhsCall + "$"
+      case Some(ei) => "$" + ei.lhs.calls + " \\models " + ei.rhs.calls + "$"
       case None => "-" //res.file.split("/").last.replace("_","\\_")
     }
     val entries = results map {

@@ -41,18 +41,18 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
 
   def rootParamSubsts: Seq[Set[Var]] = labels flatMap (_.rootParamSubst)
 
-  def isFinalFor(call: PredCall): Boolean = {
-    val rootPred = root.pred
-    Stream(
-      isConcrete, // It represents a concrete tree...
-      rootPred.head == call.name, // ...rooted in the correct predicate...
-      pureConstraints.missing.isEmpty, // ...without missing pure constraints...
-      (call.args, root.subst.toSeq).zipped.forall{
-        // ...and with the correct vector of variables at the root (corresponding to the goal predicate call)
-        case (arg, substVal) => substVal.contains(arg)
-      }
-    ).forall(b => b)
-  }
+//  def isFinalFor(call: PredCall): Boolean = {
+//    val rootPred = root.pred
+//    Stream(
+//      isConcrete, // It represents a concrete tree...
+//      rootPred.head == call.name, // ...rooted in the correct predicate...
+//      pureConstraints.missing.isEmpty, // ...without missing pure constraints...
+//      (call.args, root.subst.toSeq).zipped.forall{
+//        // ...and with the correct vector of variables at the root (corresponding to the goal predicate call)
+//        case (arg, substVal) => substVal.contains(arg)
+//      }
+//    ).forall(b => b)
+//  }
 
   def asExtensionType: ContextDecomposition = ContextDecomposition(Set(this))
 

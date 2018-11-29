@@ -178,7 +178,7 @@ object EntailmentAutomatonTest extends TestValues {
   }
 
   def refine(sid: SID, rhs: PredCall, lhs: SID): (EntailmentAutomaton, Map[String, Set[EntailmentProfile]]) = {
-    val aut = new EntailmentAutomaton(sid, rhs)
+    val aut = new EntailmentAutomaton(sid, PredCalls(Seq(rhs)))
     val reachable = RefinementAlgorithms.allReachableStates(lhs, aut, reportProgress = true)
     (aut, reachable)
   }

@@ -30,19 +30,23 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
 
   def isViable(sid: SID): Boolean = {
     // We don't do a full viability check (yet)
-    // This overapproximation of viability discards those forests that contain two trees rooted in a predicate that can
-    // occur at most once in an unfolding tree.
+    // This overapproximation of viability discards those decompositions that contain two contexts rooted in a predicate that can
+    // occur at most once in any given sid-unfolding tree.
     !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots)
   }
 
-  def isFinal(call: PredCall): Boolean = {
-    val res = if (!isSingletonDecomposition) {
-      // Only single (abstracted) trees can be final
+  def isFinal(calls: PredCalls): Boolean = {
+    val res = if (parts.size != calls.size) {
       false
     } else {
-      parts.head.isFinalFor(call)
+      val roots = parts map (_.root)
+      Stream(
+        parts forall (_.isConcrete),
+        parts forall (_.pureConstraints.missing.isEmpty),
+        calls.implies(roots)
+      ).forall(b => b)
     }
-    logger.trace(s"Checking whether $this is final w.r.t. $call => $res")
+    logger.trace(s"Checking whether $this is final w.r.t. $calls => $res")
     res
   }
 
@@ -126,5 +130,7 @@ object ContextDecomposition {
   implicit val decompToLatex: ToLatex[ContextDecomposition] = EntailmentResultToLatex.decompToLatex
 
   def apply(parts: Seq[EntailmentContext]): ContextDecomposition = ContextDecomposition(parts.toSet)
+
+
 
 }

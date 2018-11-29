@@ -4,7 +4,7 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.PureEntailment
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.seplog.inductive.{PredCall, RuleBody, SID}
-import at.forsyte.harrsh.util.IOUtils
+import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
 object EntailmentChecker extends HarrshLogging {
 
@@ -41,8 +41,10 @@ object EntailmentChecker extends HarrshLogging {
   }
 
   def contradictoryAllocationIn(instance: EntailmentInstance): Boolean = {
+    // TODO: This no longer makes sense if we have explicit multi-call queries (rather than toplevel non-progress predicates), hence the following assertion
+    assert(instance.lhs.calls.size == 1 && instance.rhs.calls.size == 1)
     (for {
-      (sid, call) <- Seq((instance.lhsSid, instance.lhsCall), (instance.rhsSid, instance.rhsCall))
+      (sid, call) <- Seq((instance.lhs.sid, instance.lhs.calls.calls.head), (instance.rhs.sid, instance.rhs.calls.calls.head))
       startPred = sid(call.name)
       rule <- startPred.rules
       body = rule.body
@@ -70,12 +72,14 @@ object EntailmentChecker extends HarrshLogging {
   }
 
   def solveViaPureEntailment(entailmentInstance: EntailmentInstance): Boolean = {
+    // TODO: This no longer makes sense if we have explicit multi-call queries (rather than toplevel non-progress predicates), hence the following assertion
+    assert(entailmentInstance.lhs.calls.size == 1 && entailmentInstance.rhs.calls.size == 1)
     // The entailment holds if for every LHS rule there exists an RHS rule such that the entailment holds between the pair of rules
-    val lhsRules = entailmentInstance.lhsSid(entailmentInstance.lhsCall.name).rules
+    val lhsRules = entailmentInstance.lhs.sid(entailmentInstance.lhs.calls.calls.head.name).rules
     assert(lhsRules forall noAllocationIn)
     // Discard RHS rules with allocation -- since there is no allocation on the left, they are not relevant for the entailment
     // (If no rule remains after filtering, the entailment is trivially false
-    val rhsRules = entailmentInstance.rhsSid(entailmentInstance.rhsCall.name).rules.filter(noAllocationIn)
+    val rhsRules = entailmentInstance.rhs.sid(entailmentInstance.rhs.calls.calls.head.name).rules.filter(noAllocationIn)
     lhsRules.forall { rule =>
       val lhsPure = rule.body.pure
       rhsRules.map(_.body.pure).exists(rhsPure => PureEntailment.check(lhsPure, rhsPure))
@@ -89,8 +93,10 @@ object EntailmentChecker extends HarrshLogging {
     * @return True iff the entailment holds
     */
   def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean,Option[EntailmentStats]) = {
-    val leftAlloc = allocationInPred(entailmentInstance.lhsSid, entailmentInstance.lhsCall)
-    val rightAlloc = allocationInPred(entailmentInstance.rhsSid, entailmentInstance.rhsCall)
+    // TODO: This no longer makes sense if we have explicit multi-call queries (rather than toplevel non-progress predicates), hence the following assertion
+    assert(entailmentInstance.lhs.calls.size == 1 && entailmentInstance.rhs.calls.size == 1)
+    val leftAlloc = allocationInPred(entailmentInstance.lhs.sid, entailmentInstance.lhs.calls.calls.head)
+    val rightAlloc = allocationInPred(entailmentInstance.rhs.sid, entailmentInstance.rhs.calls.calls.head)
     val result = (leftAlloc, rightAlloc) match {
       case (NoAllocation, _) =>
         (solveViaPureEntailment(entailmentInstance), None)
@@ -123,11 +129,10 @@ object EntailmentChecker extends HarrshLogging {
   }
 
   def runEntailmentAutomaton(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, EntailmentStats) = {
-    val EntailmentInstance(lhsSid, lhsCall, rhsSid, rhsCall, _) = entailmentInstance
-    val aut = new EntailmentAutomaton(rhsSid, rhsCall)
-    val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhsSid, aut, reportProgress)
-    val isFinal = (s: EntailmentProfile) => aut.isFinal(s)
-    val entailmentHolds = reachableStatesByPred(lhsCall.name).forall(isFinal)
+    val EntailmentInstance(lhs, rhs, _) = entailmentInstance
+    val aut = new EntailmentAutomaton(rhs.sid, rhs.calls)
+    val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhs.sid, aut, reportProgress)
+    val entailmentHolds = checkAcceptance(entailmentInstance.lhs.calls, entailmentInstance.rhs.calls, reachableStatesByPred)
     val stats = entailmentStats(reachableStatesByPred)
 
     if (printResult) {
@@ -140,6 +145,22 @@ object EntailmentChecker extends HarrshLogging {
     }
 
     (entailmentHolds,stats)
+  }
+
+  private def checkAcceptance(lhsCalls: PredCalls, rhsCalls: PredCalls, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
+    logger.debug(s"Will check whether all profiles in fixed point for $lhsCalls imply $rhsCalls")
+    val lhsFVs = lhsCalls.calls flatMap (_.getNonNullVars) filter (_.isFree)
+    //val preds = lhsCalls map (_.name)
+    val renamedReachableStates = for {
+      call <- lhsCalls.calls
+      reachableForCall = reachable(call.name)
+    } yield reachableForCall map (_.rename(call.args))
+    val combinedProfiles = for {
+      toplevelStates <- Combinators.choices(renamedReachableStates.map(_.toSeq)).toStream
+    } yield ComposeProfiles.composeAll(toplevelStates, lhsFVs)
+    // FIXME: The membership test is not general enough. It only works if the LHS does not contain bound variables. Hence the assertion.
+    assert(!lhsCalls.calls.flatMap(_.getVars).exists(_.isBound))
+    combinedProfiles.forall(_.decomps.exists(_.isFinal(rhsCalls)))
   }
 
   object serializeResult {

@@ -10,14 +10,12 @@ import at.forsyte.harrsh.seplog.inductive._
   * @param sid The SID definining the meaning of the rhs.
   * @param rhs The predicate call on the right-hand side of the entailment.
   */
-class EntailmentAutomaton(sid: SID, rhs: PredCall) extends HeapAutomaton with InconsistentState {
+class EntailmentAutomaton(sid: SID, rhs: PredCalls) extends HeapAutomaton with InconsistentState {
 
   // The entailment checker only works for rooted SIDs that satisfy progress
   // TODO: Check rootedness and progress for the part of the SID that does not correspond to the top-level predicate?
   //assert(sid.isRooted)
   //assert(sid.satisfiesProgress)
-
-  assert(rhs.args forall (_.isFree))
 
   //if (sid.preds.flatMap(_.rules).exists(!_.hasPointer)) throw new IllegalArgumentException("For the right-hand side of the entailment there is currently no support for rules that don't allocate memory")
 
