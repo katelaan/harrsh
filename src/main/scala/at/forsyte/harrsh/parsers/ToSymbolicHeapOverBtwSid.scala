@@ -20,13 +20,8 @@ object ToSymbolicHeapOverBtwSid extends HarrshLogging {
   private def progressNormalformOfSCCs(shSCCs: Seq[SymbolicHeap], predPrefix: String, underlyingSID: SID) = {
     if (shSCCs.size == 1) {
       val scc = shSCCs.head
-      if (scc.pointers.isEmpty && scc.pure.isEmpty && scc.predCalls.size == 1 && scc.boundVars.isEmpty && !scc.usesNull) {
-        // No need to introduce any new predicates
-        (Seq.empty, Seq(scc.predCalls.head))
-      } else {
         val (newPreds, call) = rootedShToProgressSid(shSCCs.head, predPrefix, underlyingSID)
         (newPreds, Seq(call))
-      }
     } else {
       val newPredsBySCC = shSCCs.zipWithIndex.map{
         case (rootedSh, i) => rootedShToProgressSid(rootedSh, predPrefix + i + "_", underlyingSID)
@@ -45,13 +40,18 @@ object ToSymbolicHeapOverBtwSid extends HarrshLogging {
   }
 
   def rootedShToProgressSid(sh: SymbolicHeap, predPrefix: String, underlyingSID: SID): (Seq[Predicate], PredCall) = {
-    val TransformationResult(headPred, otherPreds) = introduceOnePredPerPointer(sh, predPrefix)
-    logTransformationResult(headPred +: otherPreds)
-    val normalizedHeadPred = normalizeHeadPred(headPred, underlyingSID)
-    //val SID(normalizedHeadPred.head, normalizedHeadPred +: otherPreds, s"Progress normal form of [$sh]")
-    val newPreds = normalizedHeadPred +: otherPreds
-    val call = toCall(predPrefix + "1", sh)
-    (newPreds, call)
+    if (sh.pointers.isEmpty && sh.pure.isEmpty && sh.predCalls.size == 1 && sh.boundVars.isEmpty && !sh.usesNull) {
+      // No need to introduce any new predicates
+      (Seq.empty, sh.predCalls.head)
+    } else {
+      val TransformationResult(headPred, otherPreds) = introduceOnePredPerPointer(sh, predPrefix)
+      logTransformationResult(headPred +: otherPreds)
+      val normalizedHeadPred = normalizeHeadPred(headPred, underlyingSID)
+      //val SID(normalizedHeadPred.head, normalizedHeadPred +: otherPreds, s"Progress normal form of [$sh]")
+      val newPreds = normalizedHeadPred +: otherPreds
+      val call = toCall(predPrefix + "1", sh)
+      (newPreds, call)
+    }
   }
 
   private def logTransformationResult(preds: Seq[Predicate]): Unit = {
