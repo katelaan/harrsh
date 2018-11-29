@@ -170,7 +170,7 @@ object LocalProfile extends HarrshLogging {
         else if (renamedPtr.to.flatMap(toSet).contains(v)) VarReferenced
         else VarUnused
       }
-      val usageInfo: VarUsageByLabel = renamedRhs.allNonNullVars.map(v => (toSet(v), varToUsageInfo(v))).toMap
+      val usageInfo: VarUsageByLabel = renamedRhs.allVars.map(v => (toSet(v), varToUsageInfo(v))).toMap
       Some(EntailmentContext(root, leavesAsSet, usageInfo, pure, convertToNormalform = true))
     } else {
       // Otherwise we've set the parameters for two calls to be equal,

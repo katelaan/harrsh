@@ -1,9 +1,10 @@
-package at.forsyte.harrsh.seplog.inductive
+package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.{Implicits, TestValues}
+import at.forsyte.harrsh.seplog.inductive.{Predicate, SID, SymbolicHeap}
 import at.forsyte.harrsh.test.HarrshTableTest
+import at.forsyte.harrsh.{Implicits, TestValues}
 
-class SIDUtilsTest extends HarrshTableTest with Implicits with TestValues {
+class ToSymbolicHeapOverBtwSidTest extends HarrshTableTest with Implicits with TestValues {
 
   // TODO: Include test cases where normalization fails
 
@@ -62,15 +63,15 @@ class SIDUtilsTest extends HarrshTableTest with Implicits with TestValues {
     forAll(inputs) {
       (sh, expectedResult) =>
         info(s"Will convert $sh")
-        val conversionResult = SIDUtils.shToProgressSid(sh, "P", SID.empty)
+        val (extendedSID, newSh) = ToSymbolicHeapOverBtwSid(sh, "P", SID.empty)
 
-        info(s"Conversion result: $conversionResult")
+        info(s"Conversion result: $extendedSID")
 
-        conversionResult.preds should be(expectedResult)
+        expectedResult.toSet subsetOf extendedSID.preds.toSet
     }
   }
 
   private def mkPred(predName: String, ruleSh: SymbolicHeap): Predicate = {
-    Predicate(predName, Seq(SIDUtils.shToRuleBody(ruleSh)))
+    Predicate(predName, Seq(SID.shToRuleBody(ruleSh)))
   }
 }

@@ -28,7 +28,11 @@ object EntailmentParsers extends HarrshLogging {
   }
 
   def parseHarrshEntailmentFormat(input: String): Option[EntailmentParseResult] = {
-    DefaultEntailmentParser.run(input)
+    for {
+      pr <- DefaultEntailmentParser.run(input)
+      if pr.lhs.predCalls forall (hasCorrectArity(_, pr.sid))
+      if pr.rhs.predCalls forall (hasCorrectArity(_, pr.sid))
+    } yield pr
   }
 
   def harrshEntailmentFormatToProcessedInstance(input: String, computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = {
@@ -40,7 +44,7 @@ object EntailmentParsers extends HarrshLogging {
   }
 
   private def logTransformationResult(instance: EntailmentInstance): EntailmentInstance = {
-    logger.debug(s"Will perform entailment check ${instance.queryString} w.r.t. SIDs in progress normal form:")
+    logger.debug(s"Will perform entailment check ${instance.queryString} (instead of ${instance.originalQueryString} w.r.t. SIDs in progress normal form:")
     logger.debug(s"LHS SID:\n${instance.lhs.sid}")
     logger.debug(s"RHS SID:\n${instance.rhs.sid}")
     instance
@@ -50,50 +54,26 @@ object EntailmentParsers extends HarrshLogging {
     for {
       rootedSid <- annotateSidWithRootParams(parseResult.sid)
       if satisfiesGeneralizedProgress(rootedSid)
-      (lhsSid, lhsCall) <- establishProgress(parseResult.lhs, rootedSid, isLhs = true, computeSeparateSidsForEachSide)
-      lhs = EntailmentQuerySide(lhsSid, PredCalls(Seq(lhsCall)), parseResult.lhs)
-      (rhsSid, rhsCall) <- establishProgress(parseResult.rhs, rootedSid, isLhs = false, computeSeparateSidsForEachSide)
-      rhs = EntailmentQuerySide(rhsSid, PredCalls(Seq(rhsCall)), parseResult.rhs)
+      lhs = processEntailmentQuerySide(parseResult.lhs, rootedSid, computeSeparateSidsForEachSide, isLhs = true)
+      rhs = processEntailmentQuerySide(parseResult.rhs, rootedSid, computeSeparateSidsForEachSide, isLhs = false)
     } yield EntailmentInstance(lhs, rhs, parseResult.entailmentHolds)
   }
 
-  private def establishProgress(querySide: SymbolicHeap, sid: SID, isLhs: Boolean, computeSeparateSidsForEachSide: Boolean): Option[(SID, PredCall)] = {
-    // If the query is a single predicate call, it is not necessary to introduce a new predicate,\
-    // unless the call references bound variables or null
-    val withoutNormalization = asSingleCallQuery(querySide, sid, isLhs, computeSeparateSidsForEachSide)
-
-    if (withoutNormalization.isDefined) {
-      withoutNormalization
-    } else {
-      normalizeToSingleCallQuery(querySide, sid, isLhs)
-    }
+  private def processEntailmentQuerySide(originalQuerySide: SymbolicHeap, rootedSid: SID, computeSeparateSidsForEachSide: Boolean, isLhs: Boolean): EntailmentQuerySide = {
+    val sideSid = if (computeSeparateSidsForEachSide) extractSidForCalls(rootedSid, originalQuerySide.predCalls.toSet) else rootedSid
+    val (sccSid, lhsCalls) = splitQueryIntoSccs(originalQuerySide, sideSid, isLhs)
+    EntailmentQuerySide(sccSid, lhsCalls, originalQuerySide)
   }
 
-  private def asSingleCallQuery(querySide: SymbolicHeap, sid: SID, isLhs: Boolean, computeSeparateSidsForEachSide: Boolean): Option[(SID, PredCall)] = {
-    for {
-      call <- toSingleCall(querySide)
-      if hasCorrectArity(call, sid)
-      if call.args.forall(_.isFreeNonNull)
-      // Without normalization, parameter reordering is only allowed on the RHS
-      // (Parameter reordering on the RHS is possible, because the parameter order is part of the final state test.)
-      if !isLhs || call.args == sid(call.name).params
-      querySid <- if (computeSeparateSidsForEachSide) extractSidForCall(sid, call) else Some(sid)
-    } yield (querySid, call)
-  }
-
-  private def normalizeToSingleCallQuery(querySide: SymbolicHeap, sid: SID, isLhs: Boolean): Option[(SID, PredCall)] = {
-    logger.debug(s"Will establish progress normal form for $querySide for SID\n$sid")
-    val queryPreds = SIDUtils.shToProgressSid(querySide, if (isLhs) PrefixOfLhsAuxiliaryPreds else PrefixOfRhsAuxiliaryPreds, sid)
-    for {
-      querySid <- combineIntoSidForSide(sid, queryPreds)
-      call = querySid.callToStartPred.predCalls.head
-    } yield (querySid, call)
+  private def splitQueryIntoSccs(querySide: SymbolicHeap, sid: SID, isLhs: Boolean): (SID, PredCalls) = {
+    logger.debug(s"Will transform $querySide into one call per SCC, starting from SID\n$sid")
+    ToSymbolicHeapOverBtwSid(querySide, if (isLhs) PrefixOfLhsAuxiliaryPreds else PrefixOfRhsAuxiliaryPreds, sid)
   }
 
   private def hasCorrectArity(call: PredCall, sid: SID) = {
     val res = call.args.length == sid(call.name).arity
     if (!res) {
-      logger.warn(s"Invalid input: Query contains call $call, but predicate ${call.name} has arity ${sid(call.name).arity}")
+      logger.error(s"Invalid input: Query contains call $call, but predicate ${call.name} has arity ${sid(call.name).arity}")
     }
     res
   }
@@ -106,7 +86,7 @@ object EntailmentParsers extends HarrshLogging {
         sid.copy(preds = rootedPreds)
       } match {
         case Failure(exception) =>
-          logger.warn(s"Can't annotate SID with root parameters: ${exception.getMessage}")
+          logger.error(s"Can't annotate SID with root parameters: ${exception.getMessage}")
           None
         case Success(annotatedSID) => Some(annotatedSID)
       }
@@ -131,7 +111,7 @@ object EntailmentParsers extends HarrshLogging {
 
   private def satisfiesGeneralizedProgress(sid: SID): Boolean = {
     if (!sid.satisfiesGeneralizedProgress)
-      logger.warn(s"Discarding input because the SID $sid does not satisfy progress.")
+      logger.error(s"Discarding input because the SID $sid does not satisfy progress.")
     sid.satisfiesGeneralizedProgress
   }
 
@@ -146,48 +126,15 @@ object EntailmentParsers extends HarrshLogging {
     }
   }
 
-  private def extractSidForCall(sid: SID, call: PredCall): Option[SID] = {
-    val reachablePreds = getReachablePreds(sid, call.name)
-
-    val res = sid.copy(startPred = call.name, preds = sid.preds.filter(pred => reachablePreds.contains(pred.head)))
-    if (res.preds.nonEmpty) {
-      Some(res)
-    } else {
-      logger.warn(s"Illegal specification: The SID doesn't contain any rules for ${call.name}")
-      None
-    }
-  }
-
-  def extractSidForCalls(sid: SID, calls: Set[PredCall]): Option[SID] = {
+  def extractSidForCalls(sid: SID, calls: Set[PredCall]): SID = {
     val predsByCall: Set[(String, Set[String])] = calls.map(_.name).map(p => (p, getReachablePreds(sid, p)))
     predsByCall find (_._2.isEmpty) match {
       case Some(value) =>
-        logger.warn(s"Illegal specification: The SID doesn't contain any rules for ${value._1}")
-        None
+        throw new IllegalArgumentException(s"Illegal specification: The SID doesn't contain any rules for ${value._1}")
       case None =>
         // There are rules for all predicates => Filter SID accordingly & return
         val uniquePreds = predsByCall.flatMap(_._2)
-        val res = sid.copy(startPred = "UNDEFINED", preds = sid.preds.filter(pred => uniquePreds.contains(pred.head)))
-        Some(res)
-    }
-  }
-
-  private def combineIntoSidForSide(defSid: SID, entailmentSid: SID): Option[SID] = {
-    val entailmentPreds = entailmentSid.preds.map(_.head).toSet
-    assert((defSid.preds.map(_.head).toSet intersect entailmentPreds).isEmpty)
-    val allCalls = entailmentSid.preds.toSet[Predicate].flatMap(_.rules).flatMap(_.body.predCalls)
-    val callsFromDefSid = allCalls filterNot(call => entailmentPreds.contains(call.name))
-    val extractedDefSid = extractSidForCalls(defSid, callsFromDefSid)
-    extractedDefSid.map {
-      someSid => entailmentSid.copy(preds = entailmentSid.preds ++ someSid.preds)
-    }
-  }
-
-  private def toSingleCall(sh: SymbolicHeap): Option[PredCall] = {
-    if (sh.predCalls.size == 1 && sh.pointers.isEmpty && sh.pure.isEmpty) {
-      sh.predCalls.headOption
-    } else {
-      None
+        sid.copy(startPred = "UNDEFINED", preds = sid.preds.filter(pred => uniquePreds.contains(pred.head)))
     }
   }
 

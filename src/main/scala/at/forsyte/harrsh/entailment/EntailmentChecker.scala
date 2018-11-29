@@ -150,7 +150,6 @@ object EntailmentChecker extends HarrshLogging {
   private def checkAcceptance(lhsCalls: PredCalls, rhsCalls: PredCalls, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
     logger.debug(s"Will check whether all profiles in fixed point for $lhsCalls imply $rhsCalls")
     val lhsFVs = lhsCalls.calls flatMap (_.getNonNullVars) filter (_.isFree)
-    //val preds = lhsCalls map (_.name)
     val renamedReachableStates = for {
       call <- lhsCalls.calls
       reachableForCall = reachable(call.name)
@@ -158,8 +157,6 @@ object EntailmentChecker extends HarrshLogging {
     val combinedProfiles = for {
       toplevelStates <- Combinators.choices(renamedReachableStates.map(_.toSeq)).toStream
     } yield ComposeProfiles.composeAll(toplevelStates, lhsFVs)
-    // FIXME: The membership test is not general enough. It only works if the LHS does not contain bound variables. Hence the assertion.
-    assert(!lhsCalls.calls.flatMap(_.getVars).exists(_.isBound))
     combinedProfiles.forall(_.decomps.exists(_.isFinal(rhsCalls)))
   }
 

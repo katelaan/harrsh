@@ -1,8 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.inductive.PredCall
-import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
+import at.forsyte.harrsh.seplog.{BoundVar, NullConst, Var}
 
 case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPredCall], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
 

@@ -1,33 +1,37 @@
-package at.forsyte.harrsh.seplog.inductive
+package at.forsyte.harrsh.parsers
 
+import at.forsyte.harrsh.entailment.PredCalls
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Renaming, Var}
+import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.seplog._
 
-object SIDUtils extends HarrshLogging {
+object ToSymbolicHeapOverBtwSid extends HarrshLogging {
 
-  // TODO: Introduce unique names for bound vars + don't hardcode prefix?
-  private def defaultBoundVarNames(sh: SymbolicHeap): Seq[String] = sh.boundVars.toSeq.map(bv => "_"+bv.index)
-
-  def shToRuleBody(sh: SymbolicHeap): RuleBody = {
-    // TODO: The SH API is obviously not meant to be used in this way. Refactor?
-    val withoutGaps = SymbolicHeap(sh.atoms.closeGapsInBoundVars, sh.freeVars)
-    RuleBody(defaultBoundVarNames(withoutGaps), withoutGaps)
+  def apply(sh: SymbolicHeap, predPrefix: String, underlyingSID: SID): (SID, PredCalls) = {
+    val shSCCs = SymbolicHeapUtils.splitIntoRootedComponents(sh, underlyingSID)
+    logger.debug(s"Split $sh into rooted components ${shSCCs.mkString(", ")}")
+    val (allNewPreds, topLevelCalls) = progressNormalformOfSCCs(shSCCs, predPrefix, underlyingSID)
+    logger.debug(s"New query is ${PredCalls(topLevelCalls)} w.r.t. new per-SCC predicates:\n${allNewPreds.mkString("\n")}")
+    val startPred = topLevelCalls.head.name // Arbitrarily assign start pred (will never be used)
+    val integratedSID = mergeIntoOneSid(underlyingSID, allNewPreds, startPred, sh)
+    (integratedSID, PredCalls(topLevelCalls))
   }
 
-  def shToProgressSid(sh: SymbolicHeap, predPrefix: String, underlyingSID: SID): SID = {
-    val shComponentsByReachability = SymbolicHeapUtils.splitIntoRootedComponents(sh, underlyingSID)
-    if (shComponentsByReachability.size == 1) {
-      rootedShToProgressSid(shComponentsByReachability.head, predPrefix, underlyingSID)
+  private def progressNormalformOfSCCs(shSCCs: Seq[SymbolicHeap], predPrefix: String, underlyingSID: SID) = {
+    if (shSCCs.size == 1) {
+      val scc = shSCCs.head
+      if (scc.pointers.isEmpty && scc.pure.isEmpty && scc.predCalls.size == 1 && scc.boundVars.isEmpty && !scc.usesNull) {
+        // No need to introduce any new predicates
+        (Seq.empty, Seq(scc.predCalls.head))
+      } else {
+        val (newPreds, call) = rootedShToProgressSid(shSCCs.head, predPrefix, underlyingSID)
+        (newPreds, Seq(call))
+      }
     } else {
-      val progressSIDsByReachability = shComponentsByReachability.zipWithIndex.map{
+      val newPredsBySCC = shSCCs.zipWithIndex.map{
         case (rootedSh, i) => rootedShToProgressSid(rootedSh, predPrefix + i + "_", underlyingSID)
       }
-      val topLevelCalls = shComponentsByReachability.zipWithIndex map {
-        case (rootedSh, i) => toCall(predPrefix + i + "_1", rootedSh)
-      }
-      val topLevelSh = SymbolicHeap(topLevelCalls: _*)
-      val topLevelPred = Predicate(predPrefix, Seq(shToRuleBody(topLevelSh)))
-      mergeIntoOneSid(topLevelPred, progressSIDsByReachability, sh)
+      (newPredsBySCC.flatMap(_._1), newPredsBySCC.map(_._2))
     }
   }
 
@@ -35,16 +39,19 @@ object SIDUtils extends HarrshLogging {
     PredCall(pred, rootedSh.freeVars)
   }
 
-  private def mergeIntoOneSid(topLevelPred: Predicate, progressSIDsByReachability: List[SID], originalSh: SymbolicHeap): SID = {
-    val allPreds = Seq(topLevelPred) ++ progressSIDsByReachability.flatMap(_.preds)
-    SID(startPred = topLevelPred.head, allPreds, description = s"Progress normal form of [$originalSh]")
+  private def mergeIntoOneSid(originalSID: SID, allNewPreds: Seq[Predicate], startPred: String, originalSh: SymbolicHeap): SID = {
+    val allPreds = originalSID.preds ++ allNewPreds
+    SID(startPred, allPreds, description = s"SID for SCC decomposition of $originalSh")
   }
 
-  def rootedShToProgressSid(sh: SymbolicHeap, predPrefix: String, underlyingSID: SID): SID = {
+  def rootedShToProgressSid(sh: SymbolicHeap, predPrefix: String, underlyingSID: SID): (Seq[Predicate], PredCall) = {
     val TransformationResult(headPred, otherPreds) = introduceOnePredPerPointer(sh, predPrefix)
     logTransformationResult(headPred +: otherPreds)
     val normalizedHeadPred = normalizeHeadPred(headPred, underlyingSID)
-    SID(normalizedHeadPred.head, normalizedHeadPred +: otherPreds, s"Progress normal form of [$sh]")
+    //val SID(normalizedHeadPred.head, normalizedHeadPred +: otherPreds, s"Progress normal form of [$sh]")
+    val newPreds = normalizedHeadPred +: otherPreds
+    val call = toCall(predPrefix + "1", sh)
+    (newPreds, call)
   }
 
   private def logTransformationResult(preds: Seq[Predicate]): Unit = {
@@ -67,7 +74,7 @@ object SIDUtils extends HarrshLogging {
       val fstCall = body.predCalls.head
       val ruleBodies = underlyingSID(fstCall.name).bodySHs
       val instantiatedBodies = ruleBodies map (body.replaceCall(fstCall, _))
-      val newRules = instantiatedBodies map shToRuleBody
+      val newRules = instantiatedBodies map SID.shToRuleBody
       val res = Predicate(headPred.head, newRules, headPred.rootParam)
       logger.debug(s"Normalizing rule ${headPred.head} <= $rule by replacing $fstCall with rules of ${fstCall.name}:\n$res")
       res
@@ -85,10 +92,10 @@ object SIDUtils extends HarrshLogging {
         // Simply introduce a single new predicate for this
         // Note that this will lead to special treatment in the automaton transitions, because progress is violated
         assert(introducedPredicates.isEmpty)
-        TransformationResult(Predicate(currName, Seq(shToRuleBody(intermediateSh))), Seq.empty)
+        TransformationResult(Predicate(currName, Seq(SID.shToRuleBody(intermediateSh))), Seq.empty)
       case 1 =>
         // Exactly one pointer => Progress is satisfied => Simply create a single predicate
-        val allPreds = introducedPredicates :+ Predicate(currName, Seq(shToRuleBody(intermediateSh)))
+        val allPreds = introducedPredicates :+ Predicate(currName, Seq(SID.shToRuleBody(intermediateSh)))
         TransformationResult(allPreds.head, allPreds.tail)
       case n if n >= 2 =>
         // Recurse on an arbitrary pointer
@@ -101,7 +108,7 @@ object SIDUtils extends HarrshLogging {
           pointers = Seq(localPtr),
           predCalls = Seq(recPredCall),
           freeVars = intermediateSh.freeVars)
-        val newPred = Predicate(currName, Seq(shToRuleBody(ruleSh)))
+        val newPred = Predicate(currName, Seq(SID.shToRuleBody(ruleSh)))
         introduceOnePredPerPointer(remainder, predPrefix, introducedPredicates :+ newPred)
     }
   }
@@ -135,5 +142,6 @@ object SIDUtils extends HarrshLogging {
     val newFreeVarsByBoundVar = sharedBoundVars.map(bv => (bv,renamingMap(bv)))
     SplitResult(normalizedRemainder, droppedFreeVars, newFreeVarsByBoundVar)
   }
+
 
 }

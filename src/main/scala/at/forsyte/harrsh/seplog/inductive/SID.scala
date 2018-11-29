@@ -128,4 +128,13 @@ object SID extends HarrshLogging {
     } yield s"  \\RuleName{${pred.head}} &\\Longleftarrow& ${rule.body.toLatex(rule.naming)}"
   }
 
+  // TODO: Introduce unique names for bound vars + don't hardcode prefix?
+  def defaultBoundVarNames(sh: SymbolicHeap): Seq[String] = sh.boundVars.toSeq.map(bv => "_"+bv.index)
+
+  def shToRuleBody(sh: SymbolicHeap): RuleBody = {
+    // TODO: The SH API is obviously not meant to be used in this way. Refactor?
+    val withoutGaps = SymbolicHeap(sh.atoms.closeGapsInBoundVars, sh.freeVars)
+    RuleBody(defaultBoundVarNames(withoutGaps), withoutGaps)
+  }
+
 }

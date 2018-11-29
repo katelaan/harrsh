@@ -14,8 +14,8 @@ object EntailmentParseResult {
   case class ConversionException(msg: String) extends Exception
 
   def toSlideFormat(filename: String, pr: EntailmentParseResult): Seq[(String,String)] = {
-    val lhsSid = EntailmentParsers.extractSidForCalls(pr.sid, pr.lhs.predCalls.toSet).getOrElse(SID.empty)
-    val rhsSid = EntailmentParsers.extractSidForCalls(pr.sid, pr.rhs.predCalls.toSet).getOrElse(SID.empty)
+    val lhsSid = EntailmentParsers.extractSidForCalls(pr.sid, pr.lhs.predCalls.toSet)
+    val rhsSid = EntailmentParsers.extractSidForCalls(pr.sid, pr.rhs.predCalls.toSet)
     val lhsFile = filename + ".lhs.pred"
     val rhsFile = filename + ".rhs.pred"
     Seq(

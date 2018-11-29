@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.pure.Closure
-import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.{BoundVar, Var}
 import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
@@ -18,12 +18,25 @@ object SymbolicHeapUtils {
       val reach = transitiveReachability(rootedAtoms, Closure.fromSH(sh))
       val groups = groupByReachability(rootedAtoms, reach)
       assert(groups.flatMap(_.atoms).toSet == sh.atoms.all.toSet)
+      if (sharedBoundVars(groups)) {
+        throw new IllegalArgumentException(s"Currently no support for queries in which bound variables are shared between connected components, but SCCs are ${groups.mkString(", ")}")
+      }
       val rootedSHs = groups map (_.toSymbolicHeap)
       if (rootedSHs.exists(sh => sh.predCalls.isEmpty && !sh.hasPointer)) {
         // FIXME: Ensure that there is no component that consists only of pure constraints. Such a component should be incorporated with another SH
-        throw new IllegalStateException(s"Rooted component $rootedSHs contain empty component")
+        throw new IllegalStateException(s"Rooted components $rootedSHs contain empty component")
       }
       rootedSHs
+    }
+  }
+
+  def sharedBoundVars(groups: List[RootedComponent]): Boolean = {
+    if (groups.size == 1) {
+      false
+    }
+    else {
+      val boundVars = groups map (_.boundVars)
+      boundVars.tail.fold(boundVars.head)(_ intersect _).nonEmpty
     }
   }
 
@@ -34,6 +47,10 @@ object SymbolicHeapUtils {
       // Reverse to get original order of atoms
       SymbolicHeap(atoms.reverse: _*)
     }
+
+    def boundVars: Set[BoundVar] = Var.boundVars(atoms.flatMap(_.getVars).toSet ++ Set(root))
+
+    override def toString: String = s"[$root --> ${atoms.mkString(" * ")}]"
   }
 
   private def toRootedAtom(atom: SepLogAtom, sid: SID): RootedAtom = {

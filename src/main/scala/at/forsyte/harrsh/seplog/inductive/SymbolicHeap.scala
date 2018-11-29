@@ -7,6 +7,7 @@ import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.Var._
 import at.forsyte.harrsh.util.{Combinators, StringUtils, ToLatex}
 import ToLatex._
+import at.forsyte.harrsh.seplog
 
 
 /**
@@ -16,6 +17,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
 
   /**
     * Generates a string representation by mapping the (integer) variables to the given string representations
+    *
     * @param naming Map from variables to string representations
     * @return String representation of this symbolic heap
     */
@@ -56,6 +58,10 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
   lazy val ptrComparisons: Seq[PureAtom] = pure filter (_.isPointerComparison)
 
   lazy val allNonNullVars: Set[Var] = freeVars.toSet ++ boundVars
+
+  lazy val usesNull: Boolean = atoms.all.map(_.getVars).exists(_.contains(NullConst))
+
+  lazy val allVars: Set[Var] = allNonNullVars ++ (if (usesNull) Set(seplog.NullConst) else Set.empty)
 
   def hasVar(v : Var) : Boolean = allNonNullVars.contains(v)
 
