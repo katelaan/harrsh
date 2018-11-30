@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.FreeVar
+import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive.Predicate
 
 import scala.annotation.tailrec
@@ -85,64 +85,54 @@ object EntailmentContextComposition extends HarrshLogging {
     assert(n1.freeVarSeq == n2.freeVarSeq)
     val (n1usage, n2usage) = (a1.usageInfoOfNode(n1), a2.usageInfoOfNode(n2))
 
-    // Sanity check: The root parameter of the predicate is marked as used in both nodes
-    // TODO: If we want to relax the assumption about rootedness, this has to go. We'd have to ensure that this doesn't break soundness, though. See also the related TODO in LocalProfile
-    if (rootsAreUsed(n1.pred, n1usage, n2usage)) {
-
-      val unifiableParams: Seq[Boolean] = (n1.freeVarSeq, n1usage, n2usage).zipped.toSeq.map {
-        tuple: (FreeVar, VarUsage, VarUsage) =>
-          tuple match {
-            case (_, VarAllocated, VarAllocated) =>
-              // Double allocation
-              false
-            case (_, VarUnused, _) =>
-              // Only used in one of the objects => Don't need to have a name in both
-              true
-            case (_, _, VarUnused) =>
-              // Only used in one of the objects => Don't need to have a name in both
-              true
-            case (v, used1, used2) =>
-              assert(used1.isUsed && used2.isUsed)
-              // Used in both => Need a common name
-              (n1.rootParamSubst.get intersect n2.rootParamSubst.get).nonEmpty
-          }
-      }
-
-      for {
-        (v, unifiable) <- n1.freeVarSeq.zip(unifiableParams)
-        if !unifiable
-      } {
-        logger.debug(s"Can't unify $v (among FVs ${n1.freeVarSeq}) in $n1 and $n2. (Shared non-placeholder name required but not present.)")
-      }
-
-      if (unifiableParams.forall(b => b)) {
-        Some((n1.subst.toSeq, n2.subst.toSeq).zipped.map(_ union _))
-      } else {
-        None
-      }
+    // TODO: If we want to relax the assumption about rootedness, the first condition has to be removed/relaxed. We'd have to ensure that this doesn't break soundness, though. See also the related TODO in LocalProfile
+    if (rootsAreUsed(n1.pred, n1usage, n2usage) && allUnifiable(n1, n1usage, n2, n2usage)) {
+      Some((n1.subst.toSeq, n2.subst.toSeq).zipped.map(_ union _))
     } else {
       None
     }
   }
 
-  /* Note: Since we're using NodeLabels rather than e.g. NodeIDs here, we do not consider all compositions in the corner
-     case that there are two leaves with the exact same node label. This doesn't matter for correctness though, since in
-     such cases, it simply doesn't make a difference which leaf we replace, so it's not necessary to keep both
-     candidates around.
+  private def areUnifiable(pred: Predicate, v: FreeVar, subst1: Set[Var], usage1: VarUsage, subst2: Set[Var], usage2: VarUsage): Boolean = {
+    (usage1, usage2) match {
+      case (VarAllocated, VarAllocated) =>
+        // Double allocation
+        logger.debug(s"Can't unify FV $v because of double allocation.")
+        false
+      case (VarUnused, _) =>
+        // Only used in one of the objects => Don't need to have a name in both
+        true
+      case (_, VarUnused) =>
+        // Only used in one of the objects => Don't need to have a name in both
+        true
+      case (used1, used2) =>
+        assert(used1.isUsed && used2.isUsed)
+        // Used in both => Need a common name
+        // TODO: Is it true that root parameters need to match, whereas for other parameters we can introduce aliasing?
+        val res = (v != pred.rootParam.get) || (subst1 intersect subst2).nonEmpty
+        if (!res) {
+          logger.debug(s"Can't unify root params $v (Shared non-placeholder name required but not present.)")
+        }
+        res
+    }
+  }
 
-     Note further that under the assumption that even base rules allocate memory, such objects will anyway always
-     represent double allocation (same node label implies same root), so they should anyway be discarded.
-   */
-  case class CompositionInterface(treeToEmbed: EntailmentContext, embeddingTarget: EntailmentContext, leafToReplaceInEmbedding: ContextPredCall)
+  private def allUnifiable(n1: ContextPredCall, n1usage: VarUsageInfo, n2: ContextPredCall, n2usage: VarUsageInfo): Boolean = {
+    (n1.freeVarSeq zip n1.subst.toSeq zip n1usage zip n2.subst.toSeq zip n2usage).forall {
+      case ((((v, subst1), usage1), subst2), usage2) => areUnifiable(n1.pred, v, subst1, usage1, subst2, usage2)
+    }
+  }
+
+  case class CompositionInterface(ctxToEmbed: EntailmentContext, embeddingTarget: EntailmentContext, leafToReplaceInEmbedding: ContextPredCall)
 
   private def compositionCandidates(fst: EntailmentContext, snd: EntailmentContext): Stream[CompositionInterface] = {
     for {
-      (treeWithRoot, treeWithAbstractLeaf) <- Stream((fst,snd), (snd,fst))
-      root = treeWithRoot.root
-      abstractLeaf <- treeWithAbstractLeaf.calls
+      (ctxWithRoot, ctxWithAbstractLeaf) <- Stream((fst,snd), (snd,fst))
+      root = ctxWithRoot.root
+      abstractLeaf <- ctxWithAbstractLeaf.calls
       // Only consider for composition if the labeling predicates are the same
       if root.pred == abstractLeaf.pred
-    } yield CompositionInterface(treeWithRoot, treeWithAbstractLeaf, abstractLeaf)
+    } yield CompositionInterface(ctxWithRoot, ctxWithAbstractLeaf, abstractLeaf)
   }
 
   private def allMergeOptions(processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext]): Seq[Seq[EntailmentContext]] = {
