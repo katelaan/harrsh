@@ -2,6 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.FreeVar
+import at.forsyte.harrsh.seplog.inductive.Predicate
 
 import scala.annotation.tailrec
 
@@ -64,6 +65,19 @@ object EntailmentContextComposition extends HarrshLogging {
     VarUsageByLabel.restrictToSubstitutionsInLabels(combinedUsageInfo, labels)
   }
 
+  private def rootsAreUsed(pred: Predicate, usage1: VarUsageInfo, usage2: VarUsageInfo): Boolean = {
+    pred.rootParamIndex match {
+      case Some(ix) =>
+        val isUsed = usage1(ix).isUsed && usage2(ix).isUsed
+        if (!isUsed) {
+          logger.debug(s"Root parameter ${pred.rootParam.get} isn't marked as used in at least one of the calls, can't unify.")
+        }
+        isUsed
+      case None =>
+        throw new IllegalArgumentException("Can't perform unification for predicates without roots")
+    }
+  }
+
   private def tryUnify(a1: EntailmentContext, n1: ContextPredCall, a2: EntailmentContext, n2: ContextPredCall): Option[Unification] = {
     logger.debug(s"Will try to unify $n1 with $n2")
     assert(a1.root == n1)
@@ -73,40 +87,39 @@ object EntailmentContextComposition extends HarrshLogging {
 
     // Sanity check: The root parameter of the predicate is marked as used in both nodes
     // TODO: If we want to relax the assumption about rootedness, this has to go. We'd have to ensure that this doesn't break soundness, though. See also the related TODO in LocalProfile
-    n1.pred.rootParam foreach {
-      param =>
-        val ix = n1.freeVarSeq.indexOf(param)
-        assert(n1usage(ix).isUsed && n2usage(ix).isUsed,
-          s"Root parameter ${n1.pred.rootParam.get} isn't marked as used in at least one of $n1 and $n2 (usage info: ${(n1.subst.toSeq zip n1usage).mkString(",")}; ${(n2.subst.toSeq zip n2usage).mkString(",")})")
-    }
+    if (rootsAreUsed(n1.pred, n1usage, n2usage)) {
 
-    val unifiableParams: Seq[Boolean] = (n1.freeVarSeq, n1usage, n2usage).zipped.toSeq.map{
-      tuple: (FreeVar, VarUsage, VarUsage) => tuple match {
-        case (_, VarAllocated, VarAllocated) =>
-          // Double allocation
-          false
-        case (_, VarUnused, _) =>
-          // Only used in one of the objects => Don't need to have a name in both
-          true
-        case (_, _, VarUnused) =>
-          // Only used in one of the objects => Don't need to have a name in both
-          true
-        case (v, used1, used2) =>
-          assert(used1.isUsed && used2.isUsed)
-          // Used in both => Need a common name
-          (n1.rootParamSubst.get intersect n2.rootParamSubst.get).nonEmpty
+      val unifiableParams: Seq[Boolean] = (n1.freeVarSeq, n1usage, n2usage).zipped.toSeq.map {
+        tuple: (FreeVar, VarUsage, VarUsage) =>
+          tuple match {
+            case (_, VarAllocated, VarAllocated) =>
+              // Double allocation
+              false
+            case (_, VarUnused, _) =>
+              // Only used in one of the objects => Don't need to have a name in both
+              true
+            case (_, _, VarUnused) =>
+              // Only used in one of the objects => Don't need to have a name in both
+              true
+            case (v, used1, used2) =>
+              assert(used1.isUsed && used2.isUsed)
+              // Used in both => Need a common name
+              (n1.rootParamSubst.get intersect n2.rootParamSubst.get).nonEmpty
+          }
       }
-    }
 
-    for {
-      (v, unifiable) <- n1.freeVarSeq.zip(unifiableParams)
-      if !unifiable
-    } {
-      logger.debug(s"Can't unify $v (among FVs ${n1.freeVarSeq}) in $n1 and $n2. (Shared non-placeholder name required but not present.)")
-    }
+      for {
+        (v, unifiable) <- n1.freeVarSeq.zip(unifiableParams)
+        if !unifiable
+      } {
+        logger.debug(s"Can't unify $v (among FVs ${n1.freeVarSeq}) in $n1 and $n2. (Shared non-placeholder name required but not present.)")
+      }
 
-    if (unifiableParams.forall(b => b)) {
-      Some((n1.subst.toSeq, n2.subst.toSeq).zipped.map(_ union _))
+      if (unifiableParams.forall(b => b)) {
+        Some((n1.subst.toSeq, n2.subst.toSeq).zipped.map(_ union _))
+      } else {
+        None
+      }
     } else {
       None
     }
