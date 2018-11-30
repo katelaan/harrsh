@@ -52,21 +52,21 @@ HARRSH can read SID specifications both in the Cyclist format (`.defs` files) or
       # All other variables are implicitly existentially quantified, e.g. the z in
       foo <= x1 -> (z, x2) ;
         
-      # The null pointer can be written either as null or as nil
+      # Both null and nil represent the null pointer
       foo <= x1 -> (null,nil) ;
         
       # The empty heap is written emp, multiple spatial atoms separated by *
       foo <= emp * x2 -> nil ;
         
-      # Predicate calls are written as <pred name>(<arg>*)
+      # Predicate calls are denoted <pred name>(<arg>*)
       # You have to ensure yourself that you pass the correct number of arguments
       bar <= foo(x1, y, nil) ;
         
-      # (In)equalities between pointers are written in a suffix : { <(in)equalities> },
+      # (In)equalities between pointers are added in a suffix : { <(in)equalities> },
       # using the syntax <ptr> = <ptr> or <ptr> != <ptr>, separated by commas
       bar <= x3 -> z * foo(x1, z, y) : { y = z, x1 != x2 } ;
         
-      # Use as little or as much white space as you please, e.g.
+      # Use as little or as much white space as you like, e.g.
       bar <= x3->(z,y,   x2)*foo(x1,z,y):{y=z, x1    !=  x2 }
         
       # That's it. By the way: This file should parse.
@@ -99,10 +99,10 @@ To check this entailment
 
 HARRSH currently supports checking (see decision procedures) and establishing (see refinement) the following properties for a given SID:
 
-* SAT :  Does there exists a satisfiable unfolding?
-* UNSAT :  Does there exist an unsatisfiable unfolding? Note that this is **not** the complement of SAT, as an SID can have both satisfiable and unsatisfiable unfoldings. 
+* SAT :  Does there exist a satisfiable unfolding?
+* UNSAT :  Does there exist an unsatisfiable unfolding? Note that this is **not** the complement of SAT, as a predicate can have both satisfiable and unsatisfiable unfoldings. 
 * EST :  Does there exist an established unfolding, i.e., an unfolding in which all variables are either allocated or equal to a free variable? This is often a precondition for applying other separation logic decision procedures, for example for entailment checking.
-* ACYC :      Does there exist a Weakly acyclic unfolding?
+* ACYC :      Does there exist a weakly acyclic unfolding?
 * GF :    Does there exist a garbage-free unfolding? 
 * NON-EST, CYC, GARB: Complement of the above automata
 * HASPTR :            Does there exist an unfolding that allocates memory?
