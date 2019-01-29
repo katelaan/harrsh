@@ -118,7 +118,7 @@ object EntailmentChecker extends HarrshLogging {
   def entailmentStats(reachableStatesByPred: Map[String, Set[EntailmentProfile]]): EntailmentStats = {
     val numExploredPreds = reachableStatesByPred.size
     val allProfiles = reachableStatesByPred.values.flatten.toList
-    val allDecomps = for {
+    val allDecomps: Seq[ContextDecomposition] = for {
       c <- allProfiles
       s <- c.decomps
     } yield s

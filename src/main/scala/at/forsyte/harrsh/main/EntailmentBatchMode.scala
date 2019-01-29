@@ -20,10 +20,11 @@ object EntailmentBatchMode {
   case class EntailmentResult(file: String, computedResult: Option[Boolean], time: Option[Long], timeout: Boolean, failureMsg: Option[String], stats: Option[EntailmentStats])
 
   def main(args: Array[String]): Unit = {
-    val results = parseAllEntailmentsInPathToInstances(PathToSlcompEntailmentBenchmarks, computeSidsForEachSideOfEntailment = false)
-    println("All parse results:")
-    println(results.mkString("\n ******* \n"))
+    //val results = parseAllEntailmentsInPathToInstances(PathToSlcompEntailmentBenchmarks, computeSidsForEachSideOfEntailment = false)
+    //println("All parse results:")
+    //println(results.mkString("\n ******* \n"))
     //runAllEntailmentsInPath(PathToDefaultEntailmentBenchmarks, EntailmentBatch.defaultTimeout)
+    println(allHarrshEntailmentFilesInPath(PathToDefaultEntailmentBenchmarks).mkString("\n"))
   }
 
   def convertAllEntailmentsInPath(inputPath: String, outputPath: Option[String], converter: (String, EntailmentParseResult) => Seq[(String,String)]): Unit = {

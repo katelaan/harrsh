@@ -83,6 +83,7 @@ object Harrsh extends Implicits {
       _ <- tryParseMode("--entailment", "-e", Entailment)
       _ <- tryParseMode("--spec", "-s", ModelChecking)
       _ <- tryParseMode("--parse", "--parse", ParseOnly)
+      _ <- tryParseMode("--tacas", "--tacas", TacasArtifact)
       mode <- gets[Config,ExecutionMode](_.mode)
 
       /*
@@ -193,6 +194,10 @@ object Harrsh extends Implicits {
         println("Will run all entailment benchmarks in " + config.file)
         EntailmentBatchMode.runAllEntailmentsInPath(config.file, config.timeout)
 
+      case TacasArtifact =>
+        println(s"TACAS artifact: Will run experiments specified in '${config.file}'")
+        EntailmentBenchmarking.runJmhBenchmarskForHarrsh(config.file)
+
       case ConvertEntailmentBatch =>
         println(s"Will convert all benchmarks in ${config.file} to SLIDE input format")
         //EntailmentBatchMode.convertAllEntailmentsInPath(config.file, "export/slide", EntailmentParseResult.toSlideFormat)
@@ -235,11 +240,11 @@ object Harrsh extends Implicits {
         }
 
       case ModelChecking =>
-          val sid = MainIO.getSidFromFile(config.file)
-          val model = MainIO.getModelFromFile(config.modelFile)
-          val modelChecker = GreedyUnfoldingModelChecker
-          val result = modelChecker.isModel(model, sid)
-          println("Finished model checking. Result: " + result)
+        val sid = MainIO.getSidFromFile(config.file)
+        val model = MainIO.getModelFromFile(config.modelFile)
+        val modelChecker = GreedyUnfoldingModelChecker
+        val result = modelChecker.isModel(model, sid)
+        println("Finished model checking. Result: " + result)
   }
 
 

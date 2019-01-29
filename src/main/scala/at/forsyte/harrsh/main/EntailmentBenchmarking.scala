@@ -15,6 +15,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration.{Duration, SECONDS}
 import BenchmarkingConfig._
+import at.forsyte.harrsh.util.{IOUtils, StringUtils}
 
 object BenchmarkingConfig {
 
@@ -26,6 +27,7 @@ object BenchmarkingConfig {
 
   // Paths
   val ResultTexFile = "complete-results.tex"
+  val ResultTxtFile = "results.txt"
   val BenchmarkPath = "examples/entailment"
 
   // Benchmark times
@@ -291,9 +293,10 @@ object EntailmentBenchmarking {
 
   case class TableEntry(file: String, tools: Seq[ToolTableEntry]) {
     def toColumnSeq: Seq[String] = {
-      val hrs = tools.find(_.toolName == "HRS").get
-      val sb = tools.find(_.toolName == "SB").get
-      val sld = tools.find(_.toolName == "SLD").get
+      val emptyEntry = (toolName:String) => ToolTableEntry(toolName, Unknown, None)
+      val hrs = tools.find(_.toolName == "HRS").getOrElse(emptyEntry("HRS"))
+      val sb = tools.find(_.toolName == "SB").getOrElse(emptyEntry("SB"))
+      val sld = tools.find(_.toolName == "SLD").getOrElse(emptyEntry("SLD"))
       val sbSuffix = resultDeviationMarker(hrs, sb)
       val sldSuffix = resultDeviationMarker(hrs, sld)
 
@@ -373,6 +376,33 @@ object EntailmentBenchmarking {
       bulletPoint = res.file + ": " + msg
     } yield bulletPoint.replace("_","\\_").replaceAllLiterally("<", "\\textless{}").replaceAllLiterally(">", "\\textgreater{}")
     MainIO.writeLatexFile(ResultTexFile, headings, entries, bulletPoints)
+  }
+
+  private def resultsToPlainTextTable(results: Seq[TableEntry]): String = {
+    val headings = Seq("File", "Status", "HRS", "SB", "SLD", "\\#P", "\\#D", "\\#C")
+    val entries = results map (_.toColumnSeq)
+    val table = StringUtils.toTable(StringUtils.defaultTableConfigForHeadings(headings), entries)
+
+    val bulletPoints = for {
+      res <- results
+      msg <- res.errorMessages
+    } yield " - " + res.file + ": " + msg
+
+    table ++ "\n\n" ++ bulletPoints.mkString("\n")
+  }
+
+  def runJmhBenchmarskForHarrsh(fileWithBenchmarks: String): Unit = {
+    val bms = IOUtils.readFile(fileWithBenchmarks).split("\n")
+    var resultsByFile: List[TableEntry] = Nil
+    for (bm <- bms) {
+      resultsByFile = resultsByFile :+ runBenchmarkFile(bm) //TableEntry(bm, Seq(runToolOnBenchmarkFile(bm, toolSpecs.head)))
+      val resultTable = resultsToPlainTextTable(resultsByFile)
+      println(s"FINISHED $bm -- Results so far:")
+      println(resultTable)
+      println("Writing intermediate results to: " + ResultTxtFile)
+      IOUtils.writeFile(ResultTxtFile, resultTable)
+    }
+    println(s"FINISHED ALL BENCHMARKS. See $ResultTxtFile for full result table")
   }
 
   def main(args: Array[String]): Unit = {

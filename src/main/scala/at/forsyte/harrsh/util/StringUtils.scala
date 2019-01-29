@@ -26,6 +26,12 @@ object StringUtils {
     }
   }
 
+  def defaultTableConfigForHeadings(headings: Seq[String]): TableConfig = {
+    val colLengths = headings map (_.size + 1)
+    val columnAlignment = Seq.fill(headings.length)(AlignRight)
+    TableConfig(headings, colLengths, columnAlignment)
+  }
+
   def toTable(config: TableConfig, entries: Seq[Seq[String]]) : String = {
     val colLengths = for {
       (minLength, ix) <- config.minColLengths.zipWithIndex

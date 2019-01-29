@@ -13,21 +13,21 @@ foo <= x1 -> (x2, x3) ;
 # All other variables are implicitly existentially quantified, e.g. the z in
 foo <= x1 -> (z, x2) ;
 
-# The null pointer can be written either as null or as nil
+# Both null and nil represent the null pointer
 foo <= x1 -> (null,nil) ;
 
 # The empty heap is written emp, multiple spatial atoms separated by *
 foo <= emp * x2 -> nil ;
 
-# Predicate calls are written as <pred name>(<arg>*)
+# Predicate calls are denoted <pred name>(<arg>*)
 # You have to ensure yourself that you pass the correct number of arguments
 bar <= foo(x1, y, nil) ;
 
-# (In)equalities between pointers are written in a suffix : { <(in)equalities> },
+# (In)equalities between pointers are added in a suffix : { <(in)equalities> },
 # using the syntax <ptr> = <ptr> or <ptr> != <ptr>, separated by commas
 bar <= x3 -> z * foo(x1, z, y) : { y = z, x1 != x2 } ;
 
-# Use as little or as much white space as you please, e.g.
+# Use as little or as much white space as you like, e.g.
 bar <= x3->(z,y,   x2)*foo(x1,z,y):{y=z, x1    !=  x2 }
 
 # That's it. By the way: This file should parse.

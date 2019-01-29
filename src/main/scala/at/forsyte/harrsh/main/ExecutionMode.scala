@@ -21,6 +21,7 @@ sealed trait ExecutionMode {
     case EntailmentBatch => false
     case ParseOnly => false
     case ConvertEntailmentBatch => false
+    case TacasArtifact => false
   }
 
   def defaultTimeout : Duration = this match {
@@ -62,4 +63,6 @@ object ExecutionMode {
   case object ParseOnly extends ExecutionMode
 
   case object ConvertEntailmentBatch extends ExecutionMode
+
+  case object TacasArtifact extends ExecutionMode
 }
