@@ -32,7 +32,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
     // We don't do a full viability check (yet)
     // This overapproximation of viability discards those decompositions that contain two contexts rooted in a predicate that can
     // occur at most once in any given sid-unfolding tree.
-    !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots)
+    !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots) && !parts.exists(_.allocatesNull)
   }
 
   def isFinal(calls: PredCalls): Boolean = {

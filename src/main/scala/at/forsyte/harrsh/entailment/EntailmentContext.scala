@@ -14,6 +14,8 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
 
   lazy val boundVars: Set[BoundVar] = substs.flatMap(_.boundVars).toSet
 
+  lazy val allocatesNull: Boolean = labels.exists(_.rootParamSubst.getOrElse(Set.empty).contains(NullConst))
+
   private lazy val substs = labels map (_.subst)
 
   override def toString: String = {
