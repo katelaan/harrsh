@@ -2,9 +2,9 @@
 
 HARRSH implements Heap Automata for Reasoning about Robustness of Symbolic Heaps.
 
-## News: Effective Entailment Checking for Separation Logic with Inductive Definitions
+## News: Entailment Checking with HARRSH
 
-HARRSH now supports entailment checking. The paper that describes these new features is currently under review. The [appendix with all proofs](https://github.com/katelaan/entailment/blob/master/appendix.pdf) is available [here](https://github.com/katelaan/entailment/blob/master/appendix.pdf). An [archive containing the full set of benchmarks](https://github.com/katelaan/entailment/blob/master/benchmarks.tar.gz) used to evaluate Harrsh are available [here](https://github.com/katelaan/entailment/blob/master/benchmarks.tar.gz).
+HARRSH now supports entailment checking. The theory behind HARRSH's entailment checker is presented in the TACAS 2019 paper "Effective Entailment Checking for Separation Logic with Inductive Definitions" (by Jens Katelaan, Christoph Matheja, and Florian Zuleger). The [appendix with all proofs](https://github.com/katelaan/entailment/blob/master/appendix.pdf) is available [here](https://github.com/katelaan/entailment/blob/master/appendix.pdf). An [archive containing the full set of benchmarks](https://github.com/katelaan/entailment/blob/master/benchmarks.tar.gz) used to evaluate Harrsh are available [here](https://github.com/katelaan/entailment/blob/master/benchmarks.tar.gz).
 The archive contains the benchmarks in Harrsh, Songbird and Slide input formats.
 
 ## Robustness Properties
@@ -92,7 +92,7 @@ To use HARRSH for entailment checking, an SID definition has to be combined with
 
 To check this entailment
 
-**Try it out!** To check the above entailment, rub `./harrsh -e examples/entailment/lists_singly_linked/even-sll_sll.hrs
+**Try it out!** To check the above entailment, run `./harrsh -e examples/entailment/lists_singly_linked/even-sll_sll.hrs
 `.
 
 #### Properties ####
