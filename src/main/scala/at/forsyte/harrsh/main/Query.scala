@@ -1,11 +1,19 @@
-package at.forsyte.harrsh.seplog
+package at.forsyte.harrsh.main
 
-import at.forsyte.harrsh.main.InputStatus
+import at.forsyte.harrsh.entailment.EntailmentInstance
+import at.forsyte.harrsh.parsers.EntailmentParsers
+import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RuleBody, SID, SymbolicHeap}
+import at.forsyte.harrsh.util.ToLatex
+import at.forsyte.harrsh.util.ToLatex._
 
-case class SatBenchmark(sid: SID, query: SymbolicHeap, status: InputStatus) {
+sealed trait Query {
+  val status: InputStatus
+}
 
-  def StartPred = "ASSERT"
+case class SatQuery(sid: SID, query: SymbolicHeap, override val status: InputStatus) extends Query {
+
+  val StartPred = "ASSERT"
 
   override def toString: String = {
     val sb = new StringBuilder()
@@ -57,4 +65,29 @@ case class SatBenchmark(sid: SID, query: SymbolicHeap, status: InputStatus) {
     }
   }
 
+}
+
+case class EntailmentQuery(lhs: SymbolicHeap, rhs: SymbolicHeap, sid: SID, override val status: InputStatus) extends Query
+
+object EntailmentQuery {
+
+  implicit val entailmentBenchmarkToLatex: ToLatex[EntailmentQuery] = (epr: EntailmentQuery, naming: Naming) => {
+    val query = "Check entailment $" + epr.lhs.toLatex(naming) + " \\models " + epr.rhs.toLatex(naming) + "$"
+    val sid = epr.sid.toLatex(naming)
+    query + "\n%\n" + "w.r.t.\n%\n" + sid + "\n"
+  }
+
+}
+
+object Query {
+
+  def queryToEntailmentInstance(q: Query, computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = q match {
+    case q: SatQuery => {
+      println("Cannot convert SAT-Query to entailment instance")
+      None
+    }
+    case q: EntailmentQuery => {
+      EntailmentParsers.normalize(q, computeSeparateSidsForEachSide)
+    }
+  }
 }

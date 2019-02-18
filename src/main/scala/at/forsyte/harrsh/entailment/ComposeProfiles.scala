@@ -11,6 +11,7 @@ object ComposeProfiles extends HarrshLogging {
   object composeAll {
 
     def apply(profiles: Seq[EntailmentProfile], newOrderedParams: Seq[Var]): EntailmentProfile = {
+      // TODO: Exploit associativity of composition when composing more than two profiles
       val composedDecomps = allPossibleDecompCompositions(profiles map (_.decomps))
       val res = EntailmentProfile(composedDecomps, newOrderedParams)
       logger.debug(s"Profile composition result:\n${if (res.nonEmpty) res.decomps.mkString("\n") else "empty (sink state)"}")

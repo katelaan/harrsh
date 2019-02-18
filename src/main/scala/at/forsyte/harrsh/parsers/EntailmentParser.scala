@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.main.{EntailmentQuery, HarrshLogging, InputStatus}
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 
 import scala.util.Try
@@ -10,19 +10,20 @@ trait EntailmentParser extends JavaTokenParsers with HarrshLogging {
 
   self: SIDCombinatorParser =>
 
-  final def run(input : String, printFailure : Boolean = true) : Option[EntailmentParseResult] = runParser(parseEntailmentInstance)(input, printFailure)
+  final def run(input : String, printFailure : Boolean = true) : Option[EntailmentQuery] = runParser(parseEntailmentInstance)(input, printFailure)
 
-  def parseEntailmentInstance: Parser[EntailmentParseResult] = parseQuery ~ parseSidGroup ~ opt(parseInfo) ^^ {
+  def parseEntailmentInstance: Parser[EntailmentQuery] = parseQuery ~ parseSidGroup ~ opt(parseInfo) ^^ {
     case query ~ sid ~ info =>
       val status = for {
         map <- info
         value <- map.get("status")
-        b <- toEntailmentStatus(value)
-      } yield b
-      EntailmentParseResult(query._1, query._2, sid, status)
+      } yield toEntailmentStatus(value)
+      EntailmentQuery(query._1, query._2, sid, status.getOrElse(InputStatus.Unknown))
   }
 
-  private def toEntailmentStatus(str: String): Option[Boolean] = Try { str.toBoolean }.toOption
+  private def toEntailmentStatus(str: String): InputStatus = Try { str.toBoolean } map {
+    if (_) InputStatus.Sat else InputStatus.Unsat
+  } getOrElse(InputStatus.Unknown)
 
   def parseSidGroup: Parser[SID] = parseGroup("sid"){
     parseSID

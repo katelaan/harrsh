@@ -2,18 +2,18 @@ package at.forsyte.harrsh.main
 
 
 import at.forsyte.harrsh.Implicits
+import at.forsyte.harrsh.converters._
 
 import scala.concurrent.duration.{Duration, SECONDS}
 import scalaz.State
 import scalaz.State._
 import at.forsyte.harrsh.entailment.EntailmentChecker
 import at.forsyte.harrsh.modelchecking.GreedyUnfoldingModelChecker
-import at.forsyte.harrsh.parsers.{EntailmentParseResult, EntailmentParsers, slcomp}
+import at.forsyte.harrsh.parsers.{EntailmentParsers, slcomp}
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 import at.forsyte.harrsh.main.ExecutionMode._
-import at.forsyte.harrsh.util.ToLatex._
 
 /**
   * The main command-line interface of Harrsh.
@@ -138,7 +138,7 @@ object Harrsh extends Implicits {
         printUsage()
 
       case ParseOnly =>
-        println(slcomp.parseFileToEntailmentInstance(config.file, config.computeSidsForEachSideOfEntailment))
+        println(slcomp.parseFileToQuery(config.file))
 
       case Entailment =>
         EntailmentParsers.fileToEntailmentInstance(config.file, config.computeSidsForEachSideOfEntailment) match {
@@ -200,15 +200,13 @@ object Harrsh extends Implicits {
 
       case ConvertEntailmentBatch =>
         println(s"Will convert all benchmarks in ${config.file} to SLIDE input format")
-        //EntailmentBatchMode.convertAllEntailmentsInPath(config.file, "export/slide", EntailmentParseResult.toSlideFormat)
-        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, EntailmentParseResult.toSlideFormat _)
+        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, ToSlideFormat(_,_))
         println("Done.")
         println(s"Will convert all benchmarks in ${config.file} to SONGBIRD input format")
-        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, EntailmentParseResult.toSongbirdFormat _)
+        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, ToSongbirdFormat(_,_))
         println("Done.")
         println(s"Will convert all benchmarks in ${config.file} to LaTeX")
-        val toLatex = (filename: String, pr: EntailmentParseResult) => Seq((filename+".tex", pr.toLatex))
-        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, toLatex)
+        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, ToLatexConverter(_,_))
         println("Done.")
 
       case Show =>

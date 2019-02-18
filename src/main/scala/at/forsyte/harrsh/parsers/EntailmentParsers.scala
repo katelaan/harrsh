@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.entailment.{EntailmentInstance, EntailmentQuerySide, PredCalls}
-import at.forsyte.harrsh.main.{HarrshLogging, MainIO}
+import at.forsyte.harrsh.main.{EntailmentQuery, HarrshLogging, MainIO, Query}
 import at.forsyte.harrsh.parsers.buildingblocks.{AsciiAtoms, EmptyQuantifierPrefix}
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive._
@@ -20,14 +20,14 @@ object EntailmentParsers extends HarrshLogging {
 
   def fileToEntailmentInstance(file: String, computeSidsForEachSideOfEntailment: Boolean): Option[EntailmentInstance] = {
     if (file.endsWith(MainIO.FileExtensions.SlComp)) {
-      slcomp.parseFileToEntailmentInstance(file, computeSidsForEachSideOfEntailment)
+      slcomp.parseFileToQuery(file) flatMap (Query.queryToEntailmentInstance(_, computeSidsForEachSideOfEntailment))
     } else {
       val fileContent = IOUtils.readFile(file)
       harrshEntailmentFormatToProcessedInstance(fileContent, computeSidsForEachSideOfEntailment)
     }
   }
 
-  def parseHarrshEntailmentFormat(input: String): Option[EntailmentParseResult] = {
+  def parseHarrshEntailmentFormat(input: String): Option[EntailmentQuery] = {
     for {
       pr <- DefaultEntailmentParser.run(input)
       if pr.lhs.predCalls forall (hasCorrectArity(_, pr.sid))
@@ -39,7 +39,7 @@ object EntailmentParsers extends HarrshLogging {
     parseHarrshEntailmentFormat(input) flatMap (res => normalize(res, computeSeparateSidsForEachSide))
   }
 
-  def normalize(parseRes: EntailmentParseResult, computeSeparateSidsForEachSide: Boolean) : Option[EntailmentInstance] = {
+  def normalize(parseRes: EntailmentQuery, computeSeparateSidsForEachSide: Boolean) : Option[EntailmentInstance] = {
     generalizedProgressNormalform(computeSeparateSidsForEachSide)(parseRes) map logTransformationResult
   }
 
@@ -50,13 +50,13 @@ object EntailmentParsers extends HarrshLogging {
     instance
   }
 
-  private def generalizedProgressNormalform(computeSeparateSidsForEachSide: Boolean)(parseResult: EntailmentParseResult): Option[EntailmentInstance] = {
+  private def generalizedProgressNormalform(computeSeparateSidsForEachSide: Boolean)(parseResult: EntailmentQuery): Option[EntailmentInstance] = {
     for {
       rootedSid <- annotateSidWithRootParams(parseResult.sid)
       if satisfiesGeneralizedProgress(rootedSid)
       lhs = processEntailmentQuerySide(parseResult.lhs, rootedSid, computeSeparateSidsForEachSide, isLhs = true)
       rhs = processEntailmentQuerySide(parseResult.rhs, rootedSid, computeSeparateSidsForEachSide, isLhs = false)
-    } yield EntailmentInstance(lhs, rhs, parseResult.entailmentHolds)
+    } yield EntailmentInstance(lhs, rhs, parseResult.status.toBoolean)
   }
 
   private def processEntailmentQuerySide(originalQuerySide: SymbolicHeap, rootedSid: SID, computeSeparateSidsForEachSide: Boolean, isLhs: Boolean): EntailmentQuerySide = {

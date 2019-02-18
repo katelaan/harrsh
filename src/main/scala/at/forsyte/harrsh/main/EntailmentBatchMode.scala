@@ -1,8 +1,9 @@
 package at.forsyte.harrsh.main
 
+import at.forsyte.harrsh.converters.EntailmentFormatConverter
 import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentInstance}
 import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentStats
-import at.forsyte.harrsh.parsers.{EntailmentParseResult, EntailmentParsers}
+import at.forsyte.harrsh.parsers.EntailmentParsers
 import at.forsyte.harrsh.util.{IOUtils, StringUtils}
 import at.forsyte.harrsh.util.StringUtils.{AlignLeft, AlignRight}
 
@@ -27,7 +28,7 @@ object EntailmentBatchMode {
     println(allHarrshEntailmentFilesInPath(PathToDefaultEntailmentBenchmarks).mkString("\n"))
   }
 
-  def convertAllEntailmentsInPath(inputPath: String, outputPath: Option[String], converter: (String, EntailmentParseResult) => Seq[(String,String)]): Unit = {
+  def convertAllEntailmentsInPath(inputPath: String, outputPath: Option[String], converter: EntailmentFormatConverter): Unit = {
     for {
       (file, maybeParsed) <- parseResultsForAllFilesInPath(inputPath)
     } maybeParsed match {
@@ -45,7 +46,7 @@ object EntailmentBatchMode {
     }
   }
 
-  def convertAllEntailmentsInPath(inputPath: String, outputPath: String, converter: (String, EntailmentParseResult) => Seq[(String,String)]): Unit = {
+  def convertAllEntailmentsInPath(inputPath: String, outputPath: String, converter: EntailmentFormatConverter): Unit = {
     convertAllEntailmentsInPath(inputPath, Some(outputPath), converter)
   }
 
@@ -73,7 +74,7 @@ object EntailmentBatchMode {
     } yield filename
   }
 
-  def parseResultsForAllFilesInPath(path: String): Seq[(String,Option[EntailmentParseResult])] = {
+  def parseResultsForAllFilesInPath(path: String): Seq[(String,Option[EntailmentQuery])] = {
     for {
       filename <- allHarrshEntailmentFilesInPath(path)
     } yield {

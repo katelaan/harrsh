@@ -1,70 +1,18 @@
-package at.forsyte.harrsh.parsers
+package at.forsyte.harrsh.converters
+
+import at.forsyte.harrsh.main.EntailmentQuery
+import at.forsyte.harrsh.seplog.BoundVar
+import at.forsyte.harrsh.seplog.inductive._
 
 import scala.collection.SortedSet
-import at.forsyte.harrsh.seplog.BoundVar
-import at.forsyte.harrsh.seplog.Var.Naming
-import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.util.ToLatex
-import at.forsyte.harrsh.util.ToLatex._
 
-case class EntailmentParseResult(lhs: SymbolicHeap, rhs: SymbolicHeap, sid: SID, entailmentHolds: Option[Boolean])
-
-object EntailmentParseResult {
-
-  case class ConversionException(msg: String) extends Exception
-
-  def toSlideFormat(filename: String, pr: EntailmentParseResult): Seq[(String,String)] = {
-    val lhsSid = EntailmentParsers.extractSidForCalls(pr.sid, pr.lhs.predCalls.toSet)
-    val rhsSid = EntailmentParsers.extractSidForCalls(pr.sid, pr.rhs.predCalls.toSet)
-    val lhsFile = filename + ".lhs.pred"
-    val rhsFile = filename + ".rhs.pred"
-    Seq(
-      (lhsFile, toSlideSid(pr.lhs, lhsSid)),
-      (rhsFile, toSlideSid(pr.rhs, rhsSid)),
-      (filename + ".callargs", s"$lhsFile $rhsFile")
-    )
-  }
-
-  private def toSlideSid(toplevel: SymbolicHeap, sid: SID): String = {
-    val callString = slideRootCall(toplevel)
-    val preds = sid.preds map toSlidePred
-    (callString +: preds).mkString("\n\n")
-  }
-
-  private def toSlidePred(pred: Predicate): String = {
-    val slideRules = pred.bodySHs map shToSlideSh
-    s"${pred.defaultCall} ::= ${slideRules.mkString(" | ")}"
-  }
-
-  private def shToSlideSh(sh: SymbolicHeap): String = {
-    val prefix = if (sh.boundVars.isEmpty) "" else {
-      s"\\E ${sh.boundVars.mkString(",")} . "
-    }
-    val ptrs = sh.pointers map {
-      case PointsTo(from, to) => s"$from->${to.mkString(",")}"
-    }
-    val calls = sh.predCalls map (_.toString)
-    val pure = sh.pure map {
-      // TODO: Do they assume implicit disequalities or not?
-      case PureAtom(l, r, isEquality) => l.toString + (if (isEquality) "=" else "!=") + r
-    }
-    // TODO: The delimiter between pure formulas is just guess work
-    val pureSuffix = if (pure.isEmpty) "" else " & " + pure.mkString(", ")
-    val spatial = (ptrs ++ calls).mkString(" * ")
-    val spatialOrEmp = if (spatial.isEmpty) "emp" else spatial
-    val shString = prefix + spatialOrEmp + pureSuffix
-    sanitize(shString)
-  }
-
-  private def sanitize(s: String): String = s.replace('α', 'y').replaceAllLiterally("null","nil")
-
-  private def slideRootCall(toplevel: SymbolicHeap): String = s"RootCall ${shToSlideSh(toplevel)}"
+object ToSongbirdFormat extends EntailmentFormatConverter {
 
   val SbExt = "sb"
   val SbType = "node"
   val SbFieldPrefix = "f"
 
-  def toSongbirdFormat(filename: String, pr: EntailmentParseResult): Seq[(String,String)] = {
+  override def apply(filename: String, pr: EntailmentQuery): Seq[(String,String)] = {
     try {
       val typeDecl = toSongbirdType(pr.sid, pr.lhs, pr.rhs)
       val preds = pr.sid.preds map predToSongbird
@@ -131,12 +79,6 @@ object EntailmentParseResult {
     } else {
       ""
     }
-  }
-
-  implicit val parseResultToLatex: ToLatex[EntailmentParseResult] = (epr: EntailmentParseResult, naming: Naming) => {
-    val query = "Check entailment $" + epr.lhs.toLatex(naming) + " \\models " + epr.rhs.toLatex(naming) + "$"
-    val sid = epr.sid.toLatex(naming)
-    query + "\n%\n" + "w.r.t.\n%\n" + sid + "\n"
   }
 
 }

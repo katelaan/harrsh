@@ -45,7 +45,7 @@ sealed trait ToolOutput {
     case Valid(stats) => "true"
     case Invalid(stats) => "false"
     case ToolError(toolOutput) => "?"
-    case Unknown => "?"
+    case ToolOutputsUnknown => "?"
     case ToolTimeout => "?"
   }
 
@@ -53,7 +53,7 @@ sealed trait ToolOutput {
     case Valid(_) => true
     case Invalid(_) => true
     case ToolError(_) => false
-    case Unknown => false
+    case ToolOutputsUnknown => false
     case ToolTimeout => false
   }
 
@@ -61,7 +61,7 @@ sealed trait ToolOutput {
     case Valid(stats) => stats
     case Invalid(stats) => stats
     case ToolError(toolOutput) => None
-    case Unknown => None
+    case ToolOutputsUnknown => None
     case ToolTimeout => None
   }
 
@@ -69,7 +69,7 @@ sealed trait ToolOutput {
     case Valid(_) => Some(true)
     case Invalid(_) => Some(false)
     case ToolError(toolOutput) => None
-    case Unknown => None
+    case ToolOutputsUnknown => None
     case ToolTimeout => None
   }
 }
@@ -77,7 +77,7 @@ sealed trait ToolOutput {
 case class Valid(stats: Option[EntailmentStats]) extends ToolOutput
 case class Invalid(stats: Option[EntailmentStats]) extends ToolOutput
 case class ToolError(toolOutput: String) extends ToolOutput
-case object Unknown extends ToolOutput
+case object ToolOutputsUnknown extends ToolOutput
 case object ToolTimeout extends ToolOutput
 
 @State(Scope.Benchmark)
@@ -171,7 +171,7 @@ object SongbirdBenchmarking {
     val verdict = output.trim match {
       case "sat" => Invalid(None)
       case "unsat" => Valid(None)
-      case "unknown" => Unknown
+      case "unknown" => ToolOutputsUnknown
       case msg => ToolError(msg)
     }
     println("Songbird Verdict: " + verdict)
@@ -293,7 +293,7 @@ object EntailmentBenchmarking {
 
   case class TableEntry(file: String, tools: Seq[ToolTableEntry]) {
     def toColumnSeq: Seq[String] = {
-      val emptyEntry = (toolName:String) => ToolTableEntry(toolName, Unknown, None)
+      val emptyEntry = (toolName:String) => ToolTableEntry(toolName, ToolOutputsUnknown, None)
       val hrs = tools.find(_.toolName == "HRS").getOrElse(emptyEntry("HRS"))
       val sb = tools.find(_.toolName == "SB").getOrElse(emptyEntry("SB"))
       val sld = tools.find(_.toolName == "SLD").getOrElse(emptyEntry("SLD"))
@@ -318,7 +318,7 @@ object EntailmentBenchmarking {
       case Valid(_) => jmhTime
       case Invalid(_) => jmhTime
       case ToolError(toolOutput) => "(X)"
-      case Unknown => "(U)"
+      case ToolOutputsUnknown => "(U)"
       case ToolTimeout => "TO"
     }
 
@@ -403,6 +403,7 @@ object EntailmentBenchmarking {
       IOUtils.writeFile(ResultTxtFile, resultTable)
     }
     println(s"FINISHED ALL BENCHMARKS. See $ResultTxtFile for full result table")
+    exportResultsToLatex(resultsByFile)
   }
 
   def main(args: Array[String]): Unit = {

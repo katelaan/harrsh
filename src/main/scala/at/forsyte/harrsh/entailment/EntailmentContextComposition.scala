@@ -52,9 +52,9 @@ object EntailmentContextComposition extends HarrshLogging {
 
     val res = EntailmentContext(newRoot, newLeaves, newUsageInfo, newDiseqs, convertToNormalform = true)
     assert(EntailmentContext.isInNormalForm(res),
-      s"After instantiation, placeholder vars ${res.placeholders} contain gap for tree interface $res")
+      s"After instantiation, placeholder vars ${res.placeholders} contain gap for context $res")
 
-    // FIXME: In which cases should instantiation fail? Should we e.g. check for double allocation?
+    // FIXME: In which cases should instantiation fail? Should we e.g. check for double allocation? (It seems like the answer is no: As long as the SID we analyze is ALL-SAT, there can never be double allocation when composing profiles.)
     Some(res)
   }
 

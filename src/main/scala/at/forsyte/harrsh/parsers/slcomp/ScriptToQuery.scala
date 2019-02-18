@@ -1,17 +1,16 @@
 package at.forsyte.harrsh.parsers.slcomp
 
-import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.parsers.EntailmentParseResult
+import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.seplog._
 
 import scala.collection.mutable.ListBuffer
 
-object ScriptToBenchmark extends HarrshLogging {
+object ScriptToQuery extends HarrshLogging {
 
   def DEFAULT_SELECTOR = "_def"
 
-  def apply(s: Script, description: String): Either[SatBenchmark,EntailmentParseResult] = {
+  def apply(s: Script, description: String): Query = {
     if (s.asserts.isEmpty || s.asserts.length > 2) {
       throw new Exception(s"Can only deal with queries with 1 or 2 asserts, but received ${s.asserts.length}")
     }
@@ -56,13 +55,13 @@ object ScriptToBenchmark extends HarrshLogging {
     logger.debug(s"Predicate definitions:\n${rules.mkString("\n")}")
 
     val sid = SID.fromTuples("undefined", rules, description)
-    val status = s.status.getOrElse(BenchmarkStatus.Unknown)
+    val status = s.status.getOrElse(InputStatus.Unknown)
 
     maybeRight match {
       case Some(right) =>
-        Right(EntailmentParseResult(left, right, sid, status.toBoolean))
+        EntailmentQuery(left, right, sid, status)
       case None =>
-        Left(SatBenchmark(sid, left, status))
+        SatQuery(sid, left, status)
     }
   }
 

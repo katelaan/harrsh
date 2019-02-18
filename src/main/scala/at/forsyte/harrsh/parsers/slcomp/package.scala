@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.entailment.EntailmentInstance
+import at.forsyte.harrsh.main.Query
 import at.forsyte.harrsh.seplog.SatBenchmark
 import org.antlr.v4.runtime.tree.Trees
 import org.antlr.v4.runtime.{CharStream, CharStreams, CommonTokenStream}
@@ -18,19 +19,9 @@ package object slcomp {
     parseStream(charStream)
   }
 
-  def parseFileToSatBenchmark(filename: String): Option[SatBenchmark] = {
+  def parseFileToQuery(filename: String): Option[Query] = {
     val translator = new SidTranslator
-    parseFile(filename) map translator.visit map (_.asInstanceOf[Script]) map (_.toSatBenchmark(s"Benchmark($filename)"))
-  }
-
-  def parseFileToEntailmentInstance(filename: String, computeSidForEachSide: Boolean): Option[EntailmentInstance] = {
-    val translator = new SidTranslator
-    for {
-      file <- parseFile(filename)
-      visited = translator.visit(file)
-      script = visited.asInstanceOf[Script]
-      instance <- script.toEntailmentBenchmark(computeSidForEachSide)
-    } yield instance
+    parseFile(filename) map translator.visit map (_.asInstanceOf[Script]) map (ScriptToQuery(_, s"Benchmark($filename)"))
   }
 
   private def parseStream(cs: CharStream) = {

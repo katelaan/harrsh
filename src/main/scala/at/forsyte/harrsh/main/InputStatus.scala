@@ -1,8 +1,8 @@
-package at.forsyte.harrsh.parsers.slcomp
+package at.forsyte.harrsh.main
 
-import BenchmarkStatus._
+import at.forsyte.harrsh.main.InputStatus._
 
-sealed trait BenchmarkStatus {
+sealed trait InputStatus {
 
   override def toString: String = this match {
     case Sat => "sat"
@@ -17,12 +17,12 @@ sealed trait BenchmarkStatus {
   }
 }
 
-object BenchmarkStatus {
-  case object Sat extends BenchmarkStatus
-  case object Unsat extends BenchmarkStatus
-  case object Unknown extends BenchmarkStatus
+object InputStatus {
+  case object Sat extends InputStatus
+  case object Unsat extends InputStatus
+  case object Unknown extends InputStatus
 
-  def fromString(s : String): BenchmarkStatus = s match {
+  def fromString(s : String): InputStatus = s match {
     case "sat" => Sat
     case "unsat" => Unsat
     case "unknown" => Unknown

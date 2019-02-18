@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.parsers.slcomp
 
 import at.forsyte.harrsh.entailment.EntailmentInstance
-import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.main.{HarrshLogging, InputStatus, Query}
 import at.forsyte.harrsh.seplog.SatBenchmark
 
 sealed trait SidBuilder {
@@ -142,13 +142,11 @@ case class Script(sorts: List[SortDecl],
                   meta: List[Meta],
                   tasks: List[Task]) extends SidBuilder {
 
-  def toSatBenchmark(description: String) : SatBenchmark = ScriptToSatBenchmark(this, description)
+  def toQuery(description: String) : Query = ScriptToQuery(this, description)
 
-  def toEntailmentBenchmark(computeSidForEachSide: Boolean) : Option[EntailmentInstance] = ScriptToEntailmentInstance(this, computeSidForEachSide)
-
-  lazy val status: Option[BenchmarkStatus] = {
+  lazy val status: Option[InputStatus] = {
     val statusMeta = meta.find(m => m.metaType == "set-info" && m.keyword == ":status")
-    statusMeta.map(_.attributeValue.asInstanceOf[Symbol].str).map(BenchmarkStatus.fromString)
+    statusMeta.map(_.attributeValue.asInstanceOf[Symbol].str).map(InputStatus.fromString)
   }
 
   override def toString: String = {

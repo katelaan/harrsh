@@ -4,7 +4,6 @@ import java.io.File
 
 import scala.concurrent.duration.{Duration, SECONDS}
 import at.forsyte.harrsh.parsers.slcomp
-import at.forsyte.harrsh.parsers.slcomp.BenchmarkStatus
 import at.forsyte.harrsh.refinement.{DecisionProcedures, RefinementInstance, RunSat}
 import at.forsyte.harrsh.seplog.SatBenchmark
 
@@ -63,7 +62,7 @@ object SlCompMode {
 
   def checkAll(timeoutInSecs: Int = BATCH_TIMEOUT_IN_SECS, verbose: Boolean = false, printBm: Boolean = false): Unit = {
     // TODO: Reduce code duplication wrt check
-    val stats:ListBuffer[(String,BenchmarkStatus,BenchmarkStatus,Long)] = new ListBuffer
+    val stats:ListBuffer[(String,InputStatus,InputStatus,Long)] = new ListBuffer
     for (bench <- allSatBenchs().sortBy(_.toString)) {
       val bm = parseBenchmark(bench.toString)
       if (verbose || printBm) {
@@ -73,7 +72,7 @@ object SlCompMode {
       }
       val (res,time) = execute(bm, timeoutInSecs, verbose = verbose)
       println(s"${bench.toString}: Expected ${bm.status}, got $res, used ${time}ms")
-      if (bm.status != BenchmarkStatus.Unknown && res != BenchmarkStatus.Unknown && bm.status != res) {
+      if (bm.status != InputStatus.Unknown && res != InputStatus.Unknown && bm.status != res) {
         println("UNEXPECTED RESULT")
       }
       stats.append((bench.toString, bm.status, res, time))
@@ -92,7 +91,7 @@ object SlCompMode {
     }
     val (res,_) = execute(bm, verbose = verbose)
     println(s"Done. Result: $res")
-    if (bm.status != BenchmarkStatus.Unknown && bm.status != BenchmarkStatus.Unknown && bm.status != res) {
+    if (bm.status != InputStatus.Unknown && bm.status != InputStatus.Unknown && bm.status != res) {
       println("UNEXPECTED RESULT")
       false
     } else {
@@ -100,7 +99,7 @@ object SlCompMode {
     }
   }
 
-  def execute(bm: SatBenchmark, timeoutInSecs: Int = DEFAULT_TIMEOUT_IN_SECS, verbose: Boolean = false, incrementalFromNumCalls: Option[Int] = None): (BenchmarkStatus, Long) = {
+  def execute(bm: SatQuery, timeoutInSecs: Int = DEFAULT_TIMEOUT_IN_SECS, verbose: Boolean = false, incrementalFromNumCalls: Option[Int] = None): (InputStatus, Long) = {
     val sid = bm.toIntegratedSid
     val timeout = Duration(timeoutInSecs, SECONDS)
     incrementalFromNumCalls match {
@@ -115,15 +114,16 @@ object SlCompMode {
       verbose = verbose,
       reportProgress = verbose)
     val resStatus = if (res.timedOut) {
-      BenchmarkStatus.Unknown
+      InputStatus.Unknown
     } else {
-      if (res.isEmpty) BenchmarkStatus.Unsat else BenchmarkStatus.Sat
+      if (res.isEmpty) InputStatus.Unsat else InputStatus.Sat
     }
     (resStatus, res.analysisTime)
   }
 
-  def parseBenchmark(file: String): SatBenchmark = {
-    slcomp.parseFileToSatBenchmark(file).get
+  def parseBenchmark(file: String): SatQuery = {
+    // FIXME: Also process EntailmentQueries
+    slcomp.parseFileToQuery(file).asInstanceOf[SatQuery]
   }
 
   def parseAllBenchmarks(): Unit = {
