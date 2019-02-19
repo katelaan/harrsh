@@ -2,14 +2,11 @@ package at.forsyte.harrsh.main
 
 import java.io.FileNotFoundException
 
-import at.forsyte.harrsh.seplog.inductive.SID
-import at.forsyte.harrsh.parsers.{ModelParser, SIDParsers}
+import at.forsyte.harrsh.parsers.ModelParser
 import at.forsyte.harrsh.util.IOUtils._
 import at.forsyte.harrsh.util.StringUtils._
 import at.forsyte.harrsh.refinement.DecisionProcedures.{AnalysisResult, AnalysisStatistics}
 import at.forsyte.harrsh.modelchecking.Model
-import at.forsyte.harrsh.heapautomata.HeapAutomaton
-import at.forsyte.harrsh.refinement.AutomatonTask
 
 /**
   * Created by jens on 2/24/17.
@@ -17,43 +14,6 @@ import at.forsyte.harrsh.refinement.AutomatonTask
 object MainIO extends HarrshLogging {
 
   val ResultFile = "benchmark-results.tex"
-
-  object FileExtensions {
-    val Cyclist = "defs"
-    val HarrshSid = "sid"
-    val HarrshEntailment = "hrs"
-    val SlComp = "smt2"
-  }
-
-  private val Headings = Seq("File", "Property", "Result", "Time in ms")
-
-  /**
-   * Parse file into SID
-   */
-  def getSidFromFile(fileName : String) : SID = {
-    val parser = if (fileName.endsWith(FileExtensions.Cyclist)) {
-      logger.debug("File ends in .defs, will assume cyclist format")
-      SIDParsers.CyclistSIDParser
-    } else {
-      logger.debug("Assuming standard SID format")
-      SIDParsers.DefaultSIDParser
-    }
-
-    val content = readFile(fileName)
-
-    parser.runOnSID(content) match {
-      case Some(sid) =>
-        sid
-      case None =>
-        printWarningToConsole("Parsing the SID failed, exiting")
-        throw new Exception("Parsing of file '" + fileName + "'failed")
-    }
-  }
-
-  def getSidAndAutomaton(sidFile : String, prop: AutomatonTask) : (SID, HeapAutomaton) = {
-    val sid = MainIO.getSidFromFile(sidFile)
-    (sid, prop.getAutomaton)
-  }
 
   def getModelFromFile(fileName : String) : Model = {
     val content = readFile(fileName)
@@ -67,26 +27,33 @@ object MainIO extends HarrshLogging {
     }
   }
 
-  def readTasksFromFile(filename : String) : Seq[TaskConfig] = {
+  def readTasksFromFile(filename : String) : Seq[RefinementQuery] = {
     val content = try {
       readFile(filename)
     } catch {
       case e : FileNotFoundException =>
-        printWarningToConsole("File '" + filename + "' does not exist.")
+        printWarningToConsole(s"File '$filename' does not exist.")
         throw e
       case e : Throwable =>
         throw e
     }
 
     val lines = content.split('\n').map(_.trim).filterNot(_.isEmpty)
-    val otasks = lines map TaskConfig.fromString
+    val otasks = lines map { taskspec =>
+      try {
+        RefinementQuery.fromTaskSpecString(taskspec)
+      } catch {
+        case e: Throwable =>
+          printWarningToConsole(s"Could not parse task '$taskspec': ${e.getMessage}")
+          None
+      }
+    }
 
     if (otasks.exists(_.isEmpty)) {
       //println(otasks.mkString("\n"))
-      throw new Exception("Error while parsing benchmarks")
-    } else {
-      otasks map (_.get)
+      printWarningToConsole("Will skip one or more tasks because of parse errors.")
     }
+    otasks.toSeq.flatten
   }
 
   /**
@@ -94,7 +61,7 @@ object MainIO extends HarrshLogging {
     * @param results Results of executing the tasks
     * @param times Statistics about analysis times
     */
-  def printAnalysisResults(results: Seq[(TaskConfig, AnalysisResult)], times : AnalysisStatistics): Unit = {
+  def printAnalysisResults(results: Seq[(RefinementQuery, AnalysisResult)], times : AnalysisStatistics): Unit = {
     // Print statistics of benchmark suite
     println()
     printLinesOf('#', 2)
@@ -117,24 +84,32 @@ object MainIO extends HarrshLogging {
     writeLatexFileForRefinementResults(results, summary)
   }
 
-  def printAnalysisResult(task : TaskConfig, result : AnalysisResult): Unit = {
+  def printAnalysisResult(task : RefinementQuery, result : AnalysisResult): Unit = {
     printResultTable(Seq((task,result)))
   }
 
-  private def printResultTable(results: Seq[(TaskConfig, AnalysisResult)]): Unit = {
+  private val Headings = Seq("File", "Property", "Result", "Time in ms")
+
+  private def tableEntries(results: Seq[(RefinementQuery, AnalysisResult)]) : Seq[Seq[String]] = {
+    for ((query,res) <- results) yield Seq(
+      query.fileNameString.split("/").last,
+      query.taskString,
+      query.task.map(_.resultToString(res.isEmpty)).getOrElse(""),
+      "" + res.analysisTime
+    )
+  }
+
+  private def printResultTable(results: Seq[(RefinementQuery, AnalysisResult)]): Unit = {
     val minColLengths = Seq(20, 10, 20, 10)
     val alignment = Seq(AlignLeft, AlignRight, AlignRight, AlignRight)
-    val entries = for ((task,res) <- results) yield Seq(task.fileName.split("/").last, task.decisionProblem.toString, task.decisionProblem.resultToString(res.isEmpty), "" + res.analysisTime)
+    val entries = tableEntries(results)
     val config = TableConfig(Headings, minColLengths, alignment)
     println(toTable(config, entries))
 
   }
 
-  private def writeLatexFileForRefinementResults(results: Seq[(TaskConfig, AnalysisResult)], summary: String): Unit = {
-    val resultStrings = for {
-      (task,res) <- results
-    } yield Seq(task.fileName.split("/").last, task.decisionProblem.toString, task.decisionProblem.resultToString(res.isEmpty), ""+res.analysisTime)
-
+  private def writeLatexFileForRefinementResults(results: Seq[(RefinementQuery, AnalysisResult)], summary: String): Unit = {
+    val resultStrings = tableEntries(results)
     val bulletPoints = summary.split("\n")
     writeLatexFile(ResultFile, Headings, resultStrings, bulletPoints)
   }
@@ -158,9 +133,9 @@ object MainIO extends HarrshLogging {
     writeFile(resultFile, preamble + header + resultLines + ending)
   }
 
-  def writeBenchmarkFile(results: Seq[(TaskConfig,AnalysisResult)], fileName : String): Unit = {
+  def writeBenchmarkFile(results: Seq[(RefinementQuery,AnalysisResult)], fileName : String): Unit = {
     val content = results.map{
-      case (taskConfig, result) => taskConfig.fileName + "; " + taskConfig.decisionProblem + "; " + (if (result.timedOut) "???" else !result.isEmpty)
+      case (taskConfig, result) => taskConfig.fileName + "; " + taskConfig.taskString + "; " + (if (result.timedOut) "???" else !result.isEmpty)
     }.mkString("\n")
 
     writeFile(fileName, content)

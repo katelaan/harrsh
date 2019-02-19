@@ -1,8 +1,8 @@
 package at.forsyte.harrsh.parsers
 
+import at.forsyte.harrsh.parsers.QueryParser.FileExtensions
 import at.forsyte.harrsh.refinement.DecisionProcedures._
 import at.forsyte.harrsh.util.IOUtils._
-import at.forsyte.harrsh.main.MainIO._
 
 /**
   * Created by jkatelaa on 10/20/16.

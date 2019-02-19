@@ -10,7 +10,7 @@ object ScriptToQuery extends HarrshLogging {
 
   def DEFAULT_SELECTOR = "_def"
 
-  def apply(s: Script, description: String): Query = {
+  def apply(s: Script, fileName: String): Query = {
     if (s.asserts.isEmpty || s.asserts.length > 2) {
       throw new Exception(s"Can only deal with queries with 1 or 2 asserts, but received ${s.asserts.length}")
     }
@@ -54,14 +54,14 @@ object ScriptToQuery extends HarrshLogging {
     logger.debug(s"Top-level assertion(s):\n${(List(left) ++ maybeRight).mkString("\n")}")
     logger.debug(s"Predicate definitions:\n${rules.mkString("\n")}")
 
-    val sid = SID.fromTuples("undefined", rules, description)
+    val sid = SID.fromTuples("undefined", rules, fileName)
     val status = s.status.getOrElse(InputStatus.Unknown)
 
     maybeRight match {
       case Some(right) =>
-        EntailmentQuery(left, right, sid, status)
+        EntailmentQuery(left, right, sid, status, Some(fileName))
       case None =>
-        SatQuery(sid, left, status)
+        SatQuery(sid, left, status, Some(fileName))
     }
   }
 

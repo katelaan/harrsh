@@ -9,7 +9,7 @@ import scalaz.State
 import scalaz.State._
 import at.forsyte.harrsh.entailment.EntailmentChecker
 import at.forsyte.harrsh.modelchecking.GreedyUnfoldingModelChecker
-import at.forsyte.harrsh.parsers.{EntailmentParsers, slcomp}
+import at.forsyte.harrsh.parsers.QueryParser
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
@@ -71,7 +71,7 @@ object Harrsh extends Implicits {
        * Parse mode
        */
       _ <- parseSwitch("--help", "-h", _.copy(mode = Help))
-      _ <- tryParseMode("--batch", "-b", RefinementBatch)
+      _ <- tryParseMode("--rbatch", "-rb", RefinementBatch)
       _ <- tryParseMode("--ebatch", "-eb", EntailmentBatch)
       _ <- tryParseMode("--convert", "-ceb", ConvertEntailmentBatch)
       _ <- tryParseMode("--refine", "-r", Refine)
@@ -138,10 +138,10 @@ object Harrsh extends Implicits {
         printUsage()
 
       case ParseOnly =>
-        println(slcomp.parseFileToQuery(config.file))
+        println(QueryParser(config.file))
 
       case Entailment =>
-        EntailmentParsers.fileToEntailmentInstance(config.file, config.computeSidsForEachSideOfEntailment) match {
+        QueryParser(config.file).toEntailmentInstance(config.computeSidsForEachSideOfEntailment) match {
           case Some(entailmentInstance) =>
             val res = EntailmentChecker.solve(entailmentInstance)
             println(if (res._1) "The entailment holds" else "The entailment does NOT hold")
@@ -151,14 +151,14 @@ object Harrsh extends Implicits {
         }
 
       case Decide =>
-        val task = TaskConfig(config.file, config.prop, None)
+        val task = RefinementQuery(config.file, config.prop)
         val result = DecisionProcedures.decideInstance(task, config.timeout, config.verbose, config.reportProgress)
         MainIO.printAnalysisResult(task, result)
 
       case Refine =>
         println("Will refine SID definition in file " + config.file + " by " + config.prop)
-        val (sid, ha) = MainIO.getSidAndAutomaton(config.file, config.prop)
-        val result = RefinementAlgorithms.refineSID(sid, ha, config.timeout, reportProgress = config.reportProgress)
+        val query = RefinementQuery(config.file, config.prop)
+        val result = RefinementAlgorithms.refineSID(query.sid, query.automaton, config.timeout, reportProgress = config.reportProgress)
 
         result match {
           case Some(vsid) =>
@@ -187,7 +187,10 @@ object Harrsh extends Implicits {
           IOUtils.printWarningToConsole("Some analysis results differed from the expected results as specified in " + config.file)
           for {
             (taskConfig, result) <- diffs
-          } IOUtils.printWarningToConsole(taskConfig.fileName + " " + taskConfig.decisionProblem + ": Expected " + taskConfig.expectedResult.get + ", actual " + !result.isEmpty)
+          } IOUtils.printWarningToConsole(taskConfig.fileNameString + " " + taskConfig.taskString + ": Expected " + taskConfig.status.toBoolean.get + ", actual result " + !result.isEmpty)
+        }
+        else {
+          println("All results are as expected.")
         }
 
       case EntailmentBatch =>
@@ -210,22 +213,22 @@ object Harrsh extends Implicits {
         println("Done.")
 
       case Show =>
-        val sid = MainIO.getSidFromFile(config.file)
+        val sid = QueryParser.getSidFromFile(config.file)
         println(sid)
         IOUtils.writeFile(PreviousSidFileName, sid.toHarrshFormat)
 
       case Unfold =>
-        val sid = MainIO.getSidFromFile(config.file)
+        val sid = QueryParser.getSidFromFile(config.file)
         println(SIDUnfolding.unfold(sid, config.unfoldingDepth, config.unfoldingsReduced).mkString("\n"))
 
       case Analyze =>
-        val sid = MainIO.getSidFromFile(config.file)
+        val sid = QueryParser.getSidFromFile(config.file)
         RefinementAlgorithms.performFullAnalysis(sid, config.timeout, config.verbose)
 
       case GetModel =>
         println("Will compute model of SID in file " + config.file + " that satisfies property " + config.prop)
-        val (sid, ha) = MainIO.getSidAndAutomaton(config.file, config.prop)
-        val result = RefinementAlgorithms.refineSID(sid, ha, config.timeout, reportProgress = config.reportProgress)
+        val query = RefinementQuery(config.file, config.prop)
+        val result = RefinementAlgorithms.refineSID(query.sid, query.automaton, config.timeout, reportProgress = config.reportProgress)
 
         result match {
           case Some(vsid) =>
@@ -238,7 +241,7 @@ object Harrsh extends Implicits {
         }
 
       case ModelChecking =>
-        val sid = MainIO.getSidFromFile(config.file)
+        val sid = QueryParser.getSidFromFile(config.file)
         val model = MainIO.getModelFromFile(config.modelFile)
         val modelChecker = GreedyUnfoldingModelChecker
         val result = modelChecker.isModel(model, sid)
@@ -256,17 +259,20 @@ object Harrsh extends Implicits {
 
   private def printUsage() = {
     val helpMsg = """This is HARRSH. Usage:
+      |Entailment checking:
+      |  --entailment <relative-path-to-file>                discharge given entailment
       |
-      |Refinement mode:
+      |Refinement:
       |  --refine <relative-path-to-sid-file> --prop <property>      refine sid by prop
       |
-      |Decision procedure mode:
+      |Decide property:
       |  --decide <relative-path-to-sid-file> --prop <property>   check if sid has prop
       |
-      |Batch / benchmarking mode:
-      |  --batch <relative-path-to-file-with-list-of-tasks>          batch benchmarking
+      |Batch / benchmarking modes:
+      |  --ebatch <relative-path-to-directory>                         entailment batch
+      |  --rbatch <relative-path-to-file-with-list-of-tasks>           refinement batch
       |
-      |Analysis mode:
+      |Analysis:
       | --analyze <relative-path-to-sid-file>           analyze robustness of given sid
       |
       |Exploration mode:
@@ -278,7 +284,7 @@ object Harrsh extends Implicits {
       |     [--reduced]                          ...showing only reduced symbolic heaps
       |
       |Optional arguments:
-      |  --timeout <timeout in s                                       optional timeout
+      |  --timeout <timeout in s>                                      optional timeout
       |  --showprogress                                    print progress of refinement
       |  --verbose                                                  produce more output
       |
@@ -302,7 +308,7 @@ object Harrsh extends Implicits {
       |where (without ANY whitespace!)
       |  <var>   ==  null | x1 | x2 | x3 | ...
       |  <vars>  ==  comma-separated list of <var>
-      |  <eq>    ==  <var>=<var> | <var> != <var>
+      |  <eq>    ==  <var>=<var> | <var>!=<var>
       |  <eqs>   ==  comma-separated list of <eq>""".stripMargin
 
     println(helpMsg)

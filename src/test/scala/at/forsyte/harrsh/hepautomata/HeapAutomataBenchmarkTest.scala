@@ -19,11 +19,11 @@ class HeapAutomataBenchmarkTest extends HarrshTest {
 
     val tasks = MainIO.readTasksFromFile("examples/test-suite-benchmarks.bms")
 
-    for (task <- tasks) {
+    for (query <- tasks) {
 
-      withClue(s"For task $task:") {
-        val result = DecisionProcedures.decideInstance(task, Duration(10, SECONDS), verbose = false, reportProgress = false)
-        result.isEmpty shouldEqual !task.expectedResult.get
+      withClue(s"For task $query:") {
+        val result = DecisionProcedures.decideInstance(query, Duration(10, SECONDS), verbose = false, reportProgress = false)
+        result.isEmpty shouldEqual !query.status.toBoolean.get
       }
 
     }

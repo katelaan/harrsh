@@ -3,7 +3,7 @@ package at.forsyte.harrsh.refinement
 import java.io.File
 
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
-import at.forsyte.harrsh.main.{HarrshLogging, MainIO, TaskConfig}
+import at.forsyte.harrsh.main.{HarrshLogging, MainIO, RefinementQuery}
 import at.forsyte.harrsh.seplog.{NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
 import at.forsyte.harrsh.util.IOUtils
@@ -26,19 +26,19 @@ object DecisionProcedures extends HarrshLogging {
   // Uncomment & run this class to generate benchmark suites
   //def main(args : Array[String]): Unit = generateAndPrintInstances()
 
-  def decideInstance(task : TaskConfig, timeout : Duration, verbose : Boolean, reportProgress : Boolean): AnalysisResult = {
-    val (sid, ha) = MainIO.getSidAndAutomaton(task.fileName, task.decisionProblem)
+  def decideInstance(query : RefinementQuery, timeout : Duration, verbose : Boolean, reportProgress : Boolean): AnalysisResult = {
+    val (sid, ha) = (query.sid, query.automaton)
 
     if (verbose) {
       IOUtils.printLinesOf('%', 1)
-      println("File: " + task.fileName)
+      println("File: " + query.fileName)
       IOUtils.printLinesOf('%', 1)
       println("Will run automaton " + ha + " on " + sid)
     } else {
-      println("Running " + task.decisionProblem + " on " + task.fileName + "...")
+      println("Running " + query.taskString + " on " + query.fileName + "...")
     }
 
-    decideInstance(sid, ha, timeout, None, false, verbose, reportProgress)
+    decideInstance(sid, ha, timeout, None, verbose = verbose, reportProgress = reportProgress)
   }
 
   def decideInstance(sid : SID, ha : HeapAutomaton, timeout : Duration, topLevelQuery: Option[SymbolicHeap] = None, skipSinksAsSources : Boolean = false, verbose : Boolean = false, reportProgress : Boolean = false): AnalysisResult = {
@@ -62,23 +62,23 @@ object DecisionProcedures extends HarrshLogging {
     result
   }
 
-  def decideInstances(tasks : Seq[TaskConfig], timeout : Duration, verbose : Boolean, reportProgress : Boolean): (Seq[(TaskConfig,AnalysisResult)],AnalysisStatistics) = {
+  def decideInstances(queries : Seq[RefinementQuery], timeout : Duration, verbose : Boolean, reportProgress : Boolean): (Seq[(RefinementQuery,AnalysisResult)],AnalysisStatistics) = {
 
     val globalStartTime = System.currentTimeMillis()
     var analysisTime : Long = 0
 
-    var results : List[(TaskConfig,AnalysisResult)] = Nil
+    var results : List[(RefinementQuery,AnalysisResult)] = Nil
     var numTimeouts : Int = 0
 
-    for (task <- tasks) {
-      val (sid, ha) = MainIO.getSidAndAutomaton(task.fileName, task.decisionProblem)
+    for (query <- queries) {
+      val (sid, ha) = (query.sid, query.automaton)
       if (verbose) {
         IOUtils.printLinesOf('%', 1)
-        println("File: " + task.fileName)
+        println("File: " + query.fileNameString)
         IOUtils.printLinesOf('%', 1)
         println("Will run automaton " + ha + " on " + sid)
       } else {
-        print("Running " + task.decisionProblem + " on " + task.fileName + "...")
+        print("Running " + query.taskString + " on " + query.fileNameString + "... ")
       }
 
       val startTime = System.currentTimeMillis()
@@ -100,7 +100,7 @@ object DecisionProcedures extends HarrshLogging {
           AnalysisResult(isEmpty = true, timeout.toMillis, timedOut = true)
       }
 
-      results = (task, result) :: results
+      results = (query, result) :: results
 
     }
 
@@ -109,16 +109,12 @@ object DecisionProcedures extends HarrshLogging {
     (results.reverse, AnalysisStatistics(globalStartTime, globalEndTime, analysisTime, timeout, numTimeouts))
   }
 
-  def prepareInstanceForAnalysis(task : TaskConfig) : (SID, HeapAutomaton) = {
-    val sid = MainIO.getSidFromFile(task.fileName)
-    (sid, task.decisionProblem.getAutomaton)
-  }
-
-  def deviationsFromExpectations(results: Seq[(TaskConfig, AnalysisResult)]): Seq[(TaskConfig, AnalysisResult)] = {
-    results.filter{
+  def deviationsFromExpectations(results: Seq[(RefinementQuery, AnalysisResult)]): Seq[(RefinementQuery, AnalysisResult)] = {
+    results.filter {
       case (config, result) =>
         // The expected result describes the existence of an unfolding with the property, so it should be the negation of isEmpty
-        config.expectedResult.isDefined && config.expectedResult.get == result.isEmpty
+        val maybeStatus = config.status.toBoolean
+        maybeStatus.nonEmpty && maybeStatus.get == result.isEmpty
     }
   }
 
@@ -149,6 +145,6 @@ object DecisionProcedures extends HarrshLogging {
         RunModulo(126,128),
         RunModulo(127,128))
       file <- IOUtils.getListOfFiles(PathToDatastructureExamples).sortBy(_.getName) //++ getListOfFiles(PathToCyclistExamples).sortBy(_.getName)
-    } yield TaskConfig(file.getAbsolutePath, automaton, None)
+    } yield RefinementQuery(file.getAbsolutePath, automaton)
 
 }

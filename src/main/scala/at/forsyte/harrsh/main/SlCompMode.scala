@@ -5,7 +5,6 @@ import java.io.File
 import scala.concurrent.duration.{Duration, SECONDS}
 import at.forsyte.harrsh.parsers.slcomp
 import at.forsyte.harrsh.refinement.{DecisionProcedures, RefinementInstance, RunSat}
-import at.forsyte.harrsh.seplog.SatBenchmark
 
 import scala.collection.mutable.ListBuffer
 
@@ -116,7 +115,7 @@ object SlCompMode {
     val resStatus = if (res.timedOut) {
       InputStatus.Unknown
     } else {
-      if (res.isEmpty) InputStatus.Unsat else InputStatus.Sat
+      if (res.isEmpty) InputStatus.Incorrect else InputStatus.Correct
     }
     (resStatus, res.analysisTime)
   }

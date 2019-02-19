@@ -70,4 +70,13 @@ object StringUtils {
     if (lastChar.isDigit) indexified + '}' else indexified
   }
 
+  def splitOffExtension(fileName: String): Option[(String, String)] = {
+    fileName.lastIndexOf('.') match {
+      case -1 => None
+      case i =>
+        val (file, ext) = fileName.splitAt(i)
+        Some(file, ext.tail)
+    }
+  }
+
 }

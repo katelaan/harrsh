@@ -10,19 +10,19 @@ trait EntailmentParser extends JavaTokenParsers with HarrshLogging {
 
   self: SIDCombinatorParser =>
 
-  final def run(input : String, printFailure : Boolean = true) : Option[EntailmentQuery] = runParser(parseEntailmentInstance)(input, printFailure)
+  final def run(input : String, printFailure : Boolean = true) : Option[EntailmentQuery] = runParser(parseEntailmentQuery)(input, printFailure)
 
-  def parseEntailmentInstance: Parser[EntailmentQuery] = parseQuery ~ parseSidGroup ~ opt(parseInfo) ^^ {
+  def parseEntailmentQuery: Parser[EntailmentQuery] = parseQuery ~ parseSidGroup ~ opt(parseInfo) ^^ {
     case query ~ sid ~ info =>
       val status = for {
         map <- info
         value <- map.get("status")
       } yield toEntailmentStatus(value)
-      EntailmentQuery(query._1, query._2, sid, status.getOrElse(InputStatus.Unknown))
+      EntailmentQuery(query._1, query._2, sid, status.getOrElse(InputStatus.Unknown), None)
   }
 
   private def toEntailmentStatus(str: String): InputStatus = Try { str.toBoolean } map {
-    if (_) InputStatus.Sat else InputStatus.Unsat
+    if (_) InputStatus.Correct else InputStatus.Incorrect
   } getOrElse(InputStatus.Unknown)
 
   def parseSidGroup: Parser[SID] = parseGroup("sid"){

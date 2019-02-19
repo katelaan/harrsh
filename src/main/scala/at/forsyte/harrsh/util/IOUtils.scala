@@ -10,7 +10,7 @@ import scala.io.Source
   */
 object IOUtils {
 
-  def getCurrentDirectory = new java.io.File(".").getCanonicalPath
+  def getCurrentDirectory: String = new java.io.File(".").getCanonicalPath
 
   def printWarningToConsole(warning : String): Unit = {
     println(Console.BLUE + "Warning: " + warning + Console.RESET)

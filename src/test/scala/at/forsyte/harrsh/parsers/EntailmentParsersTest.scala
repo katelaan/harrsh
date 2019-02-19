@@ -50,7 +50,7 @@ class EntailmentParsersTest extends HarrshTest {
     for {
       input <- Seq(sllEntailsSll, twoPtrsEntailsSll)
     } {
-      val res = EntailmentParsers.harrshEntailmentFormatToProcessedInstance(input, computeSeparateSidsForEachSide = true)
+      val res = EntailmentParsers.parseHarrshEntailmentFormat(input).map(_.toEntailmentInstance(computeSeparateSidsForEachSide = true))
       info(s"Entailment instance: $res")
       res should not be empty
     }

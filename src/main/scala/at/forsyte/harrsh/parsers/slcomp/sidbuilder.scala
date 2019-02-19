@@ -2,7 +2,6 @@ package at.forsyte.harrsh.parsers.slcomp
 
 import at.forsyte.harrsh.entailment.EntailmentInstance
 import at.forsyte.harrsh.main.{HarrshLogging, InputStatus, Query}
-import at.forsyte.harrsh.seplog.SatBenchmark
 
 sealed trait SidBuilder {
 
@@ -142,7 +141,7 @@ case class Script(sorts: List[SortDecl],
                   meta: List[Meta],
                   tasks: List[Task]) extends SidBuilder {
 
-  def toQuery(description: String) : Query = ScriptToQuery(this, description)
+  def toQuery(filename: String) : Query = ScriptToQuery(this, filename)
 
   lazy val status: Option[InputStatus] = {
     val statusMeta = meta.find(m => m.metaType == "set-info" && m.keyword == ":status")

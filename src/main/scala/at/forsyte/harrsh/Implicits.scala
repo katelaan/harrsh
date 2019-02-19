@@ -3,7 +3,7 @@ package at.forsyte.harrsh
 import at.forsyte.harrsh.Implicits._
 import at.forsyte.harrsh.modelchecking.{GreedyUnfoldingModelChecker, Model, ReducedEntailment}
 import at.forsyte.harrsh.main.MainIO
-import at.forsyte.harrsh.parsers.SIDParsers
+import at.forsyte.harrsh.parsers.{QueryParser, SIDParsers}
 import at.forsyte.harrsh.pure.EqualityBasedSimplifications
 import at.forsyte.harrsh.refinement.DecisionProcedures.AnalysisResult
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms, RunSat}
@@ -43,7 +43,7 @@ object Implicits extends Implicits {
 
     def load() : SID = {
       IOUtils.findFileIn(s, Defaults.PathsToExamples) match {
-        case Some(file) => MainIO.getSidFromFile(file)
+        case Some(file) => QueryParser.getSidFromFile(file)
         case None =>
           IOUtils.printWarningToConsole("Could not find file '" + s + "' in current path " + Defaults.PathsToExamples.mkString(":"))
           SID.empty("fail")

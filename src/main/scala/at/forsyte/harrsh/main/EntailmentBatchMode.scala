@@ -3,7 +3,7 @@ package at.forsyte.harrsh.main
 import at.forsyte.harrsh.converters.EntailmentFormatConverter
 import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentInstance}
 import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentStats
-import at.forsyte.harrsh.parsers.EntailmentParsers
+import at.forsyte.harrsh.parsers.{EntailmentParsers, QueryParser}
 import at.forsyte.harrsh.util.{IOUtils, StringUtils}
 import at.forsyte.harrsh.util.StringUtils.{AlignLeft, AlignRight}
 
@@ -19,14 +19,6 @@ object EntailmentBatchMode {
   val ResultTexFile = "entailment-stats.tex"
 
   case class EntailmentResult(file: String, computedResult: Option[Boolean], time: Option[Long], timeout: Boolean, failureMsg: Option[String], stats: Option[EntailmentStats])
-
-  def main(args: Array[String]): Unit = {
-    //val results = parseAllEntailmentsInPathToInstances(PathToSlcompEntailmentBenchmarks, computeSidsForEachSideOfEntailment = false)
-    //println("All parse results:")
-    //println(results.mkString("\n ******* \n"))
-    //runAllEntailmentsInPath(PathToDefaultEntailmentBenchmarks, EntailmentBatch.defaultTimeout)
-    println(allHarrshEntailmentFilesInPath(PathToDefaultEntailmentBenchmarks).mkString("\n"))
-  }
 
   def convertAllEntailmentsInPath(inputPath: String, outputPath: Option[String], converter: EntailmentFormatConverter): Unit = {
     for {
@@ -60,7 +52,7 @@ object EntailmentBatchMode {
       if !filename.endsWith("info")
     } yield {
       println(s"Parsing $filename...")
-      (filename, EntailmentParsers.fileToEntailmentInstance(filename, computeSidsForEachSideOfEntailment))
+      (filename, QueryParser(filename).toEntailmentInstance(computeSidsForEachSideOfEntailment))
     }
   }
 
@@ -74,13 +66,13 @@ object EntailmentBatchMode {
     } yield filename
   }
 
-  def parseResultsForAllFilesInPath(path: String): Seq[(String,Option[EntailmentQuery])] = {
+  def parseResultsForAllFilesInPath(path: String): Seq[(String, Option[EntailmentQuery])] = {
     for {
       filename <- allHarrshEntailmentFilesInPath(path)
     } yield {
       println(s"Parsing $filename...")
       val content = IOUtils.readFile(filename)
-      (filename, EntailmentParsers.parseHarrshEntailmentFormat(content))
+      (filename, EntailmentParsers.parseHarrshEntailmentFormat(content).map(_.setFileName(filename)))
     }
   }
 
@@ -186,7 +178,7 @@ object EntailmentBatchMode {
   def runBenchmark(file: String, suppressOutput: Boolean = false): BenchmarkTrace = {
     Try {
       if (!suppressOutput) println(s"Checking $file...");
-      EntailmentParsers.fileToEntailmentInstance(file, computeSidsForEachSideOfEntailment = true)
+      QueryParser(file).toEntailmentInstance(computeSeparateSidsForEachSide = true)
     } match {
       case Failure(exception) => BenchmarkTrace(None, None, None, Some(s"Exception during parsing: ${exception.getMessage}"))
       case Success(maybeInstance) =>

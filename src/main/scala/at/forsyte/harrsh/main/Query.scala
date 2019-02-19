@@ -1,7 +1,9 @@
 package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.entailment.EntailmentInstance
-import at.forsyte.harrsh.parsers.EntailmentParsers
+import at.forsyte.harrsh.heapautomata.HeapAutomaton
+import at.forsyte.harrsh.parsers.{EntailmentParsers, QueryParser}
+import at.forsyte.harrsh.refinement.AutomatonTask
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RuleBody, SID, SymbolicHeap}
 import at.forsyte.harrsh.util.ToLatex
@@ -9,9 +11,72 @@ import at.forsyte.harrsh.util.ToLatex._
 
 sealed trait Query {
   val status: InputStatus
+  val fileName: Option[String]
+
+  def asSatQuery: Option[SatQuery] = this match {
+    case q: SatQuery => Some(q)
+    case _ => None
+  }
+
+  def asRefinemetQuery: Option[RefinementQuery] = this match {
+    case q: RefinementQuery => Some(q)
+    case _ => None
+  }
+
+  def toEntailmentInstance(computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = this match {
+    case q: EntailmentQuery => EntailmentParsers.normalize(q, computeSeparateSidsForEachSide)
+    case _ => None
+  }
 }
 
-case class SatQuery(sid: SID, query: SymbolicHeap, override val status: InputStatus) extends Query {
+case class RefinementQuery(sid: SID, task: Option[AutomatonTask], override val status: InputStatus, override val fileName: Option[String]) extends Query {
+
+  def setTask(task: AutomatonTask): RefinementQuery = copy(task = Some(task))
+
+  def automaton: HeapAutomaton = task.map(_.getAutomaton).getOrElse{
+    throw new Exception("No task specified for refinement => Can't select automaton")
+  }
+
+  lazy val taskString: String = task.map(_.toString).getOrElse("(unspecified)")
+  val fileNameString: String = fileName.getOrElse("(no file)")
+
+}
+
+object RefinementQuery {
+
+  def fromTaskSpecString(s : String) : Option[RefinementQuery] = {
+    // TODO Use Validation instead
+    val parts = s.split(";").map(_.trim)
+
+    val res = if (parts.length == 3) {
+      val fileName = parts(0)
+      val optDecProb = AutomatonTask.fromString(parts(1))
+      val expRes = parts(2) match {
+        case "false" => InputStatus.Incorrect
+        case "true" => InputStatus.Correct
+        case _ => InputStatus.Unknown
+      }
+
+      val sid = QueryParser.getSidFromFile(fileName)
+
+      optDecProb map (task => RefinementQuery(sid, Some(task), expRes, Some(fileName)))
+    } else {
+      None
+    }
+
+    if (res.isEmpty) {
+      println("Error: Failed parsing '" + s + "'")
+    }
+
+    res
+  }
+
+  def apply(fileName: String, prop: AutomatonTask): RefinementQuery = {
+    RefinementQuery(QueryParser.getSidFromFile(fileName), Some(prop), InputStatus.Unknown, Some(fileName))
+  }
+}
+
+case class SatQuery(sid: SID, query: SymbolicHeap, override val status: InputStatus, override val fileName: Option[String]) extends Query {
 
   val StartPred = "ASSERT"
 
@@ -67,7 +132,10 @@ case class SatQuery(sid: SID, query: SymbolicHeap, override val status: InputSta
 
 }
 
-case class EntailmentQuery(lhs: SymbolicHeap, rhs: SymbolicHeap, sid: SID, override val status: InputStatus) extends Query
+case class EntailmentQuery(lhs: SymbolicHeap, rhs: SymbolicHeap, sid: SID, override val status: InputStatus, override val fileName: Option[String]) extends Query {
+  def setFileName(fileName: String): EntailmentQuery = copy(fileName = Some(fileName))
+
+}
 
 object EntailmentQuery {
 
@@ -77,17 +145,4 @@ object EntailmentQuery {
     query + "\n%\n" + "w.r.t.\n%\n" + sid + "\n"
   }
 
-}
-
-object Query {
-
-  def queryToEntailmentInstance(q: Query, computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = q match {
-    case q: SatQuery => {
-      println("Cannot convert SAT-Query to entailment instance")
-      None
-    }
-    case q: EntailmentQuery => {
-      EntailmentParsers.normalize(q, computeSeparateSidsForEachSide)
-    }
-  }
 }
