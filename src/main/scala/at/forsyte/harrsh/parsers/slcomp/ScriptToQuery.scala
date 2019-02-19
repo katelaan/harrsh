@@ -55,11 +55,13 @@ object ScriptToQuery extends HarrshLogging {
     logger.debug(s"Predicate definitions:\n${rules.mkString("\n")}")
 
     val sid = SID.fromTuples("undefined", rules, fileName)
-    val status = s.status.getOrElse(InputStatus.Unknown)
+    val status = s.status.getOrElse(ProblemStatus.Unknown)
 
     maybeRight match {
       case Some(right) =>
-        EntailmentQuery(left, right, sid, status, Some(fileName))
+        // In SLCOMP format, UNSAT means that the entailment holds and SAT that it does not hold
+        // We therefore flip the status for our internal representation
+        EntailmentQuery(left, right, sid, status.flip, Some(fileName))
       case None =>
         SatQuery(sid, left, status, Some(fileName))
     }

@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.main.{HarrshLogging, InputStatus, Query, RefinementQuery}
+import at.forsyte.harrsh.main.{HarrshLogging, ProblemStatus, Query, RefinementQuery}
 import at.forsyte.harrsh.refinement.{AutomatonTask, RunSat}
 import at.forsyte.harrsh.seplog.inductive.SID
 import at.forsyte.harrsh.util.{IOUtils, StringUtils}
@@ -71,7 +71,7 @@ object QueryParser extends HarrshLogging {
     val parseOptions: Stream[Option[Query]] = Stream(
       EntailmentParsers.parseHarrshEntailmentFormat(fileName),
       slcomp.parseFileToQuery(fileName),
-      SIDParsers.CombinedSIDParser.runOnSID(IOUtils.readFile(fileName)) map (sid => RefinementQuery(sid, Some(RunSat), InputStatus.Unknown, Some(fileName)))
+      SIDParsers.CombinedSIDParser.runOnSID(IOUtils.readFile(fileName)) map (sid => RefinementQuery(sid, Some(RunSat), ProblemStatus.Unknown, Some(fileName)))
     )
     parseOptions.find(_.isDefined).flatten.getOrElse{
       throw ParseException(s"Could not parse '$fileName' with any parser.")

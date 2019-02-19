@@ -36,7 +36,7 @@ object IOUtils {
     if (d.exists && d.isDirectory) {
       d.listFiles.filter(_.isFile).toList
     } else {
-      List[File]()
+      Nil
     }
   }
 

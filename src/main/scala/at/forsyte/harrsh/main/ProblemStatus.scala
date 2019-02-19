@@ -1,8 +1,14 @@
 package at.forsyte.harrsh.main
 
-import at.forsyte.harrsh.main.InputStatus._
+import at.forsyte.harrsh.main.ProblemStatus._
 
-sealed trait InputStatus {
+sealed trait ProblemStatus {
+
+  def flip: ProblemStatus = this match {
+    case Correct => Incorrect
+    case Incorrect => Correct
+    case Unknown => Unknown
+  }
 
   override def toString: String = this match {
     case Correct => "sat"
@@ -17,12 +23,12 @@ sealed trait InputStatus {
   }
 }
 
-object InputStatus {
-  case object Correct extends InputStatus
-  case object Incorrect extends InputStatus
-  case object Unknown extends InputStatus
+object ProblemStatus {
+  case object Correct extends ProblemStatus
+  case object Incorrect extends ProblemStatus
+  case object Unknown extends ProblemStatus
 
-  def fromString(s : String): InputStatus = s match {
+  def fromString(s : String): ProblemStatus = s match {
     case "sat" => Correct
     case "unsat" => Incorrect
     case "unknown" => Unknown

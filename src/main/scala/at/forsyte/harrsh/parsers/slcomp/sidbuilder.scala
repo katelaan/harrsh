@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.parsers.slcomp
 
 import at.forsyte.harrsh.entailment.EntailmentInstance
-import at.forsyte.harrsh.main.{HarrshLogging, InputStatus, Query}
+import at.forsyte.harrsh.main.{HarrshLogging, ProblemStatus, Query}
 
 sealed trait SidBuilder {
 
@@ -143,9 +143,9 @@ case class Script(sorts: List[SortDecl],
 
   def toQuery(filename: String) : Query = ScriptToQuery(this, filename)
 
-  lazy val status: Option[InputStatus] = {
+  lazy val status: Option[ProblemStatus] = {
     val statusMeta = meta.find(m => m.metaType == "set-info" && m.keyword == ":status")
-    statusMeta.map(_.attributeValue.asInstanceOf[Symbol].str).map(InputStatus.fromString)
+    statusMeta.map(_.attributeValue.asInstanceOf[Symbol].str).map(ProblemStatus.fromString)
   }
 
   override def toString: String = {

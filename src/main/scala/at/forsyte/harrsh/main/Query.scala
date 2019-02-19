@@ -10,7 +10,7 @@ import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
 
 sealed trait Query {
-  val status: InputStatus
+  val status: ProblemStatus
   val fileName: Option[String]
 
   def asSatQuery: Option[SatQuery] = this match {
@@ -29,7 +29,7 @@ sealed trait Query {
   }
 }
 
-case class RefinementQuery(sid: SID, task: Option[AutomatonTask], override val status: InputStatus, override val fileName: Option[String]) extends Query {
+case class RefinementQuery(sid: SID, task: Option[AutomatonTask], override val status: ProblemStatus, override val fileName: Option[String]) extends Query {
 
   def setTask(task: AutomatonTask): RefinementQuery = copy(task = Some(task))
 
@@ -52,9 +52,9 @@ object RefinementQuery {
       val fileName = parts(0)
       val optDecProb = AutomatonTask.fromString(parts(1))
       val expRes = parts(2) match {
-        case "false" => InputStatus.Incorrect
-        case "true" => InputStatus.Correct
-        case _ => InputStatus.Unknown
+        case "false" => ProblemStatus.Incorrect
+        case "true" => ProblemStatus.Correct
+        case _ => ProblemStatus.Unknown
       }
 
       val sid = QueryParser.getSidFromFile(fileName)
@@ -72,11 +72,11 @@ object RefinementQuery {
   }
 
   def apply(fileName: String, prop: AutomatonTask): RefinementQuery = {
-    RefinementQuery(QueryParser.getSidFromFile(fileName), Some(prop), InputStatus.Unknown, Some(fileName))
+    RefinementQuery(QueryParser.getSidFromFile(fileName), Some(prop), ProblemStatus.Unknown, Some(fileName))
   }
 }
 
-case class SatQuery(sid: SID, query: SymbolicHeap, override val status: InputStatus, override val fileName: Option[String]) extends Query {
+case class SatQuery(sid: SID, query: SymbolicHeap, override val status: ProblemStatus, override val fileName: Option[String]) extends Query {
 
   val StartPred = "ASSERT"
 
@@ -132,7 +132,7 @@ case class SatQuery(sid: SID, query: SymbolicHeap, override val status: InputSta
 
 }
 
-case class EntailmentQuery(lhs: SymbolicHeap, rhs: SymbolicHeap, sid: SID, override val status: InputStatus, override val fileName: Option[String]) extends Query {
+case class EntailmentQuery(lhs: SymbolicHeap, rhs: SymbolicHeap, sid: SID, override val status: ProblemStatus, override val fileName: Option[String]) extends Query {
   def setFileName(fileName: String): EntailmentQuery = copy(fileName = Some(fileName))
 
 }
