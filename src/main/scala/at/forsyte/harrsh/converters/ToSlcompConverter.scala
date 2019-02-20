@@ -1,19 +1,22 @@
 package at.forsyte.harrsh.converters
 
 import scala.language.implicitConversions
-
 import at.forsyte.harrsh.main.ProblemStatus.{Correct, Incorrect, Unknown}
 import at.forsyte.harrsh.main.{EntailmentQuery, ProblemStatus}
 import at.forsyte.harrsh.parsers.QueryParser.FileExtensions
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.util.StringUtils
 
 object ToSlcompConverter extends EntailmentFormatConverter {
 
-  val Logic = "QF_SHID" // TODO: Detect when we're in one of the other fragments?
+  val Logic = "QF_SHID" // TODO: Detect when we're in one of the more restricted fragments?
 
   override def apply(fileName: String, query: EntailmentQuery): Seq[(String, String)] = {
-    Seq((fileName + FileExtensions.SlComp, queryToSlcomp(query)))
+    Seq(
+      (fileName + '.' + FileExtensions.SlComp, queryToSlcomp(query)),
+      (fileName + '.' + FileExtensions.SlComp + ".info", infoOnly(query)),
+    )
   }
 
   private sealed trait SExpr {
@@ -42,11 +45,22 @@ object ToSlcompConverter extends EntailmentFormatConverter {
   }
 
   private case class GroundTerm(s: String) extends SExpr {
-
     override def prettyPrintLines: Seq[String] = Seq(s)
   }
 
+  private case class PreformattedExpr(lines: Seq[String]) extends SExpr {
+    override def prettyPrintLines: Seq[String] = lines
+  }
+
+  private case object Newline extends SExpr {
+    override def prettyPrintLines: Seq[String] = Seq("")
+  }
+
   private implicit def strToGroundTerm(s: String) : GroundTerm = GroundTerm(s)
+
+  private def infoOnly(query: EntailmentQuery): String = {
+    (Seq(logic, Newline) ++ statusToInfo(query.status)).flatMap(_.prettyPrintLines).mkString("\n")
+  }
 
   private def queryToSlcomp(query: EntailmentQuery): String = {
     val EntailmentQuery(lhs, rhs, sid, status, _) = query
@@ -58,23 +72,23 @@ object ToSlcompConverter extends EntailmentFormatConverter {
 
     val script: Seq[SExpr] = Seq(
       // set-logic
-      Seq(logic),
+      Seq(logic, Newline),
       // set-info
-      statusToMeta(status).toSeq,
+      statusToInfo(status),
       // declare-sort
-      sortDecls(arity),
+      Newline +: sortDecls(arity),
       // declare-datatypes
-      Seq(datatypeDecls(arity)),
+      Seq(Newline, datatypeDecls(arity)),
       // declare heap
-      Seq(heapDecl(arity)),
+      Seq(Newline, heapDecl(arity)),
       // define-funs-rec
-      Seq(funDefs(arity, sid)),
+      Seq(Newline, funDefs(arity, sid)),
       // variables
-      varDecls(arity, lhs, rhs),
+      Newline +: varDecls(arity, lhs, rhs),
       // asserts
-      Seq(shToAssert(arity, lhs, negate = false), shToAssert(arity, rhs, negate = true)),
+      Seq(Newline, shToAssert(arity, lhs, negate = false), Newline, shToAssert(arity, rhs, negate = true)),
       // check sat
-      Seq(checkSat)
+      Seq(Newline, checkSat)
     ).flatten
 
     script.flatMap(_.prettyPrintLines).mkString("\n")
@@ -106,14 +120,26 @@ object ToSlcompConverter extends EntailmentFormatConverter {
     App("declare-heap", App(sort(arity), dtype(arity)))
   }
 
-  private def statusToMeta(status: ProblemStatus): Option[SExpr] = {
+  private def statusToInfo(status: ProblemStatus): Seq[SExpr] = {
     val statusString = status match {
       case Correct => Some("unsat")
       case Incorrect => Some("sat")
       case Unknown => None
     }
-    statusString map (App("set-info", ":status",_))
+    val statusTerm = statusString map (App("set-info", ":status",_))
+
+    Seq(
+      PreformattedExpr(Seq(
+        "(set-info :source |",
+        "  Jens Katelaan, Harrsh, https://github.com/katelaan/harrsh/",
+        "|)"
+      )),
+      App("set-info", ":smt-lib-version 2.6"),
+      App("set-info", ":category", "\"crafted\"")
+    ) ++ statusTerm ++ Seq(App("set-info", ":version", today()))
   }
+
+  private def today(): String = '"' + StringUtils.today() + '"' //"\"2019-02-20\""
 
   private def funDefs(arity: Int, sid: SID): SExpr = App(
     "define-funs-rec", funDecls(arity, sid), funBodies(arity, sid)
@@ -153,7 +179,7 @@ object ToSlcompConverter extends EntailmentFormatConverter {
     // Currently we're only translating quantifier-free formulas
     // The translation could in principle also work for quantified formulas,
     // but would then currently be irreversible because bound var names would be lost
-    assert(sh.boundVars.isEmpty)
+    if (sh.boundVars.nonEmpty) throw ConversionException("SL-COMP converter only supports quantifier-free queries")
     val formula = shToSExpr(arity, sh, None)
     val signed = if (negate) App("not", formula) else formula
     App("assert", signed)

@@ -6,7 +6,7 @@ import at.forsyte.harrsh.util.ToLatex._
 
 package object converters {
 
-  case class ConversionException(msg: String) extends Exception
+  case class ConversionException(msg: String) extends Exception(msg)
 
   def sanitize(s: String): String = s.replace('α', 'y').replaceAllLiterally("null","nil")
 

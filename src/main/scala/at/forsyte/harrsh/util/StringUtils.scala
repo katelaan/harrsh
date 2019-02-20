@@ -1,5 +1,8 @@
 package at.forsyte.harrsh.util
 
+import java.text.SimpleDateFormat
+import java.util.Calendar
+
 import scala.annotation.tailrec
 
 object StringUtils {
@@ -77,6 +80,12 @@ object StringUtils {
         val (file, ext) = fileName.splitAt(i)
         Some(file, ext.tail)
     }
+  }
+
+  def today(): String = {
+    val now = Calendar.getInstance().getTime()
+    val format = new SimpleDateFormat("yyyy-MM-dd")
+    format.format(now)
   }
 
 }
