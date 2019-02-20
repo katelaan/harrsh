@@ -14,8 +14,8 @@ import scala.util.Try
 
 object SlCompMode {
 
-  val DIRS = List("bench/qf_shls_sat", "bench/qf_shid_sat")
-  //val DIRS = List("bench/test")
+  //val DIRS = List("bench/qf_shls_sat", "bench/qf_shid_sat")
+  val DIRS = List("bench/qf_shls_entl", "bench/qf_shid_entl")
   val DEFAULT_TIMEOUT_IN_SECS = 120
   val BATCH_TIMEOUT_IN_SECS = 5
   val SKIP_WORSTCASE_INSTANCES = false
@@ -25,9 +25,18 @@ object SlCompMode {
       return
     }
 
+    val verbose = try {
+      args(2) == "verbose"
+    } catch {
+      case _: Throwable => false
+    }
+
     args(0) match {
       case "say" =>
         println(args(1) + '!')
+        for {
+          bench <- allSlcompBenchs().sorted
+        } println(bench)
       case "parse" =>
         if (args(1) == "all")
           parseAllBenchmarks()
@@ -44,16 +53,19 @@ object SlCompMode {
         //println(incrementalFromNumCalls)
         run(args(1), incrementalFromNumCalls)
       case "check" =>
-        val verbose = try {
-          args(2) == "verbose"
-        } catch {
-          case _: Throwable => false
-        }
-
         if (args(1) == "all")
           checkAll(verbose = verbose)
-       else
+        else
           check(args(1), verbose = verbose)
+      case "batch" =>
+        val bmFile = args(1)
+        val files = for {
+          line <- IOUtils.readFile(bmFile).lines
+          trimmed = line.trim
+          if trimmed.nonEmpty
+          if trimmed(0) != '#'
+        } yield trimmed
+        checkList(files.toList, verbose = verbose)
     }
   }
 
@@ -73,8 +85,12 @@ object SlCompMode {
   private case class BenchmarkResult(status: ProblemStatus, deviation: Boolean, time: Long)
 
   private def checkAll(timeoutInSecs: Int = BATCH_TIMEOUT_IN_SECS, verbose: Boolean = false, printBm: Boolean = false): Unit = {
+    checkList(allSlcompBenchs().map(_.toString).sorted, timeoutInSecs, verbose, printBm)
+  }
+
+  private def checkList(bms: List[String], timeoutInSecs: Int = BATCH_TIMEOUT_IN_SECS, verbose: Boolean = false, printBm: Boolean = false): Unit = {
     val stats:ListBuffer[(String,ProblemStatus,Boolean,Long)] = new ListBuffer
-    for (bench <- allSlcompBenchs().sortBy(_.toString)) {
+    for (bench <- bms) {
       val res = check(bench.toString, verbose)
       println(s"${bench.toString}: Computed result: ${res.status}, as expected: ${res.deviation}, used ${res.time}ms")
       stats.append((bench.toString, res.status, res.deviation, res.time))
