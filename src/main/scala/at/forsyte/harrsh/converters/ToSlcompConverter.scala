@@ -189,10 +189,10 @@ object ToSlcompConverter extends EntailmentFormatConverter {
     val pto = sh.pointers map (ptoToExpr(arity, boundVarNames, _))
     val calls = sh.predCalls map (callToExpr(arity, boundVarNames, _))
     val spatialAtoms = pto ++ calls
-    val spatial = if (spatialAtoms.isEmpty) {
-      App("_", "emp", sort(arity), dtype(arity))
-    } else {
-      App(GroundTerm("sep") +: spatialAtoms : _*)
+    val spatial = spatialAtoms.size match {
+      case 0 => App("_", "emp", sort(arity), dtype(arity))
+      case 1 => spatialAtoms.head
+      case _ => App(GroundTerm("sep") +: spatialAtoms : _*)
     }
     val pure = sh.pure map (pureAtomToExpr(arity, boundVarNames, _))
     val qfree = if (pure.nonEmpty) {
