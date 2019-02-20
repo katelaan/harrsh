@@ -11,8 +11,8 @@ sealed trait ProblemStatus {
   }
 
   override def toString: String = this match {
-    case Correct => "sat"
-    case Incorrect => "unsat"
+    case Correct => "correct"
+    case Incorrect => "incorrect"
     case Unknown => "unknown"
   }
 
