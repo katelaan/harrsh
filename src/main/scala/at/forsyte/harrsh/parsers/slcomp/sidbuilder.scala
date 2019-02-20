@@ -1,6 +1,5 @@
 package at.forsyte.harrsh.parsers.slcomp
 
-import at.forsyte.harrsh.entailment.EntailmentInstance
 import at.forsyte.harrsh.main.{HarrshLogging, ProblemStatus, Query}
 
 sealed trait SidBuilder {
@@ -26,6 +25,7 @@ sealed trait SidBuilder {
 
   def isConstantValue: Boolean = this match {
     case d: Decimal => true
+    case n: Numeral => true
     case s: StrVal => true
     case _ => false
   }
@@ -47,7 +47,7 @@ case class Decimal(d: Double) extends SidBuilder
 case class Numeral(i: Int) extends SidBuilder
 case class StrVal(s: String) extends SidBuilder
 case class Constant(c: SidBuilder) extends SidBuilder {
-  assert(c.isConstantValue)
+  assert(c.isConstantValue, s"Trying to construct constant from non-constant term $c")
 }
 
 /* Symbols, identifiers, and attributes */
