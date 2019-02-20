@@ -13,7 +13,10 @@ class ToSlcompConverterTest extends HarrshTableTest with Implicits with TestValu
     ("lhs", "rhs", "sid", "status", "file"),
     ("nel(x1,x2) * x2 -> x3 * nel(x3, x4)".parse, "nel(x1, x4)".parse, ExampleSIDs.Nel, Correct, Some("nel.hrs")),
     ("emp : {x1 = x2}".parse, "x1 -> x2 : {x1 != x2}".parse, ExampleSIDs.Nel, Incorrect, Some("nel.hrs")),
-    ("tll(x1,x2,x3)".parse, "tll(x1,x2,x3) : {x1 != x2}".parse, ExampleSIDs.TllAcyc, Incorrect, Some("atll.hrs"))
+    ("tll(x1,x2,x3)".parse, "tll(x1,x2,x3) : {x1 != x2}".parse, ExampleSIDs.TllAcyc, Incorrect, Some("atll.hrs")),
+    ("emp".parse, "dll(x1,x2,x3,x4)".parse, ExampleSIDs.NeAcycDll, Incorrect, Some("dll.hrs")),
+    ("odd(x1,x2) * odd(x2, x3)".parse, "even(x1,x3) : {x1 != x3}".parse, ExampleSIDs.OddList, Correct, Some("odd.hrs")),
+    ("emp".parse, "emp".parse, ExampleSIDs.OptionallyEstablishedSID2, Correct, Some("strange.hrs"))
   )
 
   private def dropRootsAndSort(sid: SID): Seq[Predicate] = {

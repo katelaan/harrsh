@@ -22,8 +22,6 @@ object ToSlcompConverter extends EntailmentFormatConverter {
   }
 
   private case class App(args: SExpr*) extends SExpr {
-    assert(args.nonEmpty)
-
     override def prettyPrintLines: Seq[String] = {
       val ppArgs: Seq[String] = args.flatMap(_.prettyPrintLines)
 
