@@ -22,6 +22,11 @@ package object slcomp {
     parseFile(filename) map translator.visit map (_.asInstanceOf[Script]) map (_.toQuery(filename))
   }
 
+  def parseStringToQuery(input: String, contentOfFile: Option[String]): Option[Query] = {
+    val translator = new SidTranslator
+    parseInput(input) map translator.visit map (_.asInstanceOf[Script]) map (_.toQuery(contentOfFile.getOrElse("(no file)")))
+  }
+
   private def parseStream(cs: CharStream) = {
     val lexer = new SLComp18Lexer(cs)
     val tokens = new CommonTokenStream(lexer)

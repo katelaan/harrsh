@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.parsers.slcomp
 
+import at.forsyte.harrsh.converters.ToSlcompConverter
 import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.seplog._
@@ -16,7 +17,7 @@ object ScriptToQuery extends HarrshLogging {
     }
 
     logger.debug(s"Will translate the following script:\n$s")
-    //println(s"Will translate the following script:\n$s")
+    println(s"Will translate the following script:\n$s")
 
     val sorts: Set[Sort] = s.sorts.map(decl => Sort(decl.name)).toSet
 
@@ -62,7 +63,9 @@ object ScriptToQuery extends HarrshLogging {
       case Some(right) =>
         // In SLCOMP format, UNSAT means that the entailment holds and SAT that it does not hold
         // We therefore flip the status for our internal representation
-        EntailmentQuery(left, right, sid, status.flip, Some(fileName))
+        val res = EntailmentQuery(left, right, sid, status.flip, Some(fileName))
+        println(s"In SMT format:\n${ToSlcompConverter(fileName, res)}")
+        res
       case None =>
         SatQuery(sid, left, status, Some(fileName))
     }

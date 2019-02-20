@@ -2,6 +2,7 @@ package at.forsyte.harrsh.main
 
 import java.io.File
 
+import at.forsyte.harrsh.entailment.EntailmentChecker
 import at.forsyte.harrsh.parsers.QueryParser.FileExtensions
 
 import scala.concurrent.duration.{Duration, SECONDS}
@@ -14,9 +15,14 @@ import scala.util.Try
 
 object SlCompMode {
 
+  object config {
+    val ComputePerSideSids = false
+    val Timeout = 10
+    val IncrementalFromNumCalls = 4
+  }
+
   //val DIRS = List("bench/qf_shls_sat", "bench/qf_shid_sat")
   val DIRS = List("bench/qf_shls_entl", "bench/qf_shid_entl")
-  val DEFAULT_TIMEOUT_IN_SECS = 120
   val BATCH_TIMEOUT_IN_SECS = 5
   val SKIP_WORSTCASE_INSTANCES = false
 
@@ -45,16 +51,11 @@ object SlCompMode {
           println(s"Constructed the following benchmark:\n$bm")
         }
       case "run" =>
-        val incrementalFromNumCalls = try {
-          args.lift(2).map(Integer.parseInt)
-        } catch {
-          case _:Throwable => None
-        }
-        //println(incrementalFromNumCalls)
-        run(args(1), incrementalFromNumCalls)
+        val incrementalFromNumCalls = Try { Integer.parseInt(args(2)) }.toOption.getOrElse(config.IncrementalFromNumCalls)
+        run(args(1), incrementalFromNumCalls, config.Timeout)
       case "check" =>
         if (args(1) == "all")
-          checkAll(verbose = verbose)
+          checkAll(config.Timeout, verbose = verbose)
         else
           check(args(1), verbose = verbose)
       case "batch" =>
@@ -65,14 +66,14 @@ object SlCompMode {
           if trimmed.nonEmpty
           if trimmed(0) != '#'
         } yield trimmed
-        checkList(files.toList, verbose = verbose)
+        checkList(files.toList, config.Timeout, verbose = verbose)
     }
   }
 
-  def run(file: String, incrementalFromNumCalls: Option[Int] = None, timeoutInSecs: Int = DEFAULT_TIMEOUT_IN_SECS) = {
+  def run(file: String, incrementalFromNumCalls: Int, timeoutInSecs: Int) = {
     val res = for {
       bm <- parseBenchmark(file)
-      status <- execute(bm, timeoutInSecs)._1.toBoolean
+      status <- execute(bm, timeoutInSecs, incrementalFromNumCalls = Some(incrementalFromNumCalls))._1.toBoolean
     } yield (bm.isInstanceOf[EntailmentQuery], status)
     val output = res match {
       case None => "unknown"
@@ -84,11 +85,11 @@ object SlCompMode {
 
   private case class BenchmarkResult(status: ProblemStatus, deviation: Boolean, time: Long)
 
-  private def checkAll(timeoutInSecs: Int = BATCH_TIMEOUT_IN_SECS, verbose: Boolean = false, printBm: Boolean = false): Unit = {
+  private def checkAll(timeoutInSecs: Int, verbose: Boolean = false, printBm: Boolean = false): Unit = {
     checkList(allSlcompBenchs().map(_.toString).sorted, timeoutInSecs, verbose, printBm)
   }
 
-  private def checkList(bms: List[String], timeoutInSecs: Int = BATCH_TIMEOUT_IN_SECS, verbose: Boolean = false, printBm: Boolean = false): Unit = {
+  private def checkList(bms: List[String], timeoutInSecs: Int, verbose: Boolean = false, printBm: Boolean = false): Unit = {
     val stats:ListBuffer[(String,ProblemStatus,Boolean,Long)] = new ListBuffer
     for (bench <- bms) {
       val res = check(bench.toString, verbose)
@@ -116,7 +117,7 @@ object SlCompMode {
       println(s"Input for refinement: $bm")
       println(s"Expected result: ${bm.status}")
     }
-    val (res, time) = execute(bm, verbose = verbose)
+    val (res, time) = execute(bm, config.Timeout, verbose = verbose)
     if (verbose) println(s"Done. Result: $res")
     val deviation = if (bm.status != ProblemStatus.Unknown && bm.status != ProblemStatus.Unknown && bm.status != res) {
       println("UNEXPECTED RESULT")
@@ -127,7 +128,7 @@ object SlCompMode {
     BenchmarkResult(res, deviation, time)
   }
 
-  private def execute(bm: Query, timeoutInSecs: Int = DEFAULT_TIMEOUT_IN_SECS, verbose: Boolean = false, incrementalFromNumCalls: Option[Int] = None): (ProblemStatus, Long) = {
+  private def execute(bm: Query, timeoutInSecs: Int, verbose: Boolean = false, incrementalFromNumCalls: Option[Int] = None): (ProblemStatus, Long) = {
     bm match {
       case q: SatQuery => executeSatQuery(q, timeoutInSecs, verbose, incrementalFromNumCalls)
       case q: EntailmentQuery => executeEntailmentQuery(q, timeoutInSecs, verbose, incrementalFromNumCalls)
@@ -160,8 +161,20 @@ object SlCompMode {
   }
 
   private def executeEntailmentQuery(bm: EntailmentQuery, timeoutInSecs: Int, verbose: Boolean, incrementalFromNumCalls: Option[Int]): (ProblemStatus, Long) = {
-    println("No support for entailment checking.")
-    (ProblemStatus.Unknown, 0)
+    // TODO: Measure time
+    bm.toEntailmentInstance(computeSeparateSidsForEachSide = config.ComputePerSideSids) match {
+      case None =>
+        println(s"Couldn't convert $bm to entailment instance")
+        (ProblemStatus.Unknown, 0)
+      case Some(ei) =>
+//        val (res, stats) = EntailmentChecker.solve(ei)
+//        if (verbose) stats.foreach(println)
+//        val status = if (res) ProblemStatus.Correct else ProblemStatus.Incorrect
+//        val time = 0
+//        (status, time)
+        println("Is BTW-SID.")
+        (ProblemStatus.Unknown, 0)
+    }
   }
 
   private def parseBenchmark(file: String): Option[Query] = {

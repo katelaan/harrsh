@@ -60,20 +60,11 @@ object ToSongbirdFormat extends EntailmentFormatConverter {
   }
 
   private def toSongbirdType(sid: SID, lhs: SymbolicHeap, rhs: SymbolicHeap): String = {
-    val rhsSidSizes = for {
-      p <- sid.preds.toSet[Predicate]
-      r <- p.bodySHs
-      ptr <- r.pointers
-    } yield ptr.to.length
-    val rhsQuerySizes = for {
-      sh <- Seq(lhs, rhs)
-      ptr <- sh.pointers
-    } yield ptr.to.length
-    val rhsSizes = rhsSidSizes ++ rhsQuerySizes
-    if (rhsSizes.size > 1)
-      throw ConversionException("Multiple pointer arities within one benchmark not supported by Songbird exporter: " + rhsSizes)
-    if (rhsSizes.size == 1) {
-      val fields = (1 to rhsSizes.head) map (i => SbFieldPrefix + i)
+    val ptoArities: Set[Int] = pointerArities(sid, lhs, rhs)
+    if (ptoArities.size > 1)
+      throw ConversionException("Multiple pointer arities within one benchmark not supported by Songbird exporter: " + ptoArities)
+    if (ptoArities.size == 1) {
+      val fields = (1 to ptoArities.head) map (i => SbFieldPrefix + i)
       val fieldDecls = fields map (f => "    " + SbType + ' ' + f + ';')
       "data " + SbType + " {\n" + fieldDecls.mkString("\n") + "\n};"
     } else {
