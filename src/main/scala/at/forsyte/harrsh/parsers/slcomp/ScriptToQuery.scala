@@ -17,7 +17,7 @@ object ScriptToQuery extends HarrshLogging {
     }
 
     logger.debug(s"Will translate the following script:\n$s")
-    println(s"Will translate the following script:\n$s")
+    //println(s"Will translate the following script:\n$s")
 
     val sorts: Set[Sort] = s.sorts.map(decl => Sort(decl.name)).toSet
 
@@ -64,7 +64,7 @@ object ScriptToQuery extends HarrshLogging {
         // In SLCOMP format, UNSAT means that the entailment holds and SAT that it does not hold
         // We therefore flip the status for our internal representation
         val res = EntailmentQuery(left, right, sid, status.flip, Some(fileName))
-        println(s"In SMT format:\n${ToSlcompConverter(fileName, res)}")
+        //println(s"In SMT format:\n${ToSlcompConverter(fileName, res)}")
         res
       case None =>
         SatQuery(sid, left, status, Some(fileName))

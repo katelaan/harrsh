@@ -180,7 +180,7 @@ object ToSlcompConverter extends EntailmentFormatConverter {
       qfree
     } else {
       val quantifiers = App(sh.boundVars.toSeq.map(v => App(v2e(arity, v, boundVarNames), sort(arity))) : _*)
-      App("exists", quantifiers, spatial)
+      App("exists", quantifiers, qfree)
     }
   }
 

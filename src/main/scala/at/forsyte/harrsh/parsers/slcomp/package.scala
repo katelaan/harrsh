@@ -7,7 +7,7 @@ import org.antlr.v4.runtime.{CharStream, CharStreams, CommonTokenStream}
 package object slcomp {
 
   def parseInput(input: String): Option[SLComp18Parser.StartContext] = {
-    println("\nEvaluating expression " + input)
+    //println("\nEvaluating expression " + input)
     val charStream = CharStreams.fromString(input)
     parseStream(charStream)
   }
