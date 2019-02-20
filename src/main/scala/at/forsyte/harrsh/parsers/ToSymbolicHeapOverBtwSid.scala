@@ -74,7 +74,7 @@ object ToSymbolicHeapOverBtwSid extends HarrshLogging {
       val fstCall = body.predCalls.head
       val ruleBodies = underlyingSID(fstCall.name).bodySHs
       val instantiatedBodies = ruleBodies map (body.replaceCall(fstCall, _))
-      val newRules = instantiatedBodies map SID.shToRuleBody
+      val newRules = instantiatedBodies map SidFactory.shToRuleBody
       val res = Predicate(headPred.head, newRules, headPred.rootParam)
       logger.debug(s"Normalizing rule ${headPred.head} <= $rule by replacing $fstCall with rules of ${fstCall.name}:\n$res")
       res
@@ -92,10 +92,10 @@ object ToSymbolicHeapOverBtwSid extends HarrshLogging {
         // Simply introduce a single new predicate for this
         // Note that this will lead to special treatment in the automaton transitions, because progress is violated
         assert(introducedPredicates.isEmpty)
-        TransformationResult(Predicate(currName, Seq(SID.shToRuleBody(intermediateSh))), Seq.empty)
+        TransformationResult(Predicate(currName, Seq(SidFactory.shToRuleBody(intermediateSh))), Seq.empty)
       case 1 =>
         // Exactly one pointer => Progress is satisfied => Simply create a single predicate
-        val allPreds = introducedPredicates :+ Predicate(currName, Seq(SID.shToRuleBody(intermediateSh)))
+        val allPreds = introducedPredicates :+ Predicate(currName, Seq(SidFactory.shToRuleBody(intermediateSh)))
         TransformationResult(allPreds.head, allPreds.tail)
       case n if n >= 2 =>
         // Recurse on an arbitrary pointer
@@ -108,7 +108,7 @@ object ToSymbolicHeapOverBtwSid extends HarrshLogging {
           pointers = Seq(localPtr),
           predCalls = Seq(recPredCall),
           freeVars = intermediateSh.freeVars)
-        val newPred = Predicate(currName, Seq(SID.shToRuleBody(ruleSh)))
+        val newPred = Predicate(currName, Seq(SidFactory.shToRuleBody(ruleSh)))
         introduceOnePredPerPointer(remainder, predPrefix, introducedPredicates :+ newPred)
     }
   }

@@ -18,8 +18,7 @@ private[parsers] trait CyclistStyleSIDParser extends SIDCombinatorParser {
     predSpecs =>
       val startPred : String = predSpecs.head._1
       val desc : String = startPred + "-SID"
-      val preds = predSpecs.map(spec => Predicate(spec._1, spec._2))
-      SID(startPred, preds, desc)
+      SidFactory.makeSidfromPredSpecs(startPred, predSpecs, desc)
   }
 
   override def parseSymbolicHeap : Parser[SymbolicHeap] = parseBody ^^ {

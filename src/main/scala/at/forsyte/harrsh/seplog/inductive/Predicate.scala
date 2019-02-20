@@ -36,26 +36,26 @@ case class Predicate(head: String, rules: Seq[RuleBody], rootParam: Option[FreeV
 
 object Predicate {
 
-  def apply(head: String, ruleBodies : (Seq[String], SymbolicHeap)*): Predicate = {
-    apply(head, None, ruleBodies:_*)
-  }
+//  def apply(head: String, ruleBodies : (Seq[String], SymbolicHeap)*): Predicate = {
+//    apply(head, None, ruleBodies:_*)
+//  }
 
-  def alignFVSeqs(ruleBodies: Seq[RuleBody]): Seq[RuleBody] = {
-    val freeVars: Set[Seq[FreeVar]] = ruleBodies.map(_.body.freeVars).toSet
-    val maxFreeVars = freeVars.maxBy(_.size)
-    for {
-      RuleBody(_, body) <- ruleBodies
-      v <- body.freeVars
-    } {
-      if (!maxFreeVars.contains(v)) throw new IllegalArgumentException(s"Can't construct predicate from conflicting FV lists in $ruleBodies")
-    }
-    ruleBodies map (b => b.copy(body = b.body.copy(freeVars = maxFreeVars)))
-  }
-
-  def apply(head: String, rootParam: Option[FreeVar], ruleBodies : (Seq[String], SymbolicHeap)*): Predicate = {
-    val rules = ruleBodies map RuleBody.tupled
-    val aligned = alignFVSeqs(rules)
-    Predicate(head, aligned, rootParam)
-  }
+//  def alignFVSeqs(ruleBodies: Seq[RuleBody]): Seq[RuleBody] = {
+//    val freeVars: Set[Seq[FreeVar]] = ruleBodies.map(_.body.freeVars).toSet
+//    val maxFreeVars = freeVars.maxBy(_.size)
+//    for {
+//      RuleBody(_, body) <- ruleBodies
+//      v <- body.freeVars
+//    } {
+//      if (!maxFreeVars.contains(v)) throw new IllegalArgumentException(s"Can't construct predicate from conflicting FV lists in $ruleBodies")
+//    }
+//    ruleBodies map (b => b.copy(body = b.body.copy(freeVars = maxFreeVars)))
+//  }
+//
+//  def apply(head: String, rootParam: Option[FreeVar], ruleBodies : (Seq[String], SymbolicHeap)*): Predicate = {
+//    val rules = ruleBodies map RuleBody.tupled
+//    val aligned = alignFVSeqs(rules)
+//    Predicate(head, aligned, rootParam)
+//  }
 
 }

@@ -86,33 +86,9 @@ case class SID(startPred : String, preds : Seq[Predicate], description : String)
 
 object SID extends HarrshLogging {
 
-  def fromTuples(startPred: String, ruleTuples: Seq[(String,RuleBody)], description: String, rootParams: Map[String, FreeVar] = Map.empty): SID = {
-    val rulesByPred = ruleTuples.groupBy(_._1)
-    val rules = rulesByPred.map(grouped => Predicate(
-      grouped._1,
-      Predicate.alignFVSeqs(grouped._2.map(_._2)), rootParams.get(grouped._1))
-    ).toSeq
-    SID(startPred, rules, description)
-  }
-
-  def apply(startPred: String, description: String, rootParams: Map[String, FreeVar], ruleTuples: (String, Seq[String], SymbolicHeap)*): SID = {
-    fromTuples(startPred, ruleTuples map (t => (t._1, RuleBody(t._2, t._3))), description, rootParams)
-  }
-
-  def apply(startPred: String, description: String, ruleTuples: (String, Seq[String], SymbolicHeap)*): SID = {
-    fromTuples(startPred, ruleTuples map (t => (t._1, RuleBody(t._2, t._3))), description)
-  }
-
   def empty(startPred : String) : SID = SID(startPred, Seq.empty[Predicate], "")
 
   def empty : SID = SID("X", Seq.empty[Predicate], "")
-
-  def fromSymbolicHeap(sh: SymbolicHeap, backgroundSID: SID = SID.empty) : SID = {
-    val startPred = "sh"
-    val newRule = RuleBody(sh.boundVars.toSeq map (_.toString), sh)
-    val newPred = Predicate(startPred, Seq(newRule))
-    backgroundSID.copy(startPred = startPred, preds = newPred +: backgroundSID.preds, description = "symbolic heap")
-  }
 
   implicit val sidToLatex: ToLatex[SID] = (a: SID, _: Naming) => {
     val rulesStr = for {
@@ -126,15 +102,6 @@ object SID extends HarrshLogging {
     for {
       rule <- pred.rules
     } yield s"  \\RuleName{${pred.head}} &\\Longleftarrow& ${rule.body.toLatex(rule.naming)}"
-  }
-
-  // TODO: Introduce unique names for bound vars + don't hardcode prefix?
-  def defaultBoundVarNames(sh: SymbolicHeap): Seq[String] = sh.boundVars.toSeq.map(bv => "_"+bv.index)
-
-  def shToRuleBody(sh: SymbolicHeap): RuleBody = {
-    // TODO: The SH API is obviously not meant to be used in this way. Refactor?
-    val withoutGaps = SymbolicHeap(sh.atoms.closeGapsInBoundVars, sh.freeVars)
-    RuleBody(defaultBoundVarNames(withoutGaps), withoutGaps)
   }
 
 }

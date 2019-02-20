@@ -66,7 +66,7 @@ case class AtomContainer(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCall
     */
   def instantiateFVs(freeVars : Seq[FreeVar], args : Seq[Var]): AtomContainer = {
     if (freeVars.length != args.length) {
-      throw new IllegalArgumentException(s"Trying to substitute a symbolic heap with free vars $freeVars for a symbolic heap with different number of free vars ($args)")
+      throw new IllegalArgumentException(s"Trying to rename free vars $freeVars in ${SymbolicHeap.empty ++ this} to different number of free vars ($args)")
     }
     val pairs: Seq[(Var, Var)] = freeVars zip args
     rename(Renaming.fromPairs(pairs), avoidDoubleCapture = true)

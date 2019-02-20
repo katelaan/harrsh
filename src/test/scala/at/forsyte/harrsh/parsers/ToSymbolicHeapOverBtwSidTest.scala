@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.seplog.inductive.{Predicate, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{Predicate, SID, SidFactory, SymbolicHeap}
 import at.forsyte.harrsh.test.HarrshTableTest
 import at.forsyte.harrsh.{Implicits, TestValues}
 
@@ -72,6 +72,6 @@ class ToSymbolicHeapOverBtwSidTest extends HarrshTableTest with Implicits with T
   }
 
   private def mkPred(predName: String, ruleSh: SymbolicHeap): Predicate = {
-    Predicate(predName, Seq(SID.shToRuleBody(ruleSh)))
+    Predicate(predName, Seq(SidFactory.shToRuleBody(ruleSh)))
   }
 }

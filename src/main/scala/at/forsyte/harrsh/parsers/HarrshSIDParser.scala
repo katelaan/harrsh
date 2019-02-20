@@ -23,7 +23,7 @@ private[parsers] trait HarrshSIDParser extends SIDCombinatorParser {
       // We assume the start predicate appears first in the file
       val startPred : String = rules.headOption.map(_._1).getOrElse(HarrshSIDParser.EmptySidStartPred)
       val desc : String = startPred + "-SID"
-      SID.fromTuples(startPred, rules, desc)
+      SidFactory.makeSidFromHarrshRules(startPred, rules, desc)
   }
 
   override def parseSymbolicHeap : Parser[SymbolicHeap] = parseBody ^^ {

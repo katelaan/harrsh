@@ -6,7 +6,7 @@ import RefinementInstance._
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.{PredCall, RuleBody, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive._
 
 import scala.annotation.tailrec
 
@@ -146,7 +146,7 @@ case class RefinementInstance(sid: SID,
         logger.info("Refined SID is empty")
       }
 
-      (SID.fromTuples(
+      (SidFactory.makeSidfromRuleBodies(
         sid.startPred,
         innerRules ++ finalRules,
         description = "Refinement of " + sid.description + " with " + ha.description
@@ -194,11 +194,6 @@ case class RefinementInstance(sid: SID,
         extended = picked :+ next
         partialTarget <- ha.getPartialTargetsFor(extended, body)
         if ha.isNonSink(partialTarget)
-//        if {
-//          val nonSink = ha.isNonSink(partialTarget)
-//          //if (!nonSink) println(s"Short circuiting for partial target $partialTarget derived from $extended")
-//          nonSink
-//        }
         completed <- incrementalInstantiation(head, body, reached, break, callsToInstantiate.tail, extended, Some(partialTarget))
       } yield completed
     }

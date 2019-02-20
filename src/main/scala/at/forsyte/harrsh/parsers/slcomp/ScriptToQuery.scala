@@ -54,7 +54,8 @@ object ScriptToQuery extends HarrshLogging {
     logger.debug(s"Top-level assertion(s):\n${(List(left) ++ maybeRight).mkString("\n")}")
     logger.debug(s"Predicate definitions:\n${rules.mkString("\n")}")
 
-    val sid = SID.fromTuples("undefined", rules, fileName)
+    // FIXME: Compute rootedness?
+    val sid = SidFactory.makeSidfromRuleBodies("undefined", rules, fileName)
     val status = s.status.getOrElse(ProblemStatus.Unknown)
 
     maybeRight match {
@@ -80,7 +81,7 @@ object ScriptToQuery extends HarrshLogging {
 
   def funDefToRules(fun: FunDef, env: Env): Seq[(String, RuleBody)] = {
     val head = fun.decl.name.str
-    val freeVars = fun.decl.args.map(_.name.str)
+    val freeVars = fun.decl.args.map(_.name.str) map FreeVar
     val varMap = (for {
       (arg, i) <- fun.decl.args.zipWithIndex
       argStr = arg.name.str
@@ -88,7 +89,7 @@ object ScriptToQuery extends HarrshLogging {
     val atoms: Seq[Atoms] = collectAtoms(fun.term, env, varMap)
     for {
       atom <- atoms
-    } yield (head, RuleBody(atom.qvars, atom.toSymbolicHeap))
+    } yield (head, RuleBody(atom.qvars, atom.toSymbolicHeap.copy(freeVars = freeVars)))
   }
 
   case class Atoms(pure: List[PureAtom], pointsTo: List[PointsTo], predCalls: List[PredCall], qvars: List[String]) {

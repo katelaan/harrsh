@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.seplog.FreeVar
-import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SidFactory, SymbolicHeap}
 import at.forsyte.harrsh.test.HarrshTableTest
 import at.forsyte.harrsh.{ExampleSIDs, TestValues}
 import org.scalatest.prop.TableFor4
@@ -17,9 +17,9 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
     val odd = ExampleSIDs.OddNel
     val even = ExampleSIDs.EvenNel
     val anel = ExampleSIDs.AcycNel
-    val sinlgePtrLhs = SID.fromSymbolicHeap(SymbolicHeap(x1 -> x2))
-    val reversedSinlgePtrLhs = SID.fromSymbolicHeap(SymbolicHeap(x2 -> x1))
-    val twoPtrLhs = SID("twoptrs",
+    val sinlgePtrLhs = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> x2))
+    val reversedSinlgePtrLhs = SidFactory.fromSymbolicHeap(SymbolicHeap(x2 -> x1))
+    val twoPtrLhs = SidFactory.makeRootedSid("twoptrs",
       "List of length 2",
       Map("twoptrs" -> x1),
       // twoptrs <= emp : { a = b }
@@ -27,14 +27,14 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
       // twoptrs <= ∃ y . a -> y * twoptrs(y, b)
       ("twoptrs", Seq("y"), SymbolicHeap(x1 -> y1, P("oneptr")(y1, x2)))
     )
-    val twoFields = SID.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,nil)))
-    val oneOrTwoFields = SID("onetwo",
+    val twoFields = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,nil)))
+    val oneOrTwoFields = SidFactory.makeRootedSid("onetwo",
       "Either a list pointer or a list pointer with an extra field",
       Map("onetwo" -> x1),
       ("onetwo", Seq.empty, SymbolicHeap(x1 -> x2)),
       ("onetwo", Seq.empty, SymbolicHeap(x1 -> (x2,nil)))
     )
-    val oddeven = SID("oddeven",
+    val oddeven = SidFactory.makeRootedSid("oddeven",
       "Nonempty lists of odd length",
       Map("oddeven" -> x1, "odd" -> x1, "even" -> x1),
       ("oddeven", Seq("n"), SymbolicHeap(x1 -> x2)),
@@ -103,16 +103,16 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
   property("Soundness of entailment for singly-linked trees") {
 
     val tree = ExampleSIDs.Tree
-    val singleTreePtr = SID.fromSymbolicHeap(SymbolicHeap(x1 -> (nil,nil)))
-    val almostLinearTree = SID("ltree",
+    val singleTreePtr = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> (nil,nil)))
+    val almostLinearTree = SidFactory.makeRootedSid("ltree",
       "Null-terminated tree",
       Map("ltree" -> x1, "rtree" -> x1),
       ("ltree", Seq.empty,  SymbolicHeap(x1 -> (nil, nil))),
       ("ltree", Seq("y", "z"), SymbolicHeap(x1 -> (y1, y2), P("ltree")(y1), P("rtree")(y2))),
       ("rtree", Seq.empty, SymbolicHeap(x1 -> (nil, nil)))
     )
-    val singleTreePtrWoNullInfo = SID.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3)))
-    val singleTreePtrWithNullInfo = SID.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3), x2 =:= nil, x3 =:= nil))
+    val singleTreePtrWoNullInfo = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3)))
+    val singleTreePtrWithNullInfo = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3), x2 =:= nil, x3 =:= nil))
 
     val treeTable = Table(
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
@@ -171,7 +171,7 @@ object EntailmentAutomatonTest extends TestValues {
 
     // Limitation of current implementation: Can't deal with redundant extra vars on LHS
     val tree = ExampleSIDs.Tree
-    val singleTreePtrWithNullInfo = SID.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3), x2 =:= nil, x3 =:= nil))
+    val singleTreePtrWithNullInfo = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3), x2 =:= nil, x3 =:= nil))
     val (lhsSid, rhsSid, rhsCall, shouldHold) = (singleTreePtrWithNullInfo, tree, P("tree")(x1), EntailmentHolds)
 
     println(s"Success: " + (check(rhsSid, rhsCall, lhsSid) == shouldHold))

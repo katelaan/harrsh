@@ -8,7 +8,7 @@ import at.forsyte.harrsh.pure.EqualityBasedSimplifications
 import at.forsyte.harrsh.refinement.DecisionProcedures.AnalysisResult
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms, RunSat}
 import at.forsyte.harrsh.seplog.Var.Naming
-import at.forsyte.harrsh.seplog.inductive.{RuleBody, SID, SIDUnfolding, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.ToLatex._
 import at.forsyte.harrsh.util.{Combinators, IOUtils, ToLatex}
 
@@ -164,11 +164,11 @@ object Implicits extends Implicits {
       ReducedEntailment.checkSatisfiableRSHAgainstSID(sh, sid.callToStartPred, sid, Defaults.reportProgress)
     }
 
-    def toSid(callIntepretation: SID) : SID = SID.fromSymbolicHeap(sh, callIntepretation)
+    def toSid(callIntepretation: SID) : SID = SidFactory.fromSymbolicHeap(sh, callIntepretation)
 
     def toSid : SID = {
       if (sh.nonReduced) throw new Throwable("Can't convert non-reduced heap to SID without SID for calls")
-      else SID.fromSymbolicHeap(sh)
+      else SidFactory.fromSymbolicHeap(sh)
     }
 
     def refineBy(sid: SID, task : AutomatonTask) : (SID,Boolean) = {
@@ -197,7 +197,7 @@ object Implicits extends Implicits {
     def isSat : Boolean = exists(RunSat)
 
     def getModel(sid : SID) : Option[Model] = {
-      val (satSid, isEmpty) = SID.fromSymbolicHeap(sh, sid).refineAndCheckEmptiness(RunSat)
+      val (satSid, isEmpty) = SidFactory.fromSymbolicHeap(sh, sid).refineAndCheckEmptiness(RunSat)
       if (isEmpty) {
         println("Symbolic heap is unsatisfiable w.r.t. the given SID")
         None
@@ -219,7 +219,7 @@ object Implicits extends Implicits {
   class RichModel(model : Model) {
     def isModelOf(sh : SymbolicHeap) : Boolean = {
       if (sh.nonReduced) throw new Throwable("Can't model-check non-reduced heaps without reference to an SID")
-      isModelOf(SID.fromSymbolicHeap(sh))
+      isModelOf(SidFactory.fromSymbolicHeap(sh))
     }
 
     def isModelOf(sid : SID) : Boolean = GreedyUnfoldingModelChecker.isModel(model, sid)
