@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.main
 
-import at.forsyte.harrsh.converters.EntailmentFormatConverter
+import at.forsyte.harrsh.converters.{ConversionException, EntailmentFormatConverter}
 import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentInstance}
 import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentStats
 import at.forsyte.harrsh.parsers.{EntailmentParsers, QueryParser}
@@ -26,7 +26,11 @@ object EntailmentBatchMode {
     } maybeParsed match {
       case Some(parseResult) =>
         val inputDir = file.split("/").init.mkString("/")
-        val converted = converter(file.split("/").last, parseResult)
+        val converted = try {
+          converter(file.split("/").last, parseResult)
+        } catch {
+          case e: ConversionException => Seq.empty
+        }
         if (converted.isEmpty) {
           println(s"WARNING: Conversion of $file failed.")
         } else {

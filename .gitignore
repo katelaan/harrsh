@@ -12,3 +12,5 @@ export/*
 *.pred
 *.sb
 *.tex
+*.smt2
+*.smt2.info

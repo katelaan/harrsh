@@ -108,15 +108,15 @@ object Harrsh extends Implicits {
         EntailmentBenchmarking.runJmhBenchmarskForHarrsh(config.file)
 
       case ConvertEntailmentBatch =>
-        println(s"Will convert all benchmarks in ${config.file} to SLIDE input format")
-        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, ToSlideFormat(_,_))
-        println("Done.")
-        println(s"Will convert all benchmarks in ${config.file} to SONGBIRD input format")
-        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, ToSongbirdFormat(_,_))
-        println("Done.")
-        println(s"Will convert all benchmarks in ${config.file} to LaTeX")
-        EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, ToLatexConverter(_,_))
-        println("Done.")
+        val wrapper = (format: String, conv: EntailmentFormatConverter) => {
+          println(s"Will convert all benchmarks in ${config.file} to $format input format")
+          EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, conv)
+          println("Done.")
+        }
+        wrapper("SLCOMP", ToSlcompConverter)
+        wrapper("SLIDE", ToSlideFormat)
+        wrapper("SONGBIRD", ToSongbirdFormat)
+        wrapper("LaTeX", ToLatexConverter)
 
       case Show =>
         val sid = QueryParser.getSidFromFile(config.file)
