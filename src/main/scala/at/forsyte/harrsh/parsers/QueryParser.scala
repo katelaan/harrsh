@@ -57,7 +57,7 @@ object QueryParser extends HarrshLogging {
           throw ParseException(s"Parsing file '$fullFileName' as SLCOMP-Input failed")
         }
       case FileExtensions.HarrshEntailment =>
-        EntailmentParsers.parseHarrshEntailmentFormat(IOUtils.readFile(fullFileName)).getOrElse{
+        EntailmentParsers.parseHarrshEntailmentFormat(IOUtils.readFile(fullFileName)).map(_.setFileName(fullFileName)).getOrElse{
           throw ParseException(s"Parsing file '$fullFileName' as Harrsh Entailment Query failed")
         }
       case e if FileExtensions.isSidExtension(e) =>
@@ -69,7 +69,7 @@ object QueryParser extends HarrshLogging {
 
   private def tryAll(fileName: String): Query = {
     val parseOptions: Stream[Option[Query]] = Stream(
-      EntailmentParsers.parseHarrshEntailmentFormat(fileName),
+      EntailmentParsers.parseHarrshEntailmentFormat(fileName).map(_.setFileName(fileName)),
       slcomp.parseFileToQuery(fileName),
       SIDParsers.CombinedSIDParser.runOnSID(IOUtils.readFile(fileName)) map (sid => RefinementQuery(sid, Some(RunSat), ProblemStatus.Unknown, Some(fileName)))
     )
