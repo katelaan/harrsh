@@ -8,10 +8,9 @@ import at.forsyte.harrsh.parsers.QueryParser.FileExtensions
 import scala.concurrent.duration.{Duration, SECONDS}
 import at.forsyte.harrsh.parsers.slcomp
 import at.forsyte.harrsh.refinement.{DecisionProcedures, RunSat}
-import at.forsyte.harrsh.util.{Combinators, IOUtils}
+import at.forsyte.harrsh.util.{Combinators, IOUtils, StringUtils}
 
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 import scala.util.Try
 
 object SlCompMode {
@@ -150,21 +149,26 @@ object SlCompMode {
     println(output)
   }
 
-  private case class BenchmarkResult(status: ProblemStatus, deviation: Boolean, time: Long)
+  private case class BenchmarkResult(status: ProblemStatus, asExpected: Boolean, time: Long)
 
   private def checkAll(): Unit = {
     checkList(allSlcompBenchs().map(_.toString).sorted)
   }
 
   private def checkList(bms: Seq[String]): Unit = {
-    val stats:ListBuffer[(String,ProblemStatus,Boolean,Long)] = new ListBuffer
-    for (bench <- bms) {
-      val res = check(bench.toString, isBatchMode = true)
-      println(s"${bench.toString}: Computed result: ${res.status}, as expected: ${res.deviation}, used ${res.time}ms")
-      stats.append((bench.toString, res.status, res.deviation, res.time))
-    }
+    val stats = for {
+      bench <- bms
+      res = check(bench.toString, isBatchMode = true)
+      _ = println(s"${bench.toString}: Computed result: ${res.status}, as expected: ${res.asExpected}, used ${res.time}ms")
+    } yield Seq(
+      bench.toString,
+      res.status.toString,
+      if (res.status == ProblemStatus.Unknown) "n/a" else res.asExpected.toString,
+      res.time.toString)
 
-    println("FINISHED BENCHMARK SUITE")
+    println(s"FINISHED BENCHMARK SUITE (timeout: ${config.getDuration(params.BatchTimeout).toMillis} ms)")
+    val headings = Seq("Benchmark", "Status", "As Expected", "Time")
+    println(StringUtils.toTable(StringUtils.defaultTableConfigForHeadings(headings), stats))
   }
 
   private def check(file: String, isBatchMode: Boolean): BenchmarkResult = {
@@ -172,7 +176,7 @@ object SlCompMode {
     parseBenchmark(file) match {
       case None =>
         println(s"Couldn't parse $file")
-        BenchmarkResult(ProblemStatus.Unknown, deviation = true, 0)
+        BenchmarkResult(ProblemStatus.Unknown, asExpected = true, 0)
       case Some(bm) =>
         checkBenchmark(bm, isBatchMode)
     }
@@ -250,7 +254,13 @@ object SlCompMode {
   }
 
   private def parseBenchmark(file: String): Option[Query] = {
-    slcomp.parseFileToQuery(file)
+    try {
+      slcomp.parseFileToQuery(file)
+    } catch {
+      case e: Throwable =>
+        println(s"Parse exception: " + e.getMessage)
+        None
+    }
   }
 
   private def parseAllBenchmarks(): Unit = {
