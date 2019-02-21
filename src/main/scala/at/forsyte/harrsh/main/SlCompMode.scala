@@ -245,15 +245,29 @@ object SlCompMode {
   }
 
   private def statusOfQuery(bm: EntailmentQuery) : ProblemStatus = {
-    bm.toEntailmentInstance(computeSeparateSidsForEachSide = config.getBoolean(params.ComputePerSideSids)) match {
+    val maybeEI = try {
+      bm.toEntailmentInstance(computeSeparateSidsForEachSide = config.getBoolean(params.ComputePerSideSids))
+    } catch {
+      case e: Throwable =>
+        println("Error: Conversion to entailment instance failed with exception" + e.getMessage)
+        None
+    }
+
+    maybeEI match {
       case None =>
         println(s"Couldn't convert $bm to entailment instance")
         ProblemStatus.Unknown
       case Some(ei) =>
         val verbose = config.getBoolean(params.Verbose)
-        val (res, stats) = EntailmentChecker.solve(ei, printResult = false, reportProgress = verbose, exportToLatex = false)
-        if (verbose) stats.foreach(println)
-        if (res) ProblemStatus.Correct else ProblemStatus.Incorrect
+        try {
+          val (res, stats) = EntailmentChecker.solve(ei, printResult = false, reportProgress = verbose, exportToLatex = false)
+          if (verbose) stats.foreach(println)
+          if (res) ProblemStatus.Correct else ProblemStatus.Incorrect
+        } catch {
+          case e: Throwable =>
+            println("Error: The entailment checker crashed with exception " + e.getMessage)
+            ProblemStatus.Unknown
+        }
     }
   }
 

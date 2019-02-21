@@ -22,9 +22,9 @@ case class RuleBody(qvarNames : Seq[String], body : SymbolicHeap) {
   def satisfiesGeneralizedProgress(rootOfPred: Option[Var]): Boolean = {
     body.pointers.length match {
       case 0 =>
-        // Generalized progress: We allow rules without allocation provided they contain at least two recursive calls.
+        // Generalized progress: We allow rules without allocation provided they contain no (--> emp) or at least two recursive calls.
         // This way, we can deal with rules such as SLSLList <= SLSLList(x1,y2) * SLSLList(y2,x2);
-        body.pure.isEmpty && body.predCalls.size > 1
+        (body.pure.isEmpty && body.predCalls.size > 1) || body.predCalls.isEmpty
       case 1 =>
         // Progress in the strict sense:
         // There is exactly one pointer, originating in the root of the predicate (if given)

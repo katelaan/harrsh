@@ -9,6 +9,8 @@ case class RichSid(override val startPred : String,
 {
   lazy val isRooted: Boolean = roots.size == preds.size
 
+  lazy val hasEmptyBaseRules: Boolean = emptyBaseRules.nonEmpty
+
   lazy val rootParamIndex: Map[String, Int] = {
     for {
       (predIdent, pred) <- predMap
@@ -29,6 +31,14 @@ case class RichSid(override val startPred : String,
       pred <- preds
       rule <- pred.rules
       if !rule.satisfiesGeneralizedProgress(roots.get(pred.head))
+    } yield (pred, rule)
+  }
+
+  lazy val emptyBaseRules: Seq[(Predicate, RuleBody)] = {
+    for {
+      pred <- preds
+      rule <- pred.rules
+      if !(rule.body.hasPointer || rule.body.predCalls.nonEmpty)
     } yield (pred, rule)
   }
 

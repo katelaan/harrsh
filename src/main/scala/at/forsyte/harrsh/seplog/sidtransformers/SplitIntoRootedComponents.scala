@@ -23,7 +23,7 @@ object SplitIntoRootedComponents {
         throw new IllegalArgumentException(s"Currently no support for queries in which bound variables are shared between connected components, but SCCs are ${groups.mkString(", ")}")
       }
       val rootedSHs = groups map (_.toSymbolicHeap)
-      if (rootedSHs.exists(sh => sh.predCalls.isEmpty && !sh.hasPointer)) {
+      if (rootedSHs.size != 1 && rootedSHs.exists(sh => sh.predCalls.isEmpty && !sh.hasPointer)) {
         // FIXME: Ensure that there is no component that consists only of pure constraints. Such a component should be incorporated with another SH
         throw new IllegalStateException(s"Rooted components $rootedSHs contain empty component")
       }
