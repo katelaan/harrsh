@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.ExampleSIDs._
+import at.forsyte.harrsh.ExampleSids._
 
 class LocalProfileTest extends TestWithSyntacticSugarForDecompositions {
   

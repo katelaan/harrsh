@@ -5,7 +5,7 @@ import at.forsyte.harrsh.test.HarrshTest
 /**
   * Created by jkatelaa on 4/20/17.
   */
-class PrettyPrintedSIDParserTest extends HarrshTest {
+class PrettyPrintedSidParserTest extends HarrshTest {
 
   val refinedSid =
     """    P(x1, x2) <= P4(x1,x2) ;
@@ -117,8 +117,8 @@ class PrettyPrintedSIDParserTest extends HarrshTest {
 
   it should " succeed parsing " in {
 
-    assert(SIDParsers.PrettyPrintedSIDParser.runOnSID(refinedSid).isDefined)
-    assert(SIDParsers.PrettyPrintedSIDParser.runOnSID(refinedSidErr).isEmpty)
+    assert(SidParsers.PrettyPrintedSidParser.runOnSid(refinedSid).isDefined)
+    assert(SidParsers.PrettyPrintedSidParser.runOnSid(refinedSidErr).isEmpty)
 
   }
 

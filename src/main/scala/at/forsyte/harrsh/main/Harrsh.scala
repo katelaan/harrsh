@@ -8,7 +8,7 @@ import at.forsyte.harrsh.entailment.EntailmentChecker
 import at.forsyte.harrsh.modelchecking.GreedyUnfoldingModelChecker
 import at.forsyte.harrsh.parsers.QueryParser
 import at.forsyte.harrsh.refinement.{DecisionProcedures, RefinementAlgorithms}
-import at.forsyte.harrsh.seplog.inductive.SIDUnfolding
+import at.forsyte.harrsh.seplog.inductive.SidUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 import at.forsyte.harrsh.main.ExecutionMode._
 
@@ -125,7 +125,7 @@ object Harrsh extends Implicits {
 
       case Unfold =>
         val sid = QueryParser.getSidFromFile(config.file)
-        println(SIDUnfolding.unfold(sid, config.unfoldingDepth, config.unfoldingsReduced).mkString("\n"))
+        println(SidUnfolding.unfold(sid, config.unfoldingDepth, config.unfoldingsReduced).mkString("\n"))
 
       case Analyze =>
         val sid = QueryParser.getSidFromFile(config.file)

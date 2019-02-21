@@ -18,7 +18,7 @@ object ToSlideFormat extends EntailmentFormatConverter {
     )
   }
 
-  private def toSlideSid(toplevel: SymbolicHeap, sid: SID): String = {
+  private def toSlideSid(toplevel: SymbolicHeap, sid: Sid): String = {
     val callString = slideRootCall(toplevel)
     val preds = sid.preds map toSlidePred
     (callString +: preds).mkString("\n\n")

@@ -59,7 +59,7 @@ object ToSongbirdFormat extends EntailmentFormatConverter {
     }
   }
 
-  private def toSongbirdType(sid: SID, lhs: SymbolicHeap, rhs: SymbolicHeap): String = {
+  private def toSongbirdType(sid: Sid, lhs: SymbolicHeap, rhs: SymbolicHeap): String = {
     val ptoArities: Set[Int] = pointerArities(sid, lhs, rhs)
     if (ptoArities.size > 1)
       throw ConversionException("Multiple pointer arities within one benchmark not supported by Songbird exporter: " + ptoArities)

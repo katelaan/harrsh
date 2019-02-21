@@ -10,20 +10,20 @@ object SidFactory extends HarrshLogging {
     RichSid(unrooted.startPred, unrooted.preds, unrooted.description, rootParams)
   }
 
-  def makeSid(startPred: String, description: String, ruleTuples: (String, Seq[String], SymbolicHeap)*): SID = {
+  def makeSid(startPred: String, description: String, ruleTuples: (String, Seq[String], SymbolicHeap)*): Sid = {
     makeSidfromRuleBodies(startPred, ruleTuples map (t => (t._1, RuleBody(t._2, t._3))), description)
   }
 
-  def makeSidfromRuleBodies(startPred: String, ruleTuples: Seq[(String,RuleBody)], description: String): SID = {
+  def makeSidfromRuleBodies(startPred: String, ruleTuples: Seq[(String,RuleBody)], description: String): Sid = {
     val rulesByPred = ruleTuples.groupBy(_._1).mapValues(_.map(_._2)).toSeq
     makeSidfromPredSpecs(startPred, rulesByPred, description)
   }
 
-  def makeSidfromPredSpecs(startPred: String, predSpecs: Seq[(String,Seq[RuleBody])], description: String): SID = {
+  def makeSidfromPredSpecs(startPred: String, predSpecs: Seq[(String,Seq[RuleBody])], description: String): Sid = {
     val preds = predSpecs.map{
       spec => rulesToPred(spec._1, spec._2)
     }
-    SID(startPred, preds, description)
+    Sid(startPred, preds, description)
   }
 
   private def rulesToPred(predIdent: String, ruleBodies: Seq[RuleBody]): Predicate = {
@@ -58,14 +58,14 @@ object SidFactory extends HarrshLogging {
     * This is necessary when parsing Harrsh format, as all rules in that format must use the same parameter names, but some rules may not use all parameters.
     *
     */
-  def makeSidFromHarrshRules(startPred: String, ruleTuples: Seq[(String,RuleBody)], description: String /*, rootParams: Map[String, FreeVar] = Map.empty*/): SID = {
+  def makeSidFromHarrshRules(startPred: String, ruleTuples: Seq[(String,RuleBody)], description: String /*, rootParams: Map[String, FreeVar] = Map.empty*/): Sid = {
     val rulesByPred = ruleTuples.groupBy(_._1)
     val rules = rulesByPred.map(grouped => Predicate(
       grouped._1,
       alignFVSeqs(grouped._2.map(_._2))/*,
       rootParams.get(grouped._1)*/)
     ).toSeq
-    SID(startPred, rules, description)
+    Sid(startPred, rules, description)
   }
 
   private def alignFVSeqs(ruleBodies: Seq[RuleBody]): Seq[RuleBody] = {
@@ -80,7 +80,7 @@ object SidFactory extends HarrshLogging {
     ruleBodies map (b => b.copy(body = b.body.copy(freeVars = maxFreeVars)))
   }
 
-  def fromSymbolicHeap(sh: SymbolicHeap, backgroundSID: SID = SID.empty) : SID = {
+  def fromSymbolicHeap(sh: SymbolicHeap, backgroundSID: Sid = Sid.empty) : Sid = {
     val startPred = "sh"
     val newRule = RuleBody(sh.boundVars.toSeq map (_.toString), sh)
     val newPred = Predicate(startPred, Seq(newRule))

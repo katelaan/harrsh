@@ -5,7 +5,7 @@ import at.forsyte.harrsh.Implicits.{ParsableString, RichModel, RichSID, RichSymb
 import at.forsyte.harrsh.modelchecking.Model
 import at.forsyte.harrsh.main.interactive.AnnotatedResultBuffer
 import at.forsyte.harrsh.refinement._
-import at.forsyte.harrsh.seplog.inductive.{RuleBody, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{RuleBody, Sid, SymbolicHeap}
 import at.forsyte.harrsh.util.IOUtils
 
 import scala.concurrent.duration
@@ -17,15 +17,15 @@ import scala.language.implicitConversions
   */
 object Interactive {
 
-  private val sidbuffer : AnnotatedResultBuffer[SID] = AnnotatedResultBuffer(10)
+  private val sidbuffer : AnnotatedResultBuffer[Sid] = AnnotatedResultBuffer(10)
   private val shbuffer : AnnotatedResultBuffer[SymbolicHeap] = AnnotatedResultBuffer(20)
-  private var loadedSids : Map[String,SID] = Map.empty
+  private var loadedSids : Map[String,Sid] = Map.empty
 
   private val InteractiveTimeout = Duration(30, duration.SECONDS)
 
-  def sid : SID = sids(1)
+  def sid : Sid = sids(1)
   def sids() : Unit = println(sidbuffer.summarize)
-  def sids(i : Int) : SID = sidbuffer(i)
+  def sids(i : Int) : Sid = sidbuffer(i)
 
   def heap : SymbolicHeap = heaps(1)
   def heaps() : Unit = println(shbuffer.summarize)
@@ -73,7 +73,7 @@ object Interactive {
 
   case class BufferingParsableString(override val s : String) extends ParsableString(s) {
 
-    override def load() : SID = {
+    override def load() : Sid = {
       println("Loading '" + s + "'")
       val sid = super.load()
       sidbuffer.add(s, sid)
@@ -86,12 +86,12 @@ object Interactive {
       record(s, super.parse)
     }
 
-    def get() : SID = loadedSids(s)
+    def get() : Sid = loadedSids(s)
   }
 
-  case class BufferingRichSID(override val sid : SID) extends RichSID(sid) {
+  case class BufferingRichSID(override val sid : Sid) extends RichSID(sid) {
 
-    override def refineAndCheckEmptiness(task : AutomatonTask) : (SID,Boolean) = {
+    override def refineAndCheckEmptiness(task : AutomatonTask) : (Sid,Boolean) = {
       val res@(refinedSID,isEmpty) = super.refineAndCheckEmptiness(task)
       sidbuffer.add("Refinement by " + task, refinedSID)
       //println("Result stored in variable 'sid'")
@@ -113,7 +113,7 @@ object Interactive {
     override def unfoldIthCall(i : Int, by : SymbolicHeap) : SymbolicHeap = record("unfold " + i + "th", super.unfoldIthCall(i, by))
     override def simplify : SymbolicHeap = record("simplified", super.simplify)
 
-    override def isA(sid: SID): Boolean = {
+    override def isA(sid: Sid): Boolean = {
       println("Checking " + sh + " |= " + sid.callToStartPred)
       super.isA(sid)
     }
@@ -122,7 +122,7 @@ object Interactive {
 
   implicit def ruleToHeap(rule : RuleBody) : SymbolicHeap = rule.body
 
-  implicit def sidToRichSID(sid : SID) : BufferingRichSID = BufferingRichSID(sid)
+  implicit def sidToRichSID(sid : Sid) : BufferingRichSID = BufferingRichSID(sid)
 
   implicit def sidToRichSH(sh : SymbolicHeap) : BufferingRichSymbolicHeap = BufferingRichSymbolicHeap(sh)
 

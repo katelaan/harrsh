@@ -4,7 +4,7 @@ import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.seplog.FreeVar
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.test.HarrshTableTest
-import at.forsyte.harrsh.{ExampleSIDs, TestValues}
+import at.forsyte.harrsh.{ExampleSids, TestValues}
 import org.scalatest.prop.TableFor4
 
 class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
@@ -13,10 +13,10 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
 
   property("Soundness of entailment for singly-linked lists") {
 
-    val nel = ExampleSIDs.Nel
-    val odd = ExampleSIDs.OddNel
-    val even = ExampleSIDs.EvenNel
-    val anel = ExampleSIDs.AcycNel
+    val nel = ExampleSids.Nel
+    val odd = ExampleSids.OddNel
+    val even = ExampleSids.EvenNel
+    val anel = ExampleSids.AcycNel
     val sinlgePtrLhs = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> x2))
     val reversedSinlgePtrLhs = SidFactory.fromSymbolicHeap(SymbolicHeap(x2 -> x1))
     val twoPtrLhs = SidFactory.makeRootedSid("twoptrs",
@@ -88,7 +88,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
 
   property("Soundness of entailment for doubly-linked lists") {
 
-    val dll = ExampleSIDs.NeDll
+    val dll = ExampleSids.NeDll
 
     val dllTable = Table(
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
@@ -102,7 +102,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
 
   property("Soundness of entailment for singly-linked trees") {
 
-    val tree = ExampleSIDs.Tree
+    val tree = ExampleSids.Tree
     val singleTreePtr = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> (nil,nil)))
     val almostLinearTree = SidFactory.makeRootedSid("ltree",
       "Null-terminated tree",
@@ -133,8 +133,8 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
 
   property("Soundness of entailment for TLLs") {
 
-    val tll = ExampleSIDs.Tll
-    val tllAcyc = ExampleSIDs.TllAcyc
+    val tll = ExampleSids.Tll
+    val tllAcyc = ExampleSids.TllAcyc
 
     val tllTable = Table(
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
@@ -170,7 +170,7 @@ object EntailmentAutomatonTest extends TestValues {
   def main(args: Array[String]): Unit = {
 
     // Limitation of current implementation: Can't deal with redundant extra vars on LHS
-    val tree = ExampleSIDs.Tree
+    val tree = ExampleSids.Tree
     val singleTreePtrWithNullInfo = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3), x2 =:= nil, x3 =:= nil))
     val (lhsSid, rhsSid, rhsCall, shouldHold) = (singleTreePtrWithNullInfo, tree, P("tree")(x1), EntailmentHolds)
 

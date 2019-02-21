@@ -3,7 +3,7 @@ package at.forsyte.harrsh
 import at.forsyte.harrsh.Implicits._
 import at.forsyte.harrsh.modelchecking.{GreedyUnfoldingModelChecker, Model, ReducedEntailment}
 import at.forsyte.harrsh.main.MainIO
-import at.forsyte.harrsh.parsers.{QueryParser, SIDParsers}
+import at.forsyte.harrsh.parsers.{QueryParser, SidParsers}
 import at.forsyte.harrsh.pure.EqualityBasedSimplifications
 import at.forsyte.harrsh.refinement.DecisionProcedures.AnalysisResult
 import at.forsyte.harrsh.refinement.{AutomatonTask, DecisionProcedures, RefinementAlgorithms, RunSat}
@@ -24,7 +24,7 @@ trait Implicits {
 
   implicit def ruleToHeap(rule : RuleBody) : SymbolicHeap = rule.body
 
-  implicit def sidToRichSID(sid : SID) : RichSID = new RichSID(sid)
+  implicit def sidToRichSID(sid : Sid) : RichSID = new RichSID(sid)
 
   implicit def sidToRichSH(sh : SymbolicHeap) : RichSymbolicHeap = new RichSymbolicHeap(sh)
 
@@ -41,12 +41,12 @@ object Implicits extends Implicits {
 
   class ParsableString(val s : String) {
 
-    def load() : SID = {
+    def load() : Sid = {
       IOUtils.findFileIn(s, Defaults.PathsToExamples) match {
         case Some(file) => QueryParser.getSidFromFile(file)
         case None =>
           IOUtils.printWarningToConsole("Could not find file '" + s + "' in current path " + Defaults.PathsToExamples.mkString(":"))
-          SID.empty("fail")
+          Sid.empty("fail")
       }
     }
 
@@ -60,7 +60,7 @@ object Implicits extends Implicits {
     }
 
     def parse : SymbolicHeap = {
-      SIDParsers.CombinedSIDParser.runOnSymbolicHeap(s) match {
+      SidParsers.CombinedSidParser.runOnSymbolicHeap(s) match {
         case Some(sh) => sh
         case None =>
           IOUtils.printWarningToConsole("Could not parse '" + s + "' as symbolic heap")
@@ -68,27 +68,27 @@ object Implicits extends Implicits {
       }
     }
 
-    def parseSID : SID = {
-      SIDParsers.CombinedSIDParser.runOnSID(s) match {
+    def parseSID : Sid = {
+      SidParsers.CombinedSidParser.runOnSid(s) match {
         case Some(sh) => sh
         case None =>
           IOUtils.printWarningToConsole("Could not parse '" + s + "' as SID")
-          SID.empty
+          Sid.empty
       }
     }
   }
 
-  class RichSID(val sid : SID) {
+  class RichSID(val sid : Sid) {
 
-    def refined(task : AutomatonTask) : SID = refineAndCheckEmptiness(task)._1
+    def refined(task : AutomatonTask) : Sid = refineAndCheckEmptiness(task)._1
 
-    def refineAndCheckEmptiness(task : AutomatonTask) : (SID,Boolean) = {
+    def refineAndCheckEmptiness(task : AutomatonTask) : (Sid,Boolean) = {
       RefinementAlgorithms.refineSID(sid, task.getAutomaton, InteractiveTimeout, reportProgress = Defaults.reportProgress) match {
         case Some(refinedSID) =>
           refinedSID
         case None =>
           IOUtils.printWarningToConsole("Refinement failed")
-          (SID.empty(sid.startPred),true)
+          (Sid.empty(sid.startPred),true)
       }
     }
 
@@ -110,7 +110,7 @@ object Implicits extends Implicits {
       if (sid.hasRuleForStartPred) {
         // There is a rule for the start predicate. Assume this means non-emptiness (although this is only true for refinement results, not in general...)
         // TODO: Perform an actual emptiness test here?
-        Some(SIDUnfolding.firstReducedUnfolding(sid))
+        Some(SidUnfolding.firstReducedUnfolding(sid))
       } else None
 
     }
@@ -154,28 +154,28 @@ object Implicits extends Implicits {
     def unfoldCalls(by : SymbolicHeap*) : SymbolicHeap = sh.replaceCalls(by)
     def unfoldAllCallsBy(by : SymbolicHeap) : SymbolicHeap = sh.replaceCalls(Seq.fill(sh.predCalls.size)(by))
 
-    def unfoldOnce(sid : SID) : Iterable[SymbolicHeap] = SIDUnfolding.unfoldOnce(sid, Seq(sh))
-    def unfoldings(sid : SID, depth : Int) : Iterable[SymbolicHeap] = SIDUnfolding.unfold(sid, depth)
-    def reducedUnfoldings(sid : SID, depth : Int) : Iterable[SymbolicHeap] = SIDUnfolding.unfold(sid, depth, reducedOnly = true)
+    def unfoldOnce(sid : Sid) : Iterable[SymbolicHeap] = SidUnfolding.unfoldOnce(sid, Seq(sh))
+    def unfoldings(sid : Sid, depth : Int) : Iterable[SymbolicHeap] = SidUnfolding.unfold(sid, depth)
+    def reducedUnfoldings(sid : Sid, depth : Int) : Iterable[SymbolicHeap] = SidUnfolding.unfold(sid, depth, reducedOnly = true)
 
     def simplify : SymbolicHeap = EqualityBasedSimplifications.fullEqualitySimplification(sh)
 
-    def isA(sid : SID) : Boolean = {
+    def isA(sid : Sid) : Boolean = {
       ReducedEntailment.checkSatisfiableRSHAgainstSID(sh, sid.callToStartPred, sid, Defaults.reportProgress)
     }
 
-    def toSid(callIntepretation: SID) : SID = SidFactory.fromSymbolicHeap(sh, callIntepretation)
+    def toSid(callIntepretation: Sid) : Sid = SidFactory.fromSymbolicHeap(sh, callIntepretation)
 
-    def toSid : SID = {
+    def toSid : Sid = {
       if (sh.nonReduced) throw new Throwable("Can't convert non-reduced heap to SID without SID for calls")
       else SidFactory.fromSymbolicHeap(sh)
     }
 
-    def refineBy(sid: SID, task : AutomatonTask) : (SID,Boolean) = {
+    def refineBy(sid: Sid, task : AutomatonTask) : (Sid,Boolean) = {
       toSid(sid).refineAndCheckEmptiness(task)
     }
 
-    def exists(sid: SID, task : AutomatonTask) : Boolean = {
+    def exists(sid: Sid, task : AutomatonTask) : Boolean = {
       toSid(sid).exists(task)
     }
 
@@ -184,7 +184,7 @@ object Implicits extends Implicits {
       toSid.exists(task)
     }
 
-    def forall(sid: SID, task : AutomatonTask) : Boolean = {
+    def forall(sid: Sid, task : AutomatonTask) : Boolean = {
       toSid(sid).forall(task)
     }
 
@@ -193,10 +193,10 @@ object Implicits extends Implicits {
       toSid.forall(task)
     }
 
-    def isSat(sid : SID) : Boolean = exists(sid, RunSat)
+    def isSat(sid : Sid) : Boolean = exists(sid, RunSat)
     def isSat : Boolean = exists(RunSat)
 
-    def getModel(sid : SID) : Option[Model] = {
+    def getModel(sid : Sid) : Option[Model] = {
       val (satSid, isEmpty) = SidFactory.fromSymbolicHeap(sh, sid).refineAndCheckEmptiness(RunSat)
       if (isEmpty) {
         println("Symbolic heap is unsatisfiable w.r.t. the given SID")
@@ -222,7 +222,7 @@ object Implicits extends Implicits {
       isModelOf(SidFactory.fromSymbolicHeap(sh))
     }
 
-    def isModelOf(sid : SID) : Boolean = GreedyUnfoldingModelChecker.isModel(model, sid)
+    def isModelOf(sid : Sid) : Boolean = GreedyUnfoldingModelChecker.isModel(model, sid)
   }
 
 }

@@ -29,7 +29,7 @@ sealed trait Query {
   }
 }
 
-case class RefinementQuery(sid: SID, task: Option[AutomatonTask], override val status: ProblemStatus, override val fileName: Option[String]) extends Query {
+case class RefinementQuery(sid: Sid, task: Option[AutomatonTask], override val status: ProblemStatus, override val fileName: Option[String]) extends Query {
 
   def setTask(task: AutomatonTask): RefinementQuery = copy(task = Some(task))
 
@@ -76,7 +76,7 @@ object RefinementQuery {
   }
 }
 
-case class SatQuery(sid: SID, query: SymbolicHeap, override val status: ProblemStatus, override val fileName: Option[String]) extends Query {
+case class SatQuery(sid: Sid, query: SymbolicHeap, override val status: ProblemStatus, override val fileName: Option[String]) extends Query {
 
   val StartPred = "ASSERT"
 
@@ -96,17 +96,17 @@ case class SatQuery(sid: SID, query: SymbolicHeap, override val status: ProblemS
     * Integrate the top-level query with the predicates by making the query the start predicate.
     * @return Combined SID
     */
-  def toIntegratedSid: SID = {
+  def toIntegratedSid: Sid = {
     // TODO: Make sure that all automata deal correctly with top-level formulas
     startRule match {
       case None =>
         // The query is a single predicate call => Extract start predicate from that
         val startPred = query.predCalls.head.name
-        SID(startPred, sid.preds, sid.description)
+        Sid(startPred, sid.preds, sid.description)
       case Some(rule) =>
         // Need an additional rule to represent query => Derive integrated SID from that
         val allPreds = Predicate(StartPred, Seq(rule)) +: sid.preds
-        SID(StartPred, allPreds, sid.description)
+        Sid(StartPred, allPreds, sid.description)
     }
 
   }
@@ -132,7 +132,7 @@ case class SatQuery(sid: SID, query: SymbolicHeap, override val status: ProblemS
 
 }
 
-case class EntailmentQuery(lhs: SymbolicHeap, rhs: SymbolicHeap, sid: SID, override val status: ProblemStatus, override val fileName: Option[String]) extends Query {
+case class EntailmentQuery(lhs: SymbolicHeap, rhs: SymbolicHeap, sid: Sid, override val status: ProblemStatus, override val fileName: Option[String]) extends Query {
   def setFileName(fileName: String): EntailmentQuery = copy(fileName = Some(fileName))
 
 }

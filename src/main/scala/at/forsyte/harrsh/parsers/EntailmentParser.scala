@@ -1,14 +1,14 @@
 package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.main.{EntailmentQuery, HarrshLogging, ProblemStatus}
-import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{Sid, SymbolicHeap}
 
 import scala.util.Try
 import scala.util.parsing.combinator.JavaTokenParsers
 
 trait EntailmentParser extends JavaTokenParsers with HarrshLogging {
 
-  self: SIDCombinatorParser =>
+  self: SidCombinatorParser =>
 
   final def run(input : String, printFailure : Boolean = true) : Option[EntailmentQuery] = runParser(parseEntailmentQuery)(input, printFailure)
 
@@ -25,7 +25,7 @@ trait EntailmentParser extends JavaTokenParsers with HarrshLogging {
     if (_) ProblemStatus.Correct else ProblemStatus.Incorrect
   } getOrElse(ProblemStatus.Unknown)
 
-  def parseSidGroup: Parser[SID] = parseGroup("sid"){
+  def parseSidGroup: Parser[Sid] = parseGroup("sid"){
     parseSID
   }
 

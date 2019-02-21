@@ -9,7 +9,7 @@ import at.forsyte.harrsh.util.Combinators
 /**
   * Created by jens on 3/6/17.
   */
-object SIDUnfolding extends HarrshLogging {
+object SidUnfolding extends HarrshLogging {
 
   def unfoldSingleCall(sh : SymbolicHeap, call : PredCall, sid : SidLike) : Seq[SymbolicHeap] = {
     logger.debug("Unfolding " + call + " in " + sh)

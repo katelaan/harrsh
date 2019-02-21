@@ -10,30 +10,30 @@ import at.forsyte.harrsh.seplog.{FreeVar, Var}
 /**
   * Created by jkatelaa on 10/20/16.
   */
-private[parsers] trait HarrshSIDParser extends SIDCombinatorParser {
+private[parsers] trait HarrshSidParser extends SidCombinatorParser {
 
   self : Atoms with QuantifierPrefix =>
 
   override final def runOnSymbolicHeap(input : String, printFailure : Boolean = true) : Option[SymbolicHeap] = catchNumberFormatException{
-    runParser(parseBody)(input, printFailure) map (HarrshSIDParser.stringSHwithHarrshNamingtoSH(_)._1)
+    runParser(parseBody)(input, printFailure) map (HarrshSidParser.stringSHwithHarrshNamingtoSH(_)._1)
   }
 
   override def parseSID : Parser[Sid] = repsep(parseRule, ";") <~ opt(";") ^^ {
     rules =>
       // We assume the start predicate appears first in the file
-      val startPred : String = rules.headOption.map(_._1).getOrElse(HarrshSIDParser.EmptySidStartPred)
+      val startPred : String = rules.headOption.map(_._1).getOrElse(HarrshSidParser.EmptySidStartPred)
       val desc : String = startPred + "-SID"
       SidFactory.makeSidFromHarrshRules(startPred, rules, desc)
   }
 
   override def parseSymbolicHeap : Parser[SymbolicHeap] = parseBody ^^ {
-    HarrshSIDParser.stringSHwithHarrshNamingtoSH(_)._1
+    HarrshSidParser.stringSHwithHarrshNamingtoSH(_)._1
   }
 
   // TODO This is still somewhat brittle, in that the parser does not detect if the largest free variable of this rule is less than the max free var for other rules of the same predicate, thus erroneously assuming an arity that is too low
   def parseRule : Parser[(String,RuleBody)] = parseHead ~ ("<=" ~> parseBody) ^^ {
     case head ~ body =>
-      val (renamedBody, filledFreeVars, boundVars) = HarrshSIDParser.stringSHwithHarrshNamingtoSH(body)
+      val (renamedBody, filledFreeVars, boundVars) = HarrshSidParser.stringSHwithHarrshNamingtoSH(body)
       //logger.debug("Assembling rule out of head " + head + " and body " + body + " yielding modified body " + renamedBody)
       (head, RuleBody(boundVars, renamedBody.copy(freeVars = filledFreeVars.map(FreeVar))))
   }
@@ -41,7 +41,7 @@ private[parsers] trait HarrshSIDParser extends SIDCombinatorParser {
   private def parseHead : Parser[String] = ident <~ opt(paramList)
 
   private def paramList : Parser[Unit] = ("(" ~> repsep(ident, ",") <~ ")") ^? {
-    case ids if ids.forall(HarrshSIDParser.isHarrshFreeVariableString) && ids.map(FreeVar) == HarrshSIDParser.mkAllVars(1 to ids.length) => ()
+    case ids if ids.forall(HarrshSidParser.isHarrshFreeVariableString) && ids.map(FreeVar) == HarrshSidParser.mkAllVars(1 to ids.length) => ()
   }
 
   override def parseBody : Parser[StringSymbolicHeap] = parseQuantifiers ~> parseSpatial ~ opt(":" ~> parsePure) ^^ {
@@ -55,7 +55,7 @@ private[parsers] trait HarrshSIDParser extends SIDCombinatorParser {
 
 }
 
-object HarrshSIDParser {
+object HarrshSidParser {
 
   // TODO: Add support for other free variable names
 

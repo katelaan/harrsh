@@ -182,7 +182,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
       */
     private def unfoldFirstCallAndRecurse(formulaToMatch: SymbolicHeap, partialUnfolding: SymbolicHeap, history: MCHistory, considerRulesSatisfying : SymbolicHeap => Boolean): Boolean = {
       // Arbitrarily pick first call
-      val heaps = SIDUnfolding.unfoldFirstCallWithSatisfyingBodies(headsToBodies, partialUnfolding, considerRulesSatisfying)
+      val heaps = SidUnfolding.unfoldFirstCallWithSatisfyingBodies(headsToBodies, partialUnfolding, considerRulesSatisfying)
       logger.debug("Found the following " + heaps.size + " unfoldings:\n" + heaps.mkString("\n"))
       processHeapsLazilyWith(applyOrderingHeuristics(heaps)) {
         (sh: SymbolicHeap) => run(formulaToMatch, sh, history.logStep(MCHistory.UnfoldingStep(formulaToMatch, partialUnfolding, sh)))

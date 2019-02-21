@@ -8,7 +8,7 @@ import at.forsyte.harrsh.seplog.sidtransformers.{AnnotateSidWithRootParams, Rest
 
 object EntailmentParsers extends HarrshLogging {
 
-  val DefaultEntailmentParser = new EntailmentParser with HarrshSIDParser with AsciiAtoms with EmptyQuantifierPrefix
+  val DefaultEntailmentParser = new EntailmentParser with HarrshSidParser with AsciiAtoms with EmptyQuantifierPrefix
 
   val PrefixOfLhsAuxiliaryPreds = "lhs"
   val PrefixOfRhsAuxiliaryPreds = "rhs"
@@ -60,7 +60,7 @@ object EntailmentParsers extends HarrshLogging {
     ToSymbolicHeapOverBtwSid(querySide, if (isLhs) PrefixOfLhsAuxiliaryPreds else PrefixOfRhsAuxiliaryPreds, sid)
   }
 
-  private def hasCorrectArity(call: PredCall, sid: SID) = {
+  private def hasCorrectArity(call: PredCall, sid: Sid) = {
     val res = call.args.length == sid(call.name).arity
     if (!res) {
       logger.error(s"Invalid input: Query contains call $call, but predicate ${call.name} has arity ${sid(call.name).arity}")

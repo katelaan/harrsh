@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog.inductive.{RichSid, Sid, SidFactory, SymbolicHea
 /**
   * Created by jens on 10/15/16.
   */
-object ExampleSIDs extends TestValues {
+object ExampleSids extends TestValues {
   
   lazy val Sll: RichSid = SidFactory.makeRootedSid("sll",
     "Singly-linked list",

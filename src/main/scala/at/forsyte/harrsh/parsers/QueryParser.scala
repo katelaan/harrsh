@@ -2,7 +2,7 @@ package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.main.{HarrshLogging, ProblemStatus, Query, RefinementQuery}
 import at.forsyte.harrsh.refinement.{AutomatonTask, RunSat}
-import at.forsyte.harrsh.seplog.inductive.SID
+import at.forsyte.harrsh.seplog.inductive.Sid
 import at.forsyte.harrsh.util.{IOUtils, StringUtils}
 
 object QueryParser extends HarrshLogging {
@@ -30,18 +30,18 @@ object QueryParser extends HarrshLogging {
   /**
     * Parse file into SID
     */
-  def getSidFromFile(fileName : String) : SID = {
+  def getSidFromFile(fileName : String) : Sid = {
     val parser = if (fileName.endsWith(FileExtensions.Cyclist)) {
       logger.debug("File ends in .defs, will assume cyclist format")
-      SIDParsers.CyclistSIDParser
+      SidParsers.CyclistSidParser
     } else {
       logger.debug("Assuming standard SID format")
-      SIDParsers.DefaultSIDParser
+      SidParsers.DefaultSidParser
     }
 
     val content = IOUtils.readFile(fileName)
 
-    parser.runOnSID(content) match {
+    parser.runOnSid(content) match {
       case Some(sid) =>
         sid
       case None =>
@@ -71,7 +71,7 @@ object QueryParser extends HarrshLogging {
     val parseOptions: Stream[Option[Query]] = Stream(
       EntailmentParsers.parseHarrshEntailmentFormat(fileName).map(_.setFileName(fileName)),
       slcomp.parseFileToQuery(fileName),
-      SIDParsers.CombinedSIDParser.runOnSID(IOUtils.readFile(fileName)) map (sid => RefinementQuery(sid, Some(RunSat), ProblemStatus.Unknown, Some(fileName)))
+      SidParsers.CombinedSidParser.runOnSid(IOUtils.readFile(fileName)) map (sid => RefinementQuery(sid, Some(RunSat), ProblemStatus.Unknown, Some(fileName)))
     )
     parseOptions.find(_.isDefined).flatten.getOrElse{
       throw ParseException(s"Could not parse '$fileName' with any parser.")

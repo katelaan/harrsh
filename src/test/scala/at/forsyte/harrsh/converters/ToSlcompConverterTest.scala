@@ -1,22 +1,22 @@
 package at.forsyte.harrsh.converters
 
-import at.forsyte.harrsh.{ExampleSIDs, Implicits, TestValues}
+import at.forsyte.harrsh.{ExampleSids, Implicits, TestValues}
 import at.forsyte.harrsh.main.EntailmentQuery
 import at.forsyte.harrsh.main.ProblemStatus.{Correct, Incorrect}
 import at.forsyte.harrsh.parsers.{QueryParser, slcomp}
-import at.forsyte.harrsh.seplog.inductive.{Predicate, SID, SidLike}
+import at.forsyte.harrsh.seplog.inductive.{Predicate, Sid, SidLike}
 import at.forsyte.harrsh.test.HarrshTableTest
 
 class ToSlcompConverterTest extends HarrshTableTest with Implicits with TestValues {
 
   val entailmentQueries = Table(
     ("lhs", "rhs", "sid", "status", "file"),
-    ("nel(x1,x2) * x2 -> x3 * nel(x3, x4)".parse, "nel(x1, x4)".parse, ExampleSIDs.Nel.underlying, Correct, Some("nel.hrs")),
-    ("emp : {x1 = x2}".parse, "x1 -> x2 : {x1 != x2}".parse, ExampleSIDs.Nel.underlying, Incorrect, Some("nel.hrs")),
-    ("tll(x1,x2,x3)".parse, "tll(x1,x2,x3) : {x1 != x2}".parse, ExampleSIDs.TllAcyc.underlying, Incorrect, Some("atll.hrs")),
-    ("emp".parse, "dll(x1,x2,x3,x4)".parse, ExampleSIDs.NeAcycDll.underlying, Incorrect, Some("dll.hrs")),
-    ("odd(x1,x2) * odd(x2, x3)".parse, "even(x1,x3) : {x1 != x3}".parse, ExampleSIDs.OddList.underlying, Correct, Some("odd.hrs")),
-    ("emp".parse, "emp".parse, ExampleSIDs.OptionallyEstablishedSID2, Correct, Some("strange.hrs"))
+    ("nel(x1,x2) * x2 -> x3 * nel(x3, x4)".parse, "nel(x1, x4)".parse, ExampleSids.Nel.underlying, Correct, Some("nel.hrs")),
+    ("emp : {x1 = x2}".parse, "x1 -> x2 : {x1 != x2}".parse, ExampleSids.Nel.underlying, Incorrect, Some("nel.hrs")),
+    ("tll(x1,x2,x3)".parse, "tll(x1,x2,x3) : {x1 != x2}".parse, ExampleSids.TllAcyc.underlying, Incorrect, Some("atll.hrs")),
+    ("emp".parse, "dll(x1,x2,x3,x4)".parse, ExampleSids.NeAcycDll.underlying, Incorrect, Some("dll.hrs")),
+    ("odd(x1,x2) * odd(x2, x3)".parse, "even(x1,x3) : {x1 != x3}".parse, ExampleSids.OddList.underlying, Correct, Some("odd.hrs")),
+    ("emp".parse, "emp".parse, ExampleSids.OptionallyEstablishedSID2, Correct, Some("strange.hrs"))
   )
 
   private def sort(sid: SidLike): Seq[Predicate] = {

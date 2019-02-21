@@ -7,7 +7,7 @@ import at.forsyte.harrsh.seplog.inductive._
 
 object AnnotateSidWithRootParams extends HarrshLogging {
 
-  def apply(sid: SID): Option[RichSid] = {
+  def apply(sid: Sid): Option[RichSid] = {
     Try {
       val rootedPreds = sid.preds map (pred => (pred.head, rootOfPred(pred)))
       RichSid(sid.startPred, sid.preds, sid.description, rootedPreds.toMap)

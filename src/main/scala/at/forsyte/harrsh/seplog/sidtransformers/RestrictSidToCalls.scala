@@ -4,8 +4,8 @@ import at.forsyte.harrsh.seplog.inductive._
 
 object RestrictSidToCalls {
 
-  def apply(sid: SID, calls: Set[PredCall]): SID = {
-    val restrictor = (a: SID, preds: Set[String]) => {
+  def apply(sid: Sid, calls: Set[PredCall]): Sid = {
+    val restrictor = (a: Sid, preds: Set[String]) => {
         a.copy(startPred = "UNDEFINED",
           preds = sid.preds.filter(pred => preds.contains(pred.head)))
     }

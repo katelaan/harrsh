@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var.Naming
-import at.forsyte.harrsh.seplog.inductive.{PureAtom, RuleBody, SID}
+import at.forsyte.harrsh.seplog.inductive.{PureAtom, RuleBody, Sid}
 import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
 
@@ -103,7 +103,7 @@ object EntailmentResultToLatex {
     def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentProfile]], transitions: Map[String, Set[(Seq[EntailmentProfile], RuleBody, EntailmentProfile)]]): String = {
       val resultTex = entailmentCheckerResultToLatex(aut, statesByPred)
       val queryTex = s"$$${ei.lhs.calls.toSymbolicHeap.toLatex} \\models ${ei.rhs.calls.toSymbolicHeap.toLatex}$$"
-      val combinedSid = SID(startPred = "", description = "", preds = ei.lhs.sid.preds ++ ei.rhs.sid.preds.filterNot(ei.lhs.sid.preds.contains))
+      val combinedSid = Sid(startPred = "", description = "", preds = ei.lhs.sid.preds ++ ei.rhs.sid.preds.filterNot(ei.lhs.sid.preds.contains))
       val sidTex = combinedSid.toLatex
       latexTemplate.replace(ResultPlaceholder, resultTex)
         .replace(QueryPlaceholder, queryTex)

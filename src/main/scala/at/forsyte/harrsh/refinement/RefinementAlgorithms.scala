@@ -33,7 +33,7 @@ object RefinementAlgorithms {
     * @param reportProgress Periodically report the number of iterations
     * @return The refined SID + emptiness flag (true iff empty) or None in case of timeout
     */
-  def refineSID(sid: SidLike, ha: HeapAutomaton, timeout: Duration, incrementalFromNumCalls: Option[Int] = None, reportProgress: Boolean = false): Option[(SID,Boolean)] = {
+  def refineSID(sid: SidLike, ha: HeapAutomaton, timeout: Duration, incrementalFromNumCalls: Option[Int] = None, reportProgress: Boolean = false): Option[(Sid,Boolean)] = {
     Combinators.tillTimeout(timeout){
       () => RefinementInstance(sid, ha, None, RefinementInstance.FullRefinement, incrementalFromNumCalls, skipSinksAsSources = false, reportProgress).run.toSID
     }.map(_._1)
@@ -61,7 +61,7 @@ object RefinementAlgorithms {
     typedResultStates.groupBy(_._1).mapValues(pairs => pairs.map(_._2))
   }
 
-  def refineSID(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): (SID,Boolean) = {
+  def refineSID(sid: Sid, ha: HeapAutomaton, reportProgress: Boolean): (Sid,Boolean) = {
     RefinementInstance(sid, ha, None, RefinementInstance.FullRefinement, None, skipSinksAsSources = false, reportProgress).run.toSID
   }
 
@@ -115,7 +115,7 @@ object RefinementAlgorithms {
         }
 
         val witness : Option[SymbolicHeap] = if (!empty) {
-          val w = SIDUnfolding.firstReducedUnfolding(refinedSid)
+          val w = SidUnfolding.firstReducedUnfolding(refinedSid)
           println("Witness: " + w)
           Some(w)
         } else {

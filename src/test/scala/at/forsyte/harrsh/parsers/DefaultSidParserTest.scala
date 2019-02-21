@@ -1,12 +1,12 @@
 package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.test.HarrshTableTest
-import at.forsyte.harrsh.parsers.SIDParsers.DefaultSIDParser
+import at.forsyte.harrsh.parsers.SidParsers.DefaultSidParser
 
 /**
   * Created by jkatelaa on 10/20/16.
   */
-class DefaultSIDParserTest extends HarrshTableTest {
+class DefaultSidParserTest extends HarrshTableTest {
 
   val Success = true
   val Failure = false
@@ -24,7 +24,7 @@ class DefaultSIDParserTest extends HarrshTableTest {
   property("The Default Harrsh SID parser should work") {
     forAll(inputs) {
       (input, expectedResult) =>
-        val parseResult = DefaultSIDParser.runOnSID(input)
+        val parseResult = DefaultSidParser.runOnSid(input)
 
         info("" + parseResult)
 

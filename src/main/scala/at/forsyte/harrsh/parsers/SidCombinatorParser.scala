@@ -8,7 +8,7 @@ import scala.util.parsing.combinator.JavaTokenParsers
 /**
   * Created by jkatelaa on 10/20/16.
   */
-private[parsers] trait SIDCombinatorParser extends JavaTokenParsers with SIDParser {
+private[parsers] trait SidCombinatorParser extends JavaTokenParsers with SidParser {
 
   def parseSID : Parser[Sid]
 
@@ -16,7 +16,7 @@ private[parsers] trait SIDCombinatorParser extends JavaTokenParsers with SIDPars
 
   def parseSymbolicHeap : Parser[SymbolicHeap]
 
-  override final def runOnSID(input : String, printFailure : Boolean = true) : Option[Sid] = catchNumberFormatException{
+  override final def runOnSid(input : String, printFailure : Boolean = true) : Option[Sid] = catchNumberFormatException{
     runParser(parseSID)(input, printFailure)
   }
 

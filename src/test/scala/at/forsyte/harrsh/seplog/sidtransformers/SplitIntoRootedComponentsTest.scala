@@ -1,11 +1,11 @@
 package at.forsyte.harrsh.seplog.sidtransformers
 
 import at.forsyte.harrsh.test.HarrshTableTest
-import at.forsyte.harrsh.{ExampleSIDs, Implicits, TestValues}
+import at.forsyte.harrsh.{ExampleSids, Implicits, TestValues}
 
 class SplitIntoRootedComponentsTest extends HarrshTableTest with Implicits with TestValues {
 
-  val nelSid = ExampleSIDs.Nel
+  val nelSid = ExampleSids.Nel
 
   val inputs = Table(
     ("symbolic heap", "sid", "reachability components"),

@@ -6,13 +6,13 @@ import at.forsyte.harrsh.test.HarrshTest
 /**
   * Created by jkatelaa on 4/20/17.
   */
-class SIDUnfoldingTest extends HarrshTest with Implicits {
+class SidUnfoldingTest extends HarrshTest with Implicits {
 
   behavior of "The SID unfolding"
 
   it should "return a reduced heap" in {
 
-    SIDUnfolding.firstReducedUnfolding(refinedSid)
+    SidUnfolding.firstReducedUnfolding(refinedSid)
 
   }
 

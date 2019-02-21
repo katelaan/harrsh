@@ -1,12 +1,12 @@
 package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.test.HarrshTableTest
-import at.forsyte.harrsh.parsers.SIDParsers.CyclistSIDParser
+import at.forsyte.harrsh.parsers.SidParsers.CyclistSidParser
 
 /**
   * Created by jkatelaa on 10/20/16.
   */
-class CyclistSIDParserTest extends HarrshTableTest {
+class CyclistSidParserTest extends HarrshTableTest {
 
   val Success = true
   val Failure = false
@@ -25,7 +25,7 @@ class CyclistSIDParserTest extends HarrshTableTest {
   property ("The Cyclist SID parser should work") {
     forAll(inputs) {
       (input, expectedResult) =>
-        val parseResult = CyclistSIDParser.runOnSID(input)
+        val parseResult = CyclistSidParser.runOnSid(input)
 
         info(""+parseResult)
 

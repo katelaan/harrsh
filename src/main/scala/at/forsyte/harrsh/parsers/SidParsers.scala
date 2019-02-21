@@ -8,20 +8,20 @@ import scala.annotation.tailrec
 /**
   * Created by jens on 4/6/17.
   */
-object SIDParsers {
+object SidParsers {
 
-  val DefaultSIDParser : SIDParser = new HarrshSIDParser with AsciiAtoms with EmptyQuantifierPrefix
+  val DefaultSidParser : SidParser = new HarrshSidParser with AsciiAtoms with EmptyQuantifierPrefix
 
-  val CyclistSIDParser : SIDParser = new CyclistStyleSIDParser with AsciiAtoms
+  val CyclistSidParser : SidParser = new CyclistStyleSidParser with AsciiAtoms
 
-  val PrettyPrintedSIDParser : SIDParser = new HarrshSIDParser with UnicodeAtoms with UnicodeQuantifierPrefix
+  val PrettyPrintedSidParser : SidParser = new HarrshSidParser with UnicodeAtoms with UnicodeQuantifierPrefix
 
-  val CombinedSIDParser : SIDParser = new SIDParser {
+  val CombinedSidParser : SidParser = new SidParser {
 
-    private val parsers = Seq(DefaultSIDParser, PrettyPrintedSIDParser, CyclistSIDParser)
+    private val parsers = Seq(DefaultSidParser, PrettyPrintedSidParser, CyclistSidParser)
 
-    override def runOnSID(input: String, printFailure : Boolean = false): Option[Sid] = tryAll(parsers, input){
-      (parser, input) => parser.runOnSID(input, printFailure)
+    override def runOnSid(input: String, printFailure : Boolean = false): Option[Sid] = tryAll(parsers, input){
+      (parser, input) => parser.runOnSid(input, printFailure)
     }
 
     override def runOnSymbolicHeap(input: String, printFailure : Boolean = false): Option[SymbolicHeap] = tryAll(parsers, input){
@@ -31,7 +31,7 @@ object SIDParsers {
     /**
       * Apply all of the given parsers on the given input, for each parser running the function f
       */
-    @tailrec private def tryAll[A](parsers : Seq[SIDParser], input : String)(f : (SIDParser, String) => Option[A]) : Option[A] = if (parsers.isEmpty) {
+    @tailrec private def tryAll[A](parsers : Seq[SidParser], input : String)(f : (SidParser, String) => Option[A]) : Option[A] = if (parsers.isEmpty) {
       None
     } else {
       f(parsers.head, input) match {

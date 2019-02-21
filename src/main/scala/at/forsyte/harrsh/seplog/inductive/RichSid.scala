@@ -32,7 +32,7 @@ case class RichSid(override val startPred : String,
     } yield (pred, rule)
   }
 
-  def underlying: SID = SID(startPred, preds, description)
+  def underlying: Sid = Sid(startPred, preds, description)
 
 }
 

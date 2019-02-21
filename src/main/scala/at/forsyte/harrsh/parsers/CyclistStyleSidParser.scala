@@ -8,7 +8,7 @@ import at.forsyte.harrsh.seplog.Var.Naming
 /**
   * Created by jkatelaa on 10/20/16.
   */
-private[parsers] trait CyclistStyleSIDParser extends SIDCombinatorParser {
+private[parsers] trait CyclistStyleSidParser extends SidCombinatorParser {
 
   self : Atoms =>
 

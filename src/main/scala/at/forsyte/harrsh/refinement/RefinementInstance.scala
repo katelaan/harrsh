@@ -125,7 +125,7 @@ case class RefinementInstance(sid: SidLike,
       * Convert refinement state to SID
       * @return The refined SID as well as a flag indicating whether it is empty
       */
-    def toSID : (SID,Boolean) = {
+    def toSID : (Sid,Boolean) = {
       // Assign suffixes to each state
       val states : Set[ha.State] = (for (TransitionInstance(states, _, _, headState) <- reachedTransitions) yield states :+ headState).flatten
       val stateToIndex : Map[ha.State, Int] = states.toSeq.zipWithIndex.toMap

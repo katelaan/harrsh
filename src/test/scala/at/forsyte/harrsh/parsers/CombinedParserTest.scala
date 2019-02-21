@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.parsers
 
 import at.forsyte.harrsh.Implicits
-import at.forsyte.harrsh.parsers.SIDParsers.CyclistSIDParser
+import at.forsyte.harrsh.parsers.SidParsers.CyclistSidParser
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
 import at.forsyte.harrsh.test.HarrshTableTest
 
