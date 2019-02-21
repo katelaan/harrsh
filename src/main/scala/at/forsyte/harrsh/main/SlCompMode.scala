@@ -7,34 +7,102 @@ import at.forsyte.harrsh.parsers.QueryParser.FileExtensions
 
 import scala.concurrent.duration.{Duration, SECONDS}
 import at.forsyte.harrsh.parsers.slcomp
-import at.forsyte.harrsh.refinement.{DecisionProcedures, RefinementInstance, RunSat}
-import at.forsyte.harrsh.util.IOUtils
+import at.forsyte.harrsh.refinement.{DecisionProcedures, RunSat}
+import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.Try
 
 object SlCompMode {
 
-  object config {
-    val ComputePerSideSids = false
-    val Timeout = 10
-    val IncrementalFromNumCalls = 4
+  object params {
+    // General
+    val Timeout = "timeout"
+    val Verbose = "verbose"
+    // Sat Checking
+    val SatCheckingIncrementalFromNumCalls = "sat-incremental"
+    // Entailment Checking
+    val ComputePerSideSids = "per-side-sid"
+    // Batch Mode
+    val BatchBaseDir = "dir"
+    val BatchTimeout = "batch-timeout"
+    val BatchCategories = "categories"
+    val BatchSkipWorstCase = "skip-succ"
   }
 
-  //val DIRS = List("bench/qf_shls_sat", "bench/qf_shid_sat")
-  val DIRS = List("bench/qf_shls_entl", "bench/qf_shid_entl")
-  val BATCH_TIMEOUT_IN_SECS = 5
-  val SKIP_WORSTCASE_INSTANCES = false
+  object config {
+
+    private val map: mutable.Map[String, Any] = mutable.Map(
+      // General
+      params.Timeout -> 2400,
+      params.Verbose -> false,
+      // Sat Checking
+      params.SatCheckingIncrementalFromNumCalls -> 4,
+      // Entailment Checking
+      params.ComputePerSideSids -> true,
+      // Batch Mode
+      params.BatchBaseDir -> "bench",
+      params.BatchTimeout -> 5,
+      params.BatchCategories -> "all",
+      params.BatchSkipWorstCase -> true
+    )
+
+    override def toString: String = {
+      map.toSeq.sortBy(_._1).map(p => s"  ${p._1} = ${p._2}").mkString("Config(\n", "\n", "\n)")
+    }
+
+    def set(key: String, value: Any): Unit = map.update(key, value)
+
+    def getBoolean(key: String): Boolean = map(key).asInstanceOf[Boolean]
+    def getInt(key: String): Int = map(key).asInstanceOf[Int]
+    def getDuration(key: String): Duration = Duration(map(key).asInstanceOf[Int], SECONDS)
+    def getString(key: String): String = map(key).asInstanceOf[String]
+
+    def batchDirs: Seq[String] = {
+      val baseDir = getString(params.BatchBaseDir)
+      val addPath = (cat: String) => baseDir + '/' + cat
+      val all@Seq(qf_shls_sat, qf_shid_sat, qf_shls_entl, qf_shlid_entl, qf_shid_entl) = Seq(
+        "qf_shls_sat", "qf_shid_sat", "qf_shls_entl", "qf_shlid_entl", "qf_shid_entl"
+      ).map(addPath)
+      getString(params.BatchCategories) match {
+        case "all" => all
+        case "sat" => Seq(qf_shls_sat, qf_shid_sat)
+        case "entl" => Seq(qf_shls_entl, qf_shlid_entl, qf_shid_entl)
+        case other => other.split(",").map(addPath)
+      }
+    }
+  }
+
+  private def parseArg(arg: String): Unit = {
+    try {
+      val (key, eqSignAndvalue) = arg.span(_ != '=')
+      val value = eqSignAndvalue.tail
+      if (value == "true" || value == "false") {
+        config.set(key, value == "true")
+      } else {
+        val asInt = Try {
+          Integer.parseInt(value)
+        }.toOption
+        asInt match {
+          case None => config.set(key, value)
+          case Some(i) => config.set(key, i)
+        }
+      }
+    } catch {
+      case e: Throwable => println(s"Couldn't parse $arg as key-value pair: ${e.getMessage}")
+    }
+  }
 
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
       return
     }
 
-    val verbose = try {
-      args(2) == "verbose"
-    } catch {
-      case _: Throwable => false
+    args.drop(2) foreach parseArg
+
+    if (config.getBoolean(params.Verbose)) {
+      println(config)
     }
 
     args(0) match {
@@ -51,13 +119,12 @@ object SlCompMode {
           println(s"Constructed the following benchmark:\n$bm")
         }
       case "run" =>
-        val incrementalFromNumCalls = Try { Integer.parseInt(args(2)) }.toOption.getOrElse(config.IncrementalFromNumCalls)
-        run(args(1), incrementalFromNumCalls, config.Timeout)
+        run(args(1))
       case "check" =>
         if (args(1) == "all")
-          checkAll(config.Timeout, verbose = verbose)
+          checkAll()
         else
-          check(args(1), verbose = verbose)
+          check(args(1), isBatchMode = false)
       case "batch" =>
         val bmFile = args(1)
         val files = for {
@@ -66,14 +133,14 @@ object SlCompMode {
           if trimmed.nonEmpty
           if trimmed(0) != '#'
         } yield trimmed
-        checkList(files.toList, config.Timeout, verbose = verbose)
+        checkList(files.toList)
     }
   }
 
-  def run(file: String, incrementalFromNumCalls: Int, timeoutInSecs: Int) = {
+  private def run(file: String) = {
     val res = for {
       bm <- parseBenchmark(file)
-      status <- execute(bm, timeoutInSecs, incrementalFromNumCalls = Some(incrementalFromNumCalls))._1.toBoolean
+      status <- execute(bm, isBatchMode = false)._1.toBoolean
     } yield (bm.isInstanceOf[EntailmentQuery], status)
     val output = res match {
       case None => "unknown"
@@ -85,14 +152,14 @@ object SlCompMode {
 
   private case class BenchmarkResult(status: ProblemStatus, deviation: Boolean, time: Long)
 
-  private def checkAll(timeoutInSecs: Int, verbose: Boolean = false, printBm: Boolean = false): Unit = {
-    checkList(allSlcompBenchs().map(_.toString).sorted, timeoutInSecs, verbose, printBm)
+  private def checkAll(): Unit = {
+    checkList(allSlcompBenchs().map(_.toString).sorted)
   }
 
-  private def checkList(bms: List[String], timeoutInSecs: Int, verbose: Boolean = false, printBm: Boolean = false): Unit = {
+  private def checkList(bms: Seq[String]): Unit = {
     val stats:ListBuffer[(String,ProblemStatus,Boolean,Long)] = new ListBuffer
     for (bench <- bms) {
-      val res = check(bench.toString, verbose)
+      val res = check(bench.toString, isBatchMode = true)
       println(s"${bench.toString}: Computed result: ${res.status}, as expected: ${res.deviation}, used ${res.time}ms")
       stats.append((bench.toString, res.status, res.deviation, res.time))
     }
@@ -100,27 +167,28 @@ object SlCompMode {
     println("FINISHED BENCHMARK SUITE")
   }
 
-  private def check(file: String, verbose: Boolean = false): BenchmarkResult = {
+  private def check(file: String, isBatchMode: Boolean): BenchmarkResult = {
     println(s"Will check $file...")
     parseBenchmark(file) match {
       case None =>
         println(s"Couldn't parse $file")
         BenchmarkResult(ProblemStatus.Unknown, deviation = true, 0)
       case Some(bm) =>
-        checkBenchmark(bm, verbose)
+        checkBenchmark(bm, isBatchMode)
     }
   }
 
-  private def checkBenchmark(bm: Query, verbose: Boolean): BenchmarkResult = {
+  private def checkBenchmark(bm: Query, isBatchMode: Boolean): BenchmarkResult = {
+    val verbose = config.getBoolean(params.Verbose)
     if (verbose) {
       println(s"Benchmark: $bm")
       println(s"Input for refinement: $bm")
       println(s"Expected result: ${bm.status}")
     }
-    val (res, time) = execute(bm, config.Timeout, verbose = verbose)
+    val (res, time) = execute(bm, isBatchMode)
     if (verbose) println(s"Done. Result: $res")
-    val deviation = if (bm.status != ProblemStatus.Unknown && bm.status != ProblemStatus.Unknown && bm.status != res) {
-      println("UNEXPECTED RESULT")
+    val deviation = if (bm.status != ProblemStatus.Unknown && bm.status != res) {
+      println(if (res != ProblemStatus.Unknown) "UNEXPECTED RESULT" else "UNKNOWN")
       false
     } else {
       true
@@ -128,23 +196,20 @@ object SlCompMode {
     BenchmarkResult(res, deviation, time)
   }
 
-  private def execute(bm: Query, timeoutInSecs: Int, verbose: Boolean = false, incrementalFromNumCalls: Option[Int] = None): (ProblemStatus, Long) = {
+  private def execute(bm: Query, isBatchMode: Boolean): (ProblemStatus, Long) = {
+    val timeout = config.getDuration(if (isBatchMode) params.BatchTimeout else params.Timeout)
     bm match {
-      case q: SatQuery => executeSatQuery(q, timeoutInSecs, verbose, incrementalFromNumCalls)
-      case q: EntailmentQuery => executeEntailmentQuery(q, timeoutInSecs, verbose, incrementalFromNumCalls)
+      case q: SatQuery => executeSatQuery(q, timeout)
+      case q: EntailmentQuery => executeEntailmentQuery(q, timeout)
       case _ =>
         println("Input parsed to wrong query type.")
         (ProblemStatus.Unknown, 0)
     }
   }
 
-  private def executeSatQuery(bm: SatQuery, timeoutInSecs: Int, verbose: Boolean, incrementalFromNumCalls: Option[Int]): (ProblemStatus, Long) = {
+  private def executeSatQuery(bm: SatQuery, timeout: Duration): (ProblemStatus, Long) = {
+    val verbose = config.getBoolean(params.Verbose)
     val sid = bm.toIntegratedSid
-    val timeout = Duration(timeoutInSecs, SECONDS)
-    incrementalFromNumCalls match {
-      case Some(value) => RefinementInstance.IncrementalFromNumCalls = value
-      case None => // Nothing to do
-    }
     val res: DecisionProcedures.AnalysisResult = DecisionProcedures.decideInstance(
       sid,
       RunSat.getAutomaton,
@@ -160,20 +225,27 @@ object SlCompMode {
     (resStatus, res.analysisTime)
   }
 
-  private def executeEntailmentQuery(bm: EntailmentQuery, timeoutInSecs: Int, verbose: Boolean, incrementalFromNumCalls: Option[Int]): (ProblemStatus, Long) = {
-    // TODO: Measure time
-    bm.toEntailmentInstance(computeSeparateSidsForEachSide = config.ComputePerSideSids) match {
+  private def executeEntailmentQuery(bm: EntailmentQuery, timeout: Duration): (ProblemStatus, Long) = {
+    Combinators.tillTimeout(timeout) {
+      () => statusOfQuery(bm)
+    } match {
+      case None =>
+        println(s"Reached timeout ($timeout) on $bm")
+        (ProblemStatus.Unknown, timeout.toMillis)
+      case Some(res) => res
+    }
+  }
+
+  private def statusOfQuery(bm: EntailmentQuery) : ProblemStatus = {
+    bm.toEntailmentInstance(computeSeparateSidsForEachSide = config.getBoolean(params.ComputePerSideSids)) match {
       case None =>
         println(s"Couldn't convert $bm to entailment instance")
-        (ProblemStatus.Unknown, 0)
+        ProblemStatus.Unknown
       case Some(ei) =>
-//        val (res, stats) = EntailmentChecker.solve(ei)
-//        if (verbose) stats.foreach(println)
-//        val status = if (res) ProblemStatus.Correct else ProblemStatus.Incorrect
-//        val time = 0
-//        (status, time)
-        println("Is BTW-SID.")
-        (ProblemStatus.Unknown, 0)
+        val verbose = config.getBoolean(params.Verbose)
+        val (res, stats) = EntailmentChecker.solve(ei, printResult = false, reportProgress = verbose, exportToLatex = false)
+        if (verbose) stats.foreach(println)
+        if (res) ProblemStatus.Correct else ProblemStatus.Incorrect
     }
   }
 
@@ -207,12 +279,15 @@ object SlCompMode {
     }
   }
 
-  private def allSlcompBenchs(): List[File] = {
+  private def allSlcompBenchs(): Seq[File] = {
+    val dirs = config.batchDirs
+    val skipWorstCaseInstances = config.getBoolean(params.BatchSkipWorstCase)
+    println("Will run all benchmarks in: " + dirs.mkString(", "))
     for {
-      dir <- DIRS
+      dir <- dirs
       file <- IOUtils.getListOfFiles(dir)
       if file.getName.endsWith(FileExtensions.SlComp) && file.getName != "logic.smt2"
-      if !SKIP_WORSTCASE_INSTANCES || !file.getName.startsWith("succ-")
+      if !skipWorstCaseInstances || !file.getName.startsWith("succ-")
     } yield file
   }
 

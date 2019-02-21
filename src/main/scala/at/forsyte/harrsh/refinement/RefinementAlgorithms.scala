@@ -2,11 +2,10 @@ package at.forsyte.harrsh.refinement
 
 import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.util.Combinators
 import at.forsyte.harrsh.util.StringUtils._
 
-import scala.concurrent._
 import scala.concurrent.duration.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by jens on 10/15/16.
@@ -22,8 +21,8 @@ object RefinementAlgorithms {
     * @param reportProgress Periodically report the number of iterations
     * @return true iff empty
     */
-  def onTheFlyRefinementWithEmptinessCheck(sid : SID, ha : HeapAutomaton, query: Option[SymbolicHeap] = None, skipSinksAsSources: Boolean = false, reportProgress : Boolean = false) : Boolean = {
-    RefinementInstance(sid, ha, query, mode = RefinementInstance.OnTheFly, skipSinksAsSources = skipSinksAsSources, reportProgress = reportProgress).run.empty
+  def onTheFlyRefinementWithEmptinessCheck(sid : SID, ha : HeapAutomaton, query: Option[SymbolicHeap] = None, incrementalFromNumCalls: Option[Int] = None, skipSinksAsSources: Boolean = false, reportProgress : Boolean = false) : Boolean = {
+    RefinementInstance(sid, ha, query, RefinementInstance.OnTheFly, incrementalFromNumCalls, skipSinksAsSources, reportProgress).run.empty
   }
 
   /**
@@ -34,24 +33,15 @@ object RefinementAlgorithms {
     * @param reportProgress Periodically report the number of iterations
     * @return The refined SID + emptiness flag (true iff empty) or None in case of timeout
     */
-  def refineSID(sid: SID, ha: HeapAutomaton, timeout: Duration, reportProgress: Boolean): Option[(SID,Boolean)] = {
-    val f: Future[(SID,Boolean)] = Future {
-      RefinementInstance(sid, ha, mode = RefinementInstance.FullRefinement, reportProgress = reportProgress).run.toSID
-    }
-
-    try {
-      val sid = Await.result(f, timeout)
-      Some(sid)
-    } catch {
-      case e: TimeoutException =>
-        println("reached timeout (" + timeout + ")")
-        None
-    }
+  def refineSID(sid: SID, ha: HeapAutomaton, timeout: Duration, incrementalFromNumCalls: Option[Int] = None, reportProgress: Boolean = false): Option[(SID,Boolean)] = {
+    Combinators.tillTimeout(timeout){
+      () => RefinementInstance(sid, ha, None, RefinementInstance.FullRefinement, incrementalFromNumCalls, skipSinksAsSources = false, reportProgress).run.toSID
+    }.map(_._1)
   }
   
-  def fullRefinementTrace(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): (Map[String, Set[ha.State]], Map[String,Set[(Seq[ha.State], RuleBody, ha.State)]]) = {
+  def fullRefinementTrace(sid: SID, ha: HeapAutomaton, reportProgress: Boolean = false): (Map[String, Set[ha.State]], Map[String,Set[(Seq[ha.State], RuleBody, ha.State)]]) = {
     // TODO: Make this more readable & reduce code duplication wrt. allReachableStates
-    val res = RefinementInstance(sid, ha, mode = RefinementInstance.FullRefinement, reportProgress = reportProgress).run
+    val res = RefinementInstance(sid, ha, None, RefinementInstance.FullRefinement, None, skipSinksAsSources = false, reportProgress).run
     val typedResultStates = res.reachedStates.pairs.map {
       case (str, state) => (str, state.asInstanceOf[ha.State])
     }
@@ -64,7 +54,7 @@ object RefinementAlgorithms {
   }
 
   def allReachableStates(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): Map[String, Set[ha.State]] = {
-    val res = RefinementInstance(sid, ha, mode = RefinementInstance.FullRefinement, reportProgress = reportProgress).run
+    val res = RefinementInstance(sid, ha, None, RefinementInstance.FullRefinement, None, skipSinksAsSources = false, reportProgress).run
     val typedResultStates = res.reachedStates.pairs.map {
       case (str, state) => (str, state.asInstanceOf[ha.State])
     }
@@ -72,7 +62,7 @@ object RefinementAlgorithms {
   }
 
   def refineSID(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): (SID,Boolean) = {
-    RefinementInstance(sid, ha, mode = RefinementInstance.FullRefinement, reportProgress = reportProgress).run.toSID
+    RefinementInstance(sid, ha, None, RefinementInstance.FullRefinement, None, skipSinksAsSources = false, reportProgress).run.toSID
   }
 
   /**

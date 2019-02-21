@@ -3,14 +3,12 @@ package at.forsyte.harrsh.refinement
 import java.io.File
 
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
-import at.forsyte.harrsh.main.{HarrshLogging, MainIO, RefinementQuery}
+import at.forsyte.harrsh.main.{HarrshLogging, RefinementQuery}
 import at.forsyte.harrsh.seplog.{NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
-import at.forsyte.harrsh.util.IOUtils
+import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future, TimeoutException}
 
 /**
   * Created by jkatelaa on 10/20/16.
@@ -41,25 +39,17 @@ object DecisionProcedures extends HarrshLogging {
     decideInstance(sid, ha, timeout, None, verbose = verbose, reportProgress = reportProgress)
   }
 
-  def decideInstance(sid : SID, ha : HeapAutomaton, timeout : Duration, topLevelQuery: Option[SymbolicHeap] = None, skipSinksAsSources : Boolean = false, verbose : Boolean = false, reportProgress : Boolean = false): AnalysisResult = {
-    val startTime = System.currentTimeMillis()
-
-    val f: Future[Boolean] = Future {
-      RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, topLevelQuery, skipSinksAsSources = skipSinksAsSources, reportProgress = reportProgress)
-    }
-
-    val result = try {
-      val isEmpty = Await.result(f, timeout)
-      val endTime = System.currentTimeMillis()
-      if (verbose) println("Finished in " + (endTime - startTime) + "ms")
-      AnalysisResult(isEmpty, endTime - startTime, timedOut = false)
-    } catch {
-      case e : TimeoutException =>
+  def decideInstance(sid : SID, ha : HeapAutomaton, timeout : Duration, topLevelQuery: Option[SymbolicHeap] = None, incrementalFromNumCalls: Option[Int] = None, skipSinksAsSources : Boolean = false, verbose : Boolean = false, reportProgress : Boolean = false): AnalysisResult = {
+    Combinators.tillTimeout(timeout) {
+      () => RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, topLevelQuery, skipSinksAsSources = skipSinksAsSources, reportProgress = reportProgress)
+    } match {
+      case Some((isEmpty, time)) =>
+        if (verbose) println(s"Finished in ${time}ms")
+        AnalysisResult(isEmpty, time, timedOut = false)
+      case None =>
         if (verbose) println("reached timeout (" + timeout + ")")
         AnalysisResult(isEmpty = true, timeout.toMillis, timedOut = true)
     }
-
-    result
   }
 
   def decideInstances(queries : Seq[RefinementQuery], timeout : Duration, verbose : Boolean, reportProgress : Boolean): (Seq[(RefinementQuery,AnalysisResult)],AnalysisStatistics) = {
@@ -81,27 +71,21 @@ object DecisionProcedures extends HarrshLogging {
         print("Running " + query.taskString + " on " + query.fileNameString + "... ")
       }
 
-      val startTime = System.currentTimeMillis()
-
-      val f: Future[Boolean] = Future {
-        RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, reportProgress = reportProgress)
+      val unprocessedResult = Combinators.tillTimeout(timeout) {
+        () => RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, reportProgress = reportProgress)
       }
 
-      val result = try {
-        val isEmpty = Await.result(f, timeout)
-        val endTime = System.currentTimeMillis()
-        println("Finished in " + (endTime - startTime) + "ms")
-        analysisTime += (endTime - startTime)
-        AnalysisResult(isEmpty, endTime - startTime, timedOut = false)
-      } catch {
-        case e : TimeoutException =>
+      val result = unprocessedResult match {
+        case Some((isEmpty, time)) =>
+          println(s"Finished in ${time}ms")
+          AnalysisResult(isEmpty, time, timedOut = false)
+        case None =>
           println("reached timeout (" + timeout + ")")
-          numTimeouts += 1
+          numTimeouts  += 1
           AnalysisResult(isEmpty = true, timeout.toMillis, timedOut = true)
       }
 
       results = (query, result) :: results
-
     }
 
     val globalEndTime = System.currentTimeMillis()

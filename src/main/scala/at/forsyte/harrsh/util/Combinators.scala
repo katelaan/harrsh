@@ -2,6 +2,10 @@ package at.forsyte.harrsh.util
 
 import scala.annotation.tailrec
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future, TimeoutException}
+
 /**
   * Created by jkatelaa on 10/3/16.
   */
@@ -217,6 +221,24 @@ object Combinators {
         head <- seq.head
         tail <- sequence(seq.tail)
       } yield head +: tail
+    }
+  }
+
+
+  def tillTimeout[A](timeout: Duration)(computation: () => A): Option[(A, Long)] = {
+    val startTime = System.currentTimeMillis()
+
+    val f: Future[A] = Future {
+      computation()
+    }
+
+    try {
+      val res = Await.result(f, timeout)
+      val endTime = System.currentTimeMillis()
+      Some((res, endTime - startTime))
+    } catch {
+      case e : TimeoutException =>
+        None
     }
   }
 

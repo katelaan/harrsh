@@ -18,13 +18,16 @@ import scala.annotation.tailrec
   */
 case class RefinementInstance(sid: SID,
                               ha: HeapAutomaton,
-                              topLevelQuery: Option[SymbolicHeap] = None,
-                              mode: RefinementMode = OnTheFly,
-                              skipSinksAsSources: Boolean = false,
-                              reportProgress: Boolean = false) extends HarrshLogging {
+                              topLevelQuery: Option[SymbolicHeap],
+                              mode: RefinementMode,
+                              incrementalFromNumCalls: Option[Int],
+                              skipSinksAsSources: Boolean,
+                              reportProgress: Boolean) extends HarrshLogging {
 
-  // TODO: Take top level query into account
+  // TODO: Take top level query into account?
   assert(topLevelQuery.isEmpty)
+
+  val incrementalBound = incrementalFromNumCalls.getOrElse(DefaultIncrementalFromNumCalls)
 
   val pred: String = sid.startPred
   logger.debug("Will run refinement with goal predicate " + pred)
@@ -229,7 +232,7 @@ case class RefinementInstance(sid: SID,
 
   private def shouldTryAllSources(sh: SymbolicHeap) = {
     // We'll try all combinations if the number of pred calls is small
-    !ha.implementsPartialTargets || sh.predCalls.size < IncrementalFromNumCalls
+    !ha.implementsPartialTargets || sh.predCalls.size < incrementalBound
   }
 
   case class FlagWrapper(var flag: Boolean)
@@ -305,6 +308,6 @@ object RefinementInstance {
   type RefinementMode = Boolean
   val OnTheFly = false
   val FullRefinement = true
-  var IncrementalFromNumCalls: Int = 4
+  var DefaultIncrementalFromNumCalls: Int = 4
 
 }
