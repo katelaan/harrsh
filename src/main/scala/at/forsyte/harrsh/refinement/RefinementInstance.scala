@@ -308,6 +308,6 @@ object RefinementInstance {
   type RefinementMode = Boolean
   val OnTheFly = false
   val FullRefinement = true
-  var DefaultIncrementalFromNumCalls: Int = 4
+  var DefaultIncrementalFromNumCalls: Int = 6
 
 }

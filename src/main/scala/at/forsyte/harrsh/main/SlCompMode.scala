@@ -39,7 +39,7 @@ object SlCompMode {
       params.Verbose -> false,
       params.Debug -> true,
       // Sat Checking
-      params.SatCheckingIncrementalFromNumCalls -> 4,
+      params.SatCheckingIncrementalFromNumCalls -> 6,
       // Entailment Checking
       params.ComputePerSideSids -> true,
       // Batch Mode
