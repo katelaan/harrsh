@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{Sid, SymbolicHeap}
 import at.forsyte.harrsh.util.IOUtils
 
 import scala.util.parsing.combinator.JavaTokenParsers
@@ -10,13 +10,13 @@ import scala.util.parsing.combinator.JavaTokenParsers
   */
 private[parsers] trait SIDCombinatorParser extends JavaTokenParsers with SIDParser {
 
-  def parseSID : Parser[SID]
+  def parseSID : Parser[Sid]
 
   def parseBody : Parser[StringSymbolicHeap]
 
   def parseSymbolicHeap : Parser[SymbolicHeap]
 
-  override final def runOnSID(input : String, printFailure : Boolean = true) : Option[SID] = catchNumberFormatException{
+  override final def runOnSID(input : String, printFailure : Boolean = true) : Option[Sid] = catchNumberFormatException{
     runParser(parseSID)(input, printFailure)
   }
 

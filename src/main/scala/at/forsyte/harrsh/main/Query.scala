@@ -5,7 +5,7 @@ import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.parsers.{EntailmentParsers, QueryParser}
 import at.forsyte.harrsh.refinement.AutomatonTask
 import at.forsyte.harrsh.seplog.Var.Naming
-import at.forsyte.harrsh.seplog.inductive.{Predicate, RuleBody, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
 

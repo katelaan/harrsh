@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.seplog.inductive.RichSid
 import at.forsyte.harrsh.seplog.{BoundVar, NullConst, Var}
 
 case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPredCall], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
@@ -14,7 +15,7 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
 
   lazy val boundVars: Set[BoundVar] = substs.flatMap(_.boundVars).toSet
 
-  lazy val allocatesNull: Boolean = labels.exists(_.rootParamSubst.getOrElse(Set.empty).contains(NullConst))
+  def allocatesNull(sid: RichSid): Boolean = labels.exists(_.rootParamSubst(sid).getOrElse(Set.empty).contains(NullConst))
 
   private lazy val substs = labels map (_.subst)
 
@@ -36,11 +37,11 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
 
   def hasConsistentPureConstraints: Boolean = pureConstraints.isConsistent
 
-  def hasNamesForRootParams: Boolean = rootParamSubsts.forall {
+  def hasNamesForRootParams(sid: RichSid): Boolean = rootParamSubsts(sid).forall {
     labelingVars => labelingVars.exists(PlaceholderVar.isNonPlaceholderNonNullFreeVar)
   }
 
-  def rootParamSubsts: Seq[Set[Var]] = labels flatMap (_.rootParamSubst)
+  def rootParamSubsts(sid: RichSid): Seq[Set[Var]] = labels flatMap (_.rootParamSubst(sid))
 
   def asExtensionType: ContextDecomposition = ContextDecomposition(Set(this))
 
@@ -66,10 +67,10 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
     res
   }
 
-  def allFreeRootParamsUsed: Boolean = {
+  def allFreeRootParamsUsed(sid: RichSid): Boolean = {
     val rootsUsed = for {
       node <- labels.toStream
-      rootParam <- node.pred.rootParam
+      rootParam <- sid.roots.get(node.pred.head)
       ix = node.freeVarSeq.indexOf(rootParam)
       // If a root parameter is a placeholder (i.e., not a proper free variable)
       if node.subst.toSeq(ix) exists PlaceholderVar.isNonPlaceholderNonNullFreeVar

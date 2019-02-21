@@ -1,14 +1,15 @@
-package at.forsyte.harrsh.seplog.inductive
+package at.forsyte.harrsh.seplog.sidtransformers
 
 import at.forsyte.harrsh.pure.Closure
+import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.seplog.{BoundVar, Var}
 import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
 
-object SymbolicHeapUtils {
+object SplitIntoRootedComponents {
 
-  def splitIntoRootedComponents(sh: SymbolicHeap, sid: SID): List[SymbolicHeap] = {
+  def apply(sh: SymbolicHeap, sid: RichSid): List[SymbolicHeap] = {
     assert(sid.isRooted)
     if (sh.predCalls.isEmpty && !sh.hasPointer) {
       // Only perform reachability analysis if there is anything to analyze
@@ -53,10 +54,10 @@ object SymbolicHeapUtils {
     override def toString: String = s"[$root --> ${atoms.mkString(" * ")}]"
   }
 
-  private def toRootedAtom(atom: SepLogAtom, sid: SID): RootedAtom = {
+  private def toRootedAtom(atom: SepLogAtom, sid: RichSid): RootedAtom = {
     val root = atom match {
       case PointsTo(from, _) => from
-      case PredCall(name, args) => args(sid(name).rootParamIndex.get)
+      case PredCall(name, args) => args(sid.rootParamIndex(name))
       case PureAtom(l, r, _) =>
         // For pure atoms, we arbitrarily choose a non-null root;
         // in case the pointers/calls of the compared vars end up in different components, the disequality will

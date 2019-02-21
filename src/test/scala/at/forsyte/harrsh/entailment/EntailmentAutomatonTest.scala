@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.seplog.FreeVar
-import at.forsyte.harrsh.seplog.inductive.{PredCall, SID, SidFactory, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.test.HarrshTableTest
 import at.forsyte.harrsh.{ExampleSIDs, TestValues}
 import org.scalatest.prop.TableFor4
@@ -147,7 +147,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
 
   }
 
-  private def runAllTestsInTable(table: TableFor4[SID, SID, PredCall, Boolean]) = {
+  private def runAllTestsInTable[A <: SidLike](table: TableFor4[A, RichSid, PredCall, Boolean]) = {
     forAll(table) {
       (lhsSid, rhsSid, rhsCall, shouldHold) =>
         Given(s"LHS $lhsSid and RHS $rhsCall w.r.t. RHS-SID $rhsSid")
@@ -177,7 +177,7 @@ object EntailmentAutomatonTest extends TestValues {
     println(s"Success: " + (check(rhsSid, rhsCall, lhsSid) == shouldHold))
   }
 
-  def refine(sid: SID, rhs: PredCall, lhs: SID): (EntailmentAutomaton, Map[String, Set[EntailmentProfile]]) = {
+  def refine(sid: RichSid, rhs: PredCall, lhs: SidLike): (EntailmentAutomaton, Map[String, Set[EntailmentProfile]]) = {
     val aut = new EntailmentAutomaton(sid, PredCalls(Seq(rhs)))
     val reachable = RefinementAlgorithms.allReachableStates(lhs, aut, reportProgress = true)
     (aut, reachable)
@@ -192,7 +192,7 @@ object EntailmentAutomatonTest extends TestValues {
     entailmentHolds
   }
 
-  def check(sid: SID, rhs: PredCall, lhs: SID): Boolean = {
+  def check(sid: RichSid, rhs: PredCall, lhs: SidLike): Boolean = {
     println(s"Checking ${lhs.callToStartPred} |= $rhs for SID '${sid.description}'")
     val (aut, reachable) = refine(sid, rhs, lhs)
     println(EntailmentChecker.serializeResult(aut, reachable))

@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.{PredCall, Predicate, RuleBody, SID}
+import at.forsyte.harrsh.seplog.inductive.{PredCall, Predicate, RuleBody, RichSid}
 import at.forsyte.harrsh.util.Combinators
 
 object ComposeProfiles extends HarrshLogging {
@@ -10,26 +10,26 @@ object ComposeProfiles extends HarrshLogging {
   // TODO: Get rid of the second parameter once we use sets. (The new parameters then simply are the union of the params of the constituting profiles)
   object composeAll {
 
-    def apply(profiles: Seq[EntailmentProfile], newOrderedParams: Seq[Var]): EntailmentProfile = {
+    def apply(sid: RichSid, profiles: Seq[EntailmentProfile], newOrderedParams: Seq[Var]): EntailmentProfile = {
       // TODO: Exploit associativity of composition when composing more than two profiles
-      val composedDecomps = allPossibleDecompCompositions(profiles map (_.decomps))
+      val composedDecomps = allPossibleDecompCompositions(sid, profiles map (_.decomps))
       val res = EntailmentProfile(composedDecomps, newOrderedParams)
       logger.debug(s"Profile composition result:\n${if (res.nonEmpty) res.decomps.mkString("\n") else "empty (sink state)"}")
       res
     }
 
-    private def allPossibleDecompCompositions(decompsBySource: Seq[Set[ContextDecomposition]]): Set[ContextDecomposition] = {
+    private def allPossibleDecompCompositions(sid: RichSid, decompsBySource: Seq[Set[ContextDecomposition]]): Set[ContextDecomposition] = {
       for {
         decomps <- Combinators.choices(decompsBySource map (_.toSeq)).toSet[Seq[ContextDecomposition]]
-        combined <- composeAllDecomps(decomps)
+        combined <- composeAllDecomps(sid, decomps)
       } yield combined
     }
 
-    private def composeAllDecomps(decomps: Seq[ContextDecomposition]): Seq[ContextDecomposition] = {
+    private def composeAllDecomps(sid: RichSid, decomps: Seq[ContextDecomposition]): Seq[ContextDecomposition] = {
       if (decomps.size <= 1) decomps else {
         for {
-          combinedHead <- decomps.head compositionOptions decomps.tail.head
-          allComposed <- composeAllDecomps(combinedHead +: decomps.drop(2))
+          combinedHead <- decomps.head.compositionOptions(sid, decomps.tail.head)
+          allComposed <- composeAllDecomps(sid, combinedHead +: decomps.drop(2))
         } yield allComposed
       }
     }
@@ -39,7 +39,7 @@ object ComposeProfiles extends HarrshLogging {
   object mergeUsingNonProgressRules {
     // TODO: Simplify application of non-progress rules to profiles?
 
-    def apply(profile: EntailmentProfile, sid: SID): EntailmentProfile = {
+    def apply(profile: EntailmentProfile, sid: RichSid): EntailmentProfile = {
       val newDecomps = for {
         decomp <- profile.decomps
         merged <- useNonProgressRulesToMergeContexts(decomp, sid)
@@ -47,7 +47,7 @@ object ComposeProfiles extends HarrshLogging {
       EntailmentProfile(newDecomps, profile.orderedParams)
     }
 
-    def useNonProgressRulesToMergeContexts(decomp: ContextDecomposition, sid: SID): Seq[ContextDecomposition] = {
+    def useNonProgressRulesToMergeContexts(decomp: ContextDecomposition, sid: RichSid): Seq[ContextDecomposition] = {
       val nonProgressRules = sid.rulesWithoutPointers
       if (nonProgressRules.nonEmpty && !decomp.isSingletonDecomposition) {
         logger.debug(s"Will try to apply non-progress rules to contexts in decomposition. Rules to consider: ${nonProgressRules.map(pair => s"${pair._1.defaultCall} <= ${pair._2}")}")
@@ -61,7 +61,7 @@ object ComposeProfiles extends HarrshLogging {
       }
     }
 
-    private def mergeWithZeroOrMoreRuleApplications(decomp: ContextDecomposition, rules: Seq[(Predicate, RuleBody)], sid: SID): Seq[ContextDecomposition] = {
+    private def mergeWithZeroOrMoreRuleApplications(decomp: ContextDecomposition, rules: Seq[(Predicate, RuleBody)], sid: RichSid): Seq[ContextDecomposition] = {
       val afterMerging = for {
         decompAfterRuleApplication <- applyAllPossibleRulesInMerge(decomp, rules)
         afterAdditionalApplications <- mergeWithZeroOrMoreRuleApplications(decompAfterRuleApplication, rules, sid)

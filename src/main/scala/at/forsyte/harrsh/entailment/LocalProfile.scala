@@ -7,7 +7,7 @@ import at.forsyte.harrsh.seplog.inductive._
 
 object LocalProfile extends HarrshLogging {
 
-  def apply(lab: SymbolicHeap, sid: SID): Option[EntailmentProfile] = {
+  def apply(lab: SymbolicHeap, sid: RichSid): Option[EntailmentProfile] = {
     logger.debug(s"Will compute profile for local allocation of $lab")
     val decomps = decompsOfLocalAllocation(lab, sid)
     logger.debug(s"Decompositions for local allocation of $lab:\n${decomps.mkString("\n")}")
@@ -15,7 +15,7 @@ object LocalProfile extends HarrshLogging {
     decomps map (EntailmentProfile(_, params))
   }
 
-  private def decompsOfLocalAllocation(lab: SymbolicHeap, sid: SID): Option[Set[ContextDecomposition]] = {
+  private def decompsOfLocalAllocation(lab: SymbolicHeap, sid: RichSid): Option[Set[ContextDecomposition]] = {
     if (lab.pointers.isEmpty) {
       decompsIfNoAllocation(lab)
     } else {
@@ -40,7 +40,7 @@ object LocalProfile extends HarrshLogging {
     }
   }
 
-  def decompsOfNonemptyLocalAllocation(lhs: SymbolicHeap, sid: SID) : Set[ContextDecomposition] = {
+  def decompsOfNonemptyLocalAllocation(lhs: SymbolicHeap, sid: RichSid) : Set[ContextDecomposition] = {
     logger.debug(s"Local allocation: Creating (${sid.description})-profile from $lhs")
 
     for {
@@ -51,7 +51,7 @@ object LocalProfile extends HarrshLogging {
     } yield decomp
   }
 
-  private def mkDecomp(sid: SID, predicate: Predicate, lhs: SymbolicHeap, rhs: SymbolicHeap): Option[ContextDecomposition] = {
+  private def mkDecomp(sid: RichSid, predicate: Predicate, lhs: SymbolicHeap, rhs: SymbolicHeap): Option[ContextDecomposition] = {
     if (lhs.pointers.head.to.size != rhs.pointers.head.to.size) {
       None
     } else {
@@ -65,12 +65,12 @@ object LocalProfile extends HarrshLogging {
     }
   }
 
-  private def allRootParamsUsed(decomp: ContextDecomposition, sid: SID): Boolean = {
+  private def allRootParamsUsed(decomp: ContextDecomposition, sid: RichSid): Boolean = {
     val rootsUsed = for {
       ctx <- decomp.parts.toStream
       node <- ctx.calls
       usage = ctx.usageInfoOfNode(node)
-      rootParam <- node.pred.rootParam
+      rootParam <- sid.roots.get(node.pred.head)
       ix = node.freeVarSeq.indexOf(rootParam)
       // If a root parameter is a placeholder (i.e., not a proper free variable) it need not be used
       // TODO [Entailment cleanup] This only makes sense for SIDs that are *not* in the btw fragment, namely SIDs that define disconnected models, see e.g. examples/entailment/various/list-segments-different-order.hrs. We could drop this or explicitly switch it on if we detect that it's necessary.
@@ -79,7 +79,7 @@ object LocalProfile extends HarrshLogging {
     rootsUsed.forall(b => b)
   }
 
-  private def hasNamesForUsedParams(decomp: ContextDecomposition, sid: SID): Boolean = {
+  private def hasNamesForUsedParams(decomp: ContextDecomposition, sid: RichSid): Boolean = {
     // Everything that's used has a name
     val enoughNamesByNodeAndParam = for {
       ctx <- decomp.parts.toStream
@@ -95,7 +95,7 @@ object LocalProfile extends HarrshLogging {
     enoughNamesByNodeAndParam.forall(b => b)
   }
 
-  private def computeContextFromHeaps(sid: SID, predicate: Predicate, lhs: SymbolicHeap, rhs: SymbolicHeap): Option[EntailmentContext] = {
+  private def computeContextFromHeaps(sid: RichSid, predicate: Predicate, lhs: SymbolicHeap, rhs: SymbolicHeap): Option[EntailmentContext] = {
     logger.debug(s"Trying to construct context for $lhs |= $rhs")
 
     // 1.) In the rule body, replace all bound vars and all FVs that don't occur by placeholders
@@ -142,7 +142,7 @@ object LocalProfile extends HarrshLogging {
     PureConstraintTracker(lhsEnsuredConstraints, rhsMissing)
   }
 
-  private def contextFromConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], pure: PureConstraintTracker, sid: SID, predicate: Predicate): Option[EntailmentContext] = {
+  private def contextFromConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], pure: PureConstraintTracker, sid: RichSid, predicate: Predicate): Option[EntailmentContext] = {
     if (pure.isConsistent) {
       contextFromConsistentConstraints(renamedRhs, rootParams, pure, sid, predicate)
     }
@@ -152,7 +152,7 @@ object LocalProfile extends HarrshLogging {
     }
   }
 
-  private def contextFromConsistentConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], pure: PureConstraintTracker, sid: SID, predicate: Predicate): Option[EntailmentContext] = {
+  private def contextFromConsistentConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], pure: PureConstraintTracker, sid: RichSid, predicate: Predicate): Option[EntailmentContext] = {
     val allEnsured = pure.closure
     val toSet = (v: Var) => allEnsured.getEquivalenceClass(v)
     val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)

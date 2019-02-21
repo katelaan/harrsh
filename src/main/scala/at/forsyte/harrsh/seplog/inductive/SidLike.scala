@@ -1,50 +1,22 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.main._
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.parsers.EntailmentParsers
-import at.forsyte.harrsh.seplog.FreeVar
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
 
-/**
-  * System of inductive definitions
-  * Created by jens on 10/15/16.
-  */
-case class SID(startPred : String, preds : Seq[Predicate], description : String) extends HarrshLogging {
+trait SidLike extends HarrshLogging {
 
-  override def toString: String = {
-    val predStrings = preds.map(_.toString.lines.map(line => s"    $line ;").mkString("\n"))
-    description + " (start predicate '" + startPred + "'): " + predStrings.mkString("\n", "\n", "")
-  }
+  val startPred : String
+  val preds : Seq[Predicate]
+  val description : String
 
-  private lazy val predMap : Map[String,Predicate] = preds.map(p => p.head -> p).toMap
+  protected lazy val predMap : Map[String,Predicate] = preds.map(p => p.head -> p).toMap
 
   lazy val predIdents: Set[String] = predMap.keySet
 
   def apply(predName: String): Predicate = predMap(predName)
-
-  lazy val isRooted: Boolean = preds.forall(_.isRooted)
-
-  lazy val satisfiesGeneralizedProgress: Boolean = {
-    val violatingRules = rulesViolatingProgress
-    if (violatingRules.nonEmpty) {
-      logger.info(s"SID violates progress:\n${violatingRules.mkString("\n")}")
-    }
-    violatingRules.isEmpty
-  }
-
-  private def rulesViolatingProgress = {
-    for {
-      pred <- preds
-      rule <- pred.rules
-      if !rule.satisfiesGeneralizedProgress(pred.rootParam)
-    } yield (pred, rule)
-  }
-
-  lazy val rulesWithoutPointers : Seq[(Predicate, RuleBody)] = preds.flatMap(p => p.rules.collect{
-    case rule if !rule.hasPointer => (p, rule)
-  })
 
   def arity(pred: String): Int = predMap.get(pred).map(_.arity).getOrElse(0)
 
@@ -53,6 +25,10 @@ case class SID(startPred : String, preds : Seq[Predicate], description : String)
   def hasRuleForStartPred: Boolean = predMap.isDefinedAt(startPred)
 
   lazy val callToStartPred: SymbolicHeap = callToPred(startPred)
+
+  lazy val rulesWithoutPointers : Seq[(Predicate, RuleBody)] = preds.flatMap(p => p.rules.collect{
+    case rule if !rule.hasPointer => (p, rule)
+  })
 
   lazy val predsThatOccurAtMostOnceInUnfolding: Set[Predicate] = {
     // FIXME: A proper implementation of this that also works for non-auxiliary predicates?
@@ -84,13 +60,9 @@ case class SID(startPred : String, preds : Seq[Predicate], description : String)
 
 }
 
-object SID extends HarrshLogging {
+object SidLike {
 
-  def empty(startPred : String) : SID = SID(startPred, Seq.empty[Predicate], "")
-
-  def empty : SID = SID("X", Seq.empty[Predicate], "")
-
-  implicit val sidToLatex: ToLatex[SID] = (a: SID, _: Naming) => {
+  implicit val sidToLatex: ToLatex[SidLike] = (a: SidLike, _: Naming) => {
     val rulesStr = for {
       pred <- a.preds
       rule <- predToLatex(pred)

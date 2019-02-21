@@ -21,7 +21,7 @@ object RefinementAlgorithms {
     * @param reportProgress Periodically report the number of iterations
     * @return true iff empty
     */
-  def onTheFlyRefinementWithEmptinessCheck(sid : SID, ha : HeapAutomaton, query: Option[SymbolicHeap] = None, incrementalFromNumCalls: Option[Int] = None, skipSinksAsSources: Boolean = false, reportProgress : Boolean = false) : Boolean = {
+  def onTheFlyRefinementWithEmptinessCheck(sid : SidLike, ha : HeapAutomaton, query: Option[SymbolicHeap] = None, incrementalFromNumCalls: Option[Int] = None, skipSinksAsSources: Boolean = false, reportProgress : Boolean = false) : Boolean = {
     RefinementInstance(sid, ha, query, RefinementInstance.OnTheFly, incrementalFromNumCalls, skipSinksAsSources, reportProgress).run.empty
   }
 
@@ -33,13 +33,13 @@ object RefinementAlgorithms {
     * @param reportProgress Periodically report the number of iterations
     * @return The refined SID + emptiness flag (true iff empty) or None in case of timeout
     */
-  def refineSID(sid: SID, ha: HeapAutomaton, timeout: Duration, incrementalFromNumCalls: Option[Int] = None, reportProgress: Boolean = false): Option[(SID,Boolean)] = {
+  def refineSID(sid: SidLike, ha: HeapAutomaton, timeout: Duration, incrementalFromNumCalls: Option[Int] = None, reportProgress: Boolean = false): Option[(SID,Boolean)] = {
     Combinators.tillTimeout(timeout){
       () => RefinementInstance(sid, ha, None, RefinementInstance.FullRefinement, incrementalFromNumCalls, skipSinksAsSources = false, reportProgress).run.toSID
     }.map(_._1)
   }
   
-  def fullRefinementTrace(sid: SID, ha: HeapAutomaton, reportProgress: Boolean = false): (Map[String, Set[ha.State]], Map[String,Set[(Seq[ha.State], RuleBody, ha.State)]]) = {
+  def fullRefinementTrace(sid: SidLike, ha: HeapAutomaton, reportProgress: Boolean = false): (Map[String, Set[ha.State]], Map[String,Set[(Seq[ha.State], RuleBody, ha.State)]]) = {
     // TODO: Make this more readable & reduce code duplication wrt. allReachableStates
     val res = RefinementInstance(sid, ha, None, RefinementInstance.FullRefinement, None, skipSinksAsSources = false, reportProgress).run
     val typedResultStates = res.reachedStates.pairs.map {
@@ -53,7 +53,7 @@ object RefinementAlgorithms {
     (statesByPred, transitionMap)
   }
 
-  def allReachableStates(sid: SID, ha: HeapAutomaton, reportProgress: Boolean): Map[String, Set[ha.State]] = {
+  def allReachableStates(sid: SidLike, ha: HeapAutomaton, reportProgress: Boolean): Map[String, Set[ha.State]] = {
     val res = RefinementInstance(sid, ha, None, RefinementInstance.FullRefinement, None, skipSinksAsSources = false, reportProgress).run
     val typedResultStates = res.reachedStates.pairs.map {
       case (str, state) => (str, state.asInstanceOf[ha.State])
@@ -70,7 +70,7 @@ object RefinementAlgorithms {
    */
   case class AnalysisResult(task : AutomatonTask, result : Option[Boolean], witness : Option[SymbolicHeap])
 
-  def performFullAnalysis(sid: SID, timeout: Duration, verbose : Boolean): Unit = {
+  def performFullAnalysis(sid: SidLike, timeout: Duration, verbose : Boolean): Unit = {
 
     val tasks : Seq[AutomatonTask] = Seq(RunSat, RunUnsat, RunEstablishment, RunNonEstablishment, RunMayHaveGarbage, RunGarbageFreedom, RunWeakAcyclicity, RunStrongCyclicity)
 
@@ -102,7 +102,7 @@ object RefinementAlgorithms {
 
   }
 
-  private def analyze(task : AutomatonTask, sid : SID, timeout : Duration, verbose : Boolean) : AnalysisResult = {
+  private def analyze(task : AutomatonTask, sid : SidLike, timeout : Duration, verbose : Boolean) : AnalysisResult = {
     val refined = refineSID(sid, task.getAutomaton, timeout, reportProgress = false)
     refined match {
       case None =>

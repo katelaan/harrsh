@@ -141,15 +141,15 @@ object ToSlcompConverter extends EntailmentFormatConverter {
 
   private def today(): String = '"' + StringUtils.today() + '"' //"\"2019-02-20\""
 
-  private def funDefs(arity: Int, sid: SID): SExpr = App(
+  private def funDefs(arity: Int, sid: SidLike): SExpr = App(
     "define-funs-rec", funDecls(arity, sid), funBodies(arity, sid)
   )
 
-  private def funDecls(arity: Int, sid: SID): SExpr = App(
+  private def funDecls(arity: Int, sid: SidLike): SExpr = App(
     sid.preds.map(funDecl(arity, _)) : _*
   )
 
-  private def funBodies(arity: Int, sid: SID): SExpr = App(
+  private def funBodies(arity: Int, sid: SidLike): SExpr = App(
     sid.preds.map(funBody(arity, _)) : _*
   )
 

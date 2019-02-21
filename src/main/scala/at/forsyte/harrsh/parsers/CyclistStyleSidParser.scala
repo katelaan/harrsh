@@ -14,7 +14,7 @@ private[parsers] trait CyclistStyleSIDParser extends SIDCombinatorParser {
 
   type PredSpec = (String, Seq[RuleBody])
 
-  override def parseSID : Parser[SID] = rep1sep(parsePredSpec, ";") ^^ {
+  override def parseSID : Parser[Sid] = rep1sep(parsePredSpec, ";") ^^ {
     predSpecs =>
       val startPred : String = predSpecs.head._1
       val desc : String = startPred + "-SID"

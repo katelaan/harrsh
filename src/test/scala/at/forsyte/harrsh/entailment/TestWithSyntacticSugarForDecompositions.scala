@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.{PureAtom, SID}
+import at.forsyte.harrsh.seplog.inductive.{PureAtom, SidLike}
 import at.forsyte.harrsh.{Implicits, TestValues}
 import at.forsyte.harrsh.test.HarrshTableTest
 
@@ -11,7 +11,7 @@ trait TestWithSyntacticSugarForDecompositions extends HarrshTableTest with Impli
     * Context with aliasing
     */
   case class CA[A <: Var](calls: Seq[(String,Seq[Set[Var]])], usageInfo: Map[Set[A],VarUsage], ensured: Set[PureAtom], missing: Set[PureAtom] = Set.empty) {
-    def toEntailmentContext(sid: SID): EntailmentContext = {
+    def toEntailmentContext(sid: SidLike): EntailmentContext = {
       val labels = calls map {
         case (ident, subst) => ContextPredCall(sid(ident), Substitution(subst))
       }
@@ -39,7 +39,7 @@ trait TestWithSyntacticSugarForDecompositions extends HarrshTableTest with Impli
     }
   }
 
-  def D[A <: Var](sid: SID)(cs: CA[A]*): ContextDecomposition = ContextDecomposition(cs.map(_.toEntailmentContext(sid)).toSet)
+  def D[A <: Var](sid: SidLike)(cs: CA[A]*): ContextDecomposition = ContextDecomposition(cs.map(_.toEntailmentContext(sid)).toSet)
 
   def pr(pred: String, vars: Var*): (String,Seq[Var]) = (pred, vars)
 

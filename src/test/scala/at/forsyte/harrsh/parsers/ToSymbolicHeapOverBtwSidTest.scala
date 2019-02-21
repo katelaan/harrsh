@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.seplog.inductive.{Predicate, SID, SidFactory, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.seplog.sidtransformers.ToSymbolicHeapOverBtwSid
 import at.forsyte.harrsh.test.HarrshTableTest
 import at.forsyte.harrsh.{Implicits, TestValues}
 
@@ -63,7 +64,7 @@ class ToSymbolicHeapOverBtwSidTest extends HarrshTableTest with Implicits with T
     forAll(inputs) {
       (sh, expectedResult) =>
         info(s"Will convert $sh")
-        val (extendedSID, newSh) = ToSymbolicHeapOverBtwSid(sh, "P", SID.empty)
+        val (extendedSID, newSh) = ToSymbolicHeapOverBtwSid(sh, "P", RichSid.empty)
 
         info(s"Conversion result: $extendedSID")
 

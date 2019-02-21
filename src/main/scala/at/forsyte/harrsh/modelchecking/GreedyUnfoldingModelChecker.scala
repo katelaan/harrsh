@@ -39,9 +39,9 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
   val IsModel = true
   val NoModel = false
 
-  override def isModel(model: Model, formula : SymbolicHeap, sid: SID) = isModel(model, formula, sid, reportProgress = false)
+  override def isModel(model: Model, formula : SymbolicHeap, sid: SidLike) = isModel(model, formula, sid, reportProgress = false)
 
-  def isModel(model: Model, formula : SymbolicHeap, sid: SID, reportProgress: Boolean): Boolean = {
+  def isModel(model: Model, formula : SymbolicHeap, sid: SidLike, reportProgress: Boolean): Boolean = {
 
     val modelFormula = ModelToFormula(model)
     val map = headsToBodiesMap(sid)
@@ -49,7 +49,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     new GreedyUnfolding(map, reportProgress).run(modelFormula, formula, MCHistory.emptyHistory)
   }
 
-  def isModel(model : Model, sid : SID, reportProgress: Boolean) : Boolean = isModel(model, sid.callToStartPred, sid, reportProgress = reportProgress)
+  def isModel(model : Model, sid : SidLike, reportProgress: Boolean) : Boolean = isModel(model, sid.callToStartPred, sid, reportProgress = reportProgress)
 
   /**
     * Solve the reduced entailment problem via greedy pointer matching;
@@ -59,7 +59,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     * @param sid Underlying SID
     * @return true iff lhs |= rhs
     */
-  def reducedEntailmentAsModelChecking(lhs : SymbolicHeap, rhs : SymbolicHeap, sid : SID, reportProgress: Boolean = false): Boolean = {
+  def reducedEntailmentAsModelChecking(lhs : SymbolicHeap, rhs : SymbolicHeap, sid : SidLike, reportProgress: Boolean = false): Boolean = {
     assert(lhs.isReduced)
     // Using the model checker for reduced entailment is only sound if the lhs is well-determined
     assert(Determinization.isDetermined(lhs))
@@ -69,7 +69,7 @@ object GreedyUnfoldingModelChecker extends SymbolicHeapModelChecker with HarrshL
     res
   }
 
-  private def headsToBodiesMap(sid: SID): Map[String, Seq[SymbolicHeap]] = sid.preds.map(p => (p.head,p.bodySHs)).toMap
+  private def headsToBodiesMap(sid: SidLike): Map[String, Seq[SymbolicHeap]] = sid.preds.map(p => (p.head,p.bodySHs)).toMap
 
   sealed trait ModelCheckingStatus
   case object EmptyModel extends ModelCheckingStatus

@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.parsers
 
-import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{Sid, SymbolicHeap}
 import at.forsyte.harrsh.parsers.buildingblocks.{AsciiAtoms, EmptyQuantifierPrefix, UnicodeAtoms, UnicodeQuantifierPrefix}
 
 import scala.annotation.tailrec
@@ -20,7 +20,7 @@ object SIDParsers {
 
     private val parsers = Seq(DefaultSIDParser, PrettyPrintedSIDParser, CyclistSIDParser)
 
-    override def runOnSID(input: String, printFailure : Boolean = false): Option[SID] = tryAll(parsers, input){
+    override def runOnSID(input: String, printFailure : Boolean = false): Option[Sid] = tryAll(parsers, input){
       (parser, input) => parser.runOnSID(input, printFailure)
     }
 

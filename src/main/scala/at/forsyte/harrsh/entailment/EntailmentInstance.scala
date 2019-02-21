@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.seplog.inductive._
 
-case class EntailmentQuerySide(sid: SID, calls: PredCalls, originalAssertion: SymbolicHeap)
+case class EntailmentQuerySide(sid: RichSid, calls: PredCalls, originalAssertion: SymbolicHeap)
 
 case class EntailmentInstance(lhs: EntailmentQuerySide, rhs: EntailmentQuerySide, entailmentHolds: Option[Boolean]) {
 

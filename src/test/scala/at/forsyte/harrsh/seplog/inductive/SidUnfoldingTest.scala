@@ -16,7 +16,7 @@ class SIDUnfoldingTest extends HarrshTest with Implicits {
 
   }
 
-  val refinedSid : SID =
+  val refinedSid : Sid =
     """    P(x1, x2) <= P4(x1,x2) ;
       |    P0(x1, x2) <= one17(x1) * one17(x2) * Q0(x1,x2) ;
       |    P0(x1, x2) <= one17(x1) * one17(x2) * Q10(x1,x2) ;

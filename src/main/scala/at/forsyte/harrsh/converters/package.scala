@@ -1,7 +1,7 @@
 package at.forsyte.harrsh
 
 import at.forsyte.harrsh.main.EntailmentQuery
-import at.forsyte.harrsh.seplog.inductive.{Predicate, SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{Predicate, SidLike, SymbolicHeap}
 import at.forsyte.harrsh.util.ToLatex._
 
 package object converters {
@@ -14,7 +14,7 @@ package object converters {
 
   val ToLatexConverter: EntailmentFormatConverter = (filename: String, pr: EntailmentQuery) => Seq((filename+".tex", pr.toLatex))
 
-  def pointerArities(sid: SID, lhs: SymbolicHeap, rhs: SymbolicHeap): Set[Int] = {
+  def pointerArities(sid: SidLike, lhs: SymbolicHeap, rhs: SymbolicHeap): Set[Int] = {
     val sidPtoArities = for {
       p <- sid.preds.toSet[Predicate]
       r <- p.bodySHs

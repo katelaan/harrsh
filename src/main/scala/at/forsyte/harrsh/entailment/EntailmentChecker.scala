@@ -3,7 +3,7 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.PureEntailment
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
-import at.forsyte.harrsh.seplog.inductive.{PredCall, RuleBody, SID}
+import at.forsyte.harrsh.seplog.inductive.{PredCall, RichSid, RuleBody}
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
 object EntailmentChecker extends HarrshLogging {
@@ -52,7 +52,7 @@ object EntailmentChecker extends HarrshLogging {
     body.pointers.isEmpty && body.predCalls.isEmpty
   }
 
-  def allocationInPreds(sid: SID, predCalls: PredCalls): Allocation = {
+  def allocationInPreds(sid: RichSid, predCalls: PredCalls): Allocation = {
     val allocs = for {
       predCall <- predCalls.calls.toSet[PredCall]
       pred = sid(predCall.name)
@@ -130,7 +130,7 @@ object EntailmentChecker extends HarrshLogging {
     val EntailmentInstance(lhs, rhs, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhs.sid, rhs.calls)
     val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhs.sid, aut, reportProgress)
-    val entailmentHolds = checkAcceptance(entailmentInstance.lhs.calls, entailmentInstance.rhs.calls, reachableStatesByPred)
+    val entailmentHolds = checkAcceptance(entailmentInstance.rhs.sid, entailmentInstance.lhs.calls, entailmentInstance.rhs.calls, reachableStatesByPred)
     val stats = entailmentStats(reachableStatesByPred)
 
     if (printResult) {
@@ -145,16 +145,16 @@ object EntailmentChecker extends HarrshLogging {
     (entailmentHolds,stats)
   }
 
-  private def checkAcceptance(lhsCalls: PredCalls, rhsCalls: PredCalls, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
+  private def checkAcceptance(sid: RichSid, lhsCalls: PredCalls, rhsCalls: PredCalls, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
     logger.debug(s"Will check whether all profiles in fixed point for $lhsCalls imply $rhsCalls")
     val lhsFVs = lhsCalls.calls flatMap (_.getNonNullVars) filter (_.isFree)
     val renamedReachableStates = for {
       call <- lhsCalls.calls
       reachableForCall = reachable(call.name)
-    } yield reachableForCall map (_.rename(call.args))
+    } yield reachableForCall map (_.rename(sid, call.args))
     val combinedProfiles = for {
       toplevelStates <- Combinators.choices(renamedReachableStates.map(_.toSeq)).toStream
-    } yield ComposeProfiles.composeAll(toplevelStates, lhsFVs)
+    } yield ComposeProfiles.composeAll(sid, toplevelStates, lhsFVs)
     combinedProfiles.forall(_.decomps.exists(_.isFinal(rhsCalls)))
   }
 

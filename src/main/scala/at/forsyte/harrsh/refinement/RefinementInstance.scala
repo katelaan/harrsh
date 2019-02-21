@@ -16,7 +16,7 @@ import scala.annotation.tailrec
   * @param ha Automaton used in refinement
   * @param topLevelQuery Optional top-level query; if given, will try to find final state for this formula, instead of the SID start predicate
   */
-case class RefinementInstance(sid: SID,
+case class RefinementInstance(sid: SidLike,
                               ha: HeapAutomaton,
                               topLevelQuery: Option[SymbolicHeap],
                               mode: RefinementMode,
@@ -27,7 +27,7 @@ case class RefinementInstance(sid: SID,
   // TODO: Take top level query into account?
   assert(topLevelQuery.isEmpty)
 
-  val incrementalBound = incrementalFromNumCalls.getOrElse(DefaultIncrementalFromNumCalls)
+  val incrementalBound: Int = incrementalFromNumCalls.getOrElse(DefaultIncrementalFromNumCalls)
 
   val pred: String = sid.startPred
   logger.debug("Will run refinement with goal predicate " + pred)

@@ -1,14 +1,14 @@
 package at.forsyte.harrsh.converters
 
 import at.forsyte.harrsh.main.EntailmentQuery
-import at.forsyte.harrsh.parsers.EntailmentParsers
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.seplog.sidtransformers.RestrictSidToCalls
 
 object ToSlideFormat extends EntailmentFormatConverter {
 
   override def apply(filename: String, pr: EntailmentQuery): Seq[(String,String)] = {
-    val lhsSid = EntailmentParsers.extractSidForCalls(pr.sid, pr.lhs.predCalls.toSet)
-    val rhsSid = EntailmentParsers.extractSidForCalls(pr.sid, pr.rhs.predCalls.toSet)
+    val lhsSid = RestrictSidToCalls(pr.sid, pr.lhs.predCalls.toSet)
+    val rhsSid = RestrictSidToCalls(pr.sid, pr.rhs.predCalls.toSet)
     val lhsFile = filename + ".lhs.pred"
     val rhsFile = filename + ".rhs.pred"
     Seq(

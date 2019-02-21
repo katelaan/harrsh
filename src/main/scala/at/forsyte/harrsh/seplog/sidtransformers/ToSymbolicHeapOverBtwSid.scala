@@ -1,14 +1,14 @@
-package at.forsyte.harrsh.parsers
+package at.forsyte.harrsh.seplog.sidtransformers
 
 import at.forsyte.harrsh.entailment.PredCalls
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.seplog._
+import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Renaming, Var}
 
 object ToSymbolicHeapOverBtwSid extends HarrshLogging {
 
-  def apply(sh: SymbolicHeap, predPrefix: String, underlyingSID: SID): (SID, PredCalls) = {
-    val shSCCs = SymbolicHeapUtils.splitIntoRootedComponents(sh, underlyingSID)
+  def apply(sh: SymbolicHeap, predPrefix: String, underlyingSID: RichSid): (RichSid, PredCalls) = {
+    val shSCCs = SplitIntoRootedComponents(sh, underlyingSID)
     logger.debug(s"Split $sh into rooted components ${shSCCs.mkString(", ")}")
     val (allNewPreds, topLevelCalls) = progressNormalformOfSCCs(shSCCs, predPrefix, underlyingSID)
     logger.debug(s"New query is ${PredCalls(topLevelCalls)} w.r.t. new per-SCC predicates:\n${allNewPreds.mkString("\n")}")
@@ -17,7 +17,7 @@ object ToSymbolicHeapOverBtwSid extends HarrshLogging {
     (integratedSID, PredCalls(topLevelCalls))
   }
 
-  private def progressNormalformOfSCCs(shSCCs: Seq[SymbolicHeap], predPrefix: String, underlyingSID: SID) = {
+  private def progressNormalformOfSCCs(shSCCs: Seq[SymbolicHeap], predPrefix: String, underlyingSID: RichSid) = {
     if (shSCCs.size == 1) {
       val scc = shSCCs.head
         val (newPreds, call) = rootedShToProgressSid(shSCCs.head, predPrefix, underlyingSID)
@@ -34,12 +34,13 @@ object ToSymbolicHeapOverBtwSid extends HarrshLogging {
     PredCall(pred, rootedSh.freeVars)
   }
 
-  private def mergeIntoOneSid(originalSID: SID, allNewPreds: Seq[Predicate], startPred: String, originalSh: SymbolicHeap): SID = {
-    val allPreds = originalSID.preds ++ allNewPreds
-    SID(startPred, allPreds, description = s"SID for SCC decomposition of $originalSh")
+  private def mergeIntoOneSid(originalSID: RichSid, allNewPreds: Seq[(Predicate,Option[FreeVar])], startPred: String, originalSh: SymbolicHeap): RichSid = {
+    val allPreds = originalSID.preds ++ allNewPreds.map(_._1)
+    val allRoots = originalSID.roots ++ allNewPreds.filter(_._2.nonEmpty).map(pair => pair._1.head -> pair._2.get)
+    RichSid(startPred, allPreds, description = s"SID for SCC decomposition of $originalSh", allRoots)
   }
 
-  def rootedShToProgressSid(sh: SymbolicHeap, predPrefix: String, underlyingSID: SID): (Seq[Predicate], PredCall) = {
+  def rootedShToProgressSid(sh: SymbolicHeap, predPrefix: String, underlyingSID: RichSid): (Seq[(Predicate,Option[FreeVar])], PredCall) = {
     if (sh.pointers.isEmpty && sh.pure.isEmpty && sh.predCalls.size == 1 && sh.boundVars.isEmpty && !sh.usesNull) {
       // No need to introduce any new predicates
       (Seq.empty, sh.predCalls.head)
@@ -49,8 +50,13 @@ object ToSymbolicHeapOverBtwSid extends HarrshLogging {
       val normalizedHeadPred = normalizeHeadPred(headPred, underlyingSID)
       //val SID(normalizedHeadPred.head, normalizedHeadPred +: otherPreds, s"Progress normal form of [$sh]")
       val newPreds = normalizedHeadPred +: otherPreds
+      println(newPreds)
+      val newRoots = newPreds map { pred =>
+        val from = pred.rules.head.body.pointers.headOption.map(_.from).filter(_.isFree)
+        from.map(_.asInstanceOf[FreeVar])
+      }
       val call = toCall(predPrefix + "1", sh)
-      (newPreds, call)
+      (newPreds zip newRoots, call)
     }
   }
 
@@ -62,7 +68,7 @@ object ToSymbolicHeapOverBtwSid extends HarrshLogging {
     }
   }
 
-  private def normalizeHeadPred(headPred: Predicate, underlyingSID: SID): Predicate = {
+  private def normalizeHeadPred(headPred: Predicate, underlyingSID: RichSid): Predicate = {
     assert(headPred.rules.size == 1)
     val rule = headPred.rules.head
     val body = rule.body
@@ -75,7 +81,7 @@ object ToSymbolicHeapOverBtwSid extends HarrshLogging {
       val ruleBodies = underlyingSID(fstCall.name).bodySHs
       val instantiatedBodies = ruleBodies map (body.replaceCall(fstCall, _))
       val newRules = instantiatedBodies map SidFactory.shToRuleBody
-      val res = Predicate(headPred.head, newRules, headPred.rootParam)
+      val res = Predicate(headPred.head, newRules)
       logger.debug(s"Normalizing rule ${headPred.head} <= $rule by replacing $fstCall with rules of ${fstCall.name}:\n$res")
       res
     }

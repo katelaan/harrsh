@@ -2,14 +2,14 @@ package at.forsyte.harrsh.modelchecking
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.{ConsistencyCheck, Determinization}
-import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{SidLike, SID, SymbolicHeap}
 
 /**
   * Created by jkatelaa on 5/16/17.
   */
 object ReducedEntailment extends HarrshLogging {
 
-  def checkSatisfiableRSHAgainstSID(lhsRsh : SymbolicHeap, rhs : SymbolicHeap, sid : SID, reportProgress : Boolean = false) : Boolean = {
+  def checkSatisfiableRSHAgainstSID(lhsRsh : SymbolicHeap, rhs : SymbolicHeap, sid : SidLike, reportProgress : Boolean = false) : Boolean = {
     assert(ConsistencyCheck.isConsistent(lhsRsh))
     checkForAllDeterminizations(lhsRsh, rhs, sid, reportProgress = reportProgress)
   }
@@ -20,7 +20,7 @@ object ReducedEntailment extends HarrshLogging {
     checkForAllDeterminizations(lhsRsh, rhsRsh, SID.empty("X"), reportProgress = reportProgress)
   }
 
-  def checkPossiblyInconsistentRSHAgainstSID(lhsRsh : SymbolicHeap, rhs : SymbolicHeap, sid : SID, reportProgress : Boolean = false) : Boolean = {
+  def checkPossiblyInconsistentRSHAgainstSID(lhsRsh : SymbolicHeap, rhs : SymbolicHeap, sid : SidLike, reportProgress : Boolean = false) : Boolean = {
     if (!ConsistencyCheck.isConsistent(lhsRsh))
       true
     else
@@ -35,7 +35,7 @@ object ReducedEntailment extends HarrshLogging {
       checkForAllDeterminizations(lhsRsh, rhsRsh, SID.empty("X"), reportProgress = reportProgress)
   }
 
-  private def checkForAllDeterminizations(lhs : SymbolicHeap, rhs : SymbolicHeap, sid : SID, reportProgress: Boolean = false): Boolean = {
+  private def checkForAllDeterminizations(lhs : SymbolicHeap, rhs : SymbolicHeap, sid : SidLike, reportProgress: Boolean = false): Boolean = {
 
     val determinizations = Determinization.rshDeterminizations(lhs)
     val msg = "Applying reduced model checking to " + determinizations.size + " determinizations "

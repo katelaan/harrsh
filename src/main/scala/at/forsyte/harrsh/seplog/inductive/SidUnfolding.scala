@@ -11,13 +11,13 @@ import at.forsyte.harrsh.util.Combinators
   */
 object SIDUnfolding extends HarrshLogging {
 
-  def unfoldSingleCall(sh : SymbolicHeap, call : PredCall, sid : SID) : Seq[SymbolicHeap] = {
+  def unfoldSingleCall(sh : SymbolicHeap, call : PredCall, sid : SidLike) : Seq[SymbolicHeap] = {
     logger.debug("Unfolding " + call + " in " + sh)
 
     for (body <- sid(call.name).bodySHs) yield sh.replaceCall(call, body)
   }
 
-  def unfold(sid : SID, depth: Int, reducedOnly : Boolean = false): Seq[SymbolicHeap] = {
+  def unfold(sid : SidLike, depth: Int, reducedOnly : Boolean = false): Seq[SymbolicHeap] = {
 
     logger.debug("Unfolding sid " + sid)
 
@@ -50,9 +50,9 @@ object SIDUnfolding extends HarrshLogging {
     * @param heaps Heaps to unfold
     * @return Unfolded heaps
     */
-  def unfoldOnce(sid : SID, heaps : Seq[SymbolicHeap]) : Seq[SymbolicHeap] = unfoldStep(sid, Seq.empty, heaps, 1, doAccumulateSteps = false)
+  def unfoldOnce(sid : SidLike, heaps : Seq[SymbolicHeap]) : Seq[SymbolicHeap] = unfoldStep(sid, Seq.empty, heaps, 1, doAccumulateSteps = false)
 
-  private def unfoldStep(sid: SID, acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int, doAccumulateSteps: Boolean = true): Seq[SymbolicHeap] = {
+  private def unfoldStep(sid: SidLike, acc : Seq[SymbolicHeap], curr: Seq[SymbolicHeap], depth: Int, doAccumulateSteps: Boolean = true): Seq[SymbolicHeap] = {
     logger.debug("Currently active instances: " + curr.mkString(", "))
     if (depth == 0) if (doAccumulateSteps) acc ++ curr else curr
     else {
@@ -74,7 +74,7 @@ object SIDUnfolding extends HarrshLogging {
     }
   }
 
-  def firstReducedUnfolding(sid : SID) : SymbolicHeap = {
+  def firstReducedUnfolding(sid : SidLike) : SymbolicHeap = {
 
     // TODO This is an extremely inefficient way to implement this functionality; we should at least short circuit the unfold process upon finding an RSH, or better, implement the obvious linear time algorithm for generating the minimal unfolding
     // FIXME This will loop forever if there are no unfoldings at all (e.g. because the predicate is not defined)

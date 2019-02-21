@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
-import at.forsyte.harrsh.seplog.inductive.Predicate
+import at.forsyte.harrsh.seplog.inductive.{Predicate, RichSid}
 import at.forsyte.harrsh.util.ToLatex._
 
 import scala.collection.mutable
@@ -21,8 +21,8 @@ case class ContextPredCall(pred: Predicate, subst: Substitution) {
 
   def placeholders: Set[PlaceholderVar] = subst.placeholders
 
-  lazy val rootParamSubst: Option[Set[Var]] = {
-    pred.rootParamIndex map {
+  def rootParamSubst(sid: RichSid): Option[Set[Var]] = {
+    sid.rootParamIndex.get(pred.head) map {
       ix => subst.toSeq(ix)
     }
   }

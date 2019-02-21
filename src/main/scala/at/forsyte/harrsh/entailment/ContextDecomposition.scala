@@ -1,8 +1,8 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Var}
-import at.forsyte.harrsh.seplog.inductive.{PredCall, Predicate, PureAtom, SID}
+import at.forsyte.harrsh.seplog.{BoundVar, Var}
+import at.forsyte.harrsh.seplog.inductive.{Predicate, PureAtom, RichSid}
 import at.forsyte.harrsh.util.ToLatex
 
 /**
@@ -18,9 +18,9 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
 
   lazy val missingPureConstraints: Set[PureAtom] = parts.flatMap(_.pureConstraints.missing)
 
-  lazy val rootParamSubsts: Seq[Set[Var]] = parts.toSeq.flatMap(_.rootParamSubsts)
+  def rootParamSubsts(sid: RichSid): Seq[Set[Var]] = parts.toSeq.flatMap(_.rootParamSubsts(sid))
 
-  def hasNamesForAllRootParams: Boolean = parts.forall(_.hasNamesForRootParams)
+  def hasNamesForAllRootParams(sid: RichSid): Boolean = parts.forall(_.hasNamesForRootParams(sid))
 
   def isSingletonDecomposition: Boolean = parts.size == 1
 
@@ -28,11 +28,11 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
     parts.count(_.root.pred == pred) > 1
   }
 
-  def isViable(sid: SID): Boolean = {
+  def isViable(sid: RichSid): Boolean = {
     // We don't do a full viability check (yet)
     // This overapproximation of viability discards those decompositions that contain two contexts rooted in a predicate that can
     // occur at most once in any given sid-unfolding tree.
-    !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots) && !parts.exists(_.allocatesNull)
+    !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots) && !parts.exists(_.allocatesNull(sid))
   }
 
   def isFinal(calls: PredCalls): Boolean = {
@@ -87,7 +87,6 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
         val pairs: Seq[(Var, Var)] = varsToForget.toSeq.zip(newPlaceholders.map(_.toFreeVar))
         val replaceByPlacheolders: SubstitutionUpdate = SubstitutionUpdate.fromPairs(pairs)
 
-
         // Note: Must to normalization to get rid of gaps in results and strange order by doing normalization
         val partsAfterDropping = partsAfterDroppingPureConstraints map (_.updateSubst(replaceByPlacheolders, convertToNormalform = true))
 
@@ -100,24 +99,25 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
     ContextDecomposition(parts map (_.updateSubst(f, convertToNormalform = false)))
   }
 
-  def compositionOptions(other: ContextDecomposition): Seq[ContextDecomposition] = {
+  def compositionOptions(sid: RichSid, other: ContextDecomposition): Seq[ContextDecomposition] = {
     for {
-      composed <- EntailmentContextComposition.compositionOptions(parts.toSeq ++ other.parts)
+      composed <- EntailmentContextComposition.compositionOptions(sid, parts.toSeq ++ other.parts)
       if composed.forall(_.hasConsistentPureConstraints)
     } yield ContextDecomposition(composed)
   }
 
-  def isInconsistent: Boolean = {
-    allocsNull || doubleAlloc
+  def isInconsistent(sid: RichSid): Boolean = {
+    allocsNull(sid) || doubleAlloc(sid)
   }
 
-  private def allocsNull: Boolean = {
-    rootParamSubsts exists Var.containsNull
+  private def allocsNull(sid: RichSid): Boolean = {
+    rootParamSubsts(sid) exists Var.containsNull
   }
 
-  private def doubleAlloc: Boolean = {
+  private def doubleAlloc(sid: RichSid): Boolean = {
+    // FIXME: Shouldn't we check all allocated variables rather than only the roots?
     val doublyAlloced = for {
-      (k, vs) <- rootParamSubsts.groupBy(vs => vs).toStream
+      (k, vs) <- rootParamSubsts(sid).groupBy(vs => vs).toStream
       if vs.size > 1
     } yield k
     doublyAlloced.nonEmpty

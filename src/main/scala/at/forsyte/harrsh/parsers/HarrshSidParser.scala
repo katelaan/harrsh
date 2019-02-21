@@ -18,7 +18,7 @@ private[parsers] trait HarrshSIDParser extends SIDCombinatorParser {
     runParser(parseBody)(input, printFailure) map (HarrshSIDParser.stringSHwithHarrshNamingtoSH(_)._1)
   }
 
-  override def parseSID : Parser[SID] = repsep(parseRule, ";") <~ opt(";") ^^ {
+  override def parseSID : Parser[Sid] = repsep(parseRule, ";") <~ opt(";") ^^ {
     rules =>
       // We assume the start predicate appears first in the file
       val startPred : String = rules.headOption.map(_._1).getOrElse(HarrshSIDParser.EmptySidStartPred)

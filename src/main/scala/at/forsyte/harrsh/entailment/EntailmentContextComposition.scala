@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
-import at.forsyte.harrsh.seplog.inductive.Predicate
+import at.forsyte.harrsh.seplog.inductive.{Predicate, RichSid}
 
 import scala.annotation.tailrec
 
@@ -11,14 +11,14 @@ object EntailmentContextComposition extends HarrshLogging {
   /**
     * Execute as many composition steps as possible on `as`, returning a result where no further composition steps are possible.
     */
-  def composeAll(as: Seq[EntailmentContext]): Seq[EntailmentContext] = sweepingMerge(Seq.empty, as)
+  def composeAll(sid: RichSid, as: Seq[EntailmentContext]): Seq[EntailmentContext] = sweepingMerge(sid, Seq.empty, as)
 
   /**
     * Return all ways to compose zero or more of the elements of `as`.
     */
-  def compositionOptions(as: Seq[EntailmentContext]): Seq[Seq[EntailmentContext]] = allMergeOptions(Seq.empty, as)
+  def compositionOptions(sid: RichSid, as: Seq[EntailmentContext]): Seq[Seq[EntailmentContext]] = allMergeOptions(sid, Seq.empty, as)
 
-  def compose(fst: EntailmentContext, snd: EntailmentContext): Option[EntailmentContext] = {
+  def compose(sid: RichSid, fst: EntailmentContext, snd: EntailmentContext): Option[EntailmentContext] = {
     logger.debug(s"Will try to compose $fst with $snd.")
 
     val shifted@(shiftedFst, shiftedSnd) = makeDisjoint(fst, snd)
@@ -26,7 +26,7 @@ object EntailmentContextComposition extends HarrshLogging {
 
     (for {
       CompositionInterface(t1, t2, n2) <- compositionCandidates(shiftedFst, shiftedSnd)
-      unification <- tryUnify(t1, t1.root, t2, n2)
+      unification <- tryUnify(sid, t1, t1.root, t2, n2)
       // Compose using the unification. (This can fail in case the unification leads to double allocation)
       instantiation <- tryInstantiate(t2, n2, t1, unification)
     } yield instantiation).headOption
@@ -65,12 +65,12 @@ object EntailmentContextComposition extends HarrshLogging {
     VarUsageByLabel.restrictToSubstitutionsInLabels(combinedUsageInfo, labels)
   }
 
-  private def rootsAreUsed(pred: Predicate, usage1: VarUsageInfo, usage2: VarUsageInfo): Boolean = {
-    pred.rootParamIndex match {
+  private def rootsAreUsed(sid: RichSid, pred: Predicate, usage1: VarUsageInfo, usage2: VarUsageInfo): Boolean = {
+    sid.rootParamIndex.get(pred.head) match {
       case Some(ix) =>
         val isUsed = usage1(ix).isUsed && usage2(ix).isUsed
         if (!isUsed) {
-          logger.debug(s"Root parameter ${pred.rootParam.get} isn't marked as used in at least one of the calls, can't unify.")
+          logger.debug(s"Root parameter ${sid.roots(pred.head)} isn't marked as used in at least one of the calls, can't unify.")
         }
         isUsed
       case None =>
@@ -78,7 +78,7 @@ object EntailmentContextComposition extends HarrshLogging {
     }
   }
 
-  private def tryUnify(a1: EntailmentContext, n1: ContextPredCall, a2: EntailmentContext, n2: ContextPredCall): Option[Unification] = {
+  private def tryUnify(sid: RichSid, a1: EntailmentContext, n1: ContextPredCall, a2: EntailmentContext, n2: ContextPredCall): Option[Unification] = {
     logger.debug(s"Will try to unify $n1 with $n2")
     assert(a1.root == n1)
     assert(a2.calls.contains(n2))
@@ -86,14 +86,14 @@ object EntailmentContextComposition extends HarrshLogging {
     val (n1usage, n2usage) = (a1.usageInfoOfNode(n1), a2.usageInfoOfNode(n2))
 
     // TODO: If we want to relax the assumption about rootedness, the first condition has to be removed/relaxed. We'd have to ensure that this doesn't break soundness, though. See also the related TODO in LocalProfile
-    if (rootsAreUsed(n1.pred, n1usage, n2usage) && allUnifiable(n1, n1usage, n2, n2usage)) {
+    if (rootsAreUsed(sid, n1.pred, n1usage, n2usage) && allUnifiable(sid, n1, n1usage, n2, n2usage)) {
       Some((n1.subst.toSeq, n2.subst.toSeq).zipped.map(_ union _))
     } else {
       None
     }
   }
 
-  private def areUnifiable(pred: Predicate, v: FreeVar, subst1: Set[Var], usage1: VarUsage, subst2: Set[Var], usage2: VarUsage): Boolean = {
+  private def areUnifiable(sid: RichSid, pred: Predicate, v: FreeVar, subst1: Set[Var], usage1: VarUsage, subst2: Set[Var], usage2: VarUsage): Boolean = {
     (usage1, usage2) match {
       case (VarAllocated, VarAllocated) =>
         // Double allocation
@@ -109,7 +109,7 @@ object EntailmentContextComposition extends HarrshLogging {
         assert(used1.isUsed && used2.isUsed)
         // Used in both => Need a common name
         // TODO: Is it true that root parameters need to match, whereas for other parameters we can introduce aliasing?
-        val res = (v != pred.rootParam.get) || (subst1 intersect subst2).nonEmpty
+        val res = (v != sid.roots(pred.head)) || (subst1 intersect subst2).nonEmpty
         if (!res) {
           logger.debug(s"Can't unify root params $v (Shared non-placeholder name required but not present.)")
         }
@@ -117,9 +117,9 @@ object EntailmentContextComposition extends HarrshLogging {
     }
   }
 
-  private def allUnifiable(n1: ContextPredCall, n1usage: VarUsageInfo, n2: ContextPredCall, n2usage: VarUsageInfo): Boolean = {
+  private def allUnifiable(sid: RichSid, n1: ContextPredCall, n1usage: VarUsageInfo, n2: ContextPredCall, n2usage: VarUsageInfo): Boolean = {
     (n1.freeVarSeq zip n1.subst.toSeq zip n1usage zip n2.subst.toSeq zip n2usage).forall {
-      case ((((v, subst1), usage1), subst2), usage2) => areUnifiable(n1.pred, v, subst1, usage1, subst2, usage2)
+      case ((((v, subst1), usage1), subst2), usage2) => areUnifiable(sid, n1.pred, v, subst1, usage1, subst2, usage2)
     }
   }
 
@@ -135,36 +135,36 @@ object EntailmentContextComposition extends HarrshLogging {
     } yield CompositionInterface(ctxWithRoot, ctxWithAbstractLeaf, abstractLeaf)
   }
 
-  private def allMergeOptions(processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext]): Seq[Seq[EntailmentContext]] = {
+  private def allMergeOptions(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext]): Seq[Seq[EntailmentContext]] = {
     if (unprocessed.isEmpty) {
       Seq(processed)
     } else {
-      optionalMerge(processed, unprocessed) flatMap {
-        case (processedNew, unprocessedNew) => allMergeOptions(processedNew, unprocessedNew)
+      optionalMerge(sid, processed, unprocessed) flatMap {
+        case (processedNew, unprocessedNew) => allMergeOptions(sid, processedNew, unprocessedNew)
       }
     }
   }
 
-  private def optionalMerge(processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext]): Seq[(Seq[EntailmentContext], Seq[EntailmentContext])] = {
+  private def optionalMerge(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext]): Seq[(Seq[EntailmentContext], Seq[EntailmentContext])] = {
     val (fst, other) = (unprocessed.head, unprocessed.tail)
-    Seq((processed :+ fst, other)) ++ tryMerge(fst, other).map(pair => (processed, pair._1 +: pair._2))
+    Seq((processed :+ fst, other)) ++ tryMerge(sid, fst, other).map(pair => (processed, pair._1 +: pair._2))
   }
 
-  @tailrec private def sweepingMerge(processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext]): Seq[EntailmentContext] = {
+  @tailrec private def sweepingMerge(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext]): Seq[EntailmentContext] = {
     if (unprocessed.isEmpty) {
       processed
     } else {
-      tryMerge(unprocessed.head, unprocessed.tail) match {
-        case Some((merged, other)) => sweepingMerge(processed, merged +: other)
-        case None => sweepingMerge(processed :+ unprocessed.head, unprocessed.tail)
+      tryMerge(sid, unprocessed.head, unprocessed.tail) match {
+        case Some((merged, other)) => sweepingMerge(sid, processed, merged +: other)
+        case None => sweepingMerge(sid, processed :+ unprocessed.head, unprocessed.tail)
       }
     }
   }
 
-  private def tryMerge(fst: EntailmentContext, other: Seq[EntailmentContext]): Option[(EntailmentContext, Seq[EntailmentContext])] = {
+  private def tryMerge(sid: RichSid, fst: EntailmentContext, other: Seq[EntailmentContext]): Option[(EntailmentContext, Seq[EntailmentContext])] = {
     (for {
       candidate <- other.toStream
-      composed <- compose(fst, candidate)
+      composed <- compose(sid, fst, candidate)
     } yield (composed, other.filter(_ != candidate))).headOption
   }
   

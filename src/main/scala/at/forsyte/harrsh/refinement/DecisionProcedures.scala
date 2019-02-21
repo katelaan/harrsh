@@ -5,7 +5,7 @@ import java.io.File
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
 import at.forsyte.harrsh.main.{HarrshLogging, RefinementQuery}
 import at.forsyte.harrsh.seplog.{NullConst, Var}
-import at.forsyte.harrsh.seplog.inductive.{SID, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{SidLike, SymbolicHeap}
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
 import scala.concurrent.duration.Duration
@@ -39,7 +39,7 @@ object DecisionProcedures extends HarrshLogging {
     decideInstance(sid, ha, timeout, None, verbose = verbose, reportProgress = reportProgress)
   }
 
-  def decideInstance(sid : SID, ha : HeapAutomaton, timeout : Duration, topLevelQuery: Option[SymbolicHeap] = None, incrementalFromNumCalls: Option[Int] = None, skipSinksAsSources : Boolean = false, verbose : Boolean = false, reportProgress : Boolean = false): AnalysisResult = {
+  def decideInstance(sid : SidLike, ha : HeapAutomaton, timeout : Duration, topLevelQuery: Option[SymbolicHeap] = None, incrementalFromNumCalls: Option[Int] = None, skipSinksAsSources : Boolean = false, verbose : Boolean = false, reportProgress : Boolean = false): AnalysisResult = {
     Combinators.tillTimeout(timeout) {
       () => RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, topLevelQuery, incrementalFromNumCalls, skipSinksAsSources = skipSinksAsSources, reportProgress = reportProgress)
     } match {

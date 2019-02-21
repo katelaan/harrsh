@@ -1,8 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.{PredCall, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{PredCall, RichSid, SymbolicHeap}
 
 sealed trait RenamedSourceStates {
   def isConsistent: Boolean = this match {
@@ -32,16 +31,16 @@ case class ConsistentRenamedSourceStates(renamedProfilesByState: Seq[EntailmentP
 
 object RenamedSourceStates extends HarrshLogging {
 
-  def apply(src: Seq[EntailmentProfile], lab: SymbolicHeap): RenamedSourceStates = {
-    val renamedProfiles = renamedSourceStates(src, lab)
+  def apply(sid: RichSid, src: Seq[EntailmentProfile], lab: SymbolicHeap): RenamedSourceStates = {
+    val renamedProfiles = renamedSourceStates(sid, src, lab)
     if (renamedProfiles forall (_.nonEmpty))
       ConsistentRenamedSourceStates(renamedProfiles)
     else
       InconsistentRenamedSourceStates
   }
 
-  private def renamedSourceStates(src: Seq[EntailmentProfile], lab: SymbolicHeap): Seq[EntailmentProfile] = {
-    val instantiatedETs = (src, lab.predCalls).zipped.map(renameProfileForCall)
+  private def renamedSourceStates(sid: RichSid, src: Seq[EntailmentProfile], lab: SymbolicHeap): Seq[EntailmentProfile] = {
+    val instantiatedETs = (src, lab.predCalls).zipped.map(renameProfileForCall(sid, _, _))
     for {
       (src, renamed, call) <- (src, instantiatedETs, lab.predCalls).zipped
     } {
@@ -50,8 +49,8 @@ object RenamedSourceStates extends HarrshLogging {
     instantiatedETs
   }
 
-  private def renameProfileForCall(state: EntailmentProfile, call: PredCall): EntailmentProfile = {
-    state.rename(call.args)
+  private def renameProfileForCall(sid: RichSid, state: EntailmentProfile, call: PredCall): EntailmentProfile = {
+    state.rename(sid, call.args)
   }
 
 }

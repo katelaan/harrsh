@@ -10,7 +10,7 @@ import at.forsyte.harrsh.seplog.inductive._
   * @param sid The SID definining the meaning of the rhs.
   * @param rhs The predicate call on the right-hand side of the entailment.
   */
-class EntailmentAutomaton(sid: SID, rhs: PredCalls) extends HeapAutomaton with InconsistentState {
+class EntailmentAutomaton(sid: RichSid, rhs: PredCalls) extends HeapAutomaton with InconsistentState {
 
   // The entailment checker only works for rooted SIDs that satisfy progress
   // TODO: Check rootedness and progress for the part of the SID that does not correspond to the top-level predicate?

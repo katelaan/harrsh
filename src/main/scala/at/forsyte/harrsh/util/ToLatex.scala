@@ -2,7 +2,7 @@ package at.forsyte.harrsh.util
 
 import at.forsyte.harrsh.seplog.Var.Naming
 
-trait ToLatex[A] {
+trait ToLatex[-A] {
   def toLatex(a: A, naming: Naming): String
 }
 

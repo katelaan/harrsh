@@ -4,23 +4,23 @@ import at.forsyte.harrsh.{ExampleSIDs, Implicits, TestValues}
 import at.forsyte.harrsh.main.EntailmentQuery
 import at.forsyte.harrsh.main.ProblemStatus.{Correct, Incorrect}
 import at.forsyte.harrsh.parsers.{QueryParser, slcomp}
-import at.forsyte.harrsh.seplog.inductive.{Predicate, SID}
+import at.forsyte.harrsh.seplog.inductive.{Predicate, SID, SidLike}
 import at.forsyte.harrsh.test.HarrshTableTest
 
 class ToSlcompConverterTest extends HarrshTableTest with Implicits with TestValues {
 
   val entailmentQueries = Table(
     ("lhs", "rhs", "sid", "status", "file"),
-    ("nel(x1,x2) * x2 -> x3 * nel(x3, x4)".parse, "nel(x1, x4)".parse, ExampleSIDs.Nel, Correct, Some("nel.hrs")),
-    ("emp : {x1 = x2}".parse, "x1 -> x2 : {x1 != x2}".parse, ExampleSIDs.Nel, Incorrect, Some("nel.hrs")),
-    ("tll(x1,x2,x3)".parse, "tll(x1,x2,x3) : {x1 != x2}".parse, ExampleSIDs.TllAcyc, Incorrect, Some("atll.hrs")),
-    ("emp".parse, "dll(x1,x2,x3,x4)".parse, ExampleSIDs.NeAcycDll, Incorrect, Some("dll.hrs")),
-    ("odd(x1,x2) * odd(x2, x3)".parse, "even(x1,x3) : {x1 != x3}".parse, ExampleSIDs.OddList, Correct, Some("odd.hrs")),
+    ("nel(x1,x2) * x2 -> x3 * nel(x3, x4)".parse, "nel(x1, x4)".parse, ExampleSIDs.Nel.underlying, Correct, Some("nel.hrs")),
+    ("emp : {x1 = x2}".parse, "x1 -> x2 : {x1 != x2}".parse, ExampleSIDs.Nel.underlying, Incorrect, Some("nel.hrs")),
+    ("tll(x1,x2,x3)".parse, "tll(x1,x2,x3) : {x1 != x2}".parse, ExampleSIDs.TllAcyc.underlying, Incorrect, Some("atll.hrs")),
+    ("emp".parse, "dll(x1,x2,x3,x4)".parse, ExampleSIDs.NeAcycDll.underlying, Incorrect, Some("dll.hrs")),
+    ("odd(x1,x2) * odd(x2, x3)".parse, "even(x1,x3) : {x1 != x3}".parse, ExampleSIDs.OddList.underlying, Correct, Some("odd.hrs")),
     ("emp".parse, "emp".parse, ExampleSIDs.OptionallyEstablishedSID2, Correct, Some("strange.hrs"))
   )
 
-  private def dropRootsAndSort(sid: SID): Seq[Predicate] = {
-    sid.preds map (_.copy(rootParam = None)) sortBy(_.head)
+  private def sort(sid: SidLike): Seq[Predicate] = {
+    sid.preds sortBy (_.head)
   }
 
   private def checkIdentityForQuery(query: EntailmentQuery): Unit = {
@@ -38,7 +38,7 @@ class ToSlcompConverterTest extends HarrshTableTest with Implicits with TestValu
       query.status shouldEqual result.status
       query.lhs shouldEqual result.lhs
       query.rhs shouldEqual result.rhs
-      dropRootsAndSort(query.sid) shouldEqual dropRootsAndSort(result.sid)
+      sort(query.sid) shouldEqual sort(result.sid)
     }
   }
 

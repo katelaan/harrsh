@@ -1,9 +1,9 @@
-package at.forsyte.harrsh.seplog.inductive
+package at.forsyte.harrsh.seplog.sidtransformers
 
-import at.forsyte.harrsh.{ExampleSIDs, Implicits, TestValues}
 import at.forsyte.harrsh.test.HarrshTableTest
+import at.forsyte.harrsh.{ExampleSIDs, Implicits, TestValues}
 
-class SymbolicHeapUtilsTest extends HarrshTableTest with Implicits with TestValues {
+class SplitIntoRootedComponentsTest extends HarrshTableTest with Implicits with TestValues {
 
   val nelSid = ExampleSIDs.Nel
 
@@ -24,7 +24,7 @@ class SymbolicHeapUtilsTest extends HarrshTableTest with Implicits with TestValu
     forAll(inputs) {
       (sh, sid, expectedResult) =>
         info(s"Will split $sh based on SID $sid")
-        val splitResult = SymbolicHeapUtils.splitIntoRootedComponents(sh, sid)
+        val splitResult = SplitIntoRootedComponents(sh, sid)
 
         info(s"Split result:\n${splitResult.mkString("\n")}")
 
