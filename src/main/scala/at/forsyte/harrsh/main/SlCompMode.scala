@@ -19,6 +19,7 @@ object SlCompMode {
     // General
     val Timeout = "timeout"
     val Verbose = "verbose"
+    val Debug= "debug"
     // Sat Checking
     val SatCheckingIncrementalFromNumCalls = "sat-incremental"
     // Entailment Checking
@@ -36,6 +37,7 @@ object SlCompMode {
       // General
       params.Timeout -> 2400,
       params.Verbose -> false,
+      params.Debug -> true,
       // Sat Checking
       params.SatCheckingIncrementalFromNumCalls -> 4,
       // Entailment Checking
@@ -100,7 +102,7 @@ object SlCompMode {
 
     args.drop(2) foreach parseArg
 
-    if (config.getBoolean(params.Verbose)) {
+    if (config.getBoolean(params.Verbose) || config.getBoolean(params.Debug)) {
       println(config)
     }
 
@@ -218,8 +220,10 @@ object SlCompMode {
       sid,
       RunSat.getAutomaton,
       timeout,
+      None,
+      incrementalFromNumCalls = Some(config.getInt(params.SatCheckingIncrementalFromNumCalls)),
       skipSinksAsSources = true,
-      verbose = verbose,
+      verbose,
       reportProgress = verbose)
     val resStatus = if (res.timedOut) {
       ProblemStatus.Unknown

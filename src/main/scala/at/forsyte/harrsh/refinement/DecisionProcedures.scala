@@ -41,7 +41,7 @@ object DecisionProcedures extends HarrshLogging {
 
   def decideInstance(sid : SID, ha : HeapAutomaton, timeout : Duration, topLevelQuery: Option[SymbolicHeap] = None, incrementalFromNumCalls: Option[Int] = None, skipSinksAsSources : Boolean = false, verbose : Boolean = false, reportProgress : Boolean = false): AnalysisResult = {
     Combinators.tillTimeout(timeout) {
-      () => RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, topLevelQuery, skipSinksAsSources = skipSinksAsSources, reportProgress = reportProgress)
+      () => RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, topLevelQuery, incrementalFromNumCalls, skipSinksAsSources = skipSinksAsSources, reportProgress = reportProgress)
     } match {
       case Some((isEmpty, time)) =>
         if (verbose) println(s"Finished in ${time}ms")
