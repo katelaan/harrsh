@@ -23,15 +23,26 @@ object SplitIntoRootedComponents {
         throw new IllegalArgumentException(s"Currently no support for queries in which bound variables are shared between connected components, but SCCs are ${groups.mkString(", ")}")
       }
       val rootedSHs = groups map (_.toSymbolicHeap)
-      if (rootedSHs.size != 1 && rootedSHs.exists(sh => sh.predCalls.isEmpty && !sh.hasPointer)) {
-        // FIXME: Ensure that there is no component that consists only of pure constraints. Such a component should be incorporated with another SH
-        throw new IllegalStateException(s"Rooted components $rootedSHs contain empty component")
-      }
-      rootedSHs
+      integrateEmptyComponents(rootedSHs)
     }
   }
 
-  def sharedBoundVars(groups: List[RootedComponent]): Boolean = {
+  private def integrateEmptyComponents(rootedSHs: List[SymbolicHeap]): List[SymbolicHeap] = {
+    if (rootedSHs.size == 1) rootedSHs
+    else {
+      val (empty,nonempty) = rootedSHs.partition(sh => sh.predCalls.isEmpty && !sh.hasPointer)
+      // FIXME: Is it really a good idea to add the atoms to an arbitrary component? Shouldn't we add it to one which uses  at least one of the involved vars if possible?
+      if (empty.isEmpty) nonempty else addPureConstraints(nonempty.head, empty) :: nonempty.tail
+    }
+  }
+
+  private def addPureConstraints(nonemptySh: SymbolicHeap, emptyShs: Seq[SymbolicHeap]): SymbolicHeap = {
+    val allPureConstraints = nonemptySh.pure ++ emptyShs.flatMap(_.pure)
+    val fvs = (nonemptySh.freeVars ++ emptyShs.flatMap(_.freeVars)).distinct
+    nonemptySh.copy(pure = allPureConstraints, freeVars = fvs)
+  }
+
+  private def sharedBoundVars(groups: List[RootedComponent]): Boolean = {
     if (groups.size == 1) {
       false
     }
