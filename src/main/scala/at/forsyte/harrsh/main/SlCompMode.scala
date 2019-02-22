@@ -159,30 +159,39 @@ object SlCompMode {
   private case class BenchmarkResult(status: ProblemStatus, asExpected: Boolean, time: Long)
 
   private def preprocAll(): Unit = {
-    allSlcompBenchs().map(_.toString).foreach(preproc)
+    val results = allSlcompBenchs().map(_.toString).map(preproc)
+    val errors = results.count(b => !b)
+    println(s"A total of $errors/${results.size} benchmarks could not be processed.")
   }
 
-  private def preproc(file: String): Unit = {
+  private def preproc(file: String): Boolean = {
     println(s"Will preprocess $file...")
     parseBenchmark(file) match {
       case None =>
         println(s"Couldn't parse $file")
+        false
       case Some(bm) =>
         preprocQuery(bm)
     }
   }
 
-  private def preprocQuery(query: Query): Unit = {
+  private def preprocQuery(query: Query): Boolean = {
     query match {
       case q: SatQuery =>
         println(q.toIntegratedSid)
+        true
       case q: EntailmentQuery =>
         queryToEI(q) match {
-          case None => println("Could not convert query.")
-          case Some(ei) => println(ei.prettyPrint)
+          case None =>
+            println("Could not convert query.")
+            false
+          case Some(ei) =>
+            println(ei.prettyPrint)
+            true
         }
       case _ =>
         println("Input parsed to wrong query type.")
+        false
     }
   }
 
