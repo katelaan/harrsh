@@ -26,7 +26,7 @@ case class RichSid(override val startPred : String,
     violatingRules.isEmpty
   }
 
-  private def rulesViolatingProgress = {
+  def rulesViolatingProgress: Seq[(Predicate, RuleBody)] = {
     for {
       pred <- preds
       rule <- pred.rules

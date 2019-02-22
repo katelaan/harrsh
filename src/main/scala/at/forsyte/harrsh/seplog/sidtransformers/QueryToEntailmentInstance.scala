@@ -4,23 +4,27 @@ import at.forsyte.harrsh.entailment.{EntailmentInstance, EntailmentQuerySide, Pr
 import at.forsyte.harrsh.main.{EntailmentQuery, HarrshLogging}
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RichSid, SymbolicHeap}
 
+import scala.util.{Failure, Success, Try}
+
 object QueryToEntailmentInstance extends HarrshLogging {
 
   def apply(parseRes: EntailmentQuery, computeSeparateSidsForEachSide: Boolean) : Option[EntailmentInstance] = {
-    generalizedProgressNormalform(computeSeparateSidsForEachSide)(parseRes) map logTransformationResult
+    generalizedProgressNormalform(computeSeparateSidsForEachSide)(parseRes).map(logTransformationResult) match {
+      case Success(ei) => Some(ei)
+      case Failure(e) =>
+        logger.error("Conversion to entailment instance failed with exception: " + e.getMessage)
+        //e.printStackTrace()
+        None
+    }
   }
 
-  val PrefixOfLhsAuxiliaryPreds = "lhs"
-  val PrefixOfRhsAuxiliaryPreds = "rhs"
-
-  def isAuxiliaryPred(pred: Predicate): Boolean = pred.head.startsWith(PrefixOfLhsAuxiliaryPreds) || pred.head.startsWith(PrefixOfRhsAuxiliaryPreds)
-
-  private def generalizedProgressNormalform(computeSeparateSidsForEachSide: Boolean)(parseResult: EntailmentQuery): Option[EntailmentInstance] = {
+  private def generalizedProgressNormalform(computeSeparateSidsForEachSide: Boolean)(parseResult: EntailmentQuery): Try[EntailmentInstance] = {
     for {
       rootedSid <- AnnotateSidWithRootParams(parseResult.sid)
-      if satisfiesGeneralizedProgress(rootedSid)
-      lhs = processEntailmentQuerySide(parseResult.lhs, rootedSid, computeSeparateSidsForEachSide, isLhs = true)
-      rhs = processEntailmentQuerySide(parseResult.rhs, rootedSid, computeSeparateSidsForEachSide, isLhs = false)
+      rootWithOnePtoPerRule <- SplitMultiPointerRules(rootedSid)
+      if satisfiesGeneralizedProgress(rootWithOnePtoPerRule)
+      lhs = processEntailmentQuerySide(parseResult.lhs, rootWithOnePtoPerRule, computeSeparateSidsForEachSide, isLhs = true)
+      rhs = processEntailmentQuerySide(parseResult.rhs, rootWithOnePtoPerRule, computeSeparateSidsForEachSide, isLhs = false)
     } yield EntailmentInstance(lhs, rhs, parseResult.status.toBoolean)
   }
 
@@ -33,12 +37,13 @@ object QueryToEntailmentInstance extends HarrshLogging {
 
   private def satisfiesGeneralizedProgress(sid: RichSid): Boolean = {
     if (!sid.satisfiesGeneralizedProgress)
-      logger.error(s"Discarding input because the SID $sid does not satisfy progress.")
+      logger.error(s"Discarding input because the SID $sid does not satisfy progress; violating rules: ${sid.rulesViolatingProgress.map(_._2)}")
     sid.satisfiesGeneralizedProgress
   }
 
   private def processEntailmentQuerySide(originalQuerySide: SymbolicHeap, rootedSid: RichSid, computeSeparateSidsForEachSide: Boolean, isLhs: Boolean): EntailmentQuerySide = {
     val sideSid = if (computeSeparateSidsForEachSide) RestrictSidToCalls(rootedSid, originalQuerySide.predCalls.toSet) else rootedSid
+    // TODO: Make splitting into SCCs optional + more explicit in the EI at type level!
     val (sccSid, lhsCalls) = splitQueryIntoSccs(originalQuerySide, sideSid, isLhs)
     EntailmentQuerySide(sccSid, lhsCalls, originalQuerySide)
   }

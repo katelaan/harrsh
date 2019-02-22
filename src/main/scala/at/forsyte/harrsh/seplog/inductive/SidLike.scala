@@ -2,7 +2,7 @@ package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var.Naming
-import at.forsyte.harrsh.seplog.sidtransformers.QueryToEntailmentInstance
+import at.forsyte.harrsh.seplog.sidtransformers
 import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
 
@@ -32,7 +32,7 @@ trait SidLike extends HarrshLogging {
 
   lazy val predsThatOccurAtMostOnceInUnfolding: Set[Predicate] = {
     // FIXME: A proper implementation of this that also works for non-auxiliary predicates?
-    preds.filter(QueryToEntailmentInstance.isAuxiliaryPred).toSet
+    preds.filter(sidtransformers.isAuxiliaryPred).toSet
   }
 
   def toHarrshFormat : Seq[String] = {
