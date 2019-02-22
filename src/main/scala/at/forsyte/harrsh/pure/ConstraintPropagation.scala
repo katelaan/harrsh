@@ -15,7 +15,7 @@ object ConstraintPropagation {
 
     val allPure = propagateConstraints(pure)
     // Propagate equalities to allocation info
-    val allocFromEqualities : Set[Var] = propagateEqualitiesToAlloc(alloc, allPure)
+    val allocFromEqualities : Set[Var] = closeSetUnderEqualities(alloc, allPure)
 
     (allocFromEqualities, allPure)
   }
@@ -56,17 +56,17 @@ object ConstraintPropagation {
 
   }
 
-  def propagateEqualitiesToAlloc(explicit: Set[Var], allPure: Set[PureAtom]): Set[Var] = {
-    propagateEqualitiesToAllocAux(explicit, allPure.filter(_.isEquality).toSeq, explicit)
+  def closeSetUnderEqualities(explicit: Set[Var], allPure: Iterable[PureAtom]): Set[Var] = {
+    closeSetUnderEqualitiesAux(explicit, allPure.filter(_.isEquality).toSeq, explicit)
   }
 
   @tailrec
-  private def propagateEqualitiesToAllocAux(explicit: Set[Var], allPure: Seq[PureAtom], acc : Set[Var]): Set[Var] = {
+  private def closeSetUnderEqualitiesAux(explicit: Set[Var], allPure: Seq[PureAtom], acc : Set[Var]): Set[Var] = {
     if (allPure.isEmpty) acc else {
       val hd = allPure.head
       val (l, r) = (hd.l, hd.r)
       val newAcc = if (explicit.contains(l)) acc + r else if(explicit.contains(r)) acc + l else acc
-      propagateEqualitiesToAllocAux(explicit, allPure.tail, newAcc)
+      closeSetUnderEqualitiesAux(explicit, allPure.tail, newAcc)
     }
   }
 

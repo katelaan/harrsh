@@ -44,6 +44,8 @@ case class RichSid(override val startPred : String,
 
   def underlying: Sid = Sid(startPred, preds, description)
 
+  override def toString: String = underlying.toString
+
   def prettyPrint: String = underlying.toString
 
 }
