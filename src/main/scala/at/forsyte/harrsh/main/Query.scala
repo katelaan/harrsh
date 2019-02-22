@@ -2,10 +2,11 @@ package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.entailment.EntailmentInstance
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
-import at.forsyte.harrsh.parsers.{EntailmentParsers, QueryParser}
+import at.forsyte.harrsh.parsers.QueryParser
 import at.forsyte.harrsh.refinement.AutomatonTask
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.seplog.sidtransformers.QueryToEntailmentInstance
 import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
 
@@ -25,7 +26,7 @@ sealed trait Query {
 
   def toEntailmentInstance(computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = this match {
     case q: EntailmentQuery =>
-      EntailmentParsers.normalize(q, computeSeparateSidsForEachSide)
+      QueryToEntailmentInstance(q, computeSeparateSidsForEachSide)
     case _ => None
   }
 }
