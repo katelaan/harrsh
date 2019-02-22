@@ -2,7 +2,7 @@ package at.forsyte.harrsh.main
 
 import java.io.File
 
-import at.forsyte.harrsh.entailment.EntailmentChecker
+import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentInstance}
 import at.forsyte.harrsh.parsers.QueryParser.FileExtensions
 
 import scala.concurrent.duration.{Duration, SECONDS}
@@ -126,6 +126,11 @@ object SlCompMode {
           checkAll()
         else
           check(args(1), isBatchMode = false)
+      case "preproc" =>
+        if (args(1) == "all")
+          preprocAll()
+        else
+          preproc(args(1))
       case "batch" =>
         val bmFile = args(1)
         val files = for {
@@ -152,6 +157,34 @@ object SlCompMode {
   }
 
   private case class BenchmarkResult(status: ProblemStatus, asExpected: Boolean, time: Long)
+
+  private def preprocAll(): Unit = {
+    allSlcompBenchs().map(_.toString).foreach(preproc)
+  }
+
+  private def preproc(file: String): Unit = {
+    println(s"Will preprocess $file...")
+    parseBenchmark(file) match {
+      case None =>
+        println(s"Couldn't parse $file")
+      case Some(bm) =>
+        preprocQuery(bm)
+    }
+  }
+
+  private def preprocQuery(query: Query): Unit = {
+    query match {
+      case q: SatQuery =>
+        println(q.toIntegratedSid)
+      case q: EntailmentQuery =>
+        queryToEI(q) match {
+          case None => println("Could not convert query.")
+          case Some(ei) => println(ei.prettyPrint)
+        }
+      case _ =>
+        println("Input parsed to wrong query type.")
+    }
+  }
 
   private def checkAll(): Unit = {
     checkList(allSlcompBenchs().map(_.toString).sorted)
@@ -180,11 +213,11 @@ object SlCompMode {
         println(s"Couldn't parse $file")
         BenchmarkResult(ProblemStatus.Unknown, asExpected = true, 0)
       case Some(bm) =>
-        checkBenchmark(bm, isBatchMode)
+        checkQuery(bm, isBatchMode)
     }
   }
 
-  private def checkBenchmark(bm: Query, isBatchMode: Boolean): BenchmarkResult = {
+  private def checkQuery(bm: Query, isBatchMode: Boolean): BenchmarkResult = {
     val verbose = config.getBoolean(params.Verbose)
     if (verbose) {
       println(s"Benchmark: $bm")
@@ -244,30 +277,36 @@ object SlCompMode {
     }
   }
 
-  private def statusOfQuery(bm: EntailmentQuery) : ProblemStatus = {
-    val maybeEI = try {
+  private def queryToEI(bm: EntailmentQuery) : Option[EntailmentInstance] = {
+    try {
       bm.toEntailmentInstance(computeSeparateSidsForEachSide = config.getBoolean(params.ComputePerSideSids))
     } catch {
       case e: Throwable =>
-        println("Error: Conversion to entailment instance failed with exception" + e.getMessage)
+        println("Error: Conversion to entailment instance failed with exception: " + e.getMessage)
         None
     }
+  }
 
-    maybeEI match {
+  private def statusOfQuery(bm: EntailmentQuery) : ProblemStatus = {
+    queryToEI(bm) match {
       case None =>
         println(s"Couldn't convert $bm to entailment instance")
         ProblemStatus.Unknown
       case Some(ei) =>
-        val verbose = config.getBoolean(params.Verbose)
-        try {
-          val (res, stats) = EntailmentChecker.solve(ei, printResult = false, reportProgress = verbose, exportToLatex = false)
-          if (verbose) stats.foreach(println)
-          if (res) ProblemStatus.Correct else ProblemStatus.Incorrect
-        } catch {
-          case e: Throwable =>
-            println("Error: The entailment checker crashed with exception " + e.getMessage)
-            ProblemStatus.Unknown
-        }
+        runEntailmentChecker(ei)
+    }
+  }
+
+  private def runEntailmentChecker(ei: EntailmentInstance) : ProblemStatus = {
+    val verbose = config.getBoolean(params.Verbose)
+    try {
+      val (res, stats) = EntailmentChecker.solve(ei, printResult = false, reportProgress = verbose, exportToLatex = false)
+      if (verbose) stats.foreach(println)
+      if (res) ProblemStatus.Correct else ProblemStatus.Incorrect
+    } catch {
+      case e: Throwable =>
+        println("Error: The entailment checker crashed with exception " + e.getMessage)
+        ProblemStatus.Unknown
     }
   }
 

@@ -48,9 +48,7 @@ object ToSymbolicHeapOverBtwSid extends HarrshLogging {
       val TransformationResult(headPred, otherPreds) = introduceOnePredPerPointer(sh, predPrefix)
       logTransformationResult(headPred +: otherPreds)
       val normalizedHeadPred = normalizeHeadPred(headPred, underlyingSID)
-      //val SID(normalizedHeadPred.head, normalizedHeadPred +: otherPreds, s"Progress normal form of [$sh]")
       val newPreds = normalizedHeadPred +: otherPreds
-      println(newPreds)
       val newRoots = newPreds map { pred =>
         val from = pred.rules.head.body.pointers.headOption.map(_.from).filter(_.isFree)
         from.map(_.asInstanceOf[FreeVar])

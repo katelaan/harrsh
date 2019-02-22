@@ -82,6 +82,8 @@ object StringUtils {
     }
   }
 
+  def indent(numSpaces: Int)(s: String) = s.lines.map((" "*numSpaces) + _).mkString("\n")
+
   def today(): String = {
     val now = Calendar.getInstance().getTime()
     val format = new SimpleDateFormat("yyyy-MM-dd")

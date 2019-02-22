@@ -24,7 +24,8 @@ sealed trait Query {
   }
 
   def toEntailmentInstance(computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = this match {
-    case q: EntailmentQuery => EntailmentParsers.normalize(q, computeSeparateSidsForEachSide)
+    case q: EntailmentQuery =>
+      EntailmentParsers.normalize(q, computeSeparateSidsForEachSide)
     case _ => None
   }
 }
