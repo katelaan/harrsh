@@ -1,7 +1,5 @@
 package at.forsyte.harrsh.main
 
-import java.io.File
-
 import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentInstance}
 import at.forsyte.harrsh.parsers.QueryParser.FileExtensions
 
@@ -15,6 +13,8 @@ import scala.util.Try
 
 object SlCompMode {
 
+  val BatchExtension: String = "bms"
+
   object params {
     // General
     val Timeout = "timeout"
@@ -25,6 +25,7 @@ object SlCompMode {
     // Entailment Checking
     val ComputePerSideSids = "per-side-sid"
     // Batch Mode
+    val IsBatchMode = "is-batch-mode"
     val BatchBaseDir = "dir"
     val BatchTimeout = "batch-timeout"
     val BatchCategories = "categories"
@@ -43,6 +44,7 @@ object SlCompMode {
       // Entailment Checking
       params.ComputePerSideSids -> true,
       // Batch Mode
+      params.IsBatchMode -> false,
       params.BatchBaseDir -> "bench",
       params.BatchTimeout -> 5,
       params.BatchCategories -> "all",
@@ -59,6 +61,10 @@ object SlCompMode {
     def getInt(key: String): Int = map(key).asInstanceOf[Int]
     def getDuration(key: String): Duration = Duration(map(key).asInstanceOf[Int], SECONDS)
     def getString(key: String): String = map(key).asInstanceOf[String]
+
+    def getTimeoutForCurrentMode: Duration = {
+      config.getDuration(if (getBoolean(params.IsBatchMode)) params.BatchTimeout else params.Timeout)
+    }
 
     def batchDirs: Seq[String] = {
       val baseDir = getString(params.BatchBaseDir)
@@ -106,146 +112,204 @@ object SlCompMode {
       println(config)
     }
 
-    args(0) match {
-      case "say" =>
-        println(args(1) + '!')
-        for {
-          bench <- allSlcompBenchs().sorted
-        } println(bench)
-      case "parse" =>
-        if (args(1) == "all")
-          parseAllBenchmarks()
-        else {
-          val bm = parseBenchmark(args(1))
-          println(s"Constructed the following benchmark:\n$bm")
-        }
-      case "run" =>
-        run(args(1))
-      case "check" =>
-        if (args(1) == "all")
-          checkAll()
-        else
-          check(args(1), isBatchMode = false)
-      case "preproc" =>
-        if (args(1) == "all")
-          preprocAll()
-        else
-          preproc(args(1))
-      case "batch" =>
-        val bmFile = args(1)
-        val files = for {
-          line <- IOUtils.readFile(bmFile).lines
-          trimmed = line.trim
-          if trimmed.nonEmpty
-          if trimmed(0) != '#'
-        } yield trimmed
-        checkList(files.toList)
+    val mode = args(0) match {
+      case "list" => PrintMode
+      case "parse" => ParseMode
+      case "run" => RunMode
+      case "check" => CheckMode
+      case "preproc" => PreprocMode
+    }
+
+    mode.run(args(1))
+  }
+
+  trait Mode[A]
+  {
+    def runOnFile(file: String): A
+    def batchPostproc(resultStream: Stream[(String,A)]): Unit = {
+      // Force evaluation of stream
+      resultStream.last
+    }
+    def beforeFile(file: String): Unit = ()
+    def afterFile(file: String, res: A) = ()
+
+    def run(arg: String): Unit = {
+      if (arg == "all") runAll()
+      else if (arg.endsWith(BatchExtension)) runBatch(arg)
+      else {
+        val res = runOnFile(arg)
+        afterFile(arg, res)
+      }
+    }
+
+    def runList(bms: Seq[String]): Unit = {
+      config.set(params.IsBatchMode, true)
+      val resStream = for {
+        bm <- bms.toStream
+        _ = beforeFile(bm)
+        res = runOnFile(bm)
+        _ = afterFile(bm,res)
+      } yield (bm, res)
+      batchPostproc(resStream)
+    }
+
+    def runAll(): Unit = runList(allSlcompBenchsInSelectedBatchDirs())
+
+    def runBatch(bmFile: String): Unit = {
+      val files = for {
+        line <- IOUtils.readFile(bmFile).lines
+        trimmed = line.trim
+        if trimmed.nonEmpty
+        if trimmed(0) != '#'
+      } yield trimmed
+      runList(files.toList)
+    }
+
+    def allSlcompBenchsInSelectedBatchDirs(): Seq[String] = {
+      val dirs = config.batchDirs
+      val skipWorstCaseInstances = config.getBoolean(params.BatchSkipWorstCase)
+      println("Will process all benchmarks in: " + dirs.mkString(", "))
+      (for {
+        dir <- dirs
+        file <- IOUtils.getListOfFiles(dir)
+        if file.getName.endsWith(FileExtensions.SlComp) && file.getName != "logic.smt2"
+        if !skipWorstCaseInstances || !file.getName.startsWith("succ-")
+      } yield file).map(_.toString).sorted
+    }
+
+  }
+
+  private object PrintMode extends Mode[Unit] {
+    override def runOnFile(file: String): Unit = println(file)
+  }
+
+  /**
+   * Preprocessing only
+   */
+  private object PreprocMode extends Mode[Boolean] {
+
+    override def runOnFile(file: String): Boolean = {
+      println(s"Will preprocess $file...")
+      parseBenchmark(file) match {
+        case None =>
+          println(s"Couldn't parse $file")
+          false
+        case Some(bm) =>
+          preprocQuery(bm)
+      }
+    }
+
+    private def preprocQuery(query: Query): Boolean = {
+      query match {
+        case q: SatQuery =>
+          println(q.toIntegratedSid)
+          true
+        case q: EntailmentQuery =>
+          queryToEI(q) match {
+            case None =>
+              println("Could not convert query:\n" + query)
+              false
+            case Some(ei) =>
+              println(ei.prettyPrint)
+              true
+          }
+        case _ =>
+          println("Input parsed to wrong query type.")
+          false
+      }
+    }
+
+    override def batchPostproc(resultStream: Stream[(String, Boolean)]): Unit = {
+      val errors = resultStream.count(pair => !pair._2)
+      println(s"A total of $errors/${resultStream.size} benchmarks could not be processed.")
     }
   }
 
-  private def run(file: String) = {
-    val res = for {
-      bm <- parseBenchmark(file)
-      status <- execute(bm, isBatchMode = false)._1.toBoolean
-    } yield (bm.isInstanceOf[EntailmentQuery], status)
-    val output = res match {
-      case None => "unknown"
-      case Some((isEntailment, true)) => if (isEntailment) "unsat" else "sat"
-      case Some((isEntailment, false)) => if (isEntailment) "sat" else "unsat"
-    }
-    println(output)
-  }
+  /*
+   * Check benchmarks
+   */
 
   private case class BenchmarkResult(status: ProblemStatus, asExpected: Boolean, time: Long)
 
-  private def preprocAll(): Unit = {
-    val results = allSlcompBenchs().map(_.toString).map(preproc)
-    val errors = results.count(b => !b)
-    println(s"A total of $errors/${results.size} benchmarks could not be processed.")
-  }
+  private object CheckMode extends Mode[BenchmarkResult] {
 
-  private def preproc(file: String): Boolean = {
-    println(s"Will preprocess $file...")
-    parseBenchmark(file) match {
-      case None =>
-        println(s"Couldn't parse $file")
-        false
-      case Some(bm) =>
-        preprocQuery(bm)
+    override def runOnFile(file: String): BenchmarkResult = {
+      parseBenchmark(file) match {
+        case None =>
+          println(s"Couldn't parse $file")
+          BenchmarkResult(ProblemStatus.Unknown, asExpected = true, 0)
+        case Some(bm) =>
+          checkQuery(bm)
+      }
     }
-  }
 
-  private def preprocQuery(query: Query): Boolean = {
-    query match {
-      case q: SatQuery =>
-        println(q.toIntegratedSid)
+    private def checkQuery(bm: Query): BenchmarkResult = {
+      val verbose = config.getBoolean(params.Verbose)
+      if (verbose) {
+        println(s"Benchmark: $bm")
+        println(s"Input for refinement: $bm")
+        println(s"Expected result: ${bm.status}")
+      }
+      val (res, time) = execute(bm)
+      if (verbose) println(s"Done. Result: $res")
+      val deviation = if (bm.status != ProblemStatus.Unknown && bm.status != res) {
+        println(if (res != ProblemStatus.Unknown) "UNEXPECTED RESULT" else "UNKNOWN")
+        false
+      } else {
         true
-      case q: EntailmentQuery =>
-        queryToEI(q) match {
-          case None =>
-            println("Could not convert query.")
-            false
-          case Some(ei) =>
-            println(ei.prettyPrint)
-            true
-        }
-      case _ =>
-        println("Input parsed to wrong query type.")
-        false
+      }
+      BenchmarkResult(res, deviation, time)
     }
-  }
 
-  private def checkAll(): Unit = {
-    checkList(allSlcompBenchs().map(_.toString).sorted)
-  }
+    override def batchPostproc(results: Stream[(String, BenchmarkResult)]): Unit = {
+      val stats = for {
+        (bench, res) <- results
+      } yield Seq(
+        bench,
+        res.status.toString,
+        if (res.status == ProblemStatus.Unknown) "n/a" else res.asExpected.toString,
+        res.time.toString)
 
-  private def checkList(bms: Seq[String]): Unit = {
-    val stats = for {
-      bench <- bms
-      res = check(bench.toString, isBatchMode = true)
-      _ = println(s"${bench.toString}: Computed result: ${res.status}, as expected: ${res.asExpected}, used ${res.time}ms")
-    } yield Seq(
-      bench.toString,
-      res.status.toString,
-      if (res.status == ProblemStatus.Unknown) "n/a" else res.asExpected.toString,
-      res.time.toString)
-
-    println(s"FINISHED BENCHMARK SUITE (timeout: ${config.getDuration(params.BatchTimeout).toMillis} ms)")
-    val headings = Seq("Benchmark", "Status", "As Expected", "Time")
-    println(StringUtils.toTable(StringUtils.defaultTableConfigForHeadings(headings), stats))
-  }
-
-  private def check(file: String, isBatchMode: Boolean): BenchmarkResult = {
-    println(s"Will check $file...")
-    parseBenchmark(file) match {
-      case None =>
-        println(s"Couldn't parse $file")
-        BenchmarkResult(ProblemStatus.Unknown, asExpected = true, 0)
-      case Some(bm) =>
-        checkQuery(bm, isBatchMode)
+      println(s"FINISHED BENCHMARK SUITE (timeout: ${config.getDuration(params.BatchTimeout).toMillis} ms)")
+      val headings = Seq("Benchmark", "Status", "As Expected", "Time")
+      println(StringUtils.toTable(StringUtils.defaultTableConfigForHeadings(headings), stats))
     }
+
+    override def beforeFile(file: String): Unit = println(s"Will check $file...")
+
+    override def afterFile(file: String, res: BenchmarkResult): Unit = {
+      println(s"${file}: Computed result: ${res.status}, as expected: ${res.asExpected}, used ${res.time}ms")
+    }
+
   }
 
-  private def checkQuery(bm: Query, isBatchMode: Boolean): BenchmarkResult = {
-    val verbose = config.getBoolean(params.Verbose)
-    if (verbose) {
-      println(s"Benchmark: $bm")
-      println(s"Input for refinement: $bm")
-      println(s"Expected result: ${bm.status}")
+  /*
+   * Run query
+   */
+
+  private object RunMode extends Mode[Unit] {
+    override def runOnFile(file: String): Unit = {
+      val res = for {
+        bm <- parseBenchmark(file)
+        status <- execute(bm)._1.toBoolean
+      } yield (bm.isInstanceOf[EntailmentQuery], status)
+      val output = res match {
+        case None => "unknown"
+        case Some((isEntailment, true)) => if (isEntailment) "unsat" else "sat"
+        case Some((isEntailment, false)) => if (isEntailment) "sat" else "unsat"
+      }
+      println(output)
     }
-    val (res, time) = execute(bm, isBatchMode)
-    if (verbose) println(s"Done. Result: $res")
-    val deviation = if (bm.status != ProblemStatus.Unknown && bm.status != res) {
-      println(if (res != ProblemStatus.Unknown) "UNEXPECTED RESULT" else "UNKNOWN")
-      false
-    } else {
-      true
+
+    override def batchPostproc(resultStream: Stream[(String, Unit)]): Unit = {
+      println(s"FINISHED BENCHMARK SUITE (timeout: ${config.getDuration(params.BatchTimeout).toMillis} ms)")
     }
-    BenchmarkResult(res, deviation, time)
+
+    override def beforeFile(file: String): Unit = println(s"Will run $file...")
   }
 
-  private def execute(bm: Query, isBatchMode: Boolean): (ProblemStatus, Long) = {
-    val timeout = config.getDuration(if (isBatchMode) params.BatchTimeout else params.Timeout)
+  private def execute(bm: Query): (ProblemStatus, Long) = {
+    val timeout = config.getTimeoutForCurrentMode
     bm match {
       case q: SatQuery => executeSatQuery(q, timeout)
       case q: EntailmentQuery => executeEntailmentQuery(q, timeout)
@@ -319,6 +383,43 @@ object SlCompMode {
     }
   }
 
+  /*
+   * Parsing
+   */
+
+  private object ParseMode extends Mode[Option[Query]] {
+
+    override def runOnFile(file: String): Option[Query] = parseBenchmark(file)
+
+    override def beforeFile(file: String): Unit = println(s"Try parsing $file...")
+
+    override def afterFile(file: String, res: Option[Query]): Unit = {
+      println(s"Constructed the following benchmark:\n" + res.getOrElse("(failed)"))
+    }
+
+    override def batchPostproc(resultStream: Stream[(String, Option[Query])]): Unit = {
+      var parsed = 0
+      var failed = 0
+      var failedNames: List[String] = Nil
+      for ((bench,maybeQuery) <- resultStream) {
+        maybeQuery match {
+          case Some(query) =>
+            parsed += 1
+          case None =>
+            failed += 1
+            failedNames = failedNames :+ bench.toString
+        }
+      }
+
+      println(s"Successfully parsed $parsed/${parsed+failed} benchmarks.")
+      if (failedNames.nonEmpty) {
+        println("Failed benchmarks:")
+        for (f <- failedNames) println(s" - $f")
+      }
+    }
+
+  }
+
   private def parseBenchmark(file: String): Option[Query] = {
     try {
       slcomp.parseFileToQuery(file)
@@ -327,44 +428,6 @@ object SlCompMode {
         println(s"Parse exception: " + e.getMessage)
         None
     }
-  }
-
-  private def parseAllBenchmarks(): Unit = {
-    var parsed = 0
-    var failed = 0
-    var failedNames: List[String] = Nil
-    for (bench <- allSlcompBenchs().sortBy(_.toString)) {
-      println(s"Try parsing $bench...")
-      val maybeParsed = Try {
-        parseBenchmark(bench.toString).get
-      }.toOption
-      maybeParsed match {
-        case Some(query) =>
-          println(s"Constructed the following benchmark:\n$query")
-          parsed += 1
-      case None =>
-        failed += 1
-        failedNames = failedNames :+ bench.toString
-      }
-    }
-
-    println(s"Successfully parsed $parsed/${parsed+failed} benchmarks.")
-    if (failedNames.nonEmpty) {
-      println("Failed benchmarks:")
-      for (f <- failedNames) println(s" - $f")
-    }
-  }
-
-  private def allSlcompBenchs(): Seq[File] = {
-    val dirs = config.batchDirs
-    val skipWorstCaseInstances = config.getBoolean(params.BatchSkipWorstCase)
-    println("Will run all benchmarks in: " + dirs.mkString(", "))
-    for {
-      dir <- dirs
-      file <- IOUtils.getListOfFiles(dir)
-      if file.getName.endsWith(FileExtensions.SlComp) && file.getName != "logic.smt2"
-      if !skipWorstCaseInstances || !file.getName.startsWith("succ-")
-    } yield file
   }
 
 }
