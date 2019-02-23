@@ -3,8 +3,8 @@ package at.forsyte.harrsh.seplog.sidtransformers
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.seplog._
+import at.forsyte.harrsh.seplog.inductive.RichSid.{FocusedVar, RootFocus}
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.seplog.sidtransformers.SidDirectionalityAnnotator.{Directionality, Root}
 import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
@@ -12,7 +12,6 @@ import scala.util.Try
 
 object SplitMultiPointerRules extends HarrshLogging {
 
-  type FocusedVar = (FreeVar, Directionality)
   type FocusedPredicate = (Predicate, FocusedVar)
 
   /**
@@ -31,9 +30,9 @@ object SplitMultiPointerRules extends HarrshLogging {
   }
 
   private def toRootSinkMaps(pairs: Seq[(String, FocusedVar)]): (Map[String,FreeVar], Map[String,FreeVar]) = {
-    val (taggedRoots, taggedSinks) = pairs.partition(_._2._2 == Root)
-    def removeTag[A,B,Tag](taggedVal: (A,(B,Tag))): (A,B) = (taggedVal._1, taggedVal._2._1)
-    def toUntaggedMap[A,B,Tag](seq: Seq[(A,(B,Tag))]): Map[A,B] = seq.map(removeTag).toMap
+    val (taggedRoots, taggedSinks) = pairs.partition(_._2.dir == RootFocus)
+    def removeTag[A](taggedVal: (A,FocusedVar)): (A,FreeVar) = (taggedVal._1, taggedVal._2.fv)
+    def toUntaggedMap[A,B,Tag](seq: Seq[(A,FocusedVar)]): Map[A,FreeVar] = seq.map(removeTag).toMap
     (toUntaggedMap(taggedRoots), toUntaggedMap(taggedSinks))
   }
 
@@ -170,12 +169,12 @@ object SplitMultiPointerRules extends HarrshLogging {
 
   private def focusOf(ptoFrac: PtoFraction, originalBoundVarsTurnedFreeVars: Seq[(BoundVar, FreeVar)]): FocusedVar = {
     ptoFrac.head.from match {
-      case fv: FreeVar => (fv, Root)
+      case fv: FreeVar => FocusedVar(fv, RootFocus)
       case bv: BoundVar => originalBoundVarsTurnedFreeVars.find(_._1 == bv) match {
         case None =>
           // FIXME: Compute sink in this case (or all cases)? Have to see whether this case occurs in SLCOMP benchmarks.
           throw PreprocessingException(s"Resulting predicate for $ptoFrac would be rooted in bound var $bv")
-        case Some(pair) => (pair._2, Root)
+        case Some(pair) => FocusedVar(pair._2, RootFocus)
       }
       case NullConst => throw PreprocessingException("Null alloc")
     }

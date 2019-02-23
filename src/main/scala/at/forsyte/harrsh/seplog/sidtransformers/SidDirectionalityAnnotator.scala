@@ -2,9 +2,9 @@ package at.forsyte.harrsh.seplog.sidtransformers
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.ConstraintPropagation
+import at.forsyte.harrsh.seplog.inductive.RichSid.{FocusDirection, RootFocus, SinkFocus}
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
 import at.forsyte.harrsh.seplog.inductive._
-import at.forsyte.harrsh.seplog.sidtransformers.SidDirectionalityAnnotator.Directionality
 
 import scala.annotation.tailrec
 import scala.util.Try
@@ -12,7 +12,7 @@ import scala.util.Try
 // TODO: If we allow predicates that don't allocate pointers (like we now do in generalized progress), the root may not be unique!
 // TODO: Even if we have progress, the focus need not be unique because multiple sinks can be free! Think about whether we want to explicitly allow or explicitly disallow this. (Probably not relevant for SL-COMP, but we'll see.)
 
-class SidDirectionalityAnnotator(sid: SidLike, direction: Directionality) extends HarrshLogging {
+class SidDirectionalityAnnotator(sid: SidLike, direction: FocusDirection) extends HarrshLogging {
 
   def run(): Map[String, FreeVar] = annotationFixedPoint(Map.empty)
 
@@ -101,26 +101,11 @@ object SidDirectionalityAnnotator {
   }
 
   def computeRoots(sid: SidLike): Map[String, FreeVar] = {
-    new SidDirectionalityAnnotator(sid, Root).run()
+    new SidDirectionalityAnnotator(sid, RootFocus).run()
   }
 
   def computeSinks(sid: SidLike): Map[String, FreeVar] = {
-    new SidDirectionalityAnnotator(sid, Sink).run()
-  }
-
-  sealed trait Directionality {
-    val name: String
-    def ptoArgsForDirection(pto: PointsTo): Set[Var]
-  }
-  case object Root extends Directionality {
-    override def ptoArgsForDirection(pto: PointsTo): Set[Var] = Set(pto.from)
-
-    override val name: String = "root"
-  }
-  case object Sink extends Directionality {
-    override def ptoArgsForDirection(pto: PointsTo): Set[Var] = pto.to.toSet
-
-    override val name: String = "sink"
+    new SidDirectionalityAnnotator(sid, SinkFocus).run()
   }
 
 }
