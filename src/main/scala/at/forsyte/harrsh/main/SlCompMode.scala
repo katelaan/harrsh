@@ -9,7 +9,7 @@ import at.forsyte.harrsh.refinement.{DecisionProcedures, RunSat}
 import at.forsyte.harrsh.util.{Combinators, IOUtils, StringUtils}
 
 import scala.collection.mutable
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object SlCompMode {
 
@@ -187,7 +187,7 @@ object SlCompMode {
    * Preprocessing only
    */
 
-  private type PreprocRes = (Boolean,Option[Query])
+  private type PreprocRes = (Option[String], Option[Query])
 
   private object PreprocMode extends Mode[PreprocRes] {
 
@@ -195,43 +195,43 @@ object SlCompMode {
       println(s"Will preprocess $file...")
       parseBenchmark(file) match {
         case None =>
-          println(s"Couldn't parse $file")
-          (false, None)
+          val msg = s"Couldn't parse $file"
+          println(msg)
+          (Some(msg), None)
         case Some(bm) =>
           (preprocQuery(bm), Some(bm))
       }
     }
 
-    private def preprocQuery(query: Query): Boolean = {
+    private def preprocQuery(query: Query): Option[String] = {
       query match {
         case q: SatQuery =>
           println(q.toIntegratedSid)
-          true
+          None
         case q: EntailmentQuery =>
           queryToEI(q) match {
-            case None =>
-              println("Could not convert query:\n" + query)
-              false
-            case Some(ei) =>
+            case Failure(e) =>
+              println("Exception during preprocessing: " + e.getMessage)
+              Some(e.getMessage)
+            case Success(ei) =>
               println(ei.prettyPrint)
-              true
+              None
           }
         case _ =>
-          println("Input parsed to wrong query type.")
-          false
+          Some("Input parsed to wrong query type.")
       }
     }
 
     override def batchPostproc(resultStream: Stream[(String, PreprocRes)]): Unit = {
-      val (errors,successes) = resultStream.partition(pair => !pair._2._1)
+      val (errors, successes) = resultStream.partition(pair => pair._2._1.nonEmpty)
       val numErrs = errors.size
       val numBms = errors.size + successes.size
       println(s"A total of $numErrs/${numErrs+numBms} benchmarks could not be processed:")
       errors.zipWithIndex.foreach{
         case (res, index) =>
-          val (file, (_, maybeQuery)) = res
+          val (file, (Some(errorMsg), maybeQuery)) = res
           val query = maybeQuery.map(_.toString).getOrElse("parse error")
-          val msg = s"${index+1} - $file:\n$query"
+          val msg = s"${index+1} - $file:\n$query\nException: $errorMsg"
           println(msg)
       }
     }
@@ -362,22 +362,16 @@ object SlCompMode {
     }
   }
 
-  private def queryToEI(bm: EntailmentQuery) : Option[EntailmentInstance] = {
-    try {
-      bm.toEntailmentInstance(computeSeparateSidsForEachSide = config.getBoolean(params.ComputePerSideSids))
-    } catch {
-      case e: Throwable =>
-        println("Error: Conversion to entailment instance failed with exception: " + e.getMessage)
-        None
-    }
+  private def queryToEI(bm: EntailmentQuery) : Try[EntailmentInstance] = {
+    bm.toEntailmentInstance(computeSeparateSidsForEachSide = config.getBoolean(params.ComputePerSideSids))
   }
 
   private def statusOfQuery(bm: EntailmentQuery) : ProblemStatus = {
     queryToEI(bm) match {
-      case None =>
+      case Failure(e) =>
         println(s"Couldn't convert $bm to entailment instance")
         ProblemStatus.Unknown
-      case Some(ei) =>
+      case Success(ei) =>
         runEntailmentChecker(ei)
     }
   }

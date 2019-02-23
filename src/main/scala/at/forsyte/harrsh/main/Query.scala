@@ -10,6 +10,8 @@ import at.forsyte.harrsh.seplog.sidtransformers.QueryToEntailmentInstance
 import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
 
+import scala.util.Try
+
 sealed trait Query {
   val status: ProblemStatus
   val fileName: Option[String]
@@ -24,11 +26,10 @@ sealed trait Query {
     case _ => None
   }
 
-  def toEntailmentInstance(computeSeparateSidsForEachSide: Boolean): Option[EntailmentInstance] = this match {
-    case q: EntailmentQuery =>
-      QueryToEntailmentInstance(q, computeSeparateSidsForEachSide)
-    case _ => None
-  }
+  def toEntailmentInstance(computeSeparateSidsForEachSide: Boolean): Try[EntailmentInstance] = for {
+    q <- Try { this.asInstanceOf[EntailmentQuery] }
+    ei <- QueryToEntailmentInstance(q, computeSeparateSidsForEachSide)
+  } yield ei
 }
 
 case class RefinementQuery(sid: Sid, task: Option[AutomatonTask], override val status: ProblemStatus, override val fileName: Option[String]) extends Query {

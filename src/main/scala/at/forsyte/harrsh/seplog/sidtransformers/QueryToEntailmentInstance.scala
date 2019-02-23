@@ -8,14 +8,8 @@ import scala.util.{Failure, Success, Try}
 
 object QueryToEntailmentInstance extends HarrshLogging {
 
-  def apply(parseRes: EntailmentQuery, computeSeparateSidsForEachSide: Boolean) : Option[EntailmentInstance] = {
-    generalizedProgressNormalform(computeSeparateSidsForEachSide)(parseRes).map(logTransformationResult) match {
-      case Success(ei) => Some(ei)
-      case Failure(e) =>
-        logger.error("Conversion to entailment instance failed with exception: " + e.getMessage)
-        //e.printStackTrace()
-        None
-    }
+  def apply(parseRes: EntailmentQuery, computeSeparateSidsForEachSide: Boolean) : Try[EntailmentInstance] = {
+    generalizedProgressNormalform(computeSeparateSidsForEachSide)(parseRes).map(logTransformationResult)
   }
 
   private def generalizedProgressNormalform(computeSeparateSidsForEachSide: Boolean)(parseResult: EntailmentQuery): Try[EntailmentInstance] = {

@@ -56,7 +56,7 @@ object EntailmentBatchMode {
       if !filename.endsWith("info")
     } yield {
       println(s"Parsing $filename...")
-      (filename, QueryParser(filename).toEntailmentInstance(computeSidsForEachSideOfEntailment))
+      (filename, QueryParser(filename).toEntailmentInstance(computeSidsForEachSideOfEntailment).toOption)
     }
   }
 
@@ -180,19 +180,12 @@ object EntailmentBatchMode {
   }
 
   def runBenchmark(file: String, suppressOutput: Boolean = false): BenchmarkTrace = {
-    Try {
-      if (!suppressOutput) println(s"Checking $file...");
-      QueryParser(file).toEntailmentInstance(computeSeparateSidsForEachSide = true)
-    } match {
+    if (!suppressOutput) println(s"Checking $file...");
+    QueryParser(file).toEntailmentInstance(computeSeparateSidsForEachSide = true) match {
       case Failure(exception) => BenchmarkTrace(None, None, None, Some(s"Exception during parsing: ${exception.getMessage}"))
-      case Success(maybeInstance) =>
-        maybeInstance match {
-          case Some(instance) =>
-            val res = runEntailmentInstance(instance, descriptionOfInstance = file.toString, suppressOutput)
-            BenchmarkTrace(Some(instance), res._2, res._4, res._1)
-          case None =>
-            BenchmarkTrace(None, None, None, Some("Parse error"))
-        }
+      case Success(instance) =>
+        val res = runEntailmentInstance(instance, descriptionOfInstance = file.toString, suppressOutput)
+        BenchmarkTrace(Some(instance), res._2, res._4, res._1)
     }
   }
 

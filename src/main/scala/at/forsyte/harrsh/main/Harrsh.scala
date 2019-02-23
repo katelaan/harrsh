@@ -3,7 +3,6 @@ package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.Implicits
 import at.forsyte.harrsh.converters._
-
 import at.forsyte.harrsh.entailment.EntailmentChecker
 import at.forsyte.harrsh.modelchecking.GreedyUnfoldingModelChecker
 import at.forsyte.harrsh.parsers.QueryParser
@@ -11,6 +10,8 @@ import at.forsyte.harrsh.refinement.{DecisionProcedures, RefinementAlgorithms}
 import at.forsyte.harrsh.seplog.inductive.SidUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 import at.forsyte.harrsh.main.ExecutionMode._
+
+import scala.util.{Failure, Success}
 
 /**
   * The main command-line interface of Harrsh.
@@ -48,12 +49,12 @@ object Harrsh extends Implicits {
 
       case Entailment =>
         QueryParser(config.file).toEntailmentInstance(config.computeSidsForEachSideOfEntailment) match {
-          case Some(entailmentInstance) =>
+          case Success(entailmentInstance) =>
             val res = EntailmentChecker.solve(entailmentInstance)
             println(if (res._1) "The entailment holds" else "The entailment does NOT hold")
             res._2.foreach(stats => println(stats.prettyPrint))
-          case None =>
-            println("Parsing the entailment input failed.")
+          case Failure(e) =>
+            println("Parsing the entailment input failed with exception: " + e.getMessage)
         }
 
       case Decide =>
