@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentInstance}
-import at.forsyte.harrsh.parsers.QueryParser.FileExtensions
+import at.forsyte.harrsh.parsers.QueryParser.{FileExtensions, ParseException}
 
 import scala.concurrent.duration.{Duration, SECONDS}
 import at.forsyte.harrsh.parsers.slcomp
@@ -187,7 +187,7 @@ object SlCompMode {
    * Preprocessing only
    */
 
-  private type PreprocRes = (Option[String], Option[Query])
+  private type PreprocRes = (Option[Throwable], Option[Query])
 
   private object PreprocMode extends Mode[PreprocRes] {
 
@@ -197,13 +197,13 @@ object SlCompMode {
         case None =>
           val msg = s"Couldn't parse $file"
           println(msg)
-          (Some(msg), None)
+          (Some(ParseException(msg)), None)
         case Some(bm) =>
           (preprocQuery(bm), Some(bm))
       }
     }
 
-    private def preprocQuery(query: Query): Option[String] = {
+    private def preprocQuery(query: Query): Option[Throwable] = {
       query match {
         case q: SatQuery =>
           println(q.toIntegratedSid)
@@ -212,13 +212,13 @@ object SlCompMode {
           queryToEI(q) match {
             case Failure(e) =>
               println("Exception during preprocessing: " + e.getMessage)
-              Some(e.getMessage)
+              Some(e)
             case Success(ei) =>
               println(ei.prettyPrint)
               None
           }
         case _ =>
-          Some("Input parsed to wrong query type.")
+          Some(new IllegalStateException("Input parsed to wrong query type."))
       }
     }
 
@@ -229,10 +229,11 @@ object SlCompMode {
       println(s"A total of $numErrs/${numErrs+numBms} benchmarks could not be processed:")
       errors.zipWithIndex.foreach{
         case (res, index) =>
-          val (file, (Some(errorMsg), maybeQuery)) = res
+          val (file, (Some(error), maybeQuery)) = res
           val query = maybeQuery.map(_.toString).getOrElse("parse error")
-          val msg = s"${index+1} - $file:\n$query\nException: $errorMsg"
+          val msg = s"${index+1} - $file:\n$query\nException: ${error.getMessage}"
           println(msg)
+          error.printStackTrace()
       }
     }
   }

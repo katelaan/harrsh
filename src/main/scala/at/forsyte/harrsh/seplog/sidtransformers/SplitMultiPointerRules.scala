@@ -4,6 +4,7 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.seplog.sidtransformers.SidDirectionalityAnnotator.{Directionality, Root}
 import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
@@ -11,7 +12,8 @@ import scala.util.Try
 
 object SplitMultiPointerRules extends HarrshLogging {
 
-  type RootedPredicate = (Predicate, FreeVar)
+  type FocusedVar = (FreeVar, Directionality)
+  type FocusedPredicate = (Predicate, FocusedVar)
 
   /**
     * Split all multi-pointer rules in a rooted SID into single-pointer rules, thus establishing progress.
@@ -21,16 +23,25 @@ object SplitMultiPointerRules extends HarrshLogging {
     */
   def apply(sid: RichSid): Try[RichSid] = Try {
     val allPreds = sid.preds.flatMap(splitMultiPointerRules(sid, _))
+    val (roots, sinks) = toRootSinkMaps(allPreds.map(pair => pair._1.head -> pair._2))
     sid.copy(preds = allPreds.map(_._1),
       description = s"PtoSplit(${sid.description}",
-      roots = allPreds.map(pair => pair._1.head -> pair._2).toMap)
+      roots = roots,
+      sinks = sinks)
+  }
+
+  private def toRootSinkMaps(pairs: Seq[(String, FocusedVar)]): (Map[String,FreeVar], Map[String,FreeVar]) = {
+    val (taggedRoots, taggedSinks) = pairs.partition(_._2._2 == Root)
+    def removeTag[A,B,Tag](taggedVal: (A,(B,Tag))): (A,B) = (taggedVal._1, taggedVal._2._1)
+    def toUntaggedMap[A,B,Tag](seq: Seq[(A,(B,Tag))]): Map[A,B] = seq.map(removeTag).toMap
+    (toUntaggedMap(taggedRoots), toUntaggedMap(taggedSinks))
   }
 
   private case class Context(sid: RichSid, freeVarSeq: Seq[FreeVar], qvarNames: Seq[String], closure: Closure) {
     def toFreeVar(bv: BoundVar) = FreeVar(qvarNames(bv.index - 1))
   }
 
-  private def splitMultiPointerRules(sid: RichSid, pred: Predicate): Seq[RootedPredicate] = {
+  private def splitMultiPointerRules(sid: RichSid, pred: Predicate): Seq[FocusedPredicate] = {
     val (twoOrMore, oneOrLess) = pred.rules.partition(_.body.pointers.size > 1)
     if (twoOrMore.nonEmpty) {
 
@@ -38,15 +49,15 @@ object SplitMultiPointerRules extends HarrshLogging {
         case (rule, index) => splitRule(sid, rule, PrefixOfUnfoldingAuxiliaryPreds + pred.head + index + "_")
       }
       val (transformedRules, newPreds) = afterSplitting.unzip
-      val updatedPred = (Predicate(pred.head, oneOrLess ++ transformedRules), sid.roots(pred.head))
+      val updatedPred = (Predicate(pred.head, oneOrLess ++ transformedRules), sid.focus(pred.head))
       logger.debug("Predicate after splitting: " + updatedPred)
       updatedPred +: newPreds.flatten
     } else {
-      Seq((pred, sid.roots(pred.head)))
+      Seq((pred, sid.focus(pred.head)))
     }
   }
 
-  private def splitRule(sid: RichSid, rule: RuleBody, predHeadPrefix: String): (RuleBody, Seq[RootedPredicate]) = {
+  private def splitRule(sid: RichSid, rule: RuleBody, predHeadPrefix: String): (RuleBody, Seq[FocusedPredicate]) = {
     if (!sid.isRooted) throw PreprocessingException(s"Cannot establish progress of ${rule.body} for unrooted SID")
     val pto = rule.body.pointers
     val (initial, other) = pto.partition(_.from.isFree)
@@ -102,7 +113,7 @@ object SplitMultiPointerRules extends HarrshLogging {
     Combinators.counts(allBoundVars).filter(_._2 > 1).keySet
   }
 
-  private def splitRuleOnPointer(ctx: Context, pto: PointsTo, otherPto: Seq[PointsTo], calls: Seq[PredCall], pure: Seq[PureAtom], prefix: String): (RuleBody, Seq[RootedPredicate]) = {
+  private def splitRuleOnPointer(ctx: Context, pto: PointsTo, otherPto: Seq[PointsTo], calls: Seq[PredCall], pure: Seq[PureAtom], prefix: String): (RuleBody, Seq[FocusedPredicate]) = {
     val allTargets = targets(pto, ctx.closure)
     // Split remainder into rooted components
     val (nextPtos, remainder) = otherPto.partition(pto => allTargets(pto.from))
@@ -115,7 +126,7 @@ object SplitMultiPointerRules extends HarrshLogging {
     // Recursively introduce predicates for each fraction
     logger.debug(s"The bound variables $boundVarsThatBecomeFree are shared among multiple rules and will thus become free.")
 
-    val newPreds: Seq[RootedPredicateWithCallInfo] = completedFractions.zipWithIndex flatMap {
+    val newPreds: Seq[FocusedPredicateWithCallInfo] = completedFractions.zipWithIndex flatMap {
       case (ptoFrac, index) => makePredicates(ctx, ptoFrac, boundVarsThatBecomeFree, prefix + index)
     }
 
@@ -124,30 +135,30 @@ object SplitMultiPointerRules extends HarrshLogging {
     }
     logger.debug("Will add calls to " + newPredCalls.mkString(", "))
     val newSh = SymbolicHeap(AtomContainer(pure, Seq(pto), newPredCalls).closeGapsInBoundVars, ctx.freeVarSeq)
-    val boundVarsNotInNewSh = newPreds.toSet[RootedPredicateWithCallInfo].flatMap(_.localBoundVars)
+    val boundVarsNotInNewSh = newPreds.toSet[FocusedPredicateWithCallInfo].flatMap(_.localBoundVars)
     logger.debug(s"Will discard bound vars $boundVarsNotInNewSh which are now bound vars in a new predicate")
     val boundVarIndicesNotInNewSh = boundVarsNotInNewSh.map(_.index)
     val newQVarNames = ctx.qvarNames.zipWithIndex.filterNot(pair => boundVarIndicesNotInNewSh(pair._2 + 1)).map(_._1)
     val newRuleBody = RuleBody(newQVarNames, newSh)
     logger.debug("New rule body: " + newRuleBody)
-    val newRootedPreds = newPreds map (p => (p.pred, p.root))
-    (newRuleBody, newRootedPreds)
+    val newFocusedPreds = newPreds map (p => (p.pred, p.focus))
+    (newRuleBody, newFocusedPreds)
   }
 
-  case class RootedPredicateWithCallInfo(pred: Predicate, root: FreeVar, varsToPassToCall: Seq[Var], localBoundVars: Set[BoundVar])
+  case class FocusedPredicateWithCallInfo(pred: Predicate, focus: FocusedVar, varsToPassToCall: Seq[Var], localBoundVars: Set[BoundVar])
 
-  def makePredicates(ctx: Context, ptoFrac: PtoFraction, boundVarsThatBecomeFree: Set[BoundVar], prefix: String): Seq[RootedPredicateWithCallInfo] = {
+  def makePredicates(ctx: Context, ptoFrac: PtoFraction, boundVarsThatBecomeFree: Set[BoundVar], prefix: String): Seq[FocusedPredicateWithCallInfo] = {
     if (ptoFrac.allPtos.size == 1) {
       val shWithVarInfo = ptoFrac.toSymbolicHeap(ctx, boundVarsThatBecomeFree)
-      val root: FreeVar = rootOf(ptoFrac, shWithVarInfo.originalBoundVarsTurnedFreeVars)
+      val root: FocusedVar = focusOf(ptoFrac, shWithVarInfo.originalBoundVarsTurnedFreeVars)
       val remainingBvIndices = shWithVarInfo.remainingOriginalBoundVars.map(_.index)
       val qvarNames = ctx.qvarNames.zipWithIndex.filter(pair => remainingBvIndices(pair._2 + 1)).map(_._1)
       assert(qvarNames.size == shWithVarInfo.sh.boundVars.size,
         s"New symbolic heap ${shWithVarInfo.sh} has bound vars ${shWithVarInfo.sh.boundVars.mkString(", ")}, but have different number of names ${qvarNames.mkString(",")}"
       )
-      Seq(RootedPredicateWithCallInfo(
+      Seq(FocusedPredicateWithCallInfo(
         Predicate(prefix, Seq(RuleBody(qvarNames, shWithVarInfo.sh))),
-        root = root,
+        focus = root,
         varsToPassToCall = shWithVarInfo.originalFvSubSeq ++ shWithVarInfo.originalBoundVarsTurnedFreeVars.map(_._1),
         localBoundVars = shWithVarInfo.remainingOriginalBoundVars
       ))
@@ -157,16 +168,17 @@ object SplitMultiPointerRules extends HarrshLogging {
     }
   }
 
-  private def rootOf(ptoFrac: PtoFraction, originalBoundVarsTurnedFreeVars: Seq[(BoundVar, FreeVar)]) = {
-    val root: FreeVar = ptoFrac.head.from match {
-      case fv: FreeVar => fv
+  private def focusOf(ptoFrac: PtoFraction, originalBoundVarsTurnedFreeVars: Seq[(BoundVar, FreeVar)]): FocusedVar = {
+    ptoFrac.head.from match {
+      case fv: FreeVar => (fv, Root)
       case bv: BoundVar => originalBoundVarsTurnedFreeVars.find(_._1 == bv) match {
-        case None => throw PreprocessingException(s"Resulting predicate for $ptoFrac would be rooted in bound var $bv")
-        case Some(pair) => pair._2
+        case None =>
+          // FIXME: Compute sink in this case (or all cases)? Have to see whether this case occurs in SLCOMP benchmarks.
+          throw PreprocessingException(s"Resulting predicate for $ptoFrac would be rooted in bound var $bv")
+        case Some(pair) => (pair._2, Root)
       }
       case NullConst => throw PreprocessingException("Null alloc")
     }
-    root
   }
 
   @tailrec

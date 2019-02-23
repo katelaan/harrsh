@@ -1,10 +1,10 @@
 package at.forsyte.harrsh.seplog.sidtransformers
 
+import scala.util.Try
+
 import at.forsyte.harrsh.entailment.{EntailmentInstance, EntailmentQuerySide, PredCalls}
 import at.forsyte.harrsh.main.{EntailmentQuery, HarrshLogging}
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RichSid, SymbolicHeap}
-
-import scala.util.{Failure, Success, Try}
 
 object QueryToEntailmentInstance extends HarrshLogging {
 

@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.seplog.FreeVar
+import at.forsyte.harrsh.seplog.sidtransformers.SidDirectionalityAnnotator.{Directionality, Root, Sink}
 
 case class RichSid(override val startPred : String,
                    override val preds : Seq[Predicate],
@@ -15,6 +16,10 @@ case class RichSid(override val startPred : String,
   lazy val isFocused: Boolean = (roots ++ sinks).size == preds.size
 
   lazy val hasEmptyBaseRules: Boolean = emptyBaseRules.nonEmpty
+
+  def focus(head: String): (FreeVar, Directionality) = {
+    roots.get(head).map((_, Root)).getOrElse((sinks(head), Sink))
+  }
 
   lazy val rootParamIndex: Map[String, Int] = {
     for {
