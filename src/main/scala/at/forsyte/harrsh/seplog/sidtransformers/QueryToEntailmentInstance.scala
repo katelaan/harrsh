@@ -14,7 +14,7 @@ object QueryToEntailmentInstance extends HarrshLogging {
 
   private def generalizedProgressNormalform(computeSeparateSidsForEachSide: Boolean)(parseResult: EntailmentQuery): Try[EntailmentInstance] = {
     for {
-      rootedSid <- AnnotateSidWithRootParams(parseResult.sid)
+      rootedSid <- SidDirectionalityAnnotator(parseResult.sid)
       rootWithOnePtoPerRule <- SplitMultiPointerRules(rootedSid)
       if satisfiesGeneralizedProgress(rootWithOnePtoPerRule)
       lhs = processEntailmentQuerySide(parseResult.lhs, rootWithOnePtoPerRule, computeSeparateSidsForEachSide, isLhs = true)

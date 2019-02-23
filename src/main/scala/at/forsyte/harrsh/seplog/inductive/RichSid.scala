@@ -5,9 +5,14 @@ import at.forsyte.harrsh.seplog.FreeVar
 case class RichSid(override val startPred : String,
                    override val preds : Seq[Predicate],
                    override val description : String,
-                   roots: Map[String, FreeVar]) extends SidLike
+                   roots: Map[String, FreeVar],
+                   sinks: Map[String, FreeVar] = Map.empty) extends SidLike
 {
   lazy val isRooted: Boolean = roots.size == preds.size
+
+  lazy val isReverseRooted: Boolean = sinks.size == preds.size
+
+  lazy val isFocused: Boolean = (roots ++ sinks).size == preds.size
 
   lazy val hasEmptyBaseRules: Boolean = emptyBaseRules.nonEmpty
 
@@ -51,6 +56,10 @@ case class RichSid(override val startPred : String,
 }
 
 object RichSid {
+  def fromSid(sid: SidLike, roots: Map[String, FreeVar], sinks: Map[String, FreeVar] = Map.empty): RichSid = {
+    RichSid(sid.startPred, sid.preds, sid.description, roots, sinks)
+  }
+
 
   def empty : RichSid = RichSid("X", Seq.empty[Predicate], "", Map.empty)
 
