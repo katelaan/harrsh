@@ -186,16 +186,19 @@ object SlCompMode {
   /**
    * Preprocessing only
    */
-  private object PreprocMode extends Mode[Boolean] {
 
-    override def runOnFile(file: String): Boolean = {
+  private type PreprocRes = (Boolean,Option[Query])
+
+  private object PreprocMode extends Mode[PreprocRes] {
+
+    override def runOnFile(file: String): PreprocRes = {
       println(s"Will preprocess $file...")
       parseBenchmark(file) match {
         case None =>
           println(s"Couldn't parse $file")
-          false
+          (false, None)
         case Some(bm) =>
-          preprocQuery(bm)
+          (preprocQuery(bm), Some(bm))
       }
     }
 
@@ -219,9 +222,18 @@ object SlCompMode {
       }
     }
 
-    override def batchPostproc(resultStream: Stream[(String, Boolean)]): Unit = {
-      val errors = resultStream.count(pair => !pair._2)
-      println(s"A total of $errors/${resultStream.size} benchmarks could not be processed.")
+    override def batchPostproc(resultStream: Stream[(String, PreprocRes)]): Unit = {
+      val (errors,successes) = resultStream.partition(pair => !pair._2._1)
+      val numErrs = errors.size
+      val numBms = errors.size + successes.size
+      println(s"A total of $numErrs/${numErrs+numBms} benchmarks could not be processed:")
+      errors.zipWithIndex.foreach{
+        case (res, index) =>
+          val (file, (_, maybeQuery)) = res
+          val query = maybeQuery.map(_.toString).getOrElse("parse error")
+          val msg = s"${index+1} - $file:\n$query"
+          println(msg)
+      }
     }
   }
 
