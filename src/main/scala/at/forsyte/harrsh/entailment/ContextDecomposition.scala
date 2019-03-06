@@ -20,7 +20,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
 
   def rootParamSubsts(sid: RichSid): Seq[Set[Var]] = parts.toSeq.flatMap(_.rootParamSubsts(sid))
 
-  //def hasNonNullNamesForAllRootParams(sid: RichSid): Boolean = parts.forall(_.hasNonNullNamesForRootParams(sid))
+  def hasNonNullNamesForAllRootParams(sid: RichSid): Boolean = parts.forall(_.hasNonNullNamesForRootParams(sid))
 
   def hasNamesForAllUsedParams: Boolean = parts.forall(_.hasNamesForUsedParams)
 
@@ -134,7 +134,5 @@ object ContextDecomposition {
   implicit val decompToLatex: ToLatex[ContextDecomposition] = EntailmentResultToLatex.decompToLatex
 
   def apply(parts: Seq[EntailmentContext]): ContextDecomposition = ContextDecomposition(parts.toSet)
-
-
 
 }

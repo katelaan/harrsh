@@ -45,9 +45,9 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
 
   def hasConsistentPureConstraints: Boolean = pureConstraints.isConsistent
 
-//  def hasNonNullNamesForRootParams(sid: RichSid): Boolean = rootParamSubsts(sid).forall {
-//    labelingVars => labelingVars.exists(PlaceholderVar.isNonPlaceholderNonNullFreeVar)
-//  }
+  def hasNonNullNamesForRootParams(sid: RichSid): Boolean = rootParamSubsts(sid).forall {
+    labelingVars => labelingVars.exists(PlaceholderVar.isNonPlaceholderNonNullFreeVar)
+  }
 
   def rootParamSubsts(sid: RichSid): Seq[Set[Var]] = labels flatMap (_.rootParamSubst(sid))
 
@@ -74,20 +74,6 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
     logger.debug(s"Usage info for $n w.r.t. $this: $res")
     res
   }
-
-//  def hasNamesForUsedParams: Boolean = {
-//    // Everything that's used has a name
-//    val enoughNamesByNodeAndParam = for {
-//      node <- labels.toStream
-//      usageByVar = (node.subst.toSeq, usageInfoOfNode(node)).zipped
-//      (substVars, usg) <- usageByVar
-//      res = !usg.isUsed || substVars.exists(!PlaceholderVar.isPlaceholder(_))
-//      _ = {
-//        if (!res) logger.debug(s"Not enough names for $node: $substVars is not marked as used")
-//      }
-//    } yield res
-//    enoughNamesByNodeAndParam.forall(b => b)
-//  }
 
   def hasNamesForUsedParams: Boolean = usedParamSubst.forall {
     labelingVars => labelingVars.exists(PlaceholderVar.isNonPlaceholderFreeVar)

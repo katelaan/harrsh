@@ -63,7 +63,7 @@ object TargetProfile extends HarrshLogging {
   private def composeAndForget(profiles: Seq[EntailmentProfile], lab: SymbolicHeap, sid: RichSid): EntailmentProfile = {
     val composed = ComposeProfiles.composeAll(sid, profiles, lab.freeVars ++ lab.boundVars)
     logger.debug(s"Target profile after initial composition:\n${composed.decomps.mkString("\n")}")
-    val processComposedProfile = mergeUsingNonProgressRules(sid)_ andThen restrictToFreeVars(lab, sid) andThen dropNonviable(sid)
+    val processComposedProfile = mergeUsingNonProgressRules(sid)_ andThen restrictToFreeVars(lab) andThen dropNonviable(sid)
     processComposedProfile(composed)
   }
 
@@ -76,10 +76,10 @@ object TargetProfile extends HarrshLogging {
     merged
   }
 
-  private def restrictToFreeVars(lab: SymbolicHeap, sid: RichSid)(profile: EntailmentProfile): EntailmentProfile = {
+  private def restrictToFreeVars(lab: SymbolicHeap)(profile: EntailmentProfile): EntailmentProfile = {
     // Bound variables are not visible from outside the transition, so we remove them from the results
     // Note that some decompositions may be removed in the process
-    val restricted = profile.forget(sid, lab.boundVars.toSet)
+    val restricted = profile.forget(lab.boundVars.toSet)
     if (restricted.decomps != profile.decomps) {
       logger.debug(s"Updated target profile after forgetting bound vars:\n${restricted.decomps.mkString("\n")}")
     }
