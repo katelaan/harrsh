@@ -20,7 +20,9 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
 
   def rootParamSubsts(sid: RichSid): Seq[Set[Var]] = parts.toSeq.flatMap(_.rootParamSubsts(sid))
 
-  def hasNamesForAllRootParams(sid: RichSid): Boolean = parts.forall(_.hasNamesForRootParams(sid))
+  //def hasNonNullNamesForAllRootParams(sid: RichSid): Boolean = parts.forall(_.hasNonNullNamesForRootParams(sid))
+
+  def hasNamesForAllUsedParams: Boolean = parts.forall(_.hasNamesForUsedParams)
 
   def isSingletonDecomposition: Boolean = parts.size == 1
 
@@ -32,7 +34,8 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
     // We don't do a full viability check (yet)
     // This overapproximation of viability discards those decompositions that contain two contexts rooted in a predicate that can
     // occur at most once in any given sid-unfolding tree.
-    !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots) && !parts.exists(_.allocatesNull(sid))
+    //!sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots) && !parts.exists(_.allocatesNull(sid))
+    !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots) && !parts.exists(_.hasNullInRootPosition(sid))
   }
 
   def isFinal(calls: PredCalls): Boolean = {
@@ -111,7 +114,8 @@ case class ContextDecomposition(parts: Set[EntailmentContext]) extends HarrshLog
   }
 
   private def allocsNull(sid: RichSid): Boolean = {
-    rootParamSubsts(sid) exists Var.containsNull
+    //rootParamSubsts(sid) exists Var.containsNull
+    parts exists (_.hasNullInRootPosition(sid))
   }
 
   private def doubleAlloc(sid: RichSid): Boolean = {

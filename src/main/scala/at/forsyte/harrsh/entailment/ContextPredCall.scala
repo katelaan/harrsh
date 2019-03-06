@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.seplog.{FreeVar, Var}
+import at.forsyte.harrsh.seplog.{FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RichSid}
 import at.forsyte.harrsh.util.ToLatex._
 
@@ -20,6 +20,13 @@ case class ContextPredCall(pred: Predicate, subst: Substitution) {
   def freeVarSeq: Seq[FreeVar] = pred.params
 
   def placeholders: Set[PlaceholderVar] = subst.placeholders
+
+  def hasNullInRootPosition(sid: RichSid): Boolean = {
+    sid.rootParamIndex.get(pred.head) match {
+      case Some(ix) => subst.toSeq(ix).contains(NullConst)
+      case None => false
+    }
+  }
 
   def rootParamSubst(sid: RichSid): Option[Set[Var]] = {
     sid.rootParamIndex.get(pred.head) map {

@@ -15,7 +15,15 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
 
   lazy val boundVars: Set[BoundVar] = substs.flatMap(_.boundVars).toSet
 
-  def allocatesNull(sid: RichSid): Boolean = labels.exists(_.rootParamSubst(sid).getOrElse(Set.empty).contains(NullConst))
+  def impliesNullAllocation(sid: RichSid): Boolean = {
+    allocedParamSubsts.exists(_.contains(NullConst)) || calls.exists(_.hasNullInRootPosition(sid))
+  }
+
+  def hasNullInRootPosition(sid: RichSid): Boolean = {
+    calls.exists(_.hasNullInRootPosition(sid))
+  }
+
+  //def allocatesNull(sid: RichSid): Boolean = labels.exists(_.rootParamSubst(sid).getOrElse(Set.empty).contains(NullConst))
 
   private lazy val substs = labels map (_.subst)
 
@@ -37,9 +45,9 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
 
   def hasConsistentPureConstraints: Boolean = pureConstraints.isConsistent
 
-  def hasNamesForRootParams(sid: RichSid): Boolean = rootParamSubsts(sid).forall {
-    labelingVars => labelingVars.exists(PlaceholderVar.isNonPlaceholderNonNullFreeVar)
-  }
+//  def hasNonNullNamesForRootParams(sid: RichSid): Boolean = rootParamSubsts(sid).forall {
+//    labelingVars => labelingVars.exists(PlaceholderVar.isNonPlaceholderNonNullFreeVar)
+//  }
 
   def rootParamSubsts(sid: RichSid): Seq[Set[Var]] = labels flatMap (_.rootParamSubst(sid))
 
@@ -67,31 +75,33 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
     res
   }
 
-  def allFreeRootParamsUsed(sid: RichSid): Boolean = {
-    val rootsUsed = for {
-      node <- labels.toStream
-      rootParam <- sid.roots.get(node.pred.head)
-      ix = node.freeVarSeq.indexOf(rootParam)
-      // If a root parameter is a placeholder (i.e., not a proper free variable)
-      if node.subst.toSeq(ix) exists PlaceholderVar.isNonPlaceholderNonNullFreeVar
-      usage = usageInfoOfNode(node)
-    } yield usage(ix).isUsed
-    rootsUsed.forall(b => b)
+//  def hasNamesForUsedParams: Boolean = {
+//    // Everything that's used has a name
+//    val enoughNamesByNodeAndParam = for {
+//      node <- labels.toStream
+//      usageByVar = (node.subst.toSeq, usageInfoOfNode(node)).zipped
+//      (substVars, usg) <- usageByVar
+//      res = !usg.isUsed || substVars.exists(!PlaceholderVar.isPlaceholder(_))
+//      _ = {
+//        if (!res) logger.debug(s"Not enough names for $node: $substVars is not marked as used")
+//      }
+//    } yield res
+//    enoughNamesByNodeAndParam.forall(b => b)
+//  }
+
+  def hasNamesForUsedParams: Boolean = usedParamSubst.forall {
+    labelingVars => labelingVars.exists(PlaceholderVar.isNonPlaceholderFreeVar)
   }
 
-  def hasNamesForUsedParams: Boolean = {
-    // Everything that's used has a name
-    val enoughNamesByNodeAndParam = for {
-      node <- labels.toStream
-      usageByVar = (node.subst.toSeq, usageInfoOfNode(node)).zipped
-      (substVars, usg) <- usageByVar
-      res = !usg.isUsed || substVars.exists(!PlaceholderVar.isPlaceholder(_))
-      _ = {
-        if (!res) logger.debug(s"Not enough names for $node: $substVars is not marked as used")
-      }
-    } yield res
-    enoughNamesByNodeAndParam.forall(b => b)
-  }
+  def allocedParamSubsts: Stream[Set[Var]] = for {
+    (vars, usage) <- usageInfo.toStream
+    if usage == VarAllocated
+  } yield vars
+
+  def usedParamSubst: Stream[Set[Var]] = for {
+    (vars, usage) <- usageInfo.toStream
+    if usage != VarUnused
+  } yield vars
 }
 
 object EntailmentContext extends HarrshLogging {

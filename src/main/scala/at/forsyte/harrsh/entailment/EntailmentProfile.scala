@@ -36,13 +36,16 @@ case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: 
       restrictedToFreeVars <- decomp.forget(varsToForget)
       _ = logger.debug(s"After restriction to free variables:\n${restrictedToFreeVars.parts.mkString("\n")}")
       _ = assert(restrictedToFreeVars.boundVars.isEmpty, s"Bound vars remain after restriction to free vars: $restrictedToFreeVars")
-      // FIXME: Also filter out types that lack names for back pointers?
-      // FIXME: What to check for the top-level predicates that don't have a root parameter annotation?
-      // At the end of the composition, every root parameter needs to have a name because without having names for the roots,
+      // At the end of the composition, every used parameter needs to have a name, because without names for used params,
       // we can never extend the decomposition to a full unfolding: There's no way to compose if you don't have names.
-      // TODO: Instead use the filter operation proposed in the paper?
-      if restrictedToFreeVars.hasNamesForAllRootParams(sid)
-      _ = logger.debug("Decomposition has names for all roots. Will keep if viable.")
+      // In the TACAS paper, forget simply throws out all decompositions that use the variables we forget. This is not
+      // sound here, however, because of possible aliasing effects imposed via pure formulas.
+      // Checking if everything that's used has a name *after* the forget operation takes care of this by only discarding
+      // decompositions where some variable we forgot was the *only* name for a used parameter.
+      if restrictedToFreeVars.hasNamesForAllUsedParams
+      // TODO Note: It's also possible to discard just profiles with wrong roots, which is still a very effective filter for most SIDs, but yields to significantly more decomps (and thus a performance penalty) e.g. for grids. Consider profiling this before removing the following code.
+      //if restrictedToFreeVars.hasNonNullNamesForAllRootParams(sid)
+      _ = logger.debug("Decomposition has names for all used vars. Will keep if viable.")
     } yield restrictedToFreeVars
 
     EntailmentProfile(filteredDecomps, orderedParams filterNot varsToForget.contains)
