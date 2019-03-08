@@ -8,7 +8,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
 
   assert(VarUsageByLabel.isWellFormed(usageInfo), "Overlapping entries in usage info: " + usageInfo)
 
-  assert((occurringLabels - Set(NullConst)) == (usageInfo.keySet - Set(NullConst)),
+  assert(occurringLabels.filterNot(_.contains(NullConst)) == usageInfo.keySet.filterNot(_.contains(NullConst)),
     s"Inconsistent decomposition: Occurring labels are $occurringLabels, but usage info has keys ${usageInfo.keySet}"
   )
 
