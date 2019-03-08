@@ -10,17 +10,16 @@ object EntailmentContextComposition extends HarrshLogging {
       CompositionInterface(t1, t2, n2) <- compositionCandidates(fst, snd)
       _ = logger.debug(s"Trying to compose on root ${t1.root} and leaf $n2")
       if !doubleAlloc(t1.root, n2, usageInfo)
-      newEqualities = unificationEqualities(t1.root, n2)
-      // FIXME: Do we have to support adding speculative equalities here? If so, we need to fix an apparent bug in the way they are currently propagated. And we might have to add them to local profile computation as well?
-      if newEqualities.isEmpty
-      pureWithNewEqualities = pureConstraints.addToMissing(newEqualities)
+      // Uncomment this to get a human readable representation of the equalities implied by the matching
+      //_ = unificationEqualities(t1.root, n2)
       propagateUnification = unification(t1.root, n2, usageInfo)
       instantiation = instantiate(t2, n2, t1, propagateUnification)
       _ = logger.debug("Will propagate unification into " + usageInfo)
       unifiedUsage = VarUsageByLabel.update(usageInfo, propagateUnification)
-      //_ = assert(VarUsageByLabel.isWellFormed(unifiedUsage), "Overlapping entries in usage info: " + unifiedUsage)
+      _ = assert(VarUsageByLabel.isWellFormed(unifiedUsage),
+        s"Overlapping entries after updating $usageInfo to " + unifiedUsage)
       _ = logger.debug(s"Unified usage $usageInfo into $unifiedUsage")
-      newPureConstraints = pureWithNewEqualities.update(propagateUnification)
+      newPureConstraints = pureConstraints.update(propagateUnification)
     } yield (instantiation, unifiedUsage, newPureConstraints, propagateUnification)
   }
 
