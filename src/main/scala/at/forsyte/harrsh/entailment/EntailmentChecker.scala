@@ -130,31 +130,39 @@ object EntailmentChecker extends HarrshLogging {
     val EntailmentInstance(lhs, rhs, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhs.sid, rhs.calls)
     val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhs.sid, aut, reportProgress)
-    val entailmentHolds = checkAcceptance(entailmentInstance.rhs.sid, entailmentInstance.lhs.calls, entailmentInstance.rhs.calls, reachableStatesByPred)
-    val stats = entailmentStats(reachableStatesByPred)
-
     if (printResult) {
       println(serializeResult(aut, reachableStatesByPred))
     }
+
+    val entailmentHolds = checkAcceptance(entailmentInstance.rhs.sid, entailmentInstance.lhs.calls, entailmentInstance.rhs.calls, reachableStatesByPred)
     if (exportToLatex) {
       print("Will export result to LaTeX...")
       IOUtils.writeFile("entailment.tex", EntailmentResultToLatex.entailmentCheckingResultToLatex(entailmentInstance, entailmentHolds, aut, reachableStatesByPred, transitionsByHeadPred))
       println(" Done.")
     }
 
+    val stats = entailmentStats(reachableStatesByPred)
     (entailmentHolds,stats)
   }
+
+  val ExpectAllSat = true
 
   private def checkAcceptance(sid: RichSid, lhsCalls: PredCalls, rhsCalls: PredCalls, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
     logger.debug(s"Will check whether all profiles in fixed point for $lhsCalls imply $rhsCalls")
     val lhsFVs = lhsCalls.calls flatMap (_.getNonNullVars) filter (_.isFree)
     val renamedReachableStates = for {
       call <- lhsCalls.calls
-      reachableForCall = reachable(call.name)
+      reachableForCall = reachable.getOrElse(call.name, Set.empty)
     } yield reachableForCall map (_.rename(sid, call.args))
     val combinedProfiles = for {
       toplevelStates <- Combinators.choices(renamedReachableStates.map(_.toSeq)).toStream
     } yield EntailmentProfileComposition.composeAll(sid, toplevelStates, lhsFVs)
+    if (combinedProfiles.isEmpty) {
+      logger.info(s"There is no profile for $lhsCalls => $lhsCalls is unsatisfiable => entailment holds.")
+      if (ExpectAllSat) {
+        throw new Exception("Expected all satisfiability, but could not satisfy left-hand side " + lhsCalls)
+      }
+    }
     combinedProfiles.forall(_.decomps.exists(_.isFinal(rhsCalls)))
   }
 
