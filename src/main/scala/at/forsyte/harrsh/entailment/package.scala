@@ -62,7 +62,18 @@ package object entailment {
     }
 
     def fromUnification(unification: Unification): SubstitutionUpdate = {
-      v => unification.filter(_.contains(v)).flatten.toSet + v
+      var prevMap: Map[Var, Set[Var]] = Map.empty
+      var currMap: Map[Var, Set[Var]] = unification.flatten.map{
+        v:Var => v -> (unification.filter(_.contains(v)).flatten.toSet + v)
+      }.toMap
+      while (prevMap != currMap) {
+        prevMap = currMap
+        currMap = for {
+          (k, vs) <- prevMap
+        } yield (k, vs flatMap prevMap)
+      }
+      logger.debug("Unification leads to the following updates:\n" + currMap)
+      v => currMap.getOrElse(v, Set(v))
     }
 
     def fromRuleAndParamSubstitution(rule: RuleBody, paramSubst: Substitution): SubstitutionUpdate = {
@@ -149,7 +160,7 @@ package object entailment {
       val res = grouped map {
         case (updated, allUsagesForUpdated) => updated -> allUsagesForUpdated.values.max
       }
-      logger.trace(s"Grouped $usageInfo into\n$grouped\n=> Resulting usage info $res")
+      logger.debug(s"Grouped $usageInfo into\n$grouped\n=> Resulting usage info $res")
       res
     }
 
