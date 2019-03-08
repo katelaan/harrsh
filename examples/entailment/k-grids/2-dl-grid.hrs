@@ -10,5 +10,5 @@ sid {
   dlgrid3 <= x1 -> (u,x2,x3) * right(x2,v,x3) * dlgrid(u,v,x3);
 }
 info {
-  status = true
+  status = false
 }
