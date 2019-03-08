@@ -37,21 +37,8 @@ object TargetProfile extends HarrshLogging {
     }
   }
 
-  private def localAllocConsistent(local: Option[EntailmentProfile]): Boolean = {
-    local match {
-      case Some(profile) =>
-        // Return true iff there is at least one way to decompose the local allocation
-        profile.nonEmpty
-      case None =>
-        // No local allocation (i.e., no pointer or pure atoms) at all
-        // This can only happen for SIDs outside the BTW fragment, i.e., for SIDs with "generalized progress"
-        // TODO: Explicitly turn on/off support for "generalized progress"?
-        true
-    }
-  }
-
-  private def combineLocalAndSourceProfiles(local: Option[EntailmentProfile], instantiatedProfiles: RenamedSourceStates, lab: SymbolicHeap, sid: RichSid) = {
-    if (localAllocConsistent(local)) {
+  private def combineLocalAndSourceProfiles(local: EntailmentProfile, instantiatedProfiles: RenamedSourceStates, lab: SymbolicHeap, sid: RichSid) = {
+    if (local.nonEmpty) {
       val profiles = local +: instantiatedProfiles
       val composed = composeAndForget(profiles, lab, sid)
       ConsistentTargetProfile(composed)

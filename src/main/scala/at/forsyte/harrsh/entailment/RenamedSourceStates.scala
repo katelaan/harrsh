@@ -9,22 +9,19 @@ sealed trait RenamedSourceStates {
     case ConsistentRenamedSourceStates(_) => true
   }
 
-  def +:(other: Option[EntailmentProfile]) : Seq[EntailmentProfile]
+  def +:(other: EntailmentProfile) : Seq[EntailmentProfile]
 }
 
 case object InconsistentRenamedSourceStates extends RenamedSourceStates {
 
-  def +:(other: Option[EntailmentProfile]) : Seq[EntailmentProfile] = throw new IllegalStateException("Can't process inconsistent source states")
+  def +:(other: EntailmentProfile) : Seq[EntailmentProfile] = throw new IllegalStateException("Can't process inconsistent source states")
 
 }
 
 case class ConsistentRenamedSourceStates(renamedProfilesByState: Seq[EntailmentProfile]) extends RenamedSourceStates {
 
-  def +:(other: Option[EntailmentProfile]) : Seq[EntailmentProfile] = {
-    other match {
-      case None => renamedProfilesByState
-      case Some(localProfile) => localProfile +: renamedProfilesByState
-    }
+  def +:(localProfile: EntailmentProfile) : Seq[EntailmentProfile] = {
+    localProfile +: renamedProfilesByState
   }
 
 }

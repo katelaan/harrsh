@@ -7,20 +7,20 @@ import at.forsyte.harrsh.seplog.inductive._
 
 object LocalProfile extends HarrshLogging {
 
-  def apply(lab: SymbolicHeap, sid: RichSid): Option[EntailmentProfile] = {
+  def apply(lab: SymbolicHeap, sid: RichSid): EntailmentProfile = {
     logger.debug(s"Will compute profile for local allocation of $lab")
     val decomps = decompsOfLocalAllocation(lab, sid)
     logger.debug(s"Decompositions in local profile of $lab:\n${decomps.mkString("\n")}")
     val params = varsInLocalAllocation(lab)
-    decomps map (EntailmentProfile(_, params))
+    EntailmentProfile(decomps, params)
   }
 
-  private def decompsOfLocalAllocation(lab: SymbolicHeap, sid: RichSid): Option[Set[ContextDecomposition]] = {
+  private def decompsOfLocalAllocation(lab: SymbolicHeap, sid: RichSid): Set[ContextDecomposition] = {
     if (lab.pointers.isEmpty) {
-      decompsIfNoAllocation(lab)
+      Set(decompIfNoAllocation(lab))
     } else {
       assert(lab.pointers.size == 1)
-      Some(decompsOfNonemptyLocalAllocation(lab, sid))
+      decompsOfNonemptyLocalAllocation(lab, sid)
     }
   }
 
@@ -30,14 +30,13 @@ object LocalProfile extends HarrshLogging {
     (varsInPtrs ++ varsInPure).distinct
   }
 
-  private def decompsIfNoAllocation(lab: SymbolicHeap): Option[Set[ContextDecomposition]] = {
-    if (lab.pure.nonEmpty) {
-      // TODO: It seems like we could get support for empty base rules on the LHS by returning a profile consisting of a zero-element decomposition with an ensured set of pure constraints matching those in lab. Is that correct?
-      throw new IllegalArgumentException(s"Can't process symbolic heap without allocation but with pure constraints: $lab")
-    } else {
-      logger.debug(s"No pointers/pure atoms in rule => don't compute local profile")
-      None
-    }
+  private def decompIfNoAllocation(lab: SymbolicHeap): ContextDecomposition = {
+    logger.debug(s"No pointers in rule => only pure constraint in local profile")
+    val vars = lab.allVars
+    val usageInfo: VarUsageByLabel = vars.map(v => (Set(v),VarUnused)).toMap
+    val ensured = lab.pure.toSet
+    val pure = PureConstraintTracker(ensured, Set.empty)
+    ContextDecomposition(Set.empty, usageInfo, pure)
   }
 
   def decompsOfNonemptyLocalAllocation(lhs: SymbolicHeap, sid: RichSid) : Set[ContextDecomposition] = {

@@ -1,0 +1,11 @@
+# Every list is a list
+query {
+  ls(x1, x2) |= ls(x1, x2)
+}
+sid {
+  ls <= emp : {x1 = x2} ;
+  ls <= x1 -> y * ls(y,x2)
+}
+info {
+  status = true
+}
