@@ -14,6 +14,13 @@ case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: 
 
   private val nonPlaceholderVarsInContexts = decomps.flatMap(_.nonNullNonPlaceholderVars)
 
+  lazy val guaranteedAllocated = {
+    // Note: There can be differences between allocation depending on "speculative" equalities imposed by picking specific ways to construct parse trees.
+    // To quickly find all benchmarks that exhibit this behavior, run batch mode after uncommenting this assertion and removing the "lazy" modifier
+    //assert(decomps.map(_.allocedVars).size <= 1, s"Differences in allocated vars of decompositions (${decomps.map(_.allocedVars)}) in profile $this")
+    decomps.map(_.allocedVars).reduce(_ intersect _)
+  }
+
   if (nonEmpty && !(nonPlaceholderVarsInContexts subsetOf orderedParams.toSet)) {
     throw new IllegalArgumentException(s"Profile contains FVs $nonPlaceholderVarsInContexts, but constructing state for $orderedParams")
   }
