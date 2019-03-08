@@ -43,6 +43,8 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
     } yield p
   }
 
+  lazy val allocedVars: Set[Var] = usageInfo.filter(_._2 == VarAllocated).keySet.flatten
+
   // END Var-related code
 
   // BEGIN compose, rename, forget

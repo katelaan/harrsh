@@ -51,8 +51,6 @@ package object entailment {
           classes
         case Some((v,_)) =>
           val (withV, withoutV) = classes.partition(_.contains(v))
-          val withVAlloced = withV.filter(alloced.intersect(_).nonEmpty)
-          if (withVAlloced.size > 1) throw DoubleAllocException(s"Trying to merge $withVAlloced, but they all allocate $v")
           logger.debug("Merging non-disjoint classes " + withV)
           mergeNonDisjoint(withoutV + withV.flatten, alloced)
       }

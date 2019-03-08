@@ -11,6 +11,8 @@ object EntailmentContextComposition extends HarrshLogging {
       _ = logger.debug(s"Trying to compose on root ${t1.root} and leaf $n2")
       if !doubleAlloc(t1.root, n2, usageInfo)
       newEqualities = unificationEqualities(t1.root, n2)
+      // FIXME: Do we have to support adding speculative equalities here? If so, we need to fix an apparent bug in the way they are currently propagated. And we might have to add them to local profile computation as well?
+      if newEqualities.isEmpty
       pureWithNewEqualities = pureConstraints.addToMissing(newEqualities)
       propagateUnification = unification(t1.root, n2, usageInfo)
       instantiation = instantiate(t2, n2, t1, propagateUnification)

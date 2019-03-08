@@ -16,6 +16,10 @@ object ContextDecompositionComposition extends HarrshLogging {
 
   private def unionWithoutMerges(fst: ContextDecomposition, snd: ContextDecomposition): Option[ContextDecomposition] = {
     val (shiftedFst, shiftedSnd) = makePlaceholdersDisjoint(fst, snd)
+    val sharedAllocation = shiftedFst.allocedVars.intersect(shiftedSnd.allocedVars)
+    if (sharedAllocation.nonEmpty) {
+      throw DoubleAllocException(s"Trying to merge $shiftedFst with $shiftedSnd, but they both allocate $sharedAllocation")
+    }
     logger.trace(s"Decompositions after shifting:\n$shiftedFst and\n$shiftedSnd")
 
     // TODO: We should probably catch DoubleAllocException here and then return None (because speculative pure constraints (the `missing` part) can likely lead to double allocation even for ALL-SAT SIDs) but for now I want to see the exceptions
