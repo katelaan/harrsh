@@ -66,7 +66,7 @@ case class OldEntailmentContext private(root: ContextPredCall, calls: Set[Contex
   }
 
   def dropVarsFromPureConstraints(varsToDrop: Set[Var]): OldEntailmentContext = {
-    OldEntailmentContext(root, calls, usageInfo, pureConstraints.dropVars(varsToDrop), convertToNormalform = false)
+    OldEntailmentContext(root, calls, usageInfo, pureConstraints.dropNonFreeVars(varsToDrop), convertToNormalform = false)
   }
 
   def usageInfoOfNode(n: ContextPredCall): VarUsageInfo = {
