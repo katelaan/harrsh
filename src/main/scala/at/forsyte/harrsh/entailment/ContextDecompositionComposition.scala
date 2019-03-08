@@ -51,14 +51,18 @@ object ContextDecompositionComposition extends HarrshLogging {
   }
 
   private def allMergeOptions(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): Seq[ContextDecomposition] = {
+    assert(VarUsageByLabel.isWellFormed(usageInfo), "Overlapping entries in usage info: " + usageInfo)
+
     if (unprocessed.isEmpty) {
       logger.debug(s"At the end of the merge process:\n$processed")
-      val cleanedUsageInfo = VarUsageByLabel.restrictToOccurringLabels(usageInfo, processed)
       // Since the usage info is updated context by context, not all processed contexts will already reflect the new usage info.
       // We thus perform another unification step.
       val upd = SubstitutionUpdate.fromUnification(usageInfo.keys.toSeq)
       val processedAndPropagated = processed map (_.updateSubst(upd))
+      logger.debug(s"After propagation of usage info:\n$processedAndPropagated")
       val propagatedPureConstraints = pureConstraints.update(upd)
+      val cleanedUsageInfo = VarUsageByLabel.restrictToOccurringLabels(usageInfo, processedAndPropagated)
+      logger.debug("Cleaning usage info: " + usageInfo + " into " + cleanedUsageInfo)
       val composed = ContextDecomposition(processedAndPropagated.toSet, cleanedUsageInfo, propagatedPureConstraints)
       val res = Seq(composed.toPlaceholderNormalForm)
       logger.debug(s"New merge result: $res")

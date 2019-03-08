@@ -16,7 +16,10 @@ object EntailmentContextComposition extends HarrshLogging {
       pureWithNewEqualities = pureConstraints.addToMissing(newEqualities)
       propagateUnification = unification(t1.root, n2, usageInfo)
       instantiation = instantiate(t2, n2, t1, propagateUnification)
+      _ = logger.debug("Will propagate unification into " + usageInfo)
       unifiedUsage = VarUsageByLabel.update(usageInfo, propagateUnification)
+      //_ = assert(VarUsageByLabel.isWellFormed(unifiedUsage), "Overlapping entries in usage info: " + unifiedUsage)
+      _ = logger.debug(s"Unified usage $usageInfo into $unifiedUsage")
       newPureConstraints = pureWithNewEqualities.update(propagateUnification)
     } yield (instantiation, unifiedUsage, newPureConstraints)
   }
@@ -37,7 +40,7 @@ object EntailmentContextComposition extends HarrshLogging {
 
   private def unification(fst: ContextPredCall, snd: ContextPredCall, usageInfo: VarUsageByLabel): SubstitutionUpdate = {
     val unification = (fst.subst.toSeq, snd.subst.toSeq).zipped.map(_ union _)
-    logger.trace(s"Matching of $fst and $snd imposes unification $unification")
+    logger.debug(s"Matching of $fst and $snd imposes unification $unification")
     SubstitutionUpdate.fromUnification(unification)
   }
 

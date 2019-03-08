@@ -62,7 +62,7 @@ package object entailment {
     }
 
     def fromUnification(unification: Unification): SubstitutionUpdate = {
-      v => unification.find(_.contains(v)).getOrElse(Set(v))
+      v => unification.filter(_.contains(v)).flatten.toSet + v
     }
 
     def fromRuleAndParamSubstitution(rule: RuleBody, paramSubst: Substitution): SubstitutionUpdate = {
@@ -138,12 +138,19 @@ package object entailment {
 
   type VarUsageByLabel = Map[Set[Var], VarUsage]
 
-  object VarUsageByLabel {
+  object VarUsageByLabel extends HarrshLogging {
+
+    def isWellFormed(usageInfo: VarUsageByLabel): Boolean = {
+      Combinators.counts(usageInfo.keys.toSeq.flatten).forall(_._2 == 1)
+    }
 
     def update(usageInfo: VarUsageByLabel, f: Var => Set[Var]): VarUsageByLabel = {
-      usageInfo map {
-        case (set, usage) => (set.flatMap(f), usage)
+      val grouped: Map[Set[Var], Map[Set[Var], VarUsage]] = usageInfo.groupBy(pair => pair._1.flatMap(f))
+      val res = grouped map {
+        case (updated, allUsagesForUpdated) => updated -> allUsagesForUpdated.values.max
       }
+      logger.trace(s"Grouped $usageInfo into\n$grouped\n=> Resulting usage info $res")
+      res
     }
 
     def merge(u1: VarUsageByLabel, u2: VarUsageByLabel): VarUsageByLabel = {
@@ -174,14 +181,6 @@ package object entailment {
     def restrictToOccurringLabels(usageInfo: VarUsageByLabel, occurringVarSets: Set[Set[Var]]): VarUsageByLabel = {
       usageInfo.filterKeys(occurringVarSets)
     }
-
-//    def combineUsageInfo(fst: VarUsageByLabel, snd: VarUsageByLabel, update: SubstitutionUpdate, labels: Iterable[ContextPredCall]): VarUsageByLabel = {
-//      val fstUpdated = VarUsageByLabel.update(fst, update)
-//      val sndUpdated = VarUsageByLabel.update(snd, update)
-//      val combinedUsageInfo = merge(fstUpdated, sndUpdated)
-//      restrictToSubstitutionsInLabels(combinedUsageInfo, labels)
-//    }
-//
 
     // TODO: [DEAD] Drop this once we get rid of the old notion of contexts
     def restrictToSubstitutionsInLabels(usageInfo: VarUsageByLabel, nodeLabels: Iterable[ContextPredCall]): VarUsageByLabel = {
