@@ -19,6 +19,14 @@ case class Substitution(toSeq: Seq[Set[Var]]) extends AnyVal {
     } yield p
   }
 
+  def orderedNonPlaceholders: Seq[Var] = {
+    for {
+      vs <- toSeq
+      v <- vs.toSeq.sorted
+      if !PlaceholderVar.isPlaceholder(v)
+    } yield v
+  }
+
   def nonNullVars: Set[Var] = toSeq.toSet.flatten - NullConst
 
   def boundVars: Set[BoundVar] = toSeq.flatten.collect{

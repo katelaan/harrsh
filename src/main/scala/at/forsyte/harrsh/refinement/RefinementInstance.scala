@@ -243,15 +243,14 @@ case class RefinementInstance(sid: SidLike,
     for {
       pred <- sid.preds.toStream
       head = pred.head
+      _ = logger.debug("Computing reachable states for predicate " + head)
       RuleBody(_, body) <- pred.rules
       if !break.flag
-      _ = {
-        logger.debug("Looking at defined sources for " + head + " <= " + body)
-      }
+      _ = logger.debug(s"[$head]: Looking at defined sources for $head <= $body")
       (src,trg) <- if (!skipSinksAsSources || shouldTryAllSources(body)) {
         considerAllSourceCombinations(head, body, reached, previousTransitions, break)
       } else {
-        logger.debug(s"${body.predCalls.size} calls => Will perform incremental instantiation")
+        logger.debug(s"[$head]: ${body.predCalls.size} calls => Will perform incremental instantiation")
         incrementalInstantiation(head, body, reached, break, body.identsOfCalledPreds)
       }
     } yield ((head, trg), (src,body,head))

@@ -8,6 +8,8 @@ import at.forsyte.harrsh.seplog.inductive.RichSid
 // TODO: Turn parameters into Set. This probably has repercussions for the current treatment of non-standard calls, so I can't do it right now. See also TODO in ComposeProfiles
 case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: Seq[Var]) extends HarrshLogging {
 
+  assert(decomps forall (_.isInPlaceholderNormalForm))
+
   val nonEmpty = decomps.nonEmpty
 
   private val nonPlaceholderVarsInContexts = decomps.flatMap(_.nonNullNonPlaceholderVars)
@@ -27,6 +29,8 @@ case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: 
       }
     }
     val renamed = decomps.map(_.updateSubst(callUpdate))
+    // TODO Do we want to improve the consistency check, which currently only looks at root parameters? (But that would require knowing which other variables are guaranteed to be allocated in the SID, i.e., additional preprocessing!)
+    // TODO [Rootedness] The following code depends on rootedness annotations. Do we want to be able to explicitly enable it?
     val consistent = renamed filterNot (_.isInconsistent(sid))
     EntailmentProfile(consistent, to)
   }
@@ -49,9 +53,14 @@ case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: 
     EntailmentProfile(decomps filter (_.isViable(sid)), orderedParams)
   }
 
+  override def toString: String = {
+    val decompsString = if (decomps.isEmpty) "NO DECOMPS" else decomps.mkString(",\n")
+    "EntailmentProfile(\n" + decompsString + ",\n  params = " + orderedParams.mkString(", ") + "\n)"
+  }
+
 }
 
-object EntailmentProfile {
+object EntailmentProfile extends HarrshLogging {
 
   type ForgetFilter = ContextDecomposition => Boolean
 
@@ -63,7 +72,11 @@ object EntailmentProfile {
     * Checking if everything that's used has a name *after* the forget operation takes care of this by only discarding
     * decompositions where some variable we forgot was the *only* name for a used parameter.
     */
-  val KeepIfNamesForAllUsedParams: ForgetFilter = _.hasNamesForAllUsedParams
+  val KeepIfNamesForAllUsedParams: ForgetFilter = decomp => {
+    val res = decomp.hasNamesForAllUsedParams
+    if (!res) logger.debug(s"Will discard $decomp: Not all used vars have names")
+    res
+  }
 
   /**
     * It's also possible to discard just profiles with wrong roots, which is still a very effective filter for most SIDs,

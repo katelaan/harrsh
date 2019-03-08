@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RichSid}
 import at.forsyte.harrsh.util.ToLatex._
@@ -37,11 +38,36 @@ case class ContextPredCall(pred: Predicate, subst: Substitution) {
   def symbolicHeapLabel: String = {
     '$' + pred.defaultCall.toLatex.replaceAllLiterally("α", """\alpha""") + '$'
   }
+
+  /**
+    * Order that uses lexicographic order on predicate name and, if that matches, uses lexicographic order on sequences
+    * of non-placeholder vars stored in the substitution.
+    *
+    * This way, the ordering does not depend on the (arbitrary) names of the placeholder vars.
+    */
+  def lessThan(other: ContextPredCall): Boolean = {
+    if (pred.head != other.pred.head) {
+      pred.head < other.pred.head
+    } else {
+      val (thisNonPh, otherNonPh) = (subst.orderedNonPlaceholders, other.subst.orderedNonPlaceholders)
+      val (thisSize, otherSize) = (thisNonPh.size, otherNonPh.size)
+      if (thisSize != otherSize) {
+        thisSize < otherSize
+      }
+      else {
+        (thisNonPh zip otherNonPh).find(p => p._1 != p._2) match {
+          case None => false
+          case Some((thisVar, otherVar)) => thisVar < otherVar
+        }
+      }
+    }
+  }
 }
 
-object ContextPredCall {
+object ContextPredCall extends HarrshLogging {
 
-  def toPlaceholderNormalForm(orderedNodeLabels: Seq[ContextPredCall]): SubstitutionUpdate = {
+  def placeholderNormalFormUpdater(orderedNodeLabels: Seq[ContextPredCall]): SubstitutionUpdate = {
+    logger.trace("Will order placeholders in order of occurrence in " + orderedNodeLabels)
     val found = mutable.Set.empty[PlaceholderVar]
     val order = new mutable.ListBuffer[PlaceholderVar]()
     for {
@@ -56,7 +82,9 @@ object ContextPredCall {
     }
     val renameFrom = order map (_.toFreeVar)
     val renameTo = (1 to order.size) map (PlaceholderVar(_).toFreeVar)
-    SubstitutionUpdate.fromPairs(renameFrom.zip(renameTo))
+    val pairs = renameFrom.zip(renameTo)
+    logger.trace("Will establish placeholder normalform via update " + pairs)
+    SubstitutionUpdate.fromPairs(pairs)
   }
 
 }

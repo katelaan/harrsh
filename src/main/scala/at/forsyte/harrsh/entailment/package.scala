@@ -3,8 +3,13 @@ package at.forsyte.harrsh
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.RuleBody
+import at.forsyte.harrsh.util.Combinators
+
+import scala.annotation.tailrec
 
 package object entailment {
+
+  case class DoubleAllocException(msg: String) extends Exception(msg)
 
   type NodeId = Int
 
@@ -24,6 +29,34 @@ package object entailment {
   type SubstitutionUpdate = Var => Set[Var]
 
   object SubstitutionUpdate extends HarrshLogging {
+
+    def unionUpdate(fst: VarUsageByLabel, snd: VarUsageByLabel): SubstitutionUpdate = {
+      val equivalenceClasses = fst.keySet ++ snd.keySet
+      val alloced: Set[Var] = (fst.toSet ++ snd).collect{
+        case (vs, VarAllocated) => vs
+      }.flatten
+      val merged = mergeNonDisjoint(equivalenceClasses, alloced)
+      (for {
+        set <- merged
+        key <- set
+      } yield key -> set).toMap
+    }
+
+    @tailrec
+    private def mergeNonDisjoint(classes: Set[Set[Var]], alloced: Set[Var]): Set[Set[Var]] = {
+      val counts = Combinators.counts(classes.toSeq.flatten)
+      counts.find(_._2 > 1) match {
+        case None =>
+          logger.debug("Returning disjoint classes " + classes)
+          classes
+        case Some((v,_)) =>
+          val (withV, withoutV) = classes.partition(_.contains(v))
+          val withVAlloced = withV.filter(alloced.intersect(_).nonEmpty)
+          if (withVAlloced.size > 1) throw DoubleAllocException(s"Trying to merge $withVAlloced, but they all allocate $v")
+          logger.debug("Merging non-disjoint classes " + withV)
+          mergeNonDisjoint(withoutV + withV.flatten, alloced)
+      }
+    }
 
     def fromPairs(pairs: Seq[(Var,Var)]): SubstitutionUpdate = {
       val map = pairs.toMap
@@ -54,7 +87,7 @@ package object entailment {
           // There is a proper free var in this equivalence class => discard all equivalent placeholders
           phs
         } else {
-          // Keep only the smalles placeholder among multiple placeholders
+          // Keep only the smallest placeholder among multiple placeholders
           val typedPhs = phs map (ph => PlaceholderVar.fromVar(ph).get)
           phs - PlaceholderVar.min(typedPhs).toFreeVar
         }
@@ -123,6 +156,36 @@ package object entailment {
       pairs.toMap
     }
 
+    def combineUsageInfo(fst: VarUsageByLabel, snd: VarUsageByLabel, update: SubstitutionUpdate): VarUsageByLabel = {
+      val fstUpdated = VarUsageByLabel.update(fst, update)
+      val sndUpdated = VarUsageByLabel.update(snd, update)
+      merge(fstUpdated, sndUpdated)
+    }
+
+    def restrictToOccurringLabels(usageInfo: VarUsageByLabel, decomp: ContextDecomposition): VarUsageByLabel = {
+      val occurringVarSets = decomp.occurringLabels
+      restrictToOccurringLabels(usageInfo, occurringVarSets)
+    }
+
+    def restrictToOccurringLabels(usageInfo: VarUsageByLabel, decomp: Iterable[EntailmentContext]): VarUsageByLabel = {
+      // TODO Code duplication w.r.t. ContextDecomposition.occurringLabels
+      val occurringVarSets = decomp.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)
+      restrictToOccurringLabels(usageInfo, occurringVarSets)
+    }
+
+    def restrictToOccurringLabels(usageInfo: VarUsageByLabel, occurringVarSets: Set[Set[Var]]): VarUsageByLabel = {
+      usageInfo.filterKeys(occurringVarSets)
+    }
+
+//    def combineUsageInfo(fst: VarUsageByLabel, snd: VarUsageByLabel, update: SubstitutionUpdate, labels: Iterable[ContextPredCall]): VarUsageByLabel = {
+//      val fstUpdated = VarUsageByLabel.update(fst, update)
+//      val sndUpdated = VarUsageByLabel.update(snd, update)
+//      val combinedUsageInfo = merge(fstUpdated, sndUpdated)
+//      restrictToSubstitutionsInLabels(combinedUsageInfo, labels)
+//    }
+//
+
+    // TODO: [DEAD] Drop this once we get rid of the old notion of contexts
     def restrictToSubstitutionsInLabels(usageInfo: VarUsageByLabel, nodeLabels: Iterable[ContextPredCall]): VarUsageByLabel = {
       val occurringSubstitutions: Set[Set[Var]] = nodeLabels.toSet[ContextPredCall].flatMap(_.subst.toSeq)
       usageInfo.filter(pair => occurringSubstitutions.contains(pair._1))

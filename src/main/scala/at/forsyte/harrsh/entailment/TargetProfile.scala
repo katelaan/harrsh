@@ -61,7 +61,7 @@ object TargetProfile extends HarrshLogging {
   }
 
   private def composeAndForget(profiles: Seq[EntailmentProfile], lab: SymbolicHeap, sid: RichSid): EntailmentProfile = {
-    val composed = ComposeProfiles.composeAll(sid, profiles, lab.freeVars ++ lab.boundVars)
+    val composed = EntailmentProfileComposition.composeAll(sid, profiles, lab.freeVars ++ lab.boundVars)
     logger.debug(s"Target profile after initial composition:\n${composed.decomps.mkString("\n")}")
     val processComposedProfile = mergeUsingNonProgressRules(sid)_ andThen restrictToFreeVars(lab) andThen dropNonviable(sid)
     processComposedProfile(composed)
@@ -69,7 +69,7 @@ object TargetProfile extends HarrshLogging {
 
   private def mergeUsingNonProgressRules(sid: RichSid)(profile: EntailmentProfile): EntailmentProfile = {
     // TODO: Only call this if we actually have a generalized-progress SID
-    val merged = ComposeProfiles.mergeUsingNonProgressRules(profile, sid)
+    val merged = EntailmentProfileComposition.mergeUsingNonProgressRules(profile, sid)
     if (merged != profile) {
       logger.debug(s"Updated target profile by applying non-progress rules:\n${merged.decomps.mkString("\n")}")
     }

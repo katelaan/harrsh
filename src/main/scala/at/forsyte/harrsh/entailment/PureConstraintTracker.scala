@@ -13,11 +13,12 @@ case class PureConstraintTracker private(ensured: Set[PureAtom], missing: Set[Pu
   assert(ensured forall (_.isOrdered), s"Unordered constraints in $ensured")
   assert(missing forall (_.isOrdered), s"Unordered constraints in $missing")
 
+  // TODO: Shouldn't we check the closure for consistency or is there some invariant that guarantees that inconsistency will manifest in one of the parts?
   lazy val isConsistent: Boolean = ensured.forall(_.isConsistent) && missing.forall(_.isConsistent)
 
   lazy val closure: Closure = Closure.ofAtoms(ensured ++ missing)
 
-  def compose(other: PureConstraintTracker): PureConstraintTracker = {
+  def ++(other: PureConstraintTracker): PureConstraintTracker = {
     val combinedEnsured = Closure.ofAtoms(ensured ++ other.ensured).asSetOfAtoms
     val combinedMissing = (missing ++ other.missing) -- combinedEnsured
     PureConstraintTracker(combinedEnsured, combinedMissing)
@@ -38,7 +39,13 @@ case class PureConstraintTracker private(ensured: Set[PureAtom], missing: Set[Pu
     val ensuredUpdated = updateSet(ensured).map(_.ordered)
     val missingUpdated = updateSet(missing).map(_.ordered) -- ensuredUpdated
 
-    new PureConstraintTracker(ensuredUpdated, missingUpdated)
+    PureConstraintTracker(ensuredUpdated, missingUpdated)
+  }
+
+  def addToMissing(extraMissing: Seq[PureAtom]): PureConstraintTracker = {
+    assert(!extraMissing.exists(ensured),
+      s"Trying to add $extraMissing to missing, but ${extraMissing.filter(ensured)} is already ensured")
+    PureConstraintTracker(ensured, missing ++ extraMissing)
   }
 
 }

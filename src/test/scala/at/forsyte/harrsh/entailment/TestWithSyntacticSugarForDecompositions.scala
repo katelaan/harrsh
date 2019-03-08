@@ -11,7 +11,7 @@ trait TestWithSyntacticSugarForDecompositions extends HarrshTableTest with Impli
     * Context with aliasing
     */
   case class CA[A <: Var](calls: Seq[(String,Seq[Set[Var]])], usageInfo: Map[Set[A],VarUsage], ensured: Set[PureAtom], missing: Set[PureAtom] = Set.empty) {
-    def toEntailmentContext(sid: SidLike): EntailmentContext = {
+    def toEntailmentContext(sid: SidLike): OldEntailmentContext = {
       val labels = calls map {
         case (ident, subst) => ContextPredCall(sid(ident), Substitution(subst))
       }
@@ -21,7 +21,7 @@ trait TestWithSyntacticSugarForDecompositions extends HarrshTableTest with Impli
       val typedUsageInfo = usageInfo map {
         case (vs, usage) => (vs map (_.asInstanceOf[Var]), usage)
       }
-      EntailmentContext(root, leaves, typedUsageInfo, pure, convertToNormalform = false)
+      OldEntailmentContext(root, leaves, typedUsageInfo, pure, convertToNormalform = false)
     }
   }
   object C {
@@ -39,7 +39,7 @@ trait TestWithSyntacticSugarForDecompositions extends HarrshTableTest with Impli
     }
   }
 
-  def D[A <: Var](sid: SidLike)(cs: CA[A]*): ContextDecomposition = ContextDecomposition(cs.map(_.toEntailmentContext(sid)).toSet)
+  def D[A <: Var](sid: SidLike)(cs: CA[A]*): OldContextDecomposition = OldContextDecomposition(cs.map(_.toEntailmentContext(sid)).toSet)
 
   def pr(pred: String, vars: Var*): (String,Seq[Var]) = (pred, vars)
 

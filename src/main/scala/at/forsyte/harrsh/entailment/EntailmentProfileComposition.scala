@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PredCall, Predicate, RuleBody, RichSid}
 import at.forsyte.harrsh.util.Combinators
 
-object ComposeProfiles extends HarrshLogging {
+object EntailmentProfileComposition extends HarrshLogging {
 
   // TODO: Get rid of the second parameter once we use sets. (The new parameters then simply are the union of the params of the constituting profiles)
   object composeAll {
@@ -49,12 +49,12 @@ object ComposeProfiles extends HarrshLogging {
 
     def useNonProgressRulesToMergeContexts(decomp: ContextDecomposition, sid: RichSid): Seq[ContextDecomposition] = {
       val nonProgressRules = sid.rulesWithoutPointers
-      if (nonProgressRules.nonEmpty && !decomp.isSingletonDecomposition) {
+      if (nonProgressRules.nonEmpty && decomp.isMultiPartDecomposition) {
         logger.debug(s"Will try to apply non-progress rules to contexts in decomposition. Rules to consider: ${nonProgressRules.map(pair => s"${pair._1.defaultCall} <= ${pair._2}")}")
         mergeWithZeroOrMoreRuleApplications(decomp, nonProgressRules, sid)
       }
       else {
-        val msg = if (decomp.isSingletonDecomposition) "Singleton decomposition => No merging via non-progress rules possible"
+        val msg = if (!decomp.isMultiPartDecomposition) "Singleton decomposition => No merging via non-progress rules possible"
         else "The SID does not contain any non-progress rule. Will return decomposition as is."
         logger.debug(msg)
         Seq(decomp)
@@ -136,20 +136,19 @@ object ComposeProfiles extends HarrshLogging {
     }
 
     private def mergeRoots(decomp: ContextDecomposition, rootsToMerge: Seq[ContextPredCall], rule: RuleBody, pred: Predicate, assignmentsByVar: Map[Var, Set[Var]]): ContextDecomposition = {
-      val (tifsToMerge, unchangedTifs) = decomp.parts.partition(tif => rootsToMerge.contains(tif.root))
+      val (ctxsToMerge, unchangedCtxs) = decomp.parts.partition(ctx => rootsToMerge.contains(ctx.root))
       logger.debug(s"Roots that were matched: $rootsToMerge")
-      logger.debug(s"Will apply $rule to merge:\n${tifsToMerge.mkString("\n")}")
+      logger.debug(s"Will apply $rule to merge:\n${ctxsToMerge.mkString("\n")}")
       logger.debug(s"Merge based on variable assignment $assignmentsByVar")
       val subst = Substitution(rule.body.freeVars map assignmentsByVar)
       val newRoot = ContextPredCall(pred, subst)
-      val concatenatedLeaves = tifsToMerge.flatMap(_.calls)
-      val mergedUsageInfo = integrateUsageInfo(tifsToMerge, Set(newRoot) ++ concatenatedLeaves)
-      val mergedPureConstraints = tifsToMerge.map(_.pureConstraints).reduceLeft(_ compose _)
-      val ctxAfterMerging = EntailmentContext(newRoot, concatenatedLeaves, mergedUsageInfo, mergedPureConstraints)
-      ContextDecomposition(unchangedTifs + ctxAfterMerging)
+      val concatenatedLeaves = ctxsToMerge.flatMap(_.calls)
+      val ctxAfterMerging = EntailmentContext(newRoot, concatenatedLeaves)
+      val restrictedUsageInfo = VarUsageByLabel.restrictToOccurringLabels(decomp.usageInfo, decomp)
+      ContextDecomposition(unchangedCtxs + ctxAfterMerging, restrictedUsageInfo, decomp.pureConstraints)
     }
 
-    private def integrateUsageInfo(ctxsToMerge: Set[EntailmentContext], nodeLabelsInMergedInterface: Iterable[ContextPredCall]) = {
+    private def integrateUsageInfo(ctxsToMerge: Set[OldEntailmentContext], nodeLabelsInMergedInterface: Iterable[ContextPredCall]) = {
       // Because we're not doing any unification, the usage info can simply be merged -- no propagation of unification results necessary
       val mergedUsageInfo = ctxsToMerge.map(_.usageInfo).reduceLeft(VarUsageByLabel.merge)
       VarUsageByLabel.restrictToSubstitutionsInLabels(mergedUsageInfo, nodeLabelsInMergedInterface)

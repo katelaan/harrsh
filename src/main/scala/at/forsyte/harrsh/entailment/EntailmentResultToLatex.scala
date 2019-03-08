@@ -16,13 +16,17 @@ object EntailmentResultToLatex {
 
     def apply(decomp: ContextDecomposition): Stream[String] = {
       val ordered = decomp.parts.toStream
+
+      // FIXME: Include pure constraints in latex (which used to be per context, but are now per decomposition, so we need to make some changes about node id, positioning etc)
+      //val diseqId = ctxId + "_diseqs"
+      //val diseqsTikz = pureConstraintToTikz(decomp.pureConstraints, rootId, diseqId, s"right=of $rootId")
       val tifpics = ordered.zipWithIndex.flatMap {
         case (ctx, ix) =>
           val style = if (ix == 0) "" else {
             val bottomLeft = if (ordered(ix - 1).calls.nonEmpty) s"ctx${ix-1}_0" else s"ctx${ix-1}_root"
               s"below=5mm of $bottomLeft"
           }
-          contextToLatexLines(ctx, "ctx" + ix, style)
+          contextToLatexLines(ctx, decomp.usageInfo, "ctx" + ix, style)
       }
       inTikzPic(tifpics, Some(DecompStyleClass))
     }
@@ -32,14 +36,13 @@ object EntailmentResultToLatex {
       Stream(s"\\begin{tikzpicture}$styleString") ++ lines ++ Stream("\\end{tikzpicture}")
     }
 
-    def contextToLatexLines(ctx: EntailmentContext, ctxId: String, rootStyle: String): Stream[String] = {
+    def contextToLatexLines(ctx: EntailmentContext, usageInfo: VarUsageByLabel, ctxId: String, rootStyle: String): Stream[String] = {
       val rootId = ctxId + "_root"
-      val diseqId = ctxId + "_diseqs"
       val fitId = ctxId + "_fit"
 
-      val EntailmentContext(root, leaves, usageInfo, diseqs) = ctx
+      val EntailmentContext(root, leaves) = ctx
       val rootTikz = nodeLabelToLatexLines(root, usageInfo, rootId, rootStyle)
-      val diseqsTikz = pureConstraintToTikz(diseqs, rootId, diseqId, s"right=of $rootId")
+
 
       val callsTikz = leaves.toStream.zipWithIndex.flatMap {
         case (leaf, ix) =>
@@ -47,12 +50,12 @@ object EntailmentResultToLatex {
           nodeLabelToLatexLines(leaf, usageInfo, ctxId + "_" + ix, s"missing,$position")
       }
       val callIds = (0 until leaves.size) map (ctxId + "_" + _)
-      val nodeIds = Seq(rootId) ++ diseqsTikz.map(_ => diseqId) ++ callIds
+      val nodeIds = Seq(rootId) ++ callIds
       val fitConstraint = nodeIds.map("(" + _ + ")").mkString(" ")
 
       val fitTikz = Stream(s"\\node[draw=black!50, fit={$fitConstraint}] ($fitId) {};")
 
-      rootTikz ++ diseqsTikz ++ callsTikz ++ fitTikz
+      rootTikz ++ callsTikz ++ fitTikz
     }
 
     private val varsToMath = (v: Var) => Naming.indexify(Naming.DefaultNaming)(v) match {

@@ -10,7 +10,7 @@ object LocalProfile extends HarrshLogging {
   def apply(lab: SymbolicHeap, sid: RichSid): Option[EntailmentProfile] = {
     logger.debug(s"Will compute profile for local allocation of $lab")
     val decomps = decompsOfLocalAllocation(lab, sid)
-    logger.debug(s"Decompositions for local allocation of $lab:\n${decomps.mkString("\n")}")
+    logger.debug(s"Decompositions in local profile of $lab:\n${decomps.mkString("\n")}")
     val params = varsInLocalAllocation(lab)
     decomps map (EntailmentProfile(_, params))
   }
@@ -56,8 +56,7 @@ object LocalProfile extends HarrshLogging {
       None
     } else {
       for {
-        ctx <- computeContextFromHeaps(sid, predicate, lhs, rhs)
-        decomp = ContextDecomposition(Seq(ctx))
+        decomp <- computeDecompFromHeaps(sid, predicate, lhs, rhs)
         // TODO: If we want to relax the assumption about rootedness, this call has to go
         if allRootParamsUsed(decomp, sid)
         if hasNamesForUsedParams(decomp, sid)
@@ -68,15 +67,17 @@ object LocalProfile extends HarrshLogging {
   private def allRootParamsUsed(decomp: ContextDecomposition, sid: RichSid): Boolean = {
     val rootsUsed = for {
       ctx <- decomp.parts.toStream
-      node <- ctx.calls
-      usage = ctx.usageInfoOfNode(node)
-      rootParam <- sid.roots.get(node.pred.head)
-      ix = node.freeVarSeq.indexOf(rootParam)
+      call <- ctx.calls
+      usage = decomp.usageInfoOfCall(call)
+      rootParam <- sid.roots.get(call.pred.head)
+      ix = call.freeVarSeq.indexOf(rootParam)
       // If a root parameter is a placeholder (i.e., not a proper free variable) it need not be used
       // TODO [Entailment cleanup] This only makes sense for SIDs that are *not* in the btw fragment, namely SIDs that define disconnected models, see e.g. examples/entailment/various/list-segments-different-order.hrs. We could drop this or explicitly switch it on if we detect that it's necessary.
-      if node.subst.toSeq(ix) exists (!PlaceholderVar.isPlaceholder(_))
+      if call.subst.toSeq(ix) exists (!PlaceholderVar.isPlaceholder(_))
     } yield usage(ix).isUsed
-    rootsUsed.forall(b => b)
+    val res = rootsUsed.forall(b => b)
+    if (!res) logger.debug("Discarding decomposition with unused root parameters: " + decomp)
+    res
   }
 
   private def hasNamesForUsedParams(decomp: ContextDecomposition, sid: RichSid): Boolean = {
@@ -84,18 +85,20 @@ object LocalProfile extends HarrshLogging {
     val enoughNamesByNodeAndParam = for {
       ctx <- decomp.parts.toStream
       // TODO: Do we have to consider the root here?
-      node <- ctx.calls + ctx.root
-      usageByVar = (node.subst.toSeq, ctx.usageInfoOfNode(node)).zipped
+      call <- ctx.calls + ctx.root
+      usageByVar = (call.subst.toSeq, decomp.usageInfoOfCall(call)).zipped
       (substVars, usg) <- usageByVar
       res = !usg.isUsed || substVars.exists(!PlaceholderVar.isPlaceholder(_))
       _ = {
-        if (!res) logger.debug(s"Not enough names for $node: $substVars is not marked as used")
+        if (!res) logger.debug(s"Not enough names for $call: $substVars is not marked as used")
       }
     } yield res
-    enoughNamesByNodeAndParam.forall(b => b)
+    val res = enoughNamesByNodeAndParam.forall(b => b)
+    if (!res) logger.debug("Discarding decomposition without names for used params: " + decomp)
+    res
   }
 
-  private def computeContextFromHeaps(sid: RichSid, predicate: Predicate, lhs: SymbolicHeap, rhs: SymbolicHeap): Option[EntailmentContext] = {
+  private def computeDecompFromHeaps(sid: RichSid, predicate: Predicate, lhs: SymbolicHeap, rhs: SymbolicHeap): Option[ContextDecomposition] = {
     logger.debug(s"Trying to construct context for $lhs |= $rhs")
 
     // 1.) In the rule body, replace all bound vars and all FVs that don't occur by placeholders
@@ -142,7 +145,7 @@ object LocalProfile extends HarrshLogging {
     PureConstraintTracker(lhsEnsuredConstraints, rhsMissing)
   }
 
-  private def contextFromConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], pure: PureConstraintTracker, sid: RichSid, predicate: Predicate): Option[EntailmentContext] = {
+  private def contextFromConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], pure: PureConstraintTracker, sid: RichSid, predicate: Predicate): Option[ContextDecomposition] = {
     if (pure.isConsistent) {
       contextFromConsistentConstraints(renamedRhs, rootParams, pure, sid, predicate)
     }
@@ -152,7 +155,7 @@ object LocalProfile extends HarrshLogging {
     }
   }
 
-  private def contextFromConsistentConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], pure: PureConstraintTracker, sid: RichSid, predicate: Predicate): Option[EntailmentContext] = {
+  private def contextFromConsistentConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], pure: PureConstraintTracker, sid: RichSid, predicate: Predicate): Option[ContextDecomposition] = {
     val allEnsured = pure.closure
     val toSet = (v: Var) => allEnsured.getEquivalenceClass(v)
     val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
@@ -171,7 +174,10 @@ object LocalProfile extends HarrshLogging {
         else VarUnused
       }
       val usageInfo: VarUsageByLabel = renamedRhs.allVars.map(v => (toSet(v), varToUsageInfo(v))).toMap
-      Some(EntailmentContext(root, leavesAsSet, usageInfo, pure, convertToNormalform = true))
+
+      val ctx = EntailmentContext(root, leavesAsSet)
+      val decomp = ContextDecomposition(Set(ctx), usageInfo, pure)
+      Some(decomp.toPlaceholderNormalForm)
     } else {
       // Otherwise we've set the parameters for two calls to be equal,
       // which always corresponds to an unsatisfiable unfolding for SIDs that satisfy progress.

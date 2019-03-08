@@ -154,7 +154,7 @@ object EntailmentChecker extends HarrshLogging {
     } yield reachableForCall map (_.rename(sid, call.args))
     val combinedProfiles = for {
       toplevelStates <- Combinators.choices(renamedReachableStates.map(_.toSeq)).toStream
-    } yield ComposeProfiles.composeAll(sid, toplevelStates, lhsFVs)
+    } yield EntailmentProfileComposition.composeAll(sid, toplevelStates, lhsFVs)
     combinedProfiles.forall(_.decomps.exists(_.isFinal(rhsCalls)))
   }
 
@@ -190,13 +190,22 @@ object EntailmentChecker extends HarrshLogging {
 
     def serializeContextDecomposition(decomp: ContextDecomposition): Stream[String] = {
       val decompStrs = decomp.parts.toList map (_.toString)
-      if (decompStrs.size == 1) Stream(s"Decomp(${decompStrs.head})")
-      else {
-        val fst = decompStrs.head
-        val middle = decompStrs.tail.init
-        val last = decompStrs.last
-        Stream(s"Decomp($fst),") ++ middle.map("       " + _ + ",") :+ s"       $last)"
-      }
+      val indent = "       "
+      val fst = if (decompStrs.nonEmpty) decompStrs.head else "empty"
+      val tail = if (decompStrs.nonEmpty) decompStrs.tail else Seq.empty
+      // TODO Code duplication wrt ContextDecomposition.toString
+      val usageStr = indent + decomp.usageInfo.map{
+        case (vs, usage) => vs.mkString(",") + ": " + usage.shortString
+      }.mkString("usage = {", "; ", "}")
+      val ensuredStr = if (decomp.pureConstraints.ensured.nonEmpty) {
+        decomp.pureConstraints.ensured.mkString("ensured = {", ",", "}")
+      } else ""
+      val missingStr = if (decomp.pureConstraints.missing.nonEmpty) {
+        decomp.pureConstraints.missing.mkString("missing = {", ",", "}")
+      } else ""
+      val constraintsStr = indent + Seq(ensuredStr, missingStr).filter(_.nonEmpty).mkString(", ")
+      Stream(s"Decomp($fst,") ++ tail.map(indent + _ + ",") ++ Stream(usageStr, constraintsStr + ")")
+
     }
 
   }
