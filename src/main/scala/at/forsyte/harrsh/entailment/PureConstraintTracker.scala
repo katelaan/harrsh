@@ -30,7 +30,8 @@ case class PureConstraintTracker private(ensured: Set[PureAtom], missing: Set[Pu
   }
 
   def restrictTo(vars: Set[Var]): PureConstraintTracker = {
-    val containsVarsToKeep = (a: PureAtom) => vars.contains(a.l) && vars.contains(a.r)
+    val varsOrNull = vars + NullConst
+    val containsVarsToKeep = (a: PureAtom) => varsOrNull.contains(a.l) && varsOrNull.contains(a.r)
     new PureConstraintTracker(ensured.filter(containsVarsToKeep), missing.filter(containsVarsToKeep))
   }
 
