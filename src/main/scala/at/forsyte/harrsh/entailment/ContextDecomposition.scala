@@ -8,8 +8,12 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
 
   assert(VarUsageByLabel.isWellFormed(usageInfo), "Overlapping entries in usage info: " + usageInfo)
 
-  assert(occurringLabels.filterNot(_.contains(NullConst)) == usageInfo.keySet.filterNot(_.contains(NullConst)),
-    s"Inconsistent decomposition: Occurring labels are $occurringLabels, but usage info has keys ${usageInfo.keySet}"
+//  assert(occurringLabels.filterNot(_.contains(NullConst)) == usageInfo.keySet.filterNot(_.contains(NullConst)),
+//    s"Inconsistent decomposition: Occurring labels are $occurringLabels, but usage info has keys ${usageInfo.keySet}"
+//  )
+  // TODO: Make sure this is strong enough. In particular, should we forget usage info in benchmarks like singleptr4 and singleptr9?
+  assert(occurringLabels subsetOf usageInfo.keySet,
+    s"Inconsistent decomposition: Occurring labels are $occurringLabels, but usage info has fewer keys ${usageInfo.keySet}"
   )
 
   lazy val occurringLabels: Set[Set[Var]] = allPredCalls.flatMap(_.subst.toSeq)
