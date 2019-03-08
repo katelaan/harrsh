@@ -33,10 +33,14 @@ object RenamedSourceStates extends HarrshLogging {
 
   def apply(sid: RichSid, src: Seq[EntailmentProfile], lab: SymbolicHeap): RenamedSourceStates = {
     val renamedProfiles = renamedSourceStates(sid, src, lab)
-    if (renamedProfiles forall (_.nonEmpty))
-      ConsistentRenamedSourceStates(renamedProfiles)
-    else
+    if (src.count(_.nonEmpty) < renamedProfiles.count(_.nonEmpty)) {
+      // Some profile empty after renaming => Renaming must have introduced inconsistency (e.g. null alloc)
       InconsistentRenamedSourceStates
+    }
+    else {
+      ConsistentRenamedSourceStates(renamedProfiles)
+    }
+
   }
 
   private def renamedSourceStates(sid: RichSid, src: Seq[EntailmentProfile], lab: SymbolicHeap): Seq[EntailmentProfile] = {
