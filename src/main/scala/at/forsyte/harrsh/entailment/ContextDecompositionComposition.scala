@@ -53,6 +53,7 @@ object ContextDecompositionComposition extends HarrshLogging {
   }
 
   private def allMergeOptions(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): Seq[ContextDecomposition] = {
+    // TODO: Clean up this mess of a method
     assert(VarUsageByLabel.isWellFormed(usageInfo), "Overlapping entries in usage info: " + usageInfo)
 
     if (unprocessed.isEmpty) {
@@ -63,9 +64,12 @@ object ContextDecompositionComposition extends HarrshLogging {
       val processedAndPropagated = processed map (_.updateSubst(upd))
       logger.debug(s"After propagation of usage info:\n$processedAndPropagated")
       val propagatedPureConstraints = pureConstraints.update(upd)
-      val cleanedUsageInfo = VarUsageByLabel.restrictToOccurringLabels(usageInfo, processedAndPropagated)
+      // TODO Code duplication w.r.t. ContextDecomposition.occurringLabels
+      val occurringVarSets = processedAndPropagated.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)
+      val cleanedPureConstraints = propagatedPureConstraints.restrictTo(occurringVarSets.flatten)
+      val cleanedUsageInfo = VarUsageByLabel.restrictToOccurringLabels(usageInfo, occurringVarSets)
       logger.debug("Cleaning usage info: " + usageInfo + " into " + cleanedUsageInfo)
-      val composed = ContextDecomposition(processedAndPropagated.toSet, cleanedUsageInfo, propagatedPureConstraints)
+      val composed = ContextDecomposition(processedAndPropagated.toSet, cleanedUsageInfo, cleanedPureConstraints)
       val res = Seq(composed.toPlaceholderNormalForm)
       logger.debug(s"New merge result: $res")
       res

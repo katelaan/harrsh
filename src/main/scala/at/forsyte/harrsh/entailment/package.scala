@@ -172,11 +172,11 @@ package object entailment {
       restrictToOccurringLabels(usageInfo, occurringVarSets)
     }
 
-    def restrictToOccurringLabels(usageInfo: VarUsageByLabel, decomp: Iterable[EntailmentContext]): VarUsageByLabel = {
-      // TODO Code duplication w.r.t. ContextDecomposition.occurringLabels
-      val occurringVarSets = decomp.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)
-      restrictToOccurringLabels(usageInfo, occurringVarSets)
-    }
+//    def restrictToOccurringLabels(usageInfo: VarUsageByLabel, decomp: Iterable[EntailmentContext]): VarUsageByLabel = {
+//      // TODO Code duplication w.r.t. ContextDecomposition.occurringLabels
+//      val occurringVarSets = decomp.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)
+//      restrictToOccurringLabels(usageInfo, occurringVarSets)
+//    }
 
     def restrictToOccurringLabels(usageInfo: VarUsageByLabel, occurringVarSets: Set[Set[Var]]): VarUsageByLabel = {
       usageInfo.filterKeys(occurringVarSets)

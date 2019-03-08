@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.pure.Closure
-import at.forsyte.harrsh.seplog.Var
+import at.forsyte.harrsh.seplog.{NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
 import scala.util.Try
@@ -25,8 +25,19 @@ case class PureConstraintTracker private(ensured: Set[PureAtom], missing: Set[Pu
   }
 
   def dropVars(vars: Set[Var]): PureConstraintTracker = {
-    val containsBound = (a: PureAtom) => vars.contains(a.l) || vars.contains(a.r)
-    new PureConstraintTracker(ensured.filterNot(containsBound), missing.filterNot(containsBound))
+    val containsVarToDrop = (a: PureAtom) => vars.contains(a.l) || vars.contains(a.r)
+    new PureConstraintTracker(ensured.filterNot(containsVarToDrop), missing.filterNot(containsVarToDrop))
+  }
+
+  def restrictTo(vars: Set[Var]): PureConstraintTracker = {
+    val containsVarsToKeep = (a: PureAtom) => vars.contains(a.l) && vars.contains(a.r)
+    new PureConstraintTracker(ensured.filter(containsVarsToKeep), missing.filter(containsVarsToKeep))
+  }
+
+  def refersOnlyTo(vars: Set[Var]): Boolean = {
+    val varsOrNull = vars + NullConst
+    val containsOnlyGivenVars = (a: PureAtom) => varsOrNull.contains(a.l) && varsOrNull.contains(a.r)
+    (ensured ++ missing) forall containsOnlyGivenVars
   }
 
   def update(f: SubstitutionUpdate): PureConstraintTracker = {

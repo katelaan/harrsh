@@ -16,6 +16,9 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
     s"Inconsistent decomposition: Occurring labels are $occurringLabels, but usage info has fewer keys ${usageInfo.keySet}"
   )
 
+  assert(pureConstraints.refersOnlyTo(allVarStream.toSet),
+    s"Decomposition $this uses only vars ${allVarStream.toSet}, but pure constraints refer to additional vars: $pureConstraints")
+
   lazy val occurringLabels: Set[Set[Var]] = allPredCalls.flatMap(_.subst.toSeq)
 
   /**
