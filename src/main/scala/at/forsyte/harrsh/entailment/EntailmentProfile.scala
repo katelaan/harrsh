@@ -8,6 +8,10 @@ import at.forsyte.harrsh.seplog.inductive.RichSid
 // TODO: Turn parameters into Set. This probably has repercussions for the current treatment of non-standard calls, so I can't do it right now. See also TODO in ComposeProfiles
 case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: Seq[Var]) extends HarrshLogging {
 
+  assert(decomps forall (!_.explicitlyAllocsNull),
+    "Explicit null allocation in profile " + this
+  )
+
   assert(decomps forall (_.isInPlaceholderNormalForm))
 
   val nonEmpty = decomps.nonEmpty

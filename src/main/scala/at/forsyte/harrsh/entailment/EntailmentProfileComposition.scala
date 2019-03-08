@@ -13,7 +13,11 @@ object EntailmentProfileComposition extends HarrshLogging {
     def apply(sid: RichSid, profiles: Seq[EntailmentProfile], newOrderedParams: Seq[Var]): EntailmentProfile = {
       // TODO: Exploit associativity of composition when composing more than two profiles
       val composedDecomps = allPossibleDecompCompositions(sid, profiles map (_.decomps))
-      val res = EntailmentProfile(composedDecomps, newOrderedParams)
+      val consistentDecomps = composedDecomps.filterNot(_.explicitlyAllocsNull)
+      if (composedDecomps.nonEmpty && consistentDecomps.isEmpty) {
+        throw new IllegalStateException("If this case occurs, we should have no target state rather than the sink state. Correct?")
+      }
+      val res = EntailmentProfile(consistentDecomps, newOrderedParams)
       logger.debug(s"Profile composition result:\n${if (res.nonEmpty) res.decomps.mkString("\n") else "empty (sink state)"}")
       res
     }
