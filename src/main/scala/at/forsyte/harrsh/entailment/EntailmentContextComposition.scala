@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog.inductive.{PureAtom, RichSid}
 
 object EntailmentContextComposition extends HarrshLogging {
 
-  def apply(sid: RichSid, fst: EntailmentContext, snd: EntailmentContext, usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): Stream[(EntailmentContext, VarUsageByLabel, PureConstraintTracker)] = {
+  def apply(sid: RichSid, fst: EntailmentContext, snd: EntailmentContext, usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): Stream[(EntailmentContext, VarUsageByLabel, PureConstraintTracker, SubstitutionUpdate)] = {
     for {
       CompositionInterface(t1, t2, n2) <- compositionCandidates(fst, snd)
       _ = logger.debug(s"Trying to compose on root ${t1.root} and leaf $n2")
@@ -21,7 +21,7 @@ object EntailmentContextComposition extends HarrshLogging {
       //_ = assert(VarUsageByLabel.isWellFormed(unifiedUsage), "Overlapping entries in usage info: " + unifiedUsage)
       _ = logger.debug(s"Unified usage $usageInfo into $unifiedUsage")
       newPureConstraints = pureWithNewEqualities.update(propagateUnification)
-    } yield (instantiation, unifiedUsage, newPureConstraints)
+    } yield (instantiation, unifiedUsage, newPureConstraints, propagateUnification)
   }
 
   private def unificationEqualities(fst: ContextPredCall, snd: ContextPredCall): Seq[PureAtom] = {
@@ -57,6 +57,7 @@ object EntailmentContextComposition extends HarrshLogging {
   }
 
   private def doubleAlloc(fst: ContextPredCall, snd: ContextPredCall, usage: VarUsageByLabel): Boolean = {
+    logger.debug(s"Checking if matching $fst and $snd implies double allocation wrt usage $usage")
     assert(fst.pred == snd.pred)
     assert(fst.freeVarSeq == snd.freeVarSeq)
     (fst.subst.toSeq zip snd.subst.toSeq) exists {
@@ -71,8 +72,13 @@ object EntailmentContextComposition extends HarrshLogging {
   }
 
   def instantiate(toInstantiate: EntailmentContext, abstractLeaf: ContextPredCall, instantiation: EntailmentContext, propagateUnification: SubstitutionUpdate): EntailmentContext = {
-    assert(EntailmentContext.haveDisjointPlaceholders(toInstantiate, instantiation),
-      s"Overlapping placeholders between $toInstantiate and $instantiation")
+    // When executing more than one composition step for a pair of decompositions,
+    // the following assertion does not necessarily hold from the second composition step onwards
+    // That's because we propagate any unification that happens in a context composition into all later composition
+    // steps, thus potentially introducing placeholders from earlier contexts into later contexts
+    // TODO Currently, the composition code should no longer depend in any way on non-overlapping placeholders, but I'll keep this assertion here for the time being as a reminder to revisit the invariants that have to hold in composition.
+//    assert(EntailmentContext.haveDisjointPlaceholders(toInstantiate, instantiation),
+//      s"Overlapping placeholders between $toInstantiate and $instantiation")
 
     val newRoot = toInstantiate.root.update(propagateUnification)
     val allLeaves = (toInstantiate.calls - abstractLeaf) ++ instantiation.calls

@@ -69,28 +69,29 @@ object ContextDecompositionComposition extends HarrshLogging {
       res
     } else {
       for {
-        (nowProcessed, stillUnprocessed, newUsageInfo, newPureConstraints) <- optionalMerge(sid, processed, unprocessed, usageInfo, pureConstraints)
-        merged <- allMergeOptions(sid, nowProcessed, stillUnprocessed, newUsageInfo, newPureConstraints)
+        (nowProcessed, stillUnprocessed, newUsageInfo, newPureConstraints, variableMergingImposedByComposition) <- optionalMerge(sid, processed, unprocessed, usageInfo, pureConstraints)
+        val unprocessedWithMergedVars = stillUnprocessed.map(_.updateSubst(variableMergingImposedByComposition))
+        merged <- allMergeOptions(sid, nowProcessed, unprocessedWithMergedVars, newUsageInfo, newPureConstraints)
       } yield merged
     }
   }
 
-  private def optionalMerge(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): Seq[(Seq[EntailmentContext], Seq[EntailmentContext], VarUsageByLabel, PureConstraintTracker)] = {
+  private def optionalMerge(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): Seq[(Seq[EntailmentContext], Seq[EntailmentContext], VarUsageByLabel, PureConstraintTracker, SubstitutionUpdate)] = {
     val (fst, other) = (unprocessed.head, unprocessed.tail)
     (
       // Don't merge fst with anything, just add to processed
-      Seq((processed :+ fst, other, usageInfo, pureConstraints))
-        ++ tryMerge(sid, fst, other, usageInfo, pureConstraints).map(t => (processed, t._1 +: t._2, t._3, t._4))
+      Seq((processed :+ fst, other, usageInfo, pureConstraints, SubstitutionUpdate.fromPairs(Seq.empty)))
+        ++ tryMerge(sid, fst, other, usageInfo, pureConstraints).map(t => (processed, t._1 +: t._2, t._3, t._4, t._5))
       )
   }
 
-  private def tryMerge(sid: RichSid, fst: EntailmentContext, other: Seq[EntailmentContext], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): Stream[(EntailmentContext, Seq[EntailmentContext], VarUsageByLabel, PureConstraintTracker)] = {
+  private def tryMerge(sid: RichSid, fst: EntailmentContext, other: Seq[EntailmentContext], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): Stream[(EntailmentContext, Seq[EntailmentContext], VarUsageByLabel, PureConstraintTracker, SubstitutionUpdate)] = {
     for {
       candidate <- other.toStream
       _ = logger.debug(s"Will try to compose $fst with $candidate wrt usage $usageInfo and pure constraints $pureConstraints.")
-      ((composed, newUsage, newPureConstraints), i) <- EntailmentContextComposition(sid, fst, candidate, usageInfo, pureConstraints).zipWithIndex
+      ((composed, newUsage, newPureConstraints, variableMergingImposedByComposition), i) <- EntailmentContextComposition(sid, fst, candidate, usageInfo, pureConstraints).zipWithIndex
       _ = logger.debug(s"Composition success #${i+1}: Composed context $composed with usage $newUsage and pure constraints $newPureConstraints")
-    } yield (composed, other.filter(_ != candidate), newUsage, newPureConstraints)
+    } yield (composed, other.filter(_ != candidate), newUsage, newPureConstraints, variableMergingImposedByComposition)
   }
 
 }
