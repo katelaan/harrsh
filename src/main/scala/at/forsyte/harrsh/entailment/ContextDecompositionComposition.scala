@@ -18,19 +18,21 @@ object ContextDecompositionComposition extends HarrshLogging {
     val (shiftedFst, shiftedSnd) = makePlaceholdersDisjoint(fst, snd)
     val sharedAllocation = shiftedFst.allocedVars.intersect(shiftedSnd.allocedVars)
     if (sharedAllocation.nonEmpty) {
-      throw DoubleAllocException(s"Trying to merge $shiftedFst with $shiftedSnd, but they both allocate $sharedAllocation")
-    }
-    logger.trace(s"Decompositions after shifting:\n$shiftedFst and\n$shiftedSnd")
-
-    // TODO: We should probably catch DoubleAllocException here and then return None (because speculative pure constraints (the `missing` part) can likely lead to double allocation even for ALL-SAT SIDs) but for now I want to see the exceptions
-    val mergeNondisjointVarLabelSets = SubstitutionUpdate.unionUpdate(shiftedFst.usageInfo, shiftedSnd.usageInfo)
-    val union = mergeWithUnifyingUpdate(shiftedFst, shiftedSnd, mergeNondisjointVarLabelSets)
-    logger.debug("Union decomposition (on which merge options will be computed):\n" + union)
-    if (union.pureConstraints.isConsistent && !union.explicitlyAllocsNull) {
-      Some(union)
-    } else {
-      logger.debug("Union is inconsistent => Discarding decomposition.")
+      logger.debug(s"Trying to merge $shiftedFst with $shiftedSnd, but they both allocate $sharedAllocation => Can't compose")
       None
+    }
+    else {
+      logger.trace(s"Decompositions after shifting:\n$shiftedFst and\n$shiftedSnd")
+
+      val mergeNondisjointVarLabelSets = SubstitutionUpdate.unionUpdate(shiftedFst.usageInfo, shiftedSnd.usageInfo)
+      val union = mergeWithUnifyingUpdate(shiftedFst, shiftedSnd, mergeNondisjointVarLabelSets)
+      logger.debug("Union decomposition (on which merge options will be computed):\n" + union)
+      if (union.pureConstraints.isConsistent && !union.explicitlyAllocsNull) {
+        Some(union)
+      } else {
+        logger.debug("Union is inconsistent => Discarding decomposition.")
+        None
+      }
     }
   }
 
