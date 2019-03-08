@@ -16,8 +16,8 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
     s"Inconsistent decomposition: Occurring labels are $occurringLabels, but usage info has fewer keys ${usageInfo.keySet}"
   )
 
-  assert(pureConstraints.refersOnlyTo(allVarStream.toSet),
-    s"Decomposition $this uses only vars ${allVarStream.toSet}, but pure constraints refer to additional vars: $pureConstraints")
+  assert(pureConstraints.refersOnlyToPlaceholdersIn(allVarStream.toSet),
+    s"Decomposition $this uses only vars ${allVarStream.toSet}, but pure constraints refer to additional placeholders: $pureConstraints")
 
   lazy val occurringLabels: Set[Set[Var]] = allPredCalls.flatMap(_.subst.toSeq)
 
@@ -104,7 +104,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
 
         // We must completely remove the variables from the pure constraints, because after forgetting a variable,
         // the (ensured) constraints become meaningless for the context...
-        val pureConstraintsAfterDropping = pureConstraints.dropVars(varsToForget)
+        val pureConstraintsAfterDropping = pureConstraints.dropNonFreeVars(varsToForget)
 
         val decompAfterDropping = ContextDecomposition(partsAfterDropping, varUsageAfterDropping, pureConstraintsAfterDropping)
         // Note: Must do normalization to get rid of gaps in results and of strange order by doing normalization

@@ -24,20 +24,21 @@ case class PureConstraintTracker private(ensured: Set[PureAtom], missing: Set[Pu
     PureConstraintTracker(combinedEnsured, combinedMissing)
   }
 
-  def dropVars(vars: Set[Var]): PureConstraintTracker = {
+  def dropNonFreeVars(vars: Set[Var]): PureConstraintTracker = {
+    assert(vars forall (v => v.isBound || PlaceholderVar.isPlaceholder(v)))
     val containsVarToDrop = (a: PureAtom) => vars.contains(a.l) || vars.contains(a.r)
     new PureConstraintTracker(ensured.filterNot(containsVarToDrop), missing.filterNot(containsVarToDrop))
   }
 
-  def restrictTo(vars: Set[Var]): PureConstraintTracker = {
-    val varsOrNull = vars + NullConst
-    val containsVarsToKeep = (a: PureAtom) => varsOrNull.contains(a.l) && varsOrNull.contains(a.r)
+  def restrictPlaceholdersTo(vars: Set[Var]): PureConstraintTracker = {
+    val isVarToKeep = (v: Var) => vars(v) || !PlaceholderVar.isPlaceholder(v)
+    val containsVarsToKeep = (a: PureAtom) => isVarToKeep(a.l) && isVarToKeep(a.r)
     new PureConstraintTracker(ensured.filter(containsVarsToKeep), missing.filter(containsVarsToKeep))
   }
 
-  def refersOnlyTo(vars: Set[Var]): Boolean = {
-    val varsOrNull = vars + NullConst
-    val containsOnlyGivenVars = (a: PureAtom) => varsOrNull.contains(a.l) && varsOrNull.contains(a.r)
+  def refersOnlyToPlaceholdersIn(vars: Set[Var]): Boolean = {
+    val mayOccur = (v: Var) => vars(v) || !PlaceholderVar.isPlaceholder(v)
+    val containsOnlyGivenVars = (a: PureAtom) => mayOccur(a.l) && mayOccur(a.r)
     (ensured ++ missing) forall containsOnlyGivenVars
   }
 
