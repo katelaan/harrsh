@@ -14,6 +14,9 @@ object EntailmentContextComposition extends HarrshLogging {
       //_ = unificationEqualities(t1.root, n2)
       propagateUnification = unification(t1.root, n2, usageInfo)
       instantiation = instantiate(t2, n2, t1, propagateUnification)
+      isEmpty = instantiation.calls.contains(instantiation.root)
+      _ = if (isEmpty) logger.debug(s"Will drop empty context instantiation $instantiation (calls contain root)")
+      if !isEmpty
       _ = logger.debug("Will propagate unification into " + usageInfo)
       unifiedUsage = VarUsageByLabel.update(usageInfo, propagateUnification)
       _ = assert(VarUsageByLabel.isWellFormed(unifiedUsage),

@@ -13,6 +13,8 @@ class EmptyPredicates(val underlying: Map[String, Set[Set[PureAtom]]]) {
 
   def apply(pred: Predicate): Set[Set[PureAtom]] = apply(pred.head)
 
+  def apply(call: PredCall): Set[Set[PureAtom]] = EmptyPredicates.instantiatedPureConstraints(call.args, apply(call.name))
+
 }
 
 object EmptyPredicates extends HarrshLogging {
@@ -60,6 +62,7 @@ object EmptyPredicates extends HarrshLogging {
   }
 
   private def instantiatedPureConstraints(options: Map[String, Set[Set[PureAtom]]])(call: PredCall): Set[Set[PureAtom]] = {
+    instantiatedPureConstraints(call.args, options.getOrElse(call.name, Set.empty))
     val renaming = Renaming.fromPairs(Var.getFvSeq(call.args.length) zip call.args)
     for {
       option <- options.getOrElse(call.name, Set.empty)
@@ -69,6 +72,14 @@ object EmptyPredicates extends HarrshLogging {
 
   private def baseRulesToConstraints(pred: Predicate): (String, Set[Set[PureAtom]]) = {
     (pred.head, pred.rules.filter(_.isEmptyBaseRule).map(_.body.pure.toSet).toSet[Set[PureAtom]])
+  }
+
+  def instantiatedPureConstraints(args: Seq[Var], atoms: Set[Set[PureAtom]]): Set[Set[PureAtom]] = {
+    val renaming = Renaming.fromPairs(Var.getFvSeq(args.length) zip args)
+    for {
+      option <- atoms
+      atomsBeforeRenaming = AtomContainer(option.toSeq, Seq.empty, Seq.empty)
+    } yield atomsBeforeRenaming.rename(renaming, avoidDoubleCapture = false).pure.toSet
   }
 
 }

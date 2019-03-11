@@ -208,10 +208,14 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
       (k, vs) <- rootParamSubsts(sid).groupBy(vs => vs).toStream
       if vs.size > 1
     } yield k
-    doublyAlloced.nonEmpty
+    val res = doublyAlloced.nonEmpty
+    if (res) logger.debug(s"Double allocation of ${doublyAlloced.toSet} in $this")
+    res
   }
 
-  private def rootParamSubsts(sid: RichSid): Seq[Set[Var]] = parts.toSeq.flatMap(_.rootParamSubsts(sid))
+  private def rootParamSubsts(sid: RichSid): Seq[Set[Var]] = parts.toSeq.flatMap(_.root.rootParamSubst(sid))
+
+  //private def rootParamSubsts(sid: RichSid): Seq[Set[Var]] = parts.toSeq.flatMap(_.rootParamSubsts(sid))
 
   // END Consistency-related code
 
@@ -222,7 +226,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
   }
 
   override def toString: String = {
-    val ctxString = parts.mkString("\n       ")
+    val ctxString = if (parts.nonEmpty) parts.mkString("\n       ") else "emp"
     val usageStr = usageInfo.map{
       case (vs, usage) => vs.mkString(",") + ": " + usage.shortString
     }.mkString("; ")

@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.pure
 
+import at.forsyte.harrsh.entailment.Unification
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PureAtom, SymbolicHeap}
 
@@ -10,6 +11,7 @@ trait Closure {
 
   /**
     * Converts the closure to an explicit representation as set of atomic constraints
+    *
     * @return Set of pure atoms that makes explicit all pairwise (in)equalities implied by the congruence
     */
   def asSetOfAtoms : Set[PureAtom]
@@ -50,6 +52,12 @@ trait Closure {
     * @return True iff constraints are consistent
     */
   def isConsistent : Boolean
+
+  /**
+    * Returns all equivalence classes that are explicitly stored in this closure. (I.e., no trivial classes)
+    * @return Set of all equivalence classes
+    */
+  def classes: Set[Set[Var]]
 
 }
 

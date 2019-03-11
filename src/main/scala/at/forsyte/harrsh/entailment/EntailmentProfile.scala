@@ -12,7 +12,9 @@ case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: 
     "Explicit null allocation in profile " + this
   )
 
-  assert(decomps forall (_.isInPlaceholderNormalForm))
+  assert(decomps forall (_.isInPlaceholderNormalForm),
+    s"The decomposition ${decomps.find(!_.isInPlaceholderNormalForm).get} is not in placeholder normalform"
+  )
 
   val nonEmpty = decomps.nonEmpty
 

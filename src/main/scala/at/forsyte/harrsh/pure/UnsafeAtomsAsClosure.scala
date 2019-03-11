@@ -41,7 +41,7 @@ private[pure] case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends C
       isEq && r == v && l < r
   })
 
-  override def classRepresentativesOf(vars : Set[Var]): Set[Var] = throw new NotImplementedError("To access class representatives, use safe closure implementaton instead")
+  override def classRepresentativesOf(vars : Set[Var]): Set[Var] = throw new NotImplementedError("To access class representatives, use safe closure instead")
 
   override def asSetOfAtoms: Set[PureAtom] = closure
 
@@ -54,4 +54,11 @@ private[pure] case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends C
     // TODO Code duplication with ClosureOfAtomSet
     !asSetOfAtoms.exists(atom => !atom.isEquality && atom.getVars.size == 1)
   }
+
+  /**
+    * Returns all equivalence classes that are explicitly stored in this closure. (I.e., no trivial classes)
+    *
+    * @return Set of all equivalence classes
+    */
+  override def classes: Set[Set[Var]] = throw new NotImplementedError("To access classes, use safe closure instead")
 }

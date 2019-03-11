@@ -9,7 +9,7 @@ import at.forsyte.harrsh.seplog.inductive.{PureAtom}
 private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure {
 
   // TODO: This closure class is quite inefficient, having one copy of each equivalence class per member
-  var mapToClasses : Map[Var,Set[Var]] = Map()
+  private var mapToClasses : Map[Var,Set[Var]] = Map()
 
   for {
     PureAtom(left, right, isEqual) <- pure
@@ -64,5 +64,12 @@ private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure 
   }
 
   override lazy val asSetOfAtoms: Set[PureAtom] = ConstraintPropagation.propagateConstraints(pure).map(_.ordered)
+
+  /**
+    * Returns all equivalence classes that are explicitly stored in this closure. (I.e., no trivial classes)
+    *
+    * @return Set of all equivalence classes
+    */
+  override def classes: Set[Set[Var]] = mapToClasses.values.toSet
 }
 

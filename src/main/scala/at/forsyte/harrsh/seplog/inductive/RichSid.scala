@@ -12,9 +12,10 @@ case class RichSid(override val startPred : String,
   lazy val isRooted: Boolean = roots.size == preds.size
   lazy val isReverseRooted: Boolean = sinks.size == preds.size
   lazy val isFocused: Boolean = (roots ++ sinks).size == preds.size
-  lazy val hasMixedFoxu: Boolean = isFocused && !isRooted && !isReverseRooted
+  lazy val hasMixedFocus: Boolean = isFocused && !isRooted && !isReverseRooted
 
   lazy val hasEmptyBaseRules: Boolean = predsWithEmptyModels.nonEmpty
+  lazy val hasRecursiveRulesWithoutPointers: Boolean = preds.exists(pred => pred.rules.exists(_.hasCallsButNoPointers))
 
   def focus(head: String): FocusedVar = {
     roots.get(head).map(FocusedVar(_, RootFocus)).getOrElse(FocusedVar(sinks(head), SinkFocus))
@@ -45,9 +46,9 @@ case class RichSid(override val startPred : String,
 
   private lazy val predsWithEmptyModels = EmptyPredicates(this)
 
-  def canBeEmpty(pred: String): Boolean = predsWithEmptyModels(pred).nonEmpty
+  def canBeEmpty(pred: Predicate): Boolean = predsWithEmptyModels(pred).nonEmpty
 
-  def constraintOptionsForEmptyModels(pred: String): Set[Set[PureAtom]] = predsWithEmptyModels(pred)
+  def constraintOptionsForEmptyModels(pred: Predicate): Set[Set[PureAtom]] = predsWithEmptyModels(pred)
 
   def underlying: Sid = Sid(startPred, preds, description)
 

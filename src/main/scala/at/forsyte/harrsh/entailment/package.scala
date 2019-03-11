@@ -47,11 +47,11 @@ package object entailment {
       val counts = Combinators.counts(classes.toSeq.flatten)
       counts.find(_._2 > 1) match {
         case None =>
-          logger.debug("Returning disjoint classes " + classes)
+          logger.trace("Returning disjoint classes " + classes)
           classes
         case Some((v,_)) =>
           val (withV, withoutV) = classes.partition(_.contains(v))
-          logger.debug("Merging non-disjoint classes " + withV)
+          logger.trace("Merging non-disjoint classes " + withV)
           mergeNonDisjoint(withoutV + withV.flatten, alloced)
       }
     }
@@ -72,7 +72,7 @@ package object entailment {
           (k, vs) <- prevMap
         } yield (k, vs flatMap prevMap)
       }
-      logger.debug("Unification leads to the following updates:\n" + currMap)
+      logger.debug(s"Unification ${unification.mkString(", ")} leads to the following updates:\n$currMap")
       v => currMap.getOrElse(v, Set(v))
     }
 
@@ -160,7 +160,7 @@ package object entailment {
       val res = grouped map {
         case (updated, allUsagesForUpdated) => updated -> allUsagesForUpdated.values.max
       }
-      logger.debug(s"Grouped $usageInfo into\n$grouped\n=> Resulting usage info $res")
+      logger.trace(s"Grouped $usageInfo into\n$grouped\n=> Resulting usage info $res")
       res
     }
 
@@ -182,12 +182,6 @@ package object entailment {
       val occurringVarSets = decomp.occurringLabels
       restrictToOccurringLabels(usageInfo, occurringVarSets)
     }
-
-//    def restrictToOccurringLabels(usageInfo: VarUsageByLabel, decomp: Iterable[EntailmentContext]): VarUsageByLabel = {
-//      // TODO Code duplication w.r.t. ContextDecomposition.occurringLabels
-//      val occurringVarSets = decomp.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)
-//      restrictToOccurringLabels(usageInfo, occurringVarSets)
-//    }
 
     def restrictToOccurringLabels(usageInfo: VarUsageByLabel, occurringVarSets: Set[Set[Var]]): VarUsageByLabel = {
       usageInfo.filterKeys(occurringVarSets)

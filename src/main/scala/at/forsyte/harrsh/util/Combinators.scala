@@ -11,6 +11,10 @@ import scala.concurrent.{Await, Future, TimeoutException}
   */
 object Combinators {
 
+  def inCase[A](p: => Boolean)(f: A => A) : A => A = {
+    a => if (p) f(a) else a
+  }
+
   def swallowExceptions[A](f : A => Unit, debug : Boolean)(a : A) : Unit = {
     try {
       f(a)
