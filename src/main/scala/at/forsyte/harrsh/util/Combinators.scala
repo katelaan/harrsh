@@ -35,10 +35,10 @@ object Combinators {
     }
   }
 
-  def fixedPointComputation[A](initial : A, convergenceTest : (A,A) => Boolean, maxIts : Int = Int.MaxValue)(f : (Int,A) => A) : A = {
+  def fixedPointComputation[A](initial : A, convergenceTest : (A,A) => Boolean, maxIts : Int = Int.MaxValue)(f : A => A) : A = {
 
     @tailrec def fixedPointAux(prev : A, i : Int) : A = {
-      val next = f(i,prev)
+      val next = f(prev)
       if (convergenceTest(prev, next) || i == maxIts) {
         // Reached fixed point or abort criterion
         next
@@ -195,6 +195,22 @@ object Combinators {
 
     if (from.isEmpty)
       Seq(Seq())
+    else {
+      val newchoice = from.head
+      val smaller = choices(from.tail)
+      (for {
+        seq <- smaller
+      } yield prependAll(newchoice, seq)).flatten
+    }
+  }
+
+  // TODO: Reduce code duplication
+  def choices[A](from: Seq[Set[A]]) : Set[Seq[A]] = {
+
+    def prependAll(prep : Set[A], seq : Seq[A]) : Set[Seq[A]] = prep map (x => x +: seq)
+
+    if (from.isEmpty)
+      Set(Seq.empty)
     else {
       val newchoice = from.head
       val smaller = choices(from.tail)

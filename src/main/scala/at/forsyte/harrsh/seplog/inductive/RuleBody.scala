@@ -9,7 +9,9 @@ import at.forsyte.harrsh.seplog.Var.Naming
 case class RuleBody(qvarNames : Seq[String], body : SymbolicHeap) {
 
   lazy val freeVarNames: Seq[String] = body.freeVars.map(_.toString)
-  lazy val naming : Naming = Naming.mkNaming(freeVarNames, qvarNames)
+  lazy val naming: Naming = Naming.mkNaming(freeVarNames, qvarNames)
+
+  lazy val isEmptyBaseRule: Boolean = body.predCalls.isEmpty && !body.hasPointer
 
   override def toString: String = body.toStringWithVarNames(naming)
 
@@ -18,6 +20,8 @@ case class RuleBody(qvarNames : Seq[String], body : SymbolicHeap) {
   def isRecRule: Boolean = body.nonReduced
 
   def hasPointer: Boolean = body.hasPointer
+
+  def hasCallsButNoPointers: Boolean = body.predCalls.nonEmpty && !body.hasPointer
 
   def satisfiesGeneralizedProgress(rootOfPred: Option[Var]): Boolean = {
     body.pointers.length match {

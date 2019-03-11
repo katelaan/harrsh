@@ -34,6 +34,15 @@ object ExampleSids extends TestValues {
     ("anel", Seq("y"), SymbolicHeap(x1 -> y1, x1 =/= x2, P("anel")(y1, x2)))
   )
 
+  lazy val NoProgressSll: RichSid = SidFactory.makeRootedSid("sll",
+    "Singly-linked list",
+    Map("sll" -> x1),
+    // sll <= emp : { a = b }
+    ("sll", Seq.empty, SymbolicHeap(x1 =:= x2)),
+    // sll <= ∃ y . a -> y * sll(y, b)
+    ("sll", Seq("y"), SymbolicHeap(P("sll")(x1, y1), P("sll")(y1, x2)))
+  )
+
   lazy val Tree: RichSid = SidFactory.makeRootedSid("tree",
     "Null-terminated tree",
     Map("tree" -> x1),
