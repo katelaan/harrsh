@@ -46,7 +46,7 @@ case class OldContextDecomposition(parts: Set[OldEntailmentContext]) extends Har
       Stream(
         parts forall (_.isConcrete),
         parts forall (_.pureConstraints.missing.isEmpty),
-        calls.implies(roots)
+        calls.isImpliedBy(roots, ???, ???)
       ).forall(b => b)
     }
     logger.trace(s"Checking whether $this is final w.r.t. $calls => $res")

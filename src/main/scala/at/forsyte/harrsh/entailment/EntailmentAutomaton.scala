@@ -26,7 +26,7 @@ class EntailmentAutomaton(sid: RichSid, rhs: PredCalls) extends HeapAutomaton wi
   override def isFinal(s: State): Boolean = {
     // A state represents all the possible ways to parse an RSH as a SID unfolding tree.
     // As long as one of those ways is a valid unfolding tree, we accept.
-    val res = s.decomps.exists(_.isFinal(rhs))
+    val res = s.decomps.exists(_.isFinal(sid, rhs))
     logger.trace(s"Checked wheter $s is final => $res")
     res
   }

@@ -9,6 +9,8 @@ class EmptyPredicates(val underlying: Map[String, Set[Set[PureAtom]]]) {
 
   lazy val nonEmpty = underlying.nonEmpty
 
+  def hasEmptyModels(pred: String): Boolean = underlying.isDefinedAt(pred)
+
   def apply(pred: String): Set[Set[PureAtom]] = underlying.getOrElse(pred, Set.empty)
 
   def apply(pred: Predicate): Set[Set[PureAtom]] = apply(pred.head)

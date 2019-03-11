@@ -110,7 +110,7 @@ object TargetProfile extends HarrshLogging {
     }
 
     def empClosureAfterRemoval(callToRemove: ContextPredCall, unprocessedCalls: Set[ContextPredCall], remainingCalls: Set[ContextPredCall], constraintsSoFar: Set[PureAtom]) : Set[(Set[ContextPredCall], Set[PureAtom])] = {
-      if (sid.canBeEmpty(callToRemove.pred)) {
+      if (sid.hasEmptyModels(callToRemove.pred)) {
         val constraintOptions = constraintOptionsForCal(callToRemove)
         val closureOfUnprocessedCalls = empClosureOfCalls(unprocessedCalls, remainingCalls, constraintsSoFar)
         for {

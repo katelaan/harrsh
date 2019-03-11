@@ -44,9 +44,9 @@ case class RichSid(override val startPred : String,
     } yield (pred, rule)
   }
 
-  private lazy val predsWithEmptyModels = EmptyPredicates(this)
+  lazy val predsWithEmptyModels = EmptyPredicates(this)
 
-  def canBeEmpty(pred: Predicate): Boolean = predsWithEmptyModels(pred).nonEmpty
+  def hasEmptyModels(pred: Predicate): Boolean = predsWithEmptyModels.hasEmptyModels(pred.head)
 
   def constraintOptionsForEmptyModels(pred: Predicate): Set[Set[PureAtom]] = predsWithEmptyModels(pred)
 

@@ -163,7 +163,7 @@ object EntailmentChecker extends HarrshLogging {
         throw new Exception("Expected all satisfiability, but could not satisfy left-hand side " + lhsCalls)
       }
     }
-    combinedProfiles.forall(_.decomps.exists(_.isFinal(rhsCalls)))
+    combinedProfiles.forall(_.decomps.exists(_.isFinal(sid, rhsCalls)))
   }
 
   object serializeResult {

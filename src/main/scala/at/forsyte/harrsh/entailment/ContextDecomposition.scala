@@ -123,14 +123,14 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
 
   // END compose, rename, forget
 
-  def isFinal(calls: PredCalls): Boolean = {
-    val res = if (pureConstraints.missing.nonEmpty || parts.size != calls.size) {
+  def isFinal(sid: RichSid, rhs: PredCalls): Boolean = {
+    val res = if (pureConstraints.missing.nonEmpty || parts.size > rhs.size) {
       false
     } else {
-      val roots = parts map (_.root)
-      parts.forall(_.isConcrete) && calls.implies(roots)
+      val lhsRoots = parts map (_.root)
+      parts.forall(_.isConcrete) && rhs.isImpliedBy(lhsRoots, pureConstraints.ensured, sid.predsWithEmptyModels)
     }
-    logger.trace(s"Checking whether $this is final w.r.t. $calls => $res")
+    logger.trace(s"Checking whether $this is final w.r.t. $rhs => $res")
     res
   }
 
