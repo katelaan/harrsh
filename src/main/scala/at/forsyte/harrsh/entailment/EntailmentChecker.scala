@@ -93,7 +93,7 @@ object EntailmentChecker extends HarrshLogging {
 
   private def checkAcceptance(sid: RichSid, lhsConstraint: TopLevelConstraint, rhsConstraint: TopLevelConstraint, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
     logger.debug(s"Will check whether all profiles in fixed point for $lhsConstraint imply $rhsConstraint")
-    assert(rhsConstraint.isQuantifierFree, "RHS is quantified")
+    if (!rhsConstraint.isQuantifierFree) throw new IllegalArgumentException("RHS is quantified")
     val renamedReachableStates = for {
       call <- lhsConstraint.calls
       reachableForCall = reachable.getOrElse(call.name, Set.empty)

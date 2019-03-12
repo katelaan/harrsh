@@ -57,7 +57,16 @@ class SidDirectionalityAnnotator(sid: SidLike, direction: FocusDirection) extend
   private def focusOfRules(currentAnnotation: Map[String, FreeVar], pred: Predicate): Seq[Set[FreeVar]] = {
     for {
       rule <- pred.rules
-      if rule.body.hasPointer || rule.body.predCalls.nonEmpty
+      // A rule with pointers or calls is analyzed in the focus computation, unless...
+      // If a rule of pred is "self-recursive", i.e., of the form pred(..) * ... pred(..), i.e., does not allocate memory
+      // and exclusively calls itself, then it is ignored, since
+      // (1) its focused must be defined by the other rules of the predicate
+      // (2) if we don't ignore it, we will not discover the focus because of a chicken-egg problem: pred is not yet
+      //     in the currentAnnotation and will thus never be added because the pred-rule which calls pred can never
+      //     be analyzed.
+      // FIXME: This is unsound for self-recursive rules that don't pass on free vars in root position!
+      // TODO: This is still an incomplete focus computation, as e.g. the following predicate's focus can't be analyzed: p <= x1 -> x2; p <= p(x1 -> x2) * q(...)
+      if rule.body.hasPointer || rule.body.predCalls.exists(_.name != pred.head)
     } yield focusOfSh(currentAnnotation, rule.body)
   }
 
@@ -74,8 +83,8 @@ class SidDirectionalityAnnotator(sid: SidLike, direction: FocusDirection) extend
         paramInstance = call.args(index)
         eq_to_focus <- ConstraintPropagation.closeSetUnderEqualities(Set(paramInstance), body.pure)
         // Restrict to free vars here -- otherwise we might prematurely throw an exception,
-        // namely if there is a root variable, but the predicate for the call with the root variable
-        // is not yet in the currentAnnotation map
+        // namely if there is a root variable, some predicate that is called is already in the currentAnnotation map,
+        // but the predicate of the call that allocates the root variable is not yet in the currentAnnotation map
         if eq_to_focus.isFree
       } yield eq_to_focus.asInstanceOf[FreeVar]
     }
