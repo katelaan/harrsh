@@ -65,7 +65,7 @@ object EntailmentProfileComposition extends HarrshLogging {
 
     def useNonProgressRulesToMergeContexts(decomp: ContextDecomposition, sid: RichSid): Seq[ContextDecomposition] = {
       val nonProgressRules = sid.empClosedNonProgressRules
-      if (nonProgressRules.nonEmpty && decomp.isMultiPartDecomposition) {
+      if (nonProgressRules.nonEmpty) {
         logger.debug(s"Will try to apply non-progress rules to contexts in decomposition. Rules to consider: ${nonProgressRules.map(pair => s"${pair._1.defaultCall} <= ${pair._2}")}")
         mergeWithZeroOrMoreRuleApplications(decomp, nonProgressRules, sid)
       }
@@ -131,7 +131,7 @@ object EntailmentProfileComposition extends HarrshLogging {
       val assignmentsByVar: Map[Var, Set[Set[Var]]] = varAssignmentFromMatching(candidateMatching)
       assignmentsByVar.find(_._2.size >= 2) match {
         case Some(pair) =>
-          // FIXME: Do we have to implement speculative merging where we match even if we have duplicate targets, but record this as missing equality constraint in the pure constraints of the resulting extension type?
+          // FIXME: Do we have to implement speculative merging where we match even if we have duplicate targets, but record this as missing equality constraint in the pure constraints of the resulting decomposition?
           logger.debug(s"Can't match ${rule.body} against $rootsToMerge: ${pair._1} has to be assigned to all of ${pair._2.mkString(", ")}")
           None
         case None =>
@@ -161,7 +161,8 @@ object EntailmentProfileComposition extends HarrshLogging {
       val concatenatedLeaves = ctxsToMerge.flatMap(_.calls)
       val ctxAfterMerging = EntailmentContext(newRoot, concatenatedLeaves)
       val restrictedUsageInfo = VarUsageByLabel.restrictToOccurringLabels(decomp.usageInfo, decomp)
-      ContextDecomposition(unchangedCtxs + ctxAfterMerging, restrictedUsageInfo, decomp.pureConstraints)
+      val allPureConstraints = decomp.pureConstraints.addToMissingUnlessEnsured(rule.body.pure)
+      ContextDecomposition(unchangedCtxs + ctxAfterMerging, restrictedUsageInfo, allPureConstraints)
     }
 
     private def integrateUsageInfo(ctxsToMerge: Set[OldEntailmentContext], nodeLabelsInMergedInterface: Iterable[ContextPredCall]) = {
