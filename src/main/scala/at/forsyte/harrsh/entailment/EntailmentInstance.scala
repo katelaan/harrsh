@@ -3,7 +3,7 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.StringUtils
 
-case class EntailmentQuerySide(sid: RichSid, calls: PredCalls, originalAssertion: SymbolicHeap) {
+case class EntailmentQuerySide(sid: RichSid, calls: TopLevelConstraint, originalAssertion: SymbolicHeap) {
   def prettyPrint: String = {
     calls.toString + " w.r.t.\n" + sid.prettyPrint + s"\n  (derived from $originalAssertion)"
   }

@@ -1,20 +1,20 @@
 package at.forsyte.harrsh.seplog.sidtransformers
 
-import at.forsyte.harrsh.entailment.PredCalls
+import at.forsyte.harrsh.entailment.TopLevelConstraint
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.seplog.{BoundVar, FreeVar, Renaming, Var}
 
 object ToSymbolicHeapOverBtwSid extends HarrshLogging {
 
-  def apply(sh: SymbolicHeap, predPrefix: String, underlyingSID: RichSid): (RichSid, PredCalls) = {
+  def apply(sh: SymbolicHeap, predPrefix: String, underlyingSID: RichSid): (RichSid, TopLevelConstraint) = {
     val shSCCs = SplitIntoRootedComponents(sh, underlyingSID)
     logger.debug(s"Split $sh into rooted components ${shSCCs.mkString(", ")}")
     val (allNewPreds, topLevelCalls) = progressNormalformOfSCCs(shSCCs, predPrefix, underlyingSID)
-    logger.debug(s"New query is ${PredCalls(topLevelCalls)} w.r.t. new per-SCC predicates:\n${allNewPreds.mkString("\n")}")
+    logger.debug(s"New query is ${TopLevelConstraint(topLevelCalls, Seq.empty)} w.r.t. new per-SCC predicates:\n${allNewPreds.mkString("\n")}")
     val startPred = topLevelCalls.head.name // Arbitrarily assign start pred (will never be used)
     val integratedSID = mergeIntoOneSid(underlyingSID, allNewPreds, startPred, sh)
-    (integratedSID, PredCalls(topLevelCalls))
+    (integratedSID, TopLevelConstraint(topLevelCalls, Seq.empty))
   }
 
   private def progressNormalformOfSCCs(shSCCs: Seq[SymbolicHeap], predPrefix: String, underlyingSID: RichSid) = {

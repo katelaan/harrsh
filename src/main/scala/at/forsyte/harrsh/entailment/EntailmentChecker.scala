@@ -52,10 +52,10 @@ object EntailmentChecker extends HarrshLogging {
     body.pointers.isEmpty && body.predCalls.isEmpty
   }
 
-  def allocationInPreds(sid: RichSid, predCalls: PredCalls): Allocation = {
+  def allocationInPreds(sid: RichSid, predCalls: TopLevelConstraint): Allocation = {
     val allocs = for {
-      predCall <- predCalls.calls.toSet[PredCall]
-      pred = sid(predCall.name)
+      predName <- predCalls.calls.map(_.name).toSet[String]
+      pred = sid(predName)
       (withoutAlloc, withAlloc) = pred.rules.partition(noAllocationIn)
     } yield {
       if (withAlloc.isEmpty) NoAllocation
@@ -66,7 +66,7 @@ object EntailmentChecker extends HarrshLogging {
     if (allocs.contains(AllocationInSomeRules)) AllocationInSomeRules
     else if (Set(AllocationInAllRules,NoAllocation) subsetOf allocs) AllocationInSomeRules
     else {
-      assert(allocs.size == 1)
+      assert(allocs.size == 1, s"Non-deterministic allocation $allocs")
       allocs.head
     }
   }
@@ -147,7 +147,7 @@ object EntailmentChecker extends HarrshLogging {
 
   val ExpectAllSat = true
 
-  private def checkAcceptance(sid: RichSid, lhsCalls: PredCalls, rhsCalls: PredCalls, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
+  private def checkAcceptance(sid: RichSid, lhsCalls: TopLevelConstraint, rhsCalls: TopLevelConstraint, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
     logger.debug(s"Will check whether all profiles in fixed point for $lhsCalls imply $rhsCalls")
     val lhsFVs = lhsCalls.calls flatMap (_.getNonNullVars) filter (_.isFree)
     val renamedReachableStates = for {

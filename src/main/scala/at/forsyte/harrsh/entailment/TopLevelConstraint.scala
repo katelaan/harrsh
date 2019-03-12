@@ -5,19 +5,23 @@ import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{EmptyPredicates, PredCall, PureAtom, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
-case class PredCalls(calls: Seq[PredCall]) extends HarrshLogging {
+case class TopLevelConstraint(calls: Seq[PredCall], pure: Seq[PureAtom]) extends HarrshLogging {
 
   lazy val size: NodeId = calls.size
   lazy val names: Seq[String] = calls map (_.name)
   lazy val orderedCalls: Seq[PredCall] = calls.sortBy(_.name)
 
-  override def toString: String = calls.mkString(" * ")
+  override def toString: String = {
+    val callsStr = calls.mkString(" * ")
+    val pureStr = if (pure.nonEmpty) pure.mkString("{", ", ", "}") else ""
+    Seq(callsStr, pureStr).filter(_.nonEmpty).mkString(" : ")
+  }
 
   def toSymbolicHeap = SymbolicHeap(calls:_*)
 
   def isImpliedBy(lhs: Set[ContextPredCall], lhsEnsuredPure: Set[PureAtom], predsWithEmptyModels: EmptyPredicates): Boolean = {
-    val orderedLhs = PredCalls.sorted(lhs)
-    val (rhsCallsPresentInLhs, callsMissingInLhs, extraPredsInLhs) = PredCalls.compareOrderedPredSeqs(orderedLhs, orderedCalls)
+    val orderedLhs = TopLevelConstraint.sorted(lhs)
+    val (rhsCallsPresentInLhs, callsMissingInLhs, extraPredsInLhs) = TopLevelConstraint.compareOrderedPredSeqs(orderedLhs, orderedCalls)
     if (extraPredsInLhs.nonEmpty) {
       logger.debug(s"$lhs does not imply $this, because it contains extra predicate call(s) ${extraPredsInLhs.mkString(" * ")}")
       false
@@ -25,7 +29,7 @@ case class PredCalls(calls: Seq[PredCall]) extends HarrshLogging {
       val (possiblyEmptyPreds, nonemptyPreds) = callsMissingInLhs.partition(canBeEmpty(_, lhsEnsuredPure, predsWithEmptyModels))
       if (nonemptyPreds.isEmpty) {
         logger.debug(s"Will try to match $orderedLhs against ${rhsCallsPresentInLhs.mkString(" * ")}")
-        val res = PredCalls.matchable(orderedLhs, rhsCallsPresentInLhs)
+        val res = TopLevelConstraint.matchable(orderedLhs, rhsCallsPresentInLhs)
         logger.debug(s"LHS $lhs matchable against (partial) RHS ${rhsCallsPresentInLhs.mkString(" * ")}? ===> $res")
         res
       }
@@ -57,7 +61,7 @@ case class PredCalls(calls: Seq[PredCall]) extends HarrshLogging {
 
 }
 
-object PredCalls extends HarrshLogging {
+object TopLevelConstraint extends HarrshLogging {
 
   def sorted(calls: Iterable[ContextPredCall]): Seq[ContextPredCall] = calls.toSeq.sortBy(_.pred.head)
 

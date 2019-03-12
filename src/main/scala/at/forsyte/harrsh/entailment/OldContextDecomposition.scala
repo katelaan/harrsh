@@ -38,7 +38,7 @@ case class OldContextDecomposition(parts: Set[OldEntailmentContext]) extends Har
     !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots) && !parts.exists(_.hasNullInRootPosition(sid))
   }
 
-  def isFinal(calls: PredCalls): Boolean = {
+  def isFinal(calls: TopLevelConstraint): Boolean = {
     val res = if (parts.size != calls.size) {
       false
     } else {

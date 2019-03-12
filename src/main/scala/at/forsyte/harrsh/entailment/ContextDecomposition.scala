@@ -123,7 +123,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
 
   // END compose, rename, forget
 
-  def isFinal(sid: RichSid, rhs: PredCalls): Boolean = {
+  def isFinal(sid: RichSid, rhs: TopLevelConstraint): Boolean = {
     val res = if (pureConstraints.missing.nonEmpty || parts.size > rhs.size) {
       false
     } else {

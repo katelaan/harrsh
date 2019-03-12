@@ -1,10 +1,9 @@
 package at.forsyte.harrsh.seplog.sidtransformers
 
 import scala.util.Try
-
-import at.forsyte.harrsh.entailment.{EntailmentInstance, EntailmentQuerySide, PredCalls}
+import at.forsyte.harrsh.entailment.{EntailmentInstance, EntailmentQuerySide, TopLevelConstraint}
 import at.forsyte.harrsh.main.{EntailmentQuery, HarrshLogging}
-import at.forsyte.harrsh.seplog.inductive.{Predicate, RichSid, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{PredCall, Predicate, RichSid, SymbolicHeap}
 
 object QueryToEntailmentInstance extends HarrshLogging {
 
@@ -13,11 +12,17 @@ object QueryToEntailmentInstance extends HarrshLogging {
   }
 
   private def generalizedProgressNormalform(computeSeparateSidsForEachSide: Boolean, computeSccs: Boolean)(parseResult: EntailmentQuery): Try[EntailmentInstance] = {
+    val introduceAuxPredsForPointers = !computeSccs
+
     for {
       rootedSid <- SidDirectionalityAnnotator(parseResult.sid)
-      rootWithOnePtoPerRule <- SplitMultiPointerRules(rootedSid)
-      lhs = processEntailmentQuerySide(parseResult.lhs, rootWithOnePtoPerRule, computeSeparateSidsForEachSide, computeSccs, isLhs = true)
-      rhs = processEntailmentQuerySide(parseResult.rhs, rootWithOnePtoPerRule, computeSeparateSidsForEachSide, computeSccs, isLhs = false)
+      rootedWithOnePtoPerRule <- SplitMultiPointerRules(rootedSid)
+      (sidWithAuxPreds, lhsAux, rhsAux) = {
+        if (introduceAuxPredsForPointers) ReplacePointersByPredicates(rootedWithOnePtoPerRule, parseResult.lhs, parseResult.rhs)
+        else (rootedWithOnePtoPerRule, parseResult.lhs, parseResult.rhs)
+      }
+      lhs = processEntailmentQuerySide(lhsAux, parseResult.lhs, sidWithAuxPreds, computeSeparateSidsForEachSide, computeSccs, isLhs = true)
+      rhs = processEntailmentQuerySide(rhsAux, parseResult.rhs, sidWithAuxPreds, computeSeparateSidsForEachSide, computeSccs, isLhs = false)
     } yield EntailmentInstance(lhs, rhs, parseResult.status.toBoolean)
   }
 
@@ -28,17 +33,19 @@ object QueryToEntailmentInstance extends HarrshLogging {
     instance
   }
 
-  private def processEntailmentQuerySide(originalQuerySide: SymbolicHeap, rootedSid: RichSid, computeSeparateSidsForEachSide: Boolean, computeSccs: Boolean, isLhs: Boolean): EntailmentQuerySide = {
-    val sideSid = if (computeSeparateSidsForEachSide) RestrictSidToCalls(rootedSid, originalQuerySide.predCalls.toSet) else rootedSid
+  private def processEntailmentQuerySide(intermediateQuery: SymbolicHeap, originalQuerySide: SymbolicHeap, rootedSid: RichSid, computeSeparateSidsForEachSide: Boolean, computeSccs: Boolean, isLhs: Boolean): EntailmentQuerySide = {
+    val sideSid = if (computeSeparateSidsForEachSide) RestrictSidToCalls(rootedSid, intermediateQuery.predCalls.toSet) else rootedSid
+
     val (processedSid, processedCalls) = if (computeSccs) {
-       splitQueryIntoSccs(originalQuerySide, sideSid, isLhs)
+       splitQueryIntoSccs(intermediateQuery, sideSid, isLhs)
     } else {
-      (sideSid, PredCalls(originalQuerySide.predCalls))
+      (sideSid, TopLevelConstraint(intermediateQuery.predCalls, intermediateQuery.pure))
     }
+
     EntailmentQuerySide(processedSid, processedCalls, originalQuerySide)
   }
 
-  private def splitQueryIntoSccs(querySide: SymbolicHeap, sid: RichSid, isLhs: Boolean): (RichSid, PredCalls) = {
+  private def splitQueryIntoSccs(querySide: SymbolicHeap, sid: RichSid, isLhs: Boolean): (RichSid, TopLevelConstraint) = {
     logger.debug(s"Will transform $querySide into one call per SCC, starting from SID\n$sid")
     ToSymbolicHeapOverBtwSid(querySide, if (isLhs) PrefixOfLhsAuxiliaryPreds else PrefixOfRhsAuxiliaryPreds, sid)
   }
