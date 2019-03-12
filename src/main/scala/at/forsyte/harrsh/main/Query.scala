@@ -26,9 +26,9 @@ sealed trait Query {
     case _ => None
   }
 
-  def toEntailmentInstance(computeSeparateSidsForEachSide: Boolean): Try[EntailmentInstance] = for {
+  def toEntailmentInstance(computeSeparateSidsForEachSide: Boolean, computeSccs: Boolean): Try[EntailmentInstance] = for {
     q <- Try { this.asInstanceOf[EntailmentQuery] }
-    ei <- QueryToEntailmentInstance(q, computeSeparateSidsForEachSide)
+    ei <- QueryToEntailmentInstance(q, computeSeparateSidsForEachSide, computeSccs)
   } yield ei
 }
 

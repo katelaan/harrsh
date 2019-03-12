@@ -28,22 +28,6 @@ case class RichSid(override val startPred : String,
     } yield (predIdent, pred.params.indexOf(root))
   }
 
-  lazy val satisfiesGeneralizedProgress: Boolean = {
-    val violatingRules = rulesViolatingProgress
-    if (violatingRules.nonEmpty) {
-      logger.info(s"SID violates progress:\n${violatingRules.mkString("\n")}")
-    }
-    violatingRules.isEmpty
-  }
-
-  def rulesViolatingProgress: Seq[(Predicate, RuleBody)] = {
-    for {
-      pred <- preds
-      rule <- pred.rules
-      if !rule.satisfiesGeneralizedProgress(roots.get(pred.head))
-    } yield (pred, rule)
-  }
-
   lazy val predsWithEmptyModels = EmptyPredicates(this)
 
   def hasEmptyModels(pred: Predicate): Boolean = predsWithEmptyModels.hasEmptyModels(pred.head)

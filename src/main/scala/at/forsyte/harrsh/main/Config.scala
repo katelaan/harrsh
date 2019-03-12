@@ -17,11 +17,11 @@ case class Config(
                    oModelFile : Option[String],
                    oNumFV : Option[Int],
                    computeSidsForEachSideOfEntailment : Boolean,
+                   computeSccsForTopLevelFormulas: Boolean,
                    reportProgress : Boolean,
                    verbose : Boolean,
                    debug : Boolean
 ) {
-
   def file = oFile.get
   def timeout = oTimeout.get
   def prop = oProp.get
@@ -53,7 +53,7 @@ object Config {
   /**
     * Default configuration prior to parsing command-line args
     */
-  val DefaultConfig = Config(ExecutionMode.Help, None, None, None, None, None, None, None, computeSidsForEachSideOfEntailment = true, reportProgress = false, verbose = false, debug = false)
+  val DefaultConfig = Config(ExecutionMode.Help, None, None, None, None, None, None, None, computeSidsForEachSideOfEntailment = true, computeSccsForTopLevelFormulas = false, reportProgress = false, verbose = false, debug = false)
 
   /**
     * Default unfolding depth in unfolding mode

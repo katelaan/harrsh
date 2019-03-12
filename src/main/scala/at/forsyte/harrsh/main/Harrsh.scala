@@ -48,7 +48,7 @@ object Harrsh extends Implicits {
         println(QueryParser(config.file))
 
       case Entailment =>
-        QueryParser(config.file).toEntailmentInstance(config.computeSidsForEachSideOfEntailment) match {
+        QueryParser(config.file).toEntailmentInstance(config.computeSidsForEachSideOfEntailment, config.computeSccsForTopLevelFormulas) match {
           case Success(entailmentInstance) =>
             val res = EntailmentChecker.solve(entailmentInstance)
             println(if (res._1) "The entailment holds" else "The entailment does NOT hold")

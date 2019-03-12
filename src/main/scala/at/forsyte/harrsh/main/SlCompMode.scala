@@ -24,6 +24,7 @@ object SlCompMode {
     val SatCheckingIncrementalFromNumCalls = "sat-incremental"
     // Entailment Checking
     val ComputePerSideSids = "per-side-sid"
+    val ComputeSccs = "compute-sccs"
     // Batch Mode
     val IsBatchMode = "is-batch-mode"
     val BatchBaseDir = "dir"
@@ -43,6 +44,7 @@ object SlCompMode {
       params.SatCheckingIncrementalFromNumCalls -> 6,
       // Entailment Checking
       params.ComputePerSideSids -> true,
+      params.ComputeSccs -> false,
       // Batch Mode
       params.IsBatchMode -> false,
       params.BatchBaseDir -> "bench",
@@ -364,7 +366,8 @@ object SlCompMode {
   }
 
   private def queryToEI(bm: EntailmentQuery) : Try[EntailmentInstance] = {
-    bm.toEntailmentInstance(computeSeparateSidsForEachSide = config.getBoolean(params.ComputePerSideSids))
+    bm.toEntailmentInstance(computeSeparateSidsForEachSide = config.getBoolean(params.ComputePerSideSids),
+      computeSccs = config.getBoolean(params.ComputeSccs))
   }
 
   private def statusOfQuery(bm: EntailmentQuery) : ProblemStatus = {

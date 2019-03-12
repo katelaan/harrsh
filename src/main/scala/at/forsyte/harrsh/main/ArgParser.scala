@@ -97,6 +97,7 @@ object ArgParser {
       _ <- parseSwitch("--showprogress", "-sp", _.copy(reportProgress = true))
       _ <- parseSwitch("--debug", "--debug", _.copy(debug = true))
       _ <- parseSwitch("--disable-per-side-sids", "--no-per-side-sids", _.copy(computeSidsForEachSideOfEntailment = false))
+      _ <- parseSwitch("--compute-sccs", "-scc", _.copy(computeSccsForTopLevelFormulas = true))
     } yield ()
   }
 

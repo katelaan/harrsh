@@ -47,7 +47,7 @@ object EntailmentBatchMode {
   }
 
   // TODO: Reduce code duplication across all the different methods that read files
-  def parseAllEntailmentsInPathToInstances(path: String, computeSidsForEachSideOfEntailment: Boolean): Seq[(String,Option[EntailmentInstance])] = {
+  def parseAllEntailmentsInPathToInstances(path: String, computeSidsForEachSideOfEntailment: Boolean, computeSccs: Boolean): Seq[(String,Option[EntailmentInstance])] = {
     val files = IOUtils.allFilesRecursively(path).sorted
     for {
       file <- files
@@ -56,7 +56,7 @@ object EntailmentBatchMode {
       if !filename.endsWith("info")
     } yield {
       println(s"Parsing $filename...")
-      (filename, QueryParser(filename).toEntailmentInstance(computeSidsForEachSideOfEntailment).toOption)
+      (filename, QueryParser(filename).toEntailmentInstance(computeSidsForEachSideOfEntailment, computeSccs: Boolean).toOption)
     }
   }
 
@@ -181,7 +181,7 @@ object EntailmentBatchMode {
 
   def runBenchmark(file: String, suppressOutput: Boolean = false): BenchmarkTrace = {
     if (!suppressOutput) println(s"Checking $file...");
-    QueryParser(file).toEntailmentInstance(computeSeparateSidsForEachSide = true) match {
+    QueryParser(file).toEntailmentInstance(computeSeparateSidsForEachSide = true, computeSccs = false) match {
       case Failure(exception) => BenchmarkTrace(None, None, None, Some(s"Exception during parsing: ${exception.getMessage}"))
       case Success(instance) =>
         val res = runEntailmentInstance(instance, descriptionOfInstance = file.toString, suppressOutput)

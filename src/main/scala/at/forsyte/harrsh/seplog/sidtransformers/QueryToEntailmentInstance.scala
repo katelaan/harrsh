@@ -8,17 +8,16 @@ import at.forsyte.harrsh.seplog.inductive.{Predicate, RichSid, SymbolicHeap}
 
 object QueryToEntailmentInstance extends HarrshLogging {
 
-  def apply(parseRes: EntailmentQuery, computeSeparateSidsForEachSide: Boolean) : Try[EntailmentInstance] = {
-    generalizedProgressNormalform(computeSeparateSidsForEachSide)(parseRes).map(logTransformationResult)
+  def apply(parseRes: EntailmentQuery, computeSeparateSidsForEachSide: Boolean, computeSccs: Boolean) : Try[EntailmentInstance] = {
+    generalizedProgressNormalform(computeSeparateSidsForEachSide, computeSccs)(parseRes).map(logTransformationResult)
   }
 
-  private def generalizedProgressNormalform(computeSeparateSidsForEachSide: Boolean)(parseResult: EntailmentQuery): Try[EntailmentInstance] = {
+  private def generalizedProgressNormalform(computeSeparateSidsForEachSide: Boolean, computeSccs: Boolean)(parseResult: EntailmentQuery): Try[EntailmentInstance] = {
     for {
       rootedSid <- SidDirectionalityAnnotator(parseResult.sid)
       rootWithOnePtoPerRule <- SplitMultiPointerRules(rootedSid)
-      if satisfiesGeneralizedProgress(rootWithOnePtoPerRule)
-      lhs = processEntailmentQuerySide(parseResult.lhs, rootWithOnePtoPerRule, computeSeparateSidsForEachSide, isLhs = true)
-      rhs = processEntailmentQuerySide(parseResult.rhs, rootWithOnePtoPerRule, computeSeparateSidsForEachSide, isLhs = false)
+      lhs = processEntailmentQuerySide(parseResult.lhs, rootWithOnePtoPerRule, computeSeparateSidsForEachSide, computeSccs, isLhs = true)
+      rhs = processEntailmentQuerySide(parseResult.rhs, rootWithOnePtoPerRule, computeSeparateSidsForEachSide, computeSccs, isLhs = false)
     } yield EntailmentInstance(lhs, rhs, parseResult.status.toBoolean)
   }
 
@@ -29,17 +28,14 @@ object QueryToEntailmentInstance extends HarrshLogging {
     instance
   }
 
-  private def satisfiesGeneralizedProgress(sid: RichSid): Boolean = {
-    if (!sid.satisfiesGeneralizedProgress)
-      logger.error(s"Discarding input because the SID $sid does not satisfy progress; violating rules: ${sid.rulesViolatingProgress.map(_._2)}")
-    sid.satisfiesGeneralizedProgress
-  }
-
-  private def processEntailmentQuerySide(originalQuerySide: SymbolicHeap, rootedSid: RichSid, computeSeparateSidsForEachSide: Boolean, isLhs: Boolean): EntailmentQuerySide = {
+  private def processEntailmentQuerySide(originalQuerySide: SymbolicHeap, rootedSid: RichSid, computeSeparateSidsForEachSide: Boolean, computeSccs: Boolean, isLhs: Boolean): EntailmentQuerySide = {
     val sideSid = if (computeSeparateSidsForEachSide) RestrictSidToCalls(rootedSid, originalQuerySide.predCalls.toSet) else rootedSid
-    // TODO: Make splitting into SCCs optional + more explicit in the EI at type level!
-    val (sccSid, lhsCalls) = splitQueryIntoSccs(originalQuerySide, sideSid, isLhs)
-    EntailmentQuerySide(sccSid, lhsCalls, originalQuerySide)
+    val (processedSid, processedCalls) = if (computeSccs) {
+       splitQueryIntoSccs(originalQuerySide, sideSid, isLhs)
+    } else {
+      (sideSid, PredCalls(originalQuerySide.predCalls))
+    }
+    EntailmentQuerySide(processedSid, processedCalls, originalQuerySide)
   }
 
   private def splitQueryIntoSccs(querySide: SymbolicHeap, sid: RichSid, isLhs: Boolean): (RichSid, PredCalls) = {
