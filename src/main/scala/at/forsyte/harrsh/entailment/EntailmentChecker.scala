@@ -1,9 +1,9 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.PureEntailment
+import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
-import at.forsyte.harrsh.seplog.inductive.{PredCall, RichSid, RuleBody}
+import at.forsyte.harrsh.seplog.inductive.{PureAtom, RichSid}
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
 object EntailmentChecker extends HarrshLogging {
@@ -24,8 +24,8 @@ object EntailmentChecker extends HarrshLogging {
     * @param reportProgress Produce additional output to keep track of progress
     * @return Computed result + optionally whether the result is as expected?
     */
-  def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, Option[Boolean], Option[EntailmentStats]) = {
-    val (entailmentHolds,maybeStats) = solve(entailmentInstance, reportProgress, printResult, exportToLatex)
+  def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, Option[Boolean], EntailmentStats) = {
+    val (entailmentHolds,stats) = solve(entailmentInstance, reportProgress, printResult, exportToLatex)
     entailmentInstance.entailmentHolds match {
       case Some(shouldHold) =>
         val expectedResult = shouldHold == entailmentHolds
@@ -33,56 +33,10 @@ object EntailmentChecker extends HarrshLogging {
         if (!expectedResult) {
           println(s"WARNING: Unexpected result")
         }
-        (entailmentHolds, Some(expectedResult), maybeStats)
+        (entailmentHolds, Some(expectedResult), stats)
       case None =>
         if (printResult) println(s"$description: No expected result specified. Computed result: $entailmentHolds")
-        (entailmentHolds, None, maybeStats)
-    }
-  }
-
-  sealed trait Allocation
-  case object NoAllocation extends Allocation
-  case object AllocationInSomeRules extends Allocation
-  case object AllocationInAllRules extends Allocation
-
-  private def noAllocationIn(r: RuleBody): Boolean = {
-    // If there is a predicate call, there must also be allocation, because we assume progress for all predicates except the top-level one
-    // Hence we check if both pointers and rules are empty
-    val body = r.body
-    body.pointers.isEmpty && body.predCalls.isEmpty
-  }
-
-  def allocationInPreds(sid: RichSid, predCalls: TopLevelConstraint): Allocation = {
-    val allocs = for {
-      predName <- predCalls.calls.map(_.name).toSet[String]
-      pred = sid(predName)
-      (withoutAlloc, withAlloc) = pred.rules.partition(noAllocationIn)
-    } yield {
-      if (withAlloc.isEmpty) NoAllocation
-      else if (withoutAlloc.isEmpty) AllocationInAllRules
-      else AllocationInSomeRules
-    }
-
-    if (allocs.contains(AllocationInSomeRules)) AllocationInSomeRules
-    else if (Set(AllocationInAllRules,NoAllocation) subsetOf allocs) AllocationInSomeRules
-    else {
-      assert(allocs.size == 1, s"Non-deterministic allocation $allocs")
-      allocs.head
-    }
-  }
-
-  def solveViaPureEntailment(entailmentInstance: EntailmentInstance): Boolean = {
-    // The only way that there is no allocation at all on both sides is that there's in fact just one call per side
-    assert(entailmentInstance.lhs.calls.size == 1 && entailmentInstance.rhs.calls.size == 1)
-    // The entailment holds if for every LHS rule there exists an RHS rule such that the entailment holds between the pair of rules
-    val lhsRules = entailmentInstance.lhs.sid(entailmentInstance.lhs.calls.calls.head.name).rules
-    assert(lhsRules forall noAllocationIn)
-    // Discard RHS rules with allocation -- since there is no allocation on the left, they are not relevant for the entailment
-    // (If no rule remains after filtering, the entailment is trivially false
-    val rhsRules = entailmentInstance.rhs.sid(entailmentInstance.rhs.calls.calls.head.name).rules.filter(noAllocationIn)
-    lhsRules.forall { rule =>
-      val lhsPure = rule.body.pure
-      rhsRules.map(_.body.pure).exists(rhsPure => PureEntailment.check(lhsPure, rhsPure))
+        (entailmentHolds, None, stats)
     }
   }
 
@@ -92,27 +46,16 @@ object EntailmentChecker extends HarrshLogging {
     * @param reportProgress Produce additional output to keep track of progress
     * @return True iff the entailment holds
     */
-  def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean,Option[EntailmentStats]) = {
-    val leftAlloc = allocationInPreds(entailmentInstance.lhs.sid, entailmentInstance.lhs.calls)
-    val rightAlloc = allocationInPreds(entailmentInstance.rhs.sid, entailmentInstance.rhs.calls)
-    val result = (leftAlloc, rightAlloc) match {
-      case (NoAllocation, _) =>
-        (solveViaPureEntailment(entailmentInstance), None)
-      case (_, NoAllocation) =>
-        // Allocation is possible on the left, but not on the right => Entailment can't hold
-        (false, None)
-      case _ =>
-        val (holds, stats) = runEntailmentAutomaton(entailmentInstance, reportProgress, printResult, exportToLatex)
-        (holds, Some(stats))
-    }
+  def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, EntailmentStats) = {
+    val res@(holds, stats) = runEntailmentAutomaton(entailmentInstance, reportProgress, printResult, exportToLatex)
 
     entailmentInstance.entailmentHolds foreach {
       shouldHold =>
-        if (shouldHold != result._1)
-          println(s"Unexpected result: Entailment should hold according to input file: $shouldHold; computed result: $result")
+        if (shouldHold != holds)
+          println(s"Unexpected result: Entailment should hold according to input file: $shouldHold; computed result: $holds")
     }
 
-    result
+    res
   }
 
   def entailmentStats(reachableStatesByPred: Map[String, Set[EntailmentProfile]]): EntailmentStats = {
@@ -130,8 +73,9 @@ object EntailmentChecker extends HarrshLogging {
     val EntailmentInstance(lhs, rhs, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhs.sid, rhs.calls)
     val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhs.sid, aut, reportProgress)
+
     if (printResult) {
-      println(serializeResult(aut, reachableStatesByPred))
+      println(serializeFixedPoint(aut, reachableStatesByPred))
     }
 
     val entailmentHolds = checkAcceptance(entailmentInstance.rhs.sid, entailmentInstance.lhs.calls, entailmentInstance.rhs.calls, reachableStatesByPred)
@@ -147,26 +91,49 @@ object EntailmentChecker extends HarrshLogging {
 
   val ExpectAllSat = true
 
-  private def checkAcceptance(sid: RichSid, lhsCalls: TopLevelConstraint, rhsCalls: TopLevelConstraint, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
-    logger.debug(s"Will check whether all profiles in fixed point for $lhsCalls imply $rhsCalls")
-    val lhsFVs = lhsCalls.calls flatMap (_.getNonNullVars) filter (_.isFree)
+  private def checkAcceptance(sid: RichSid, lhsConstraint: TopLevelConstraint, rhsConstraint: TopLevelConstraint, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
+    logger.debug(s"Will check whether all profiles in fixed point for $lhsConstraint imply $rhsConstraint")
+    assert(lhsConstraint.isQuantifierFree, "LHS is quantified")
+    assert(rhsConstraint.isQuantifierFree, "RHS is quantified")
+    val lhsFVs = lhsConstraint.calls flatMap (_.getNonNullVars) filter (_.isFree)
     val renamedReachableStates = for {
-      call <- lhsCalls.calls
+      call <- lhsConstraint.calls
       reachableForCall = reachable.getOrElse(call.name, Set.empty)
     } yield reachableForCall map (_.rename(sid, call.args))
+    // If the LHS does not contain *any* calls, we must always compute a pure profile:
+    // Otherwise, we would get the empty profile for the LHS emp and would thus erroneously conclude that
+    // there is no consistent profile for emp
+    val profileForLhsPureConstraints = pureProfile(lhsConstraint.pure, computeEvenIfEmpty = lhsConstraint.calls.isEmpty)
     val combinedProfiles = for {
-      toplevelStates <- Combinators.choices(renamedReachableStates.map(_.toSeq)).toStream
+      toplevelStatesForCalls <- Combinators.choices(renamedReachableStates.map(_.toSeq)).toStream
+      toplevelStates = profileForLhsPureConstraints match {
+        case None => toplevelStatesForCalls
+        case Some(pureProfile) => pureProfile +: toplevelStatesForCalls
+      }
     } yield EntailmentProfileComposition.composeAll(sid, toplevelStates, lhsFVs)
     if (combinedProfiles.isEmpty) {
-      logger.info(s"There is no profile for $lhsCalls => $lhsCalls is unsatisfiable => entailment holds.")
+      logger.info(s"There is no profile for $lhsConstraint => $lhsConstraint is unsatisfiable => entailment holds.")
       if (ExpectAllSat) {
-        throw new Exception("Expected all satisfiability, but could not satisfy left-hand side " + lhsCalls)
+        throw new Exception("Expected all satisfiability, but could not satisfy left-hand side " + lhsConstraint)
       }
     }
-    combinedProfiles.forall(_.decomps.exists(_.isFinal(sid, rhsCalls)))
+    combinedProfiles.forall(_.decomps.exists(_.isFinal(sid, rhsConstraint)))
   }
 
-  object serializeResult {
+  private def pureProfile(atoms: Seq[PureAtom], computeEvenIfEmpty: Boolean): Option[EntailmentProfile] = {
+    if (!computeEvenIfEmpty && atoms.isEmpty) None
+    else {
+      val vars = atoms.flatMap(_.getNonNullVars).distinct
+      val eqClasses = Closure.ofAtoms(atoms).classes
+      val usage: VarUsageByLabel = eqClasses.zip(Stream.continually(VarUnused)).toMap
+      val decomp = ContextDecomposition(Set.empty, usage, PureConstraintTracker(atoms.toSet, Set.empty))
+      val profile = EntailmentProfile(Set(decomp), vars)
+      logger.debug(s"Created pure profile $profile from top-level atoms $atoms")
+      Some(profile)
+    }
+  }
+
+  object serializeFixedPoint {
 
     def apply(aut: EntailmentAutomaton, reachable: Map[String, Set[EntailmentProfile]]): String = {
       val isFinal = (s: EntailmentProfile) => aut.isFinal(s)
@@ -176,7 +143,7 @@ object EntailmentChecker extends HarrshLogging {
     private def indent(s : String) = "  " + s
 
     def serializeReach(statesByPred: Map[String, Set[EntailmentProfile]], isFinal: EntailmentProfile => Boolean): String = {
-      val lines = Stream("RESULT {") ++ statesByPred.toStream.flatMap(pair => serializePred(pair._1, pair._2, isFinal)).map(indent) ++ Stream("}")
+      val lines = Stream("FIXED_POINT {") ++ statesByPred.toStream.flatMap(pair => serializePred(pair._1, pair._2, isFinal)).map(indent) ++ Stream("}")
       lines.mkString("\n")
     }
 

@@ -154,7 +154,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
         Then(s"Entailment should hold: $shouldHold")
 
         val (aut, reach) = refine(rhsSid, rhsCall, lhsSid)
-        info("Refinement result: " + EntailmentChecker.serializeResult(aut, reach))
+        info("Refinement result: " + EntailmentChecker.serializeFixedPoint(aut, reach))
         verifyEntailment(aut, lhsSid.startPred, reach) shouldEqual shouldHold
     }
   }
@@ -195,7 +195,7 @@ object EntailmentAutomatonTest extends TestValues {
   def check(sid: RichSid, rhs: PredCall, lhs: SidLike): Boolean = {
     println(s"Checking ${lhs.callToStartPred} |= $rhs for SID '${sid.description}'")
     val (aut, reachable) = refine(sid, rhs, lhs)
-    println(EntailmentChecker.serializeResult(aut, reachable))
+    println(EntailmentChecker.serializeFixedPoint(aut, reachable))
     verifyEntailment(aut, lhs.startPred, reachable)
   }
 

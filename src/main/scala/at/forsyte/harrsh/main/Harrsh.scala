@@ -52,7 +52,7 @@ object Harrsh extends Implicits {
           case Success(entailmentInstance) =>
             val res = EntailmentChecker.solve(entailmentInstance)
             println(if (res._1) "The entailment holds" else "The entailment does NOT hold")
-            res._2.foreach(stats => println(stats.prettyPrint))
+            println(res._2.prettyPrint)
           case Failure(e) =>
             println("Parsing the entailment input failed with exception: " + e.getMessage)
         }

@@ -384,7 +384,7 @@ object SlCompMode {
     val verbose = config.getBoolean(params.Verbose)
     try {
       val (res, stats) = EntailmentChecker.solve(ei, printResult = false, reportProgress = verbose, exportToLatex = false)
-      if (verbose) stats.foreach(println)
+      if (verbose) println(stats)
       if (res) ProblemStatus.Correct else ProblemStatus.Incorrect
     } catch {
       case e: Throwable =>

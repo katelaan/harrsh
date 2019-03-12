@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.pure.PureEntailment
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{EmptyPredicates, PredCall, PureAtom, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
@@ -17,9 +18,21 @@ case class TopLevelConstraint(calls: Seq[PredCall], pure: Seq[PureAtom]) extends
     Seq(callsStr, pureStr).filter(_.nonEmpty).mkString(" : ")
   }
 
-  def toSymbolicHeap = SymbolicHeap(calls:_*)
+  def isQuantifierFree: Boolean = toSymbolicHeap.boundVars.isEmpty
+
+  def toSymbolicHeap = SymbolicHeap((calls ++ pure):_*)
 
   def isImpliedBy(lhs: Set[ContextPredCall], lhsEnsuredPure: Set[PureAtom], predsWithEmptyModels: EmptyPredicates): Boolean = {
+    pureEntailmentHolds(lhsEnsuredPure) && heapEntailmentHolds(lhs, lhsEnsuredPure, predsWithEmptyModels)
+  }
+
+  private def pureEntailmentHolds(lhsEnsuredAtoms: Set[PureAtom]): Boolean = {
+    val res = pure.isEmpty || PureEntailment.check(lhsEnsuredAtoms.toSeq, pure)
+    if (!res) logger.debug(s"LHS pure constraints $lhsEnsuredAtoms don't imply RHS pure constraints $pure => Implication does not hold")
+    res
+  }
+
+  private def heapEntailmentHolds(lhs: Set[ContextPredCall], lhsEnsuredPure: Set[PureAtom], predsWithEmptyModels: EmptyPredicates): Boolean = {
     val orderedLhs = TopLevelConstraint.sorted(lhs)
     val (rhsCallsPresentInLhs, callsMissingInLhs, extraPredsInLhs) = TopLevelConstraint.compareOrderedPredSeqs(orderedLhs, orderedCalls)
     if (extraPredsInLhs.nonEmpty) {

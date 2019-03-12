@@ -194,11 +194,11 @@ object EntailmentBatchMode {
       EntailmentChecker.check(descriptionOfInstance, instance, reportProgress = false, exportToLatex = false, printResult = !suppressOutput)
     } match {
       case Failure(exception) => (Some(s"Exception during entailment check: ${exception.getMessage}"), None, None, None)
-      case Success((result, asExpected, maybeStats)) =>
+      case Success((result, asExpected, stats)) =>
         if (asExpected.getOrElse(true))
-          (None, Some(result), asExpected, maybeStats)
+          (None, Some(result), asExpected, Some(stats))
         else
-          (Some("Unexpected result"), Some(result), asExpected, maybeStats)
+          (Some("Unexpected result"), Some(result), asExpected, Some(stats))
     }
   }
 
