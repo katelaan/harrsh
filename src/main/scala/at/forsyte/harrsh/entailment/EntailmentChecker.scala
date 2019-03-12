@@ -117,7 +117,9 @@ object EntailmentChecker extends HarrshLogging {
         throw new Exception("Expected all satisfiability, but could not satisfy left-hand side " + lhsConstraint)
       }
     }
-    combinedProfiles.forall(_.decomps.exists(_.isFinal(sid, rhsConstraint)))
+    combinedProfiles.forall{p =>
+      logger.debug(s"Will check if $p is final...")
+      p.decomps.exists(_.isFinal(sid, rhsConstraint))}
   }
 
   private def pureProfile(atoms: Seq[PureAtom], computeEvenIfEmpty: Boolean): Option[EntailmentProfile] = {

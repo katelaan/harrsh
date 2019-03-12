@@ -33,7 +33,8 @@ object LocalProfile extends HarrshLogging {
   private def decompIfNoAllocation(lab: SymbolicHeap): ContextDecomposition = {
     logger.debug(s"No pointers in rule => only pure constraint in local profile")
     val vars = lab.allVars
-    val usageInfo: VarUsageByLabel = vars.map(v => (Set(v),VarUnused)).toMap
+    val classes = Closure.ofAtoms(lab.pure).classes
+    val usageInfo: VarUsageByLabel = classes.map(c => (c,VarUnused)).toMap
     val ensured = lab.pure.toSet
     val pure = PureConstraintTracker(ensured, Set.empty)
     ContextDecomposition(Set.empty, usageInfo, pure)
