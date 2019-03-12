@@ -1,0 +1,9 @@
+# RHS unsat but LHS sat => entailment invalid
+query {
+  x1 -> x2 |= null -> x1
+}
+sid {
+}
+info {
+  status = false
+}

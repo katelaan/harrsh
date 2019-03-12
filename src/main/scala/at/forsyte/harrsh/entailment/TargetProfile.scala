@@ -17,9 +17,9 @@ case class UnmatchableLocalAllocation(lab: SymbolicHeap) extends TargetProfile w
   }
 }
 
-case object InconsistentTransitionSources extends TargetProfile with HarrshLogging {
+case object InconsistentProfile extends TargetProfile with HarrshLogging {
   override def get: Option[EntailmentProfile] = {
-    logger.debug(s"Instantiation of transition sources is inconsistent => No target state")
+    logger.debug(s"Transition undefined (inconsistent source instantiations or inconsistent composition)")
     None
   }
 }
@@ -36,29 +36,34 @@ object TargetProfile extends HarrshLogging {
       val local = LocalProfile(lab, sid)
       combineLocalAndSourceProfiles(local, renamedProfiles, lab, sid)
     } else {
-      InconsistentTransitionSources
+      InconsistentProfile
     }
   }
 
   private def combineLocalAndSourceProfiles(local: EntailmentProfile, instantiatedProfiles: RenamedSourceStates, lab: SymbolicHeap, sid: RichSid) = {
     if (local.nonEmpty) {
       val profiles = local +: instantiatedProfiles
-      val composed = composeAndForget(profiles, lab, sid)
-      logger.debug("Composition result: " + composed)
-      ConsistentTargetProfile(composed)
+      composeAndForget(profiles, lab, sid) match {
+        case None =>
+          logger.debug("Profiles are incompatible. No composition result.")
+          InconsistentProfile
+        case Some(composed) =>
+          logger.debug("Composition result: " + composed)
+          ConsistentTargetProfile(composed)
+      }
     } else {
       UnmatchableLocalAllocation(lab)
     }
   }
 
-  private def composeAndForget(profiles: Seq[EntailmentProfile], lab: SymbolicHeap, sid: RichSid): EntailmentProfile = {
+  private def composeAndForget(profiles: Seq[EntailmentProfile], lab: SymbolicHeap, sid: RichSid): Option[EntailmentProfile] = {
     val composed = EntailmentProfileComposition.composeAll(sid, profiles, lab.freeVars ++ lab.boundVars)
     logger.debug(s"Target profile after initial composition:\n$composed")
     val processComposedProfile = (inCase(sid.hasEmptyBaseRules)(empClosure(sid))
       andThen inCase(sid.hasRecursiveRulesWithoutPointers)(mergeUsingNonProgressRules(sid))
       andThen restrictToFreeVars(lab)
       andThen dropNonviable(sid))
-    processComposedProfile(composed)
+    composed map processComposedProfile
   }
 
   private def empClosure(sid: RichSid)(profile: EntailmentProfile): EntailmentProfile = {

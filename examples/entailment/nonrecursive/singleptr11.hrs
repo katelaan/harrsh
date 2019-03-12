@@ -1,0 +1,9 @@
+# LHS unsat => entailment holds
+query {
+  null -> x1 |= x1 -> x2
+}
+sid {
+}
+info {
+  status = true
+}

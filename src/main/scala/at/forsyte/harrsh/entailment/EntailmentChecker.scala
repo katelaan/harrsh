@@ -3,6 +3,7 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PureAtom, RichSid}
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 
@@ -89,15 +90,19 @@ object EntailmentChecker extends HarrshLogging {
     (entailmentHolds,stats)
   }
 
-  val ExpectAllSat = true
-
   private def checkAcceptance(sid: RichSid, lhsConstraint: TopLevelConstraint, rhsConstraint: TopLevelConstraint, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
-    logger.debug(s"Will check whether all profiles in fixed point for $lhsConstraint imply $rhsConstraint")
+    logger.debug(s"Will check whether all profiles in fixed point for $lhsConstraint imply $rhsConstraint wrt $sid")
     if (!rhsConstraint.isQuantifierFree) throw new IllegalArgumentException("RHS is quantified")
     val renamedReachableStates = for {
       call <- lhsConstraint.calls
-      reachableForCall = reachable.getOrElse(call.name, Set.empty)
-    } yield reachableForCall map (_.rename(sid, call.args))
+      // Note: Because of ALL-SAT of the underlying SID, emptiness of the fixed point means that there is no way to
+      // express the predicate wrt the RHS-SID as opposed to that the predicate is UNSAT. For this reason, we add
+      // an empty profile in case the fixed point does not contain an entry for the predicate.
+      reachableForCall = reachable.getOrElse(call.name, Set(EntailmentProfile(Set.empty, Var.getFvSeq(call.args.length))))
+      _ = if (reachableForCall.isEmpty) throw new Exception(""+call)
+      // We do not make the ALL-SAT assumption for the top-level formula. Instantiating profiles with the call args
+      // can thus yield an inconsistent profile. We discard such profiles here
+    } yield reachableForCall flatMap (_.renameOrFail(sid, call.args))
     // If the LHS does not contain *any* calls, we must always compute a pure profile:
     // Otherwise, we would get the empty profile for the LHS emp and would thus erroneously conclude that
     // there is no consistent profile for emp
@@ -108,18 +113,18 @@ object EntailmentChecker extends HarrshLogging {
         case None => toplevelStatesForCalls
         case Some(pureProfile) => pureProfile +: toplevelStatesForCalls
       }
-      composed = EntailmentProfileComposition.composeAll(sid, toplevelStates, lhsConstraint.nonNullVars)
+      composed <- EntailmentProfileComposition.composeAll(sid, toplevelStates, lhsConstraint.nonNullVars)
       restricted = if (lhsConstraint.isQuantifierFree) composed else composed.forget(lhsConstraint.boundVars)
     } yield restricted
     if (combinedProfiles.isEmpty) {
       logger.info(s"There is no profile for $lhsConstraint => $lhsConstraint is unsatisfiable => entailment holds.")
-      if (ExpectAllSat) {
-        throw new Exception("Expected all satisfiability, but could not satisfy left-hand side " + lhsConstraint)
+      true
+    } else {
+      combinedProfiles.forall { p =>
+        logger.debug(s"Will check if $p is final...")
+        p.decomps.exists(_.isFinal(sid, rhsConstraint))
       }
     }
-    combinedProfiles.forall{p =>
-      logger.debug(s"Will check if $p is final...")
-      p.decomps.exists(_.isFinal(sid, rhsConstraint))}
   }
 
   private def pureProfile(atoms: Seq[PureAtom], computeEvenIfEmpty: Boolean): Option[EntailmentProfile] = {

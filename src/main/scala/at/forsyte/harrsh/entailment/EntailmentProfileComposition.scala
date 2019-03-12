@@ -7,35 +7,47 @@ import at.forsyte.harrsh.util.Combinators
 
 object EntailmentProfileComposition extends HarrshLogging {
 
-  // TODO: Get rid of the second parameter once we use sets. (The new parameters then simply are the union of the params of the constituting profiles)
   object composeAll {
 
-    def apply(sid: RichSid, profiles: Seq[EntailmentProfile], newOrderedParams: Seq[Var]): EntailmentProfile = {
-      // TODO: Exploit associativity of composition when composing more than two profiles
-      val composedDecomps = allPossibleDecompCompositions(sid, profiles map (_.decomps))
-      val consistentDecomps = composedDecomps.filterNot(_.explicitlyAllocsNull)
-      if (composedDecomps.nonEmpty && consistentDecomps.isEmpty) {
-        throw new IllegalStateException("If this case occurs, we should have no target state rather than the sink state. Correct?")
+    // TODO: Get rid of the second parameter once we use sets. (The new parameters then simply are the union of the params of the constituting profiles)
+    def apply(sid: RichSid, profiles: Seq[EntailmentProfile], newOrderedParams: Seq[Var]): Option[EntailmentProfile] = {
+      logger.debug(s"Will compose the following ${profiles.size} profiles:\n" + profiles.mkString("\n"))
+      if (profiles.forall(_.nonEmpty)) {
+        val composedDecomps = allPossibleDecompCompositions(sid, profiles map (_.decomps))
+        if (composedDecomps.isEmpty) {
+          logger.debug(s"Composed profiles are contradictory => No composition result")
+          None
+        } else {
+          val res = EntailmentProfile(composedDecomps, newOrderedParams)
+          logger.debug(s"Profile composition result:\n${if (res.nonEmpty) res.decomps.mkString("\n") else "empty (sink state)"}")
+          Some(res)
+        }
+      } else {
+        logger.debug(s"Short-circuiting (propagating sink state) profile composition of:\n${profiles.mkString("\n")}")
+        Some(EntailmentProfile(Set.empty, newOrderedParams))
       }
-      val res = EntailmentProfile(consistentDecomps, newOrderedParams)
-      logger.debug(s"Profile composition result:\n${if (res.nonEmpty) res.decomps.mkString("\n") else "empty (sink state)"}")
-      res
     }
 
     private def allPossibleDecompCompositions(sid: RichSid, decompsBySource: Seq[Set[ContextDecomposition]]): Set[ContextDecomposition] = {
-      for {
-        decomps <- Combinators.choices(decompsBySource map (_.toSeq)).toSet[Seq[ContextDecomposition]]
-        combined <- composeAllDecomps(sid, decomps)
-      } yield combined
+      if (decompsBySource.tail.isEmpty) {
+        decompsBySource.head
+      } else {
+        val partialComposition = allPossibleDecompCompositions(sid, decompsBySource.head, decompsBySource.tail.head)
+        allPossibleDecompCompositions(sid, partialComposition +: decompsBySource.drop(2))
+      }
     }
 
-    private def composeAllDecomps(sid: RichSid, decomps: Seq[ContextDecomposition]): Seq[ContextDecomposition] = {
-      if (decomps.size <= 1) decomps else {
-        for {
-          combinedHead <- decomps.head.compositionOptions(sid, decomps.tail.head)
-          allComposed <- composeAllDecomps(sid, combinedHead +: decomps.drop(2))
-        } yield allComposed
-      }
+    private def allPossibleDecompCompositions(sid: RichSid, fst: Set[ContextDecomposition], snd: Set[ContextDecomposition]): Set[ContextDecomposition] = {
+      logger.debug(s"Will compose $fst and $snd")
+      val res = for {
+        decompOfFst <- fst
+        decompOfSnd <- snd
+        combined <- decompOfFst.compositionOptions(sid, decompOfSnd)
+        // TODO: Shouldn't we also check for consistency in general here?
+        if !combined.explicitlyAllocsNull
+      } yield combined
+      logger.debug(s"Decomps in profile composition:\n${if (res.nonEmpty) res.mkString("\n") else "empty (sink state)"}")
+      res
     }
 
   }

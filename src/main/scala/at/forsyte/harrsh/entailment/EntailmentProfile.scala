@@ -48,6 +48,16 @@ case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: 
     EntailmentProfile(consistent, to)
   }
 
+  def renameOrFail(sid: RichSid, to: Seq[Var]): Option[EntailmentProfile] = {
+    val res = rename(sid, to)
+    if (nonEmpty && !res.nonEmpty) {
+      logger.debug(s"Renaming the FVs in $this to $to yielded an inconsistent result => Discarding result profile")
+      None
+    } else {
+      Some(res)
+    }
+  }
+
   def forget(varsToForget: Set[Var], filter: ForgetFilter = EntailmentProfile.KeepIfNamesForAllUsedParams): EntailmentProfile = {
     val filteredDecomps = for {
       decomp <- decomps
