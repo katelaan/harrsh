@@ -26,10 +26,6 @@ trait SidLike extends HarrshLogging {
 
   lazy val callToStartPred: SymbolicHeap = callToPred(startPred)
 
-  lazy val rulesWithoutPointers : Seq[(Predicate, RuleBody)] = preds.flatMap(p => p.rules.collect{
-    case rule if !rule.hasPointer => (p, rule)
-  })
-
   lazy val predsThatOccurAtMostOnceInUnfolding: Set[Predicate] = {
     // FIXME: A proper implementation of this that also works for non-auxiliary predicates?
     preds.filter(sidtransformers.isAuxiliaryPred).toSet

@@ -64,7 +64,7 @@ object EntailmentProfileComposition extends HarrshLogging {
     }
 
     def useNonProgressRulesToMergeContexts(decomp: ContextDecomposition, sid: RichSid): Seq[ContextDecomposition] = {
-      val nonProgressRules = sid.rulesWithoutPointers
+      val nonProgressRules = sid.empClosedNonProgressRules
       if (nonProgressRules.nonEmpty && decomp.isMultiPartDecomposition) {
         logger.debug(s"Will try to apply non-progress rules to contexts in decomposition. Rules to consider: ${nonProgressRules.map(pair => s"${pair._1.defaultCall} <= ${pair._2}")}")
         mergeWithZeroOrMoreRuleApplications(decomp, nonProgressRules, sid)
@@ -77,7 +77,7 @@ object EntailmentProfileComposition extends HarrshLogging {
       }
     }
 
-    private def mergeWithZeroOrMoreRuleApplications(decomp: ContextDecomposition, rules: Seq[(Predicate, RuleBody)], sid: RichSid): Seq[ContextDecomposition] = {
+    private def mergeWithZeroOrMoreRuleApplications(decomp: ContextDecomposition, rules: Set[(Predicate, RuleBody)], sid: RichSid): Seq[ContextDecomposition] = {
       val afterMerging = for {
         decompAfterRuleApplication <- applyAllPossibleRulesInMerge(decomp, rules)
         afterAdditionalApplications <- mergeWithZeroOrMoreRuleApplications(decompAfterRuleApplication, rules, sid)
@@ -90,7 +90,7 @@ object EntailmentProfileComposition extends HarrshLogging {
       }
     }
 
-    private def applyAllPossibleRulesInMerge(decomp: ContextDecomposition, rules: Seq[(Predicate, RuleBody)]): Stream[ContextDecomposition] = {
+    private def applyAllPossibleRulesInMerge(decomp: ContextDecomposition, rules: Set[(Predicate, RuleBody)]): Stream[ContextDecomposition] = {
       rules.toStream.flatMap(rule => applyRuleInMerge(decomp, rule._2, rule._1))
     }
 

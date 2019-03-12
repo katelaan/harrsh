@@ -2,6 +2,7 @@ package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.seplog.inductive.RichSid.{FocusedVar, RootFocus, SinkFocus}
 import at.forsyte.harrsh.seplog.{FreeVar, Var}
+import at.forsyte.harrsh.util.Combinators
 
 case class RichSid(override val startPred : String,
                    override val preds : Seq[Predicate],
@@ -33,6 +34,29 @@ case class RichSid(override val startPred : String,
   def hasEmptyModels(pred: Predicate): Boolean = predsWithEmptyModels.hasEmptyModels(pred.head)
 
   def constraintOptionsForEmptyModels(pred: Predicate): Set[Set[PureAtom]] = predsWithEmptyModels(pred)
+
+  lazy val empClosedNonProgressRules : Set[(Predicate, RuleBody)] = for {
+    p <- preds.toSet[Predicate]
+    rule <- p.rules
+    if rule.hasCallsButNoPointers
+    empClosedRule <- empClose(p.head, rule)
+  } yield (p, empClosedRule)
+
+  private def empClose(head: String, rule: RuleBody) = {
+    def possibleCallReplacements(call: PredCall): Set[Set[SepLogAtom]] = {
+      predsWithEmptyModels(call).map(_.map(_.asInstanceOf[SepLogAtom])) + Set(call)
+    }
+
+    val optionsByCall: Seq[Set[Set[SepLogAtom]]] = rule.body.predCalls map possibleCallReplacements
+    for {
+      newAtomsByCall: Seq[Set[SepLogAtom]] <- Combinators.choices(optionsByCall)
+      allAtoms = rule.body.pure ++ newAtomsByCall.flatten
+      newSh = SymbolicHeap(rule.body.freeVars, allAtoms:_*)
+      numCalls = newSh.predCalls.size
+      if numCalls > 0 && (numCalls > 1 || newSh.predCalls.head.name != head)
+    } yield RuleBody(rule.qvarNames, newSh)
+
+  }
 
   def underlying: Sid = Sid(startPred, preds, description)
 
