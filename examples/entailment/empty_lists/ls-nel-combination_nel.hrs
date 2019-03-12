@@ -1,0 +1,13 @@
+# A list containing a non-empty sublist is non-empty
+query {
+  ls(x1, y1) * nel(y1, y2) * ls(y2, x2) |= nel(x1, x2)
+}
+sid {
+  ls <= emp : {x1 = x2} ;
+  ls <= x1 -> y * ls(y,x2) ;
+  nel <= x1 -> x2 ;
+  nel <= x1 -> y * nel(y,x2)
+}
+info {
+  status = true
+}
