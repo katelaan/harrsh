@@ -107,8 +107,14 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
         val pureConstraintsAfterDropping = pureConstraints.dropNonFreeVars(varsToForget)
 
         val decompAfterDropping = ContextDecomposition(partsAfterDropping, varUsageAfterDropping, pureConstraintsAfterDropping)
+        // When forgetting variables, make sure the introduced placeholders don't accidentally remain in the usage info
+        // if they aren't actually used in the decomposition
+        val cleanedUsageInfo = varUsageAfterDropping.filterKeys{
+          vs => vs.exists(!PlaceholderVar.isPlaceholder(_)) || decompAfterDropping.occurringLabels.contains(vs)
+        }
+        val cleanedDecomp = decompAfterDropping.copy(usageInfo = cleanedUsageInfo)
         // Note: Must do normalization to get rid of gaps in results and of strange order by doing normalization
-        Some(decompAfterDropping.toPlaceholderNormalForm)
+        Some(cleanedDecomp.toPlaceholderNormalForm)
       }
     }
   }

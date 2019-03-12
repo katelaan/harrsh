@@ -1,0 +1,13 @@
+query {
+  ls(x1, x2) |= lsnp(x1, x2)
+}
+sid {
+  ls <= emp : {x1 = x2} ;
+  ls <= x1 -> y * ls(y,x2) ;
+  lsnp <= emp : {x1 = x2} ;
+  lsnp <= x1 -> x2 ;
+  lsnp <= lsnp(x1,y) * lsnp(y,x2)
+}
+info {
+  status = true
+}
