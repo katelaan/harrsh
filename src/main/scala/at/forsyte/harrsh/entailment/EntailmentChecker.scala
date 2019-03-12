@@ -93,9 +93,7 @@ object EntailmentChecker extends HarrshLogging {
 
   private def checkAcceptance(sid: RichSid, lhsConstraint: TopLevelConstraint, rhsConstraint: TopLevelConstraint, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
     logger.debug(s"Will check whether all profiles in fixed point for $lhsConstraint imply $rhsConstraint")
-    assert(lhsConstraint.isQuantifierFree, "LHS is quantified")
     assert(rhsConstraint.isQuantifierFree, "RHS is quantified")
-    val lhsFVs = lhsConstraint.calls flatMap (_.getNonNullVars) filter (_.isFree)
     val renamedReachableStates = for {
       call <- lhsConstraint.calls
       reachableForCall = reachable.getOrElse(call.name, Set.empty)
@@ -110,7 +108,9 @@ object EntailmentChecker extends HarrshLogging {
         case None => toplevelStatesForCalls
         case Some(pureProfile) => pureProfile +: toplevelStatesForCalls
       }
-    } yield EntailmentProfileComposition.composeAll(sid, toplevelStates, lhsFVs)
+      composed = EntailmentProfileComposition.composeAll(sid, toplevelStates, lhsConstraint.nonNullVars)
+      restricted = if (lhsConstraint.isQuantifierFree) composed else composed.forget(lhsConstraint.boundVars)
+    } yield restricted
     if (combinedProfiles.isEmpty) {
       logger.info(s"There is no profile for $lhsConstraint => $lhsConstraint is unsatisfiable => entailment holds.")
       if (ExpectAllSat) {
@@ -124,9 +124,11 @@ object EntailmentChecker extends HarrshLogging {
     if (!computeEvenIfEmpty && atoms.isEmpty) None
     else {
       val vars = atoms.flatMap(_.getNonNullVars).distinct
-      val eqClasses = Closure.ofAtoms(atoms).classes
+      val closure = Closure.ofAtoms(atoms)
+      val eqClasses = closure.classes
+      logger.trace(s"Classes of $atoms: ${eqClasses.mkString(",")}")
       val usage: VarUsageByLabel = eqClasses.zip(Stream.continually(VarUnused)).toMap
-      val decomp = ContextDecomposition(Set.empty, usage, PureConstraintTracker(atoms.toSet, Set.empty))
+      val decomp = ContextDecomposition(Set.empty, usage, PureConstraintTracker(atoms.toSet ++ closure.asSetOfAtoms, Set.empty))
       val profile = EntailmentProfile(Set(decomp), vars)
       logger.debug(s"Created pure profile $profile from top-level atoms $atoms")
       Some(profile)

@@ -12,15 +12,14 @@ case class TopLevelConstraint(calls: Seq[PredCall], pure: Seq[PureAtom]) extends
   lazy val names: Seq[String] = calls map (_.name)
   lazy val orderedCalls: Seq[PredCall] = calls.sortBy(_.name)
 
-  override def toString: String = {
-    val callsStr = calls.mkString(" * ")
-    val pureStr = if (pure.nonEmpty) pure.mkString("{", ", ", "}") else ""
-    Seq(callsStr, pureStr).filter(_.nonEmpty).mkString(" : ")
-  }
+  override def toString: String = toSymbolicHeap.toString
 
-  def isQuantifierFree: Boolean = toSymbolicHeap.boundVars.isEmpty
+  def isQuantifierFree: Boolean = boundVars.isEmpty
 
-  def toSymbolicHeap = SymbolicHeap((calls ++ pure):_*)
+  lazy val nonNullVars: Seq[Var] = toSymbolicHeap.freeVars ++ toSymbolicHeap.boundVars
+  lazy val boundVars: Set[Var] = toSymbolicHeap.boundVars.toSet
+
+  lazy val toSymbolicHeap = SymbolicHeap((calls ++ pure):_*)
 
   def isImpliedBy(lhs: Set[ContextPredCall], lhsEnsuredPure: Set[PureAtom], predsWithEmptyModels: EmptyPredicates): Boolean = {
     pureEntailmentHolds(lhsEnsuredPure) && heapEntailmentHolds(lhs, lhsEnsuredPure, predsWithEmptyModels)

@@ -46,14 +46,7 @@ private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure 
   }
 
   private def extendEntry(key : Var, newVal : Var) = {
-    val eqClass = if (mapToClasses.isDefinedAt(key)) {
-      // Class is already defined, just add the new value
-      mapToClasses(key) + newVal
-    } else {
-      // Key not in any known eq class yet
-      // Either have to extend class for val, if known already, or create new class
-      if (mapToClasses.isDefinedAt(newVal)) mapToClasses(newVal) + key else Set(key, newVal)
-    }
+    val eqClass = Set(key,newVal) ++ mapToClasses.getOrElse(key, Set.empty) ++ mapToClasses.getOrElse(newVal, Set.empty)
 
     // Extend entry for all members of the eq class
     for {
@@ -71,5 +64,6 @@ private[pure] case class ClosureOfAtomSet(pure : Set[PureAtom]) extends Closure 
     * @return Set of all equivalence classes
     */
   override def classes: Set[Set[Var]] = mapToClasses.values.toSet
+
 }
 
