@@ -7,12 +7,9 @@ import at.forsyte.harrsh.util.Combinators
 
 case class PredCalls(calls: Seq[PredCall]) extends HarrshLogging {
 
-  lazy val size = calls.size
-  lazy val names = calls map (_.name)
-  lazy val orderedCalls = calls.sortBy(_.name)
-  lazy val paramsByName: Map[String, Seq[Seq[Var]]] = calls.groupBy(_.name).map{
-    case (name, matches) => (name, matches.map(_.args))
-  }
+  lazy val size: NodeId = calls.size
+  lazy val names: Seq[String] = calls map (_.name)
+  lazy val orderedCalls: Seq[PredCall] = calls.sortBy(_.name)
 
   override def toString: String = calls.mkString(" * ")
 
@@ -27,7 +24,10 @@ case class PredCalls(calls: Seq[PredCall]) extends HarrshLogging {
     } else {
       val (possiblyEmptyPreds, nonemptyPreds) = callsMissingInLhs.partition(canBeEmpty(_, lhsEnsuredPure, predsWithEmptyModels))
       if (nonemptyPreds.isEmpty) {
-        PredCalls.matchable(orderedLhs, rhsCallsPresentInLhs, paramsByName)
+        logger.debug(s"Will try to match $orderedLhs against ${rhsCallsPresentInLhs.mkString(" * ")}")
+        val res = PredCalls.matchable(orderedLhs, rhsCallsPresentInLhs)
+        logger.debug(s"LHS $lhs matchable against (partial) RHS ${rhsCallsPresentInLhs.mkString(" * ")}? ===> $res")
+        res
       }
       else {
         logger.debug(s"The predicate(s) ${nonemptyPreds.mkString(", ")} can't be empty, but are missing on the LHS.")
@@ -39,7 +39,16 @@ case class PredCalls(calls: Seq[PredCall]) extends HarrshLogging {
   private def canBeEmpty(rhsPredCall: PredCall, lhsEnsuredPure: Set[PureAtom], predsWithEmptyModels: EmptyPredicates): Boolean = {
     if (predsWithEmptyModels.hasEmptyModels(rhsPredCall.name)) {
       logger.debug(s"Check whether $rhsPredCall can be interpreted by empty model under the pure constraints $lhsEnsuredPure")
-      ???
+      val options = predsWithEmptyModels(rhsPredCall)
+      // TODO This only works if the pure constraints are closed. Make sure this is always the case!
+      options find (_ subsetOf lhsEnsuredPure) match {
+        case None =>
+          logger.debug(s"LHS pure constraints $lhsEnsuredPure don't imply ${options.mkString(" or ")}")
+          false
+        case Some(option) =>
+          logger.debug(s"$lhsEnsuredPure implies $option => Can use empty interpretation of $rhsPredCall")
+          true
+      }
     } else {
       logger.debug(s"RHS $rhsPredCall can't have empty models, but does not occur on the LHS => LHS does not imply RHS")
       false
@@ -51,17 +60,6 @@ case class PredCalls(calls: Seq[PredCall]) extends HarrshLogging {
 object PredCalls extends HarrshLogging {
 
   def sorted(calls: Iterable[ContextPredCall]): Seq[ContextPredCall] = calls.toSeq.sortBy(_.pred.head)
-
-  def matchable(lhsCalls: Seq[ContextPredCall], rhs: Seq[PredCall], rhsParamsByName: Map[String, Seq[Seq[Var]]]): Boolean = {
-    // TODO: Cache this in the decomposition?
-    val otherByName: Map[String, Seq[Substitution]] = lhsCalls.groupBy(_.pred.head).map{
-      case (name, matches) => (name, matches.map(_.subst))
-    }
-
-    val res = PredCalls.callsMatchableWithoutRenaming(rhsParamsByName, otherByName)
-    logger.debug(s"LHS $lhsCalls matchable against (partial) RHS ${rhs.mkString(" * ")}? ===> $res")
-    res
-  }
 
   def compareOrderedPredSeqs(lhsPreds: Seq[ContextPredCall], rhsPreds: Seq[PredCall]): (Seq[PredCall], Seq[PredCall], Seq[ContextPredCall]) = {
     if (lhsPreds.isEmpty) (Seq.empty, rhsPreds, Seq.empty)
@@ -85,8 +83,25 @@ object PredCalls extends HarrshLogging {
     }
   }
 
+  def matchable(lhsCalls: Seq[ContextPredCall], rhsCalls: Seq[PredCall]): Boolean = {
+    assert(lhsCalls.size == rhsCalls.size,
+      s"Trying to match call sequences of different length: $lhsCalls against $rhsCalls")
+
+    // TODO: Cache this in the decomposition?
+    val lhsSubstByPredName: Map[String, Seq[Substitution]] = lhsCalls.groupBy(_.pred.head).map{
+      case (name, matches) => (name, matches.map(_.subst))
+    }
+
+    val rhsParamsByPredName: Map[String, Seq[Seq[Var]]] = rhsCalls.groupBy(_.name).map{
+      case (name, matches) => (name, matches.map(_.args))
+    }
+
+    callsMatchableWithoutRenaming(rhsParamsByPredName, lhsSubstByPredName)
+  }
+
   def callsMatchableWithoutRenaming(lhs: Map[String, Seq[Seq[Var]]], rhs: Map[String, Seq[Substitution]]): Boolean = {
-    assert(lhs.keySet == rhs.keySet)
+    assert(lhs.keySet == rhs.keySet,
+      s"Trying to match $lhs against $rhs, but only one of the maps contains ${lhs.keySet diff rhs.keySet}")
     lhs.keys.forall(pred => callargsAndSubstsMatch(lhs(pred), rhs(pred)))
   }
 
