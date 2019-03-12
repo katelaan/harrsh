@@ -184,7 +184,7 @@ package object entailment {
     }
 
     def restrictToOccurringLabels(usageInfo: VarUsageByLabel, occurringVarSets: Set[Set[Var]]): VarUsageByLabel = {
-      usageInfo.filterKeys(occurringVarSets)
+      usageInfo.filterKeys(vs => occurringVarSets(vs) || vs.exists(PlaceholderVar.isNonPlaceholderFreeVar))
     }
 
     // TODO: [DEAD] Drop this once we get rid of the old notion of contexts

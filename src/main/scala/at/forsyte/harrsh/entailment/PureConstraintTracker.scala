@@ -69,6 +69,16 @@ case class PureConstraintTracker private(ensured: Set[PureAtom], missing: Set[Pu
     PureConstraintTracker(ensured, missing ++ newConstraints)
   }
 
+  def dropMissingIfImpliedByAllocation(usageInfo: VarUsageByLabel): PureConstraintTracker = {
+    //def usageOfVar(v: Var) = usageInfo.find(_._1.contains(v)).map(_._2).getOrElse(VarUnused)
+    def usageOfVar(v: Var) = usageInfo.find(_._1.contains(v)).get._2
+    def impliedByAllocation(atom: PureAtom) = {
+      println(s"Checking if $atom is implied by $usageInfo")
+      !atom.isEquality && usageOfVar(atom.l) == VarAllocated && usageOfVar(atom.r) == VarAllocated
+    }
+    new PureConstraintTracker(ensured, missing filterNot impliedByAllocation)
+  }
+
 }
 
 object PureConstraintTracker {

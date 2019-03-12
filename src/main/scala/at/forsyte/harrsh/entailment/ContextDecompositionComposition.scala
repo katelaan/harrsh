@@ -66,10 +66,13 @@ object ContextDecompositionComposition extends HarrshLogging {
       val propagatedPureConstraints = pureConstraints.update(upd)
       // TODO Code duplication w.r.t. ContextDecomposition.occurringLabels
       val occurringVarSets = processedAndPropagated.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)
-      val cleanedPureConstraints = propagatedPureConstraints.restrictPlaceholdersTo(occurringVarSets.flatten)
       val cleanedUsageInfo = VarUsageByLabel.restrictToOccurringLabels(usageInfo, occurringVarSets)
       logger.debug("Cleaning usage info: " + usageInfo + " into " + cleanedUsageInfo)
-      val composed = ContextDecomposition(processedAndPropagated.toSet, cleanedUsageInfo, cleanedPureConstraints)
+
+      val cleanedPureConstraints = propagatedPureConstraints.restrictPlaceholdersTo(occurringVarSets.flatten)
+      val pureWithoutImpliedMissing = cleanedPureConstraints.dropMissingIfImpliedByAllocation(cleanedUsageInfo)
+
+      val composed = ContextDecomposition(processedAndPropagated.toSet, cleanedUsageInfo, pureWithoutImpliedMissing)
       val res = Seq(composed.toPlaceholderNormalForm)
       logger.debug(s"New merge result: $res")
       res
