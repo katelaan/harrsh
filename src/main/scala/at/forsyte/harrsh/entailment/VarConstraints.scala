@@ -193,25 +193,32 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
 
   def addToSpeculation(atoms: Iterable[PureAtom]): Option[VarConstraints] = {
     val (eqs, diseqs) = atoms.partition(_.isEquality)
-    val newSpeculativeEqs = speculativeEqs ++ eqs.map(_.ordered).map(atom => (atom.l,atom.r))
-    val newSpeculativeDiseqs = speculativeDiseqs ++ diseqs.map{
-      case PureAtom(l, r, _) => DiseqConstraint(Set(classOf(l), classOf(r)))
-    }
-    logger.debug(s"Considering $atoms for speculation wrt $this:\nNow have speculative equalities $newSpeculativeEqs and disequalities $newSpeculativeDiseqs.")
 
     // Make sure the speculative equalities are reflected in the equivalence classes
-    val updated = if (eqs.nonEmpty) {
+    val maybeUpdated = if (eqs.nonEmpty) {
       val f = SubstitutionUpdate.fromSetsOfEqualVars(eqs.map(_.getVars))
       logger.debug(s"Speculative equalities must be propagated into $this via $f")
       update(f)
     } else {
       Some(this)
     }
-    val res = updated.map(_.copy(speculativeDiseqs = newSpeculativeDiseqs, speculativeEqs = newSpeculativeEqs))
-    if (res.isEmpty) {
-      logger.debug(s"Speculation $atoms would lead to double allocation. Returning no result.")
+
+    maybeUpdated match {
+      case Some(updated) =>
+        val newSpeculativeEqs = speculativeEqs ++ eqs.map(_.ordered).map(atom => (atom.l,atom.r))
+        // The speculative equalities may invalidate some of the speculative disequalities
+        // We thus remove the now-ensured equalities from the speculative disequalities
+        val nowEnsured = updated.ensuredDiseqs
+        val newSpeculativeDiseqs = (speculativeDiseqs ++ diseqs.map{
+          case PureAtom(l, r, _) => DiseqConstraint(Set(updated.classOf(l), updated.classOf(r)))
+        }) -- nowEnsured
+        logger.debug(s"Considering $atoms for speculation wrt $this:\nNow have speculative equalities $newSpeculativeEqs and disequalities $newSpeculativeDiseqs.")
+
+        Some(updated.copy(speculativeDiseqs = newSpeculativeDiseqs, speculativeEqs = newSpeculativeEqs))
+      case None =>
+        logger.debug(s"Speculation $atoms would lead to double allocation. Returning no result.")
+        None
     }
-    res
   }
 
   def addToSpeculationUnlessEnsured(atoms: Iterable[PureAtom]): Option[VarConstraints] = {

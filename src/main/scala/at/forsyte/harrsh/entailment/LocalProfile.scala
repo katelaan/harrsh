@@ -154,6 +154,7 @@ object LocalProfile extends HarrshLogging {
   private def contextFromConsistentConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], ensured: Set[PureAtom], missing: Set[PureAtom], sid: RichSid, predicate: Predicate): Option[ContextDecomposition] = {
     // TODO: Clean up this monster of a method
     assert(rootParams.toSet subsetOf renamedRhs.allVars)
+    assert(ensured.intersect(missing).isEmpty)
     val vars = renamedRhs.allVars ++ ensured.flatMap(_.getVars) ++ missing.flatMap(_.getVars)
     VarConstraints.fromAtoms(vars, ensured).addToSpeculation(missing).flatMap { constraintsWithoutUsage =>
       val toSet = (v: Var) => constraintsWithoutUsage.classOf(v)
