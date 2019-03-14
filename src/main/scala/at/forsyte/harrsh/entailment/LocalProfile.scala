@@ -10,7 +10,7 @@ object LocalProfile extends HarrshLogging {
   def apply(lab: SymbolicHeap, sid: RichSid): EntailmentProfile = {
     logger.debug(s"Will compute profile for local allocation of $lab")
     val params = varsInLocalAllocation(lab)
-    val decomps = decompsOfLocalAllocation(params, lab, sid)
+    val decomps = decompsOfLocalAllocation(params, lab, sid).filterNot(_.isInconsistentWithFocus(sid))
     logger.debug(s"Decompositions in local profile of $lab:\n${decomps.mkString("\n")}")
     EntailmentProfile(decomps, params)
   }

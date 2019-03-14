@@ -34,6 +34,8 @@ object TargetProfile extends HarrshLogging {
     val renamedProfiles = RenamedSourceStates(sid, src, lab)
     if (renamedProfiles.isConsistent) {
       val local = LocalProfile(lab, sid)
+      assert(local.decomps forall (d => d.hasConsistentConstraints && !d.isInconsistentWithFocus(sid)),
+        s"Local profile $local contains inconsistent decompositions")
       combineLocalAndSourceProfiles(local, renamedProfiles, lab, sid)
     } else {
       InconsistentProfile

@@ -12,6 +12,7 @@ object EntailmentProfileComposition extends HarrshLogging {
     // TODO: Get rid of the second parameter once we use sets. (The new parameters then simply are the union of the params of the constituting profiles)
     def apply(sid: RichSid, profiles: Seq[EntailmentProfile], newOrderedParams: Seq[Var]): Option[EntailmentProfile] = {
       logger.debug(s"Will compose the following ${profiles.size} profiles:\n" + profiles.mkString("\n"))
+      assert(profiles forall (p => p.decomps.forall(!_.isInconsistentWithFocus(sid))))
       if (profiles.forall(_.nonEmpty)) {
         val composedDecomps = allPossibleDecompCompositions(sid, profiles map (_.decomps))
         if (composedDecomps.isEmpty) {

@@ -176,7 +176,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots) && !parts.exists(_.hasNullInRootPosition(sid))
   }
 
-  def hasConsistentConstraints: Boolean = constraints.isConsistent
+  lazy val hasConsistentConstraints: Boolean = constraints.isConsistent
 
   def isInconsistentWithFocus(sid: RichSid): Boolean = {
     parts.exists(_.hasNullInRootPosition(sid))
