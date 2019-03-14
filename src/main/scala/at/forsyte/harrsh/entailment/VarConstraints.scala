@@ -229,7 +229,9 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
 
     maybeUpdated match {
       case Some(updated) =>
-        val newSpeculativeEqs = speculativeEqs ++ eqs.map(_.ordered).map(atom => (atom.l,atom.r))
+        val newSpeculativeEqs = (speculativeEqs ++ eqs.map(_.ordered).map(atom => (atom.l,atom.r))) filterNot {
+          pair => PlaceholderVar.isPlaceholder(pair._1) || PlaceholderVar.isPlaceholder(pair._2)
+        }
         // The speculative equalities may invalidate some of the speculative disequalities
         // We thus remove the now-ensured equalities from the speculative disequalities
         val nowEnsured = updated.ensuredDiseqs
