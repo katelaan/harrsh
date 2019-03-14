@@ -131,11 +131,8 @@ object EntailmentChecker extends HarrshLogging {
     if (!computeEvenIfEmpty && atoms.isEmpty) None
     else {
       val vars = atoms.flatMap(_.getNonNullVars).distinct
-      val closure = Closure.ofAtoms(atoms)
-      val eqClasses = closure.classes
-      logger.trace(s"Classes of $atoms: ${eqClasses.mkString(",")}")
-      val usage: VarUsageByLabel = eqClasses.zip(Stream.continually(VarUnused)).toMap
-      val decomp = ContextDecomposition(Set.empty, usage, PureConstraintTracker(atoms.toSet ++ closure.asSetOfAtoms, Set.empty))
+      val constraints = VarConstraints.fromAtoms(vars.toSet, atoms)
+      val decomp = ContextDecomposition(Set.empty, constraints)
       val profile = EntailmentProfile(Set(decomp), vars)
       logger.debug(s"Created pure profile $profile from top-level atoms $atoms")
       Some(profile)
@@ -177,18 +174,8 @@ object EntailmentChecker extends HarrshLogging {
       val indent = "       "
       val fst = if (decompStrs.nonEmpty) decompStrs.head else "empty"
       val tail = if (decompStrs.nonEmpty) decompStrs.tail else Seq.empty
-      // TODO Code duplication wrt ContextDecomposition.toString
-      val usageStr = indent + decomp.usageInfo.map{
-        case (vs, usage) => vs.mkString(",") + ": " + usage.shortString
-      }.mkString("usage = {", "; ", "}")
-      val ensuredStr = if (decomp.pureConstraints.ensured.nonEmpty) {
-        decomp.pureConstraints.ensured.mkString("ensured = {", ",", "}")
-      } else ""
-      val missingStr = if (decomp.pureConstraints.missing.nonEmpty) {
-        decomp.pureConstraints.missing.mkString("missing = {", ",", "}")
-      } else ""
-      val constraintsStr = indent + Seq(ensuredStr, missingStr).filter(_.nonEmpty).mkString(", ")
-      Stream(s"Decomp($fst,") ++ tail.map(indent + _ + ",") ++ Stream(usageStr, constraintsStr + ")")
+      val constraintsStr = indent + decomp.constraints
+      Stream(s"Decomp($fst,") ++ tail.map(indent + _ + ",") ++ Stream(constraintsStr + ")")
 
     }
 

@@ -26,7 +26,7 @@ object EntailmentResultToLatex {
             val bottomLeft = if (ordered(ix - 1).calls.nonEmpty) s"ctx${ix-1}_0" else s"ctx${ix-1}_root"
               s"below=5mm of $bottomLeft"
           }
-          contextToLatexLines(ctx, decomp.usageInfo, "ctx" + ix, style)
+          contextToLatexLines(ctx, decomp.constraints.usage, "ctx" + ix, style)
       }
       inTikzPic(tifpics, Some(DecompStyleClass))
     }

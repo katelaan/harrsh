@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.PureEntailment
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{EmptyPredicates, PredCall, PureAtom, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
@@ -21,24 +20,24 @@ case class TopLevelConstraint(calls: Seq[PredCall], pure: Seq[PureAtom]) extends
 
   lazy val toSymbolicHeap = SymbolicHeap((calls ++ pure):_*)
 
-  def isImpliedBy(lhs: Set[ContextPredCall], lhsEnsuredPure: Set[PureAtom], predsWithEmptyModels: EmptyPredicates): Boolean = {
-    pureEntailmentHolds(lhsEnsuredPure) && heapEntailmentHolds(lhs, lhsEnsuredPure, predsWithEmptyModels)
+  def isImpliedBy(lhs: Set[ContextPredCall], lhsConstraints: VarConstraints, predsWithEmptyModels: EmptyPredicates): Boolean = {
+    pureEntailmentHolds(lhsConstraints) && heapEntailmentHolds(lhs, lhsConstraints, predsWithEmptyModels)
   }
 
-  private def pureEntailmentHolds(lhsEnsuredAtoms: Set[PureAtom]): Boolean = {
-    val res = pure.isEmpty || PureEntailment.check(lhsEnsuredAtoms.toSeq, pure)
-    if (!res) logger.debug(s"LHS pure constraints $lhsEnsuredAtoms don't imply RHS pure constraints $pure => Implication does not hold")
+  private def pureEntailmentHolds(lhsConstraints: VarConstraints): Boolean = {
+    val res = lhsConstraints.impliesWithoutSpeculation(pure)
+    if (!res) logger.debug(s"LHS constraints $lhsConstraints don't imply RHS pure constraints $pure => Implication does not hold")
     res
   }
 
-  private def heapEntailmentHolds(lhs: Set[ContextPredCall], lhsEnsuredPure: Set[PureAtom], predsWithEmptyModels: EmptyPredicates): Boolean = {
+  private def heapEntailmentHolds(lhs: Set[ContextPredCall], lhsConstraints: VarConstraints, predsWithEmptyModels: EmptyPredicates): Boolean = {
     val orderedLhs = TopLevelConstraint.sorted(lhs)
     val (rhsCallsPresentInLhs, callsMissingInLhs, extraPredsInLhs) = TopLevelConstraint.compareOrderedPredSeqs(orderedLhs, orderedCalls)
     if (extraPredsInLhs.nonEmpty) {
       logger.debug(s"$lhs does not imply $this, because it contains extra predicate call(s) ${extraPredsInLhs.mkString(" * ")}")
       false
     } else {
-      val (possiblyEmptyPreds, nonemptyPreds) = callsMissingInLhs.partition(canBeEmpty(_, lhsEnsuredPure, predsWithEmptyModels))
+      val (possiblyEmptyPreds, nonemptyPreds) = callsMissingInLhs.partition(canBeEmpty(_, lhsConstraints, predsWithEmptyModels))
       if (nonemptyPreds.isEmpty) {
         logger.debug(s"Will try to match $orderedLhs against ${rhsCallsPresentInLhs.mkString(" * ")}")
         val res = TopLevelConstraint.matchable(orderedLhs, rhsCallsPresentInLhs)
@@ -52,17 +51,16 @@ case class TopLevelConstraint(calls: Seq[PredCall], pure: Seq[PureAtom]) extends
     }
   }
 
-  private def canBeEmpty(rhsPredCall: PredCall, lhsEnsuredPure: Set[PureAtom], predsWithEmptyModels: EmptyPredicates): Boolean = {
+  private def canBeEmpty(rhsPredCall: PredCall, lhsConstraints: VarConstraints, predsWithEmptyModels: EmptyPredicates): Boolean = {
     if (predsWithEmptyModels.hasEmptyModels(rhsPredCall.name)) {
-      logger.debug(s"Check whether $rhsPredCall can be interpreted by empty model under the pure constraints $lhsEnsuredPure")
+      logger.debug(s"Check whether $rhsPredCall can be interpreted by empty model under the constraints $lhsConstraints")
       val options = predsWithEmptyModels(rhsPredCall)
-      // TODO This only works if the pure constraints are closed. Make sure this is always the case!
-      options find (_ subsetOf lhsEnsuredPure) match {
+      options find (pure => lhsConstraints.impliesWithoutSpeculation(pure)) match {
         case None =>
-          logger.debug(s"LHS pure constraints $lhsEnsuredPure don't imply ${options.mkString(" or ")}")
+          logger.debug(s"LHS constraints $lhsConstraints don't imply ${options.mkString(" or ")}")
           false
         case Some(option) =>
-          logger.debug(s"$lhsEnsuredPure implies $option => Can use empty interpretation of $rhsPredCall")
+          logger.debug(s"$lhsConstraints implies $option => Can use empty interpretation of $rhsPredCall")
           true
       }
     } else {

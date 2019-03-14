@@ -60,8 +60,8 @@ object TargetProfile extends HarrshLogging {
     val composed = EntailmentProfileComposition.composeAll(sid, profiles, lab.freeVars ++ lab.boundVars)
     logger.debug(s"Target profile after initial composition:\n$composed")
     composed foreach {
-      p => assert(p.decomps forall (!_.isInconsistent(sid)),
-        s"Composed profile contains inconsistent decompositions:\n" + p.decomps.filter(_.isInconsistent(sid)).mkString("\n")
+      p => assert(p.decomps forall (!_.isInconsistentWithFocus(sid)),
+        s"Composed profile contains inconsistent decompositions:\n" + p.decomps.filter(_.isInconsistentWithFocus(sid)).mkString("\n")
       )
     }
     val processComposedProfile = (inCase(sid.hasEmptyBaseRules)(empClosure(sid))
@@ -77,34 +77,33 @@ object TargetProfile extends HarrshLogging {
   }
 
   private def empClosureOfDecomp(sid: RichSid)(decomp: ContextDecomposition): Set[ContextDecomposition] = {
-    assert(!decomp.isInconsistent(sid),
+    assert(!decomp.isInconsistentWithFocus(sid),
       "Trying to compute emp-closure of inconsistent decomposition " + decomp)
     val empClosureByCtx: Seq[Set[(EntailmentContext, Set[PureAtom])]] = decomp.parts.toSeq map empClosureOfContext(sid)
     for {
       closureOption: Seq[(EntailmentContext, Set[PureAtom])] <- Combinators.choices(empClosureByCtx)
       _ = logger.debug(s"Considering emp-closure for $decomp:\n${closureOption.map(p => p._1 + " with new pure constraints " + p._2).mkString(",\n")}")
-      (newCtxs, constraintsByCtx) = closureOption.unzip
-      newConstraints = constraintsByCtx.flatten
-      allConstraints = decomp.pureConstraints.addToMissingUnlessEnsured(newConstraints)
-      _ = logger.debug(s"Updated pure constraints from ${decomp.pureConstraints} to $allConstraints")
-      if allConstraints.closure.isConsistent
-      _ = logger.debug("Will check for double allocation...")
-      newClasses = allConstraints.closure.classes.toSeq
-      if !doubleAlloc(decomp, newClasses)
-      update = SubstitutionUpdate.fromUnification(newClasses)
-      updated = decomp.copy(parts = newCtxs.toSet, pureConstraints = allConstraints).updateSubst(update).toPlaceholderNormalForm
-      _ = logger.debug("Emp-closure is consistent. Will retain updated decomposition\n" + updated)
-      _ = assert(!updated.isInconsistent(sid),
-        s"$decomp updated to inconsistent decomposition $updated via new constraints $newConstraints")
-    } yield updated
-  }
-
-  private def doubleAlloc(decomp: ContextDecomposition, eqClasses: Seq[Set[Var]]): Boolean = {
-    eqClasses exists {
-      vs =>
-        val originalClasses = decomp.usageInfo.filter(_._1.intersect(vs).nonEmpty)
-        originalClasses.count(_._2 == VarAllocated) > 1
-    }
+      (newCtxs, pureConstraintsByCtx) = closureOption.unzip
+      newPureAtoms = pureConstraintsByCtx.flatten
+      newAtomsRelevantForSpeculation = newPureAtoms filterNot (atom => atom.isEquality && (PlaceholderVar.isPlaceholder(atom.l) || PlaceholderVar.isPlaceholder(atom.r)))
+      _ = logger.debug{
+        if (newAtomsRelevantForSpeculation.nonEmpty)
+          s"Will speculate $newAtomsRelevantForSpeculation (unless already ensured)"
+        else
+          "No speculation necessary to apply the emp-closure."
+      }
+      constraintsWithNewSpeculation = decomp.constraints.addToSpeculationUnlessEnsured(newAtomsRelevantForSpeculation)
+      _ = logger.debug(s"Updated constraints from ${decomp.constraints} to $constraintsWithNewSpeculation")
+      newEqualities = newPureAtoms.filter(_.isEquality).map(atom => Set(atom.l,atom.r))
+      decompBeforeUpdate = ContextDecomposition(newCtxs.toSet, constraintsWithNewSpeculation)
+      update = SubstitutionUpdate.fromSetsOfEqualVars(newEqualities)
+      _ = logger.debug(s"Will apply update derived from ${newEqualities.mkString("{",", ","}")}, discarding the result in case of inconsistencies")
+      newDecomp <- decompBeforeUpdate.updateSubst(update)
+      if newDecomp.hasConsistentConstraints
+      if !newDecomp.isInconsistentWithFocus(sid)
+      res = newDecomp.toPlaceholderNormalForm
+      _ = logger.debug("Emp-closure is consistent. Will retain updated decomposition\n" + res)
+    } yield res
   }
 
   private def empClosureOfContext(sid: RichSid)(ctx: EntailmentContext): Set[(EntailmentContext, Set[PureAtom])] = {
@@ -121,7 +120,7 @@ object TargetProfile extends HarrshLogging {
 
     def empClosureAfterRemoval(callToRemove: ContextPredCall, unprocessedCalls: Set[ContextPredCall], remainingCalls: Set[ContextPredCall], constraintsSoFar: Set[PureAtom]) : Set[(Set[ContextPredCall], Set[PureAtom])] = {
       if (sid.hasEmptyModels(callToRemove.pred)) {
-        val constraintOptions = constraintOptionsForCal(callToRemove)
+        val constraintOptions = constraintOptionsForCall(callToRemove)
         val closureOfUnprocessedCalls = empClosureOfCalls(unprocessedCalls, remainingCalls, constraintsSoFar)
         for {
           (remainingAfterClosure, constraintsAfterClosure) <- closureOfUnprocessedCalls
@@ -132,7 +131,7 @@ object TargetProfile extends HarrshLogging {
       }
     }
 
-    def constraintOptionsForCal(call: ContextPredCall) = {
+    def constraintOptionsForCall(call: ContextPredCall) = {
       val update: Map[Var, Var] = (call.freeVarSeq zip call.subst.toSeq.map(_.head)).toMap
       for {
         option <- sid.constraintOptionsForEmptyModels(call.pred)

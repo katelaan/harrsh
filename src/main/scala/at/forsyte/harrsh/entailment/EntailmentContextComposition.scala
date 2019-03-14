@@ -1,29 +1,28 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PureAtom, RichSid}
 
 object EntailmentContextComposition extends HarrshLogging {
 
-  def apply(sid: RichSid, fst: EntailmentContext, snd: EntailmentContext, usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker): Stream[(EntailmentContext, VarUsageByLabel, PureConstraintTracker, SubstitutionUpdate)] = {
+  def apply(sid: RichSid, fst: EntailmentContext, snd: EntailmentContext, constraints: VarConstraints): Stream[(EntailmentContext, VarConstraints, SubstitutionUpdate)] = {
     for {
       CompositionInterface(t1, t2, n2) <- compositionCandidates(fst, snd)
       _ = logger.debug(s"Trying to compose on root ${t1.root} and leaf $n2")
-      if !doubleAlloc(t1.root, n2, usageInfo)
-      // Uncomment this to get a human readable representation of the equalities implied by the matching
-      //_ = unificationEqualities(t1.root, n2)
-      propagateUnification = unification(t1.root, n2, usageInfo)
+      if !doubleAlloc(t1.root, n2, constraints.usage)
+      //(propagateUnification, speculativeEqs) = unification(t1.root, n2)
+      propagateUnification = unification(t1.root, n2)
+      speculativeEqs = unificationEqualities(t1.root, n2)
       instantiation = instantiate(t2, n2, t1, propagateUnification)
       isEmpty = instantiation.calls.contains(instantiation.root)
       _ = if (isEmpty) logger.debug(s"Will drop empty context instantiation $instantiation (calls contain root)")
       if !isEmpty
-      _ = logger.debug("Will propagate unification into " + usageInfo)
-      unifiedUsage = VarUsageByLabel.update(usageInfo, propagateUnification)
-      _ = assert(VarUsageByLabel.isWellFormed(unifiedUsage),
-        s"Overlapping entries after updating $usageInfo to " + unifiedUsage)
-      _ = logger.debug(s"Unified usage $usageInfo into $unifiedUsage")
-      newPureConstraints = pureConstraints.update(propagateUnification)
-    } yield (instantiation, unifiedUsage, newPureConstraints, propagateUnification)
+      _ = logger.debug("Will propagate unification into " + constraints)
+      constraintsAfterPropagation <- constraints.update(propagateUnification)
+      newConstraints = constraintsAfterPropagation.addToSpeculation(speculativeEqs)
+      _ = logger.debug(s"Unification changed constraints $constraints to $newConstraints")
+    } yield (instantiation, newConstraints, propagateUnification)
   }
 
   private def unificationEqualities(fst: ContextPredCall, snd: ContextPredCall): Seq[PureAtom] = {
@@ -40,10 +39,16 @@ object EntailmentContextComposition extends HarrshLogging {
     res
   }
 
-  private def unification(fst: ContextPredCall, snd: ContextPredCall, usageInfo: VarUsageByLabel): SubstitutionUpdate = {
-    val unification = (fst.subst.toSeq, snd.subst.toSeq).zipped.map(_ union _)
-    logger.debug(s"Matching of $fst and $snd imposes unification $unification")
-    SubstitutionUpdate.fromUnification(unification)
+  private def unification(fst: ContextPredCall, snd: ContextPredCall): SubstitutionUpdate = {
+    val zipped: Seq[(Set[Var], Set[Var])] = fst.subst.toSeq zip snd.subst.toSeq
+    val unificationResult = zipped.map(pair => pair._1.union(pair._2))
+//    val speculativeEqs = zipped.filter(pair => pair._1.intersect(pair._2).isEmpty).map{
+//      // Arbitrarily pick one pair of variables to define the missing equality
+//      pair => PureAtom(pair._1.head, pair._2.head, isEquality = true)
+//    }
+    SubstitutionUpdate.fromSetsOfEqualVars(unificationResult)
+    //logger.debug(s"Matching of $fst and $snd imposes the following speculative equalities: $speculativeEqs")
+    //(SubstitutionUpdate.fromSetsOfEqualVars(unificationResult), speculativeEqs)
   }
 
   private case class CompositionInterface(ctxToEmbed: EntailmentContext, embeddingTarget: EntailmentContext, leafToReplaceInEmbedding: ContextPredCall)

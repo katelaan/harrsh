@@ -54,7 +54,7 @@ object PlaceholderVar {
     case e: UnsupportedOperationException => PlaceholderVar(0)
   }
 
-  def maxIndex(pvs: Iterable[PlaceholderVar]): Int = max(pvs).index
+  def maxIndex(pvs: Set[PlaceholderVar]): Int = max(pvs).index
 
   def min(pvs: Iterable[PlaceholderVar]): PlaceholderVar = try {
     pvs.minBy(_.index)
@@ -83,10 +83,10 @@ object PlaceholderVar {
   def placeholderClashAvoidanceUpdate(phs: Set[PlaceholderVar]) : SubstitutionUpdate = {
     val maxPv = max(phs)
     val shiftBy = maxPv.index
-    fv => fromVar(fv) match {
-      case Some(PlaceholderVar(value)) => Set(PlaceholderVar(value + shiftBy).toFreeVar)
-      case None => Set(fv)
-    }
+    RenamingToFreshVarsUpdate(fv => fromVar(fv) match {
+      case Some(PlaceholderVar(value)) => PlaceholderVar(value + shiftBy).toFreeVar
+      case None => fv
+    })
   }
 
 }

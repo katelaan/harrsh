@@ -32,12 +32,7 @@ object LocalProfile extends HarrshLogging {
 
   private def decompIfNoAllocation(lab: SymbolicHeap): ContextDecomposition = {
     logger.debug(s"No pointers in rule => only pure constraint in local profile")
-    val vars = lab.allVars
-    val classes = Closure.ofAtoms(lab.pure).classes
-    val usageInfo: VarUsageByLabel = classes.map(c => (c,VarUnused)).toMap
-    val ensured = lab.pure.toSet
-    val pure = PureConstraintTracker(ensured, Set.empty)
-    ContextDecomposition(Set.empty, usageInfo, pure)
+    ContextDecomposition(Set.empty, VarConstraints.fromAtoms(lab.allVars, lab.pure))
   }
 
   def decompsOfNonemptyLocalAllocation(lhs: SymbolicHeap, sid: RichSid) : Set[ContextDecomposition] = {
@@ -114,10 +109,10 @@ object LocalProfile extends HarrshLogging {
     val (renamedRhs, newParams) = renameRuleBody(ruleArity, withPlaceholders, renamingTargets)
 
     // 4.) Compute pure constraints enforced by the LHS, the RHS and the specific matching
-    val pure = pureConstraints(lhs, renamedRhs, pureConstraintsAbducedByMatching)
+    val (ensured, missing) = pureConstraints(lhs, renamedRhs, pureConstraintsAbducedByMatching)
 
     // 5.) If that's consistent, return the corresponding context, converting it to normalform first
-    contextFromConstraints(renamedRhs, newParams, pure, sid, predicate)
+    contextFromConstraints(renamedRhs, newParams, ensured, missing, sid, predicate)
   }
 
   private def introducePlaceholders(rhs: SymbolicHeap, rhsClosure: Closure): SymbolicHeap = {
@@ -138,16 +133,16 @@ object LocalProfile extends HarrshLogging {
     (renamedRhs, newParams)
   }
 
-  private def pureConstraints(lhs: SymbolicHeap, renamedRhs: SymbolicHeap, pureConstraintsAbducedByMatching: Set[PureAtom]): PureConstraintTracker = {
+  private def pureConstraints(lhs: SymbolicHeap, renamedRhs: SymbolicHeap, pureConstraintsAbducedByMatching: Set[PureAtom]): (Set[PureAtom], Set[PureAtom]) = {
     val rhsToEnsure = Closure.fromSH(renamedRhs).asSetOfAtoms ++ pureConstraintsAbducedByMatching
     val lhsEnsuredConstraints = Closure.fromSH(lhs).asSetOfAtoms
     val rhsMissing = rhsToEnsure -- lhsEnsuredConstraints
-    PureConstraintTracker(lhsEnsuredConstraints, rhsMissing)
+    (lhsEnsuredConstraints, rhsMissing)
   }
 
-  private def contextFromConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], pure: PureConstraintTracker, sid: RichSid, predicate: Predicate): Option[ContextDecomposition] = {
-    if (pure.isConsistent) {
-      contextFromConsistentConstraints(renamedRhs, rootParams, pure, sid, predicate)
+  private def contextFromConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], ensured: Set[PureAtom], missing: Set[PureAtom], sid: RichSid, predicate: Predicate): Option[ContextDecomposition] = {
+    if (ensured.forall(_.isConsistent) && missing.forall(_.isConsistent)) {
+      contextFromConsistentConstraints(renamedRhs, rootParams, ensured, missing, sid, predicate)
     }
     else {
       // Inconsistent pure constraints => Discard matching
@@ -155,9 +150,11 @@ object LocalProfile extends HarrshLogging {
     }
   }
 
-  private def contextFromConsistentConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], pure: PureConstraintTracker, sid: RichSid, predicate: Predicate): Option[ContextDecomposition] = {
-    val allEnsured = pure.closure
-    val toSet = (v: Var) => allEnsured.getEquivalenceClass(v)
+  private def contextFromConsistentConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], ensured: Set[PureAtom], missing: Set[PureAtom], sid: RichSid, predicate: Predicate): Option[ContextDecomposition] = {
+    assert(rootParams.toSet subsetOf renamedRhs.allVars)
+    val vars = renamedRhs.allVars ++ ensured.flatMap(_.getVars) ++ missing.flatMap(_.getVars)
+    val constraintsWithoutUsage = VarConstraints.fromAtoms(vars, ensured ++ missing).addToSpeculation(missing)
+    val toSet = (v: Var) => constraintsWithoutUsage.classOf(v)
     val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
 
     val root = ContextPredCall(predicate, toSubst(rootParams))
@@ -173,10 +170,11 @@ object LocalProfile extends HarrshLogging {
         else if (renamedPtr.to.flatMap(toSet).contains(v)) VarReferenced
         else VarUnused
       }
-      val usageInfo: VarUsageByLabel = renamedRhs.allVars.map(v => (toSet(v), varToUsageInfo(v))).toMap
+      val usageInfo: VarUsageByLabel = vars.map(v => (toSet(v), varToUsageInfo(v))).toMap
+      val constraints = constraintsWithoutUsage.copy(usage = usageInfo)
 
       val ctx = EntailmentContext(root, leavesAsSet)
-      val decomp = ContextDecomposition(Set(ctx), usageInfo, pure)
+      val decomp = ContextDecomposition(Set(ctx), constraints)
       Some(decomp.toPlaceholderNormalForm)
     } else {
       // Otherwise we've set the parameters for two calls to be equal,
@@ -185,6 +183,37 @@ object LocalProfile extends HarrshLogging {
       None
     }
   }
+
+//  private def contextFromConsistentConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], ensured: Set[PureAtom], missing: Set[PureAtom], sid: RichSid, predicate: Predicate): Option[ContextDecomposition] = {
+//    val allEnsured = pure.closure
+//    val toSet = (v: Var) => allEnsured.getEquivalenceClass(v)
+//    val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
+//
+//    val root = ContextPredCall(predicate, toSubst(rootParams))
+//    val leaves = renamedRhs.predCalls map {
+//      case PredCall(name, args) => ContextPredCall(sid(name), toSubst(args))
+//    }
+//    val leavesAsSet = leaves.toSet
+//    if (leavesAsSet.size == leaves.size) {
+//      // Compute usage
+//      val renamedPtr = renamedRhs.pointers.head
+//      val varToUsageInfo = (v: Var) => {
+//        if (toSet(v).contains(renamedPtr.from)) VarAllocated
+//        else if (renamedPtr.to.flatMap(toSet).contains(v)) VarReferenced
+//        else VarUnused
+//      }
+//      val usageInfo: VarUsageByLabel = renamedRhs.allVars.map(v => (toSet(v), varToUsageInfo(v))).toMap
+//
+//      val ctx = EntailmentContext(root, leavesAsSet)
+//      val decomp = ContextDecomposition(Set(ctx), usageInfo, pure)
+//      Some(decomp.toPlaceholderNormalForm)
+//    } else {
+//      // Otherwise we've set the parameters for two calls to be equal,
+//      // which always corresponds to an unsatisfiable unfolding for SIDs that satisfy progress.
+//      // We must not make it satisfiable by accidentally identifying these calls in the set conversion
+//      None
+//    }
+//  }
 
   private case class MatchResult(renamingTargets: Seq[Var], abducedPureConstraints: Set[PureAtom])
 

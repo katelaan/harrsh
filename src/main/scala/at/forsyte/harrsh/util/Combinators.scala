@@ -244,6 +244,15 @@ object Combinators {
     }
   }
 
+  def pairsWithoutRepetitions[A](set: Set[A]): Set[(A,A)] = {
+    set.size match {
+      case i if i < 2 => Set.empty
+      case 2 => Set((set.head, set.tail.head))
+      case _ =>
+        val (hd, tl) = (set.head, set.tail)
+        tl.map((hd,_)) ++ pairsWithoutRepetitions(tl)
+    }
+  }
 
   def tillTimeout[A](timeout: Duration)(computation: () => A): Option[(A, Long)] = {
     val startTime = System.currentTimeMillis()

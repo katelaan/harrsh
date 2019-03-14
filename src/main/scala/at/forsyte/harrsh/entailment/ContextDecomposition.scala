@@ -4,20 +4,16 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RichSid}
 
-case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsageByLabel, pureConstraints: PureConstraintTracker) extends HarrshLogging {
+case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarConstraints) extends HarrshLogging {
+  assert(constraints.isWellFormed, "Well-formedness constraint violated in " + constraints)
 
-  assert(VarUsageByLabel.isWellFormed(usageInfo), "Overlapping entries in usage info: " + usageInfo)
-
-//  assert(occurringLabels.filterNot(_.contains(NullConst)) == usageInfo.keySet.filterNot(_.contains(NullConst)),
-//    s"Inconsistent decomposition: Occurring labels are $occurringLabels, but usage info has keys ${usageInfo.keySet}"
-//  )
-  // TODO: Make sure this is strong enough. In particular, should we forget usage info in benchmarks like singleptr4 and singleptr9?
-  assert(occurringLabels subsetOf usageInfo.keySet,
-    s"Inconsistent decomposition: Occurring labels are $occurringLabels, but usage info has fewer keys ${usageInfo.keySet}"
+  assert(constraints.definedOnAllOf(occurringLabels),
+    s"Inconsistent decomposition: Occurring labels are $occurringLabels, but constraints $constraints only defined on ${constraints.classes}"
   )
 
-  assert(pureConstraints.refersOnlyToPlaceholdersIn(allVarStream.toSet),
-    s"Decomposition $this uses only vars ${allVarStream.toSet}, but pure constraints refer to additional placeholders: $pureConstraints")
+  assert(constraints.placeholders.map(_.toFreeVar.asInstanceOf[Var]) subsetOf occurringLabels.flatten,
+    s"Decompositions in $this use only placeholders ${occurringLabels.flatten.filter(PlaceholderVar.isPlaceholder)}, but constraints refer to additional placeholders: ${constraints.placeholders}"
+  )
 
   lazy val occurringLabels: Set[Set[Var]] = allPredCalls.flatMap(_.subst.toSeq)
 
@@ -33,26 +29,14 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
   private def orderedPredCalls: Seq[ContextPredCall] = orderedParts.flatMap(_.labels)
 
   // BEGIN Var-related code
-  // TODO: Move much of this to a better var usage / var info class
 
-  private lazy val allVarStream: Stream[Var] = for {
-    (vs, _) <- usageInfo.toStream
-    v <- vs
-  } yield v
+  lazy val nonNullNonPlaceholderVars: Set[Var] = constraints.nonNullNonPlaceholderVars
 
-  lazy val nonNullNonPlaceholderVars: Set[Var] = allVarStream.filterNot(v => v.isNull || PlaceholderVar.isPlaceholder(v)).toSet
+  lazy val boundVars: Set[Var] = constraints.boundVars
 
-  lazy val boundVars: Stream[Var] = allVarStream.filter(_.isBound)
+  lazy val placeholders: Set[PlaceholderVar] = constraints.placeholders
 
-  lazy val placeholders: Set[PlaceholderVar] = {
-    for {
-      vs <- usageInfo.keySet
-      v <- vs
-      p <- PlaceholderVar.fromVar(v)
-    } yield p
-  }
-
-  lazy val allocedVars: Set[Var] = usageInfo.filter(_._2 == VarAllocated).keySet.flatten
+  lazy val allocedVars: Set[Var] = constraints.allocedVars
 
   // END Var-related code
 
@@ -61,15 +45,17 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
   def compositionOptions(sid: RichSid, other: ContextDecomposition): Seq[ContextDecomposition] = {
     for {
       composed <- ContextDecompositionComposition(sid, this, other)
-      if pureConstraints.isConsistent
+      if composed.constraints.isConsistent
+      if !composed.isInconsistentWithFocus(sid)
     } yield composed
   }
 
-  def updateSubst(f: SubstitutionUpdate): ContextDecomposition = {
-    ContextDecomposition(
-      parts map (_.updateSubst(f)),
-      VarUsageByLabel.update(usageInfo, f),
-      pureConstraints.update(f))
+  def updateSubst(f: SubstitutionUpdate): Option[ContextDecomposition] = {
+    logger.debug(s"Will apply update to $this")
+    //val extendedF = f.closeUnderEquivalenceClasses(constraints.classes)
+    constraints.update(f) map {
+      updatedConstraints => ContextDecomposition(parts map (_.updateSubst(f)), updatedConstraints)
+    }
   }
 
   private def renameVarsToFreshPlaceholders(varsToRename: Iterable[Var]): SubstitutionUpdate = {
@@ -80,61 +66,44 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
   }
 
   def forget(varsToForget: Set[Var]): Option[ContextDecomposition] = {
-    // Check whether dropping the given var would put one or missing constraints out of scope---thus meaning the entailment can never become true.
-    def tryingToDropVarsWithMissingConstraints(varsToDrop: Set[Var]): Boolean = {
-      (pureConstraints.missing.flatMap(_.getNonNullVars) intersect varsToDrop).nonEmpty
-    }
-
     if (varsToForget.isEmpty) {
       Some(this)
     } else {
       logger.debug(s"Will remove variables ${varsToForget.mkString(",")} from decomposition")
-      if (tryingToDropVarsWithMissingConstraints(varsToForget)) {
+      if (constraints.areRequiredInSpeculation(varsToForget)) {
         // We're forgetting variables for which there are still missing constraints
         // After dropping, it will no longer be possible to supply the constraints
-        // We hence discard the extension type
-        logger.debug(s"Discarding decomposition: Missing pure constraints ${pureConstraints.missing} contain at least one discarded variable from ${varsToForget.mkString(", ")}")
+        // We hence discard the decomposition
+        logger.debug(s"Discarding decomposition: Speculative constraints in $constraints require at least one discarded variable from ${varsToForget.mkString(", ")}")
         None
       } else {
-        // We replace the dropped vars by placeholders (any redundant vars introduced in this var will be removed later)
-        // TODO: More efficient variable dropping for decomps
-        val replaceByPlacheolders: SubstitutionUpdate = renameVarsToFreshPlaceholders(varsToForget)
-        val partsAfterDropping = parts map (_.updateSubst(replaceByPlacheolders))
-        val varUsageAfterDropping = VarUsageByLabel.update(usageInfo, replaceByPlacheolders)
-
-        // We must completely remove the variables from the pure constraints, because after forgetting a variable,
-        // the (ensured) constraints become meaningless for the context...
-        val pureConstraintsAfterDropping = pureConstraints.dropNonFreeVars(varsToForget)
-
-        val decompAfterDropping = ContextDecomposition(partsAfterDropping, varUsageAfterDropping, pureConstraintsAfterDropping)
-        // When forgetting variables, make sure the introduced placeholders don't accidentally remain in the usage info
-        // if they aren't actually used in the decomposition
-        val cleanedUsageInfo = varUsageAfterDropping.filterKeys{
-          vs => vs.exists(!PlaceholderVar.isPlaceholder(_)) || decompAfterDropping.occurringLabels.contains(vs)
-        }
-        val cleanedDecomp = decompAfterDropping.copy(usageInfo = cleanedUsageInfo)
-        // Note: Must do normalization to get rid of gaps in results and of strange order by doing normalization
-        Some(cleanedDecomp.toPlaceholderNormalForm)
+        Some(replaceByPlaceholders(varsToForget))
       }
     }
   }
 
-  private def dropRedundantPlaceholders: ContextDecomposition = {
-    val dropper = SubstitutionUpdate.redundantPlaceholderDropper(allPredCalls)
-    val partsAfterDropping = parts map (_.updateSubst(dropper))
-    val usageInfoAfterDropping = VarUsageByLabel.update(usageInfo, dropper)
-    val pureConstraintsAfterDropping = pureConstraints.update(dropper)
-    ContextDecomposition(partsAfterDropping, usageInfoAfterDropping, pureConstraintsAfterDropping)
+  private def replaceByPlaceholders(vars: Set[Var]) = {
+    // TODO: More efficient variable dropping for decomps?
+    val update: SubstitutionUpdate = renameVarsToFreshPlaceholders(vars)
+    val partsAfterDropping = parts map (_.updateSubst(update))
+    val constraintsAfterDropping = constraints.unsafeUpdate(update)
+    val redundantPlaceholders = constraintsAfterDropping.placeholders filterNot {
+      ph => partsAfterDropping.exists(_.placeholders.contains(ph))
+    }
+    logger.debug(s"Will drop redundant placeholders $redundantPlaceholders introduced when forgetting $vars")
+    val cleanedConstraints = constraintsAfterDropping.forget(redundantPlaceholders.map(_.toFreeVar))
+
+    ContextDecomposition(partsAfterDropping, cleanedConstraints).toPlaceholderNormalForm
   }
 
   // END compose, rename, forget
 
   def isFinal(sid: RichSid, rhs: TopLevelConstraint): Boolean = {
-    val res = if (pureConstraints.missing.nonEmpty || parts.size > rhs.size) {
+    val res = if (constraints.isSpeculative || parts.size > rhs.size) {
       false
     } else {
       val lhsRoots = parts map (_.root)
-      parts.forall(_.isConcrete) && rhs.isImpliedBy(lhsRoots, pureConstraints.ensured, sid.predsWithEmptyModels)
+      parts.forall(_.isConcrete) && rhs.isImpliedBy(lhsRoots, constraints, sid.predsWithEmptyModels)
     }
     logger.trace(s"Checking whether $this is final w.r.t. $rhs => $res")
     res
@@ -142,20 +111,28 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
 
   // BEGIN Consistency-related code
 
-  def hasNamesForAllUsedParams: Boolean = usageInfo forall {
-    case (vs, usage) => usage == VarUnused || vs.exists(PlaceholderVar.isNonPlaceholderFreeVar)
-  }
+  def hasNamesForAllUsedParams: Boolean = constraints.hasNamesForAllUsedParams
 
   def hasNonNullNamesForAllRootParams(sid: RichSid): Boolean = parts.forall(_.hasNonNullNamesForRootParams(sid))
 
   def toPlaceholderNormalForm: ContextDecomposition = {
+    // TODO Perhaps get rid of the first step, see assertion at the beginning of the class
     val withoutRedundancies = dropRedundantPlaceholders
     val orderedLabels = withoutRedundancies.orderedParts flatMap (_.labels)
     val establishNormalForm = ContextPredCall.placeholderNormalFormUpdater(orderedLabels)
-    withoutRedundancies.updateSubst(establishNormalForm)
+    // Can never fail since we simply rename things without identifying them, so _.get is safe
+    withoutRedundancies.updateSubst(establishNormalForm).get
+  }
+
+  private def dropRedundantPlaceholders: ContextDecomposition = {
+    val dropper = SubstitutionUpdate.redundantPlaceholderDropper(allPredCalls)
+    val partsAfterDropping = parts map (_.updateSubst(dropper))
+    val constraintsAfterDropping = constraints.unsafeUpdate(dropper)
+    ContextDecomposition(partsAfterDropping, constraintsAfterDropping)
   }
 
   def isInPlaceholderNormalForm: Boolean = {
+    // TODO Perhaps get rid of the first step, see assertion at the beginning of the class
     noRedundantPlaceholders && PlaceholderVar.noGapsInPlaceholders(placeholders) && placeholdersOrdered
   }
 
@@ -195,17 +172,10 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
     !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots) && !parts.exists(_.hasNullInRootPosition(sid))
   }
 
-  def isInconsistent(sid: RichSid): Boolean = {
-    impliesNullAllocation(sid) || doubleAlloc(sid)
-  }
+  def hasConsistentConstraints: Boolean = constraints.isConsistent
 
-  def impliesNullAllocation(sid: RichSid): Boolean = {
-    parts.exists(_.hasNullInRootPosition(sid)) || explicitlyAllocsNull
-  }
-
-  def explicitlyAllocsNull: Boolean = usageInfo.find(_._1.contains(NullConst)) match {
-    case Some((_, VarAllocated)) => true
-    case _ => false
+  def isInconsistentWithFocus(sid: RichSid): Boolean = {
+    parts.exists(_.hasNullInRootPosition(sid))
   }
 
   private def doubleAlloc(sid: RichSid): Boolean = {
@@ -221,28 +191,17 @@ case class ContextDecomposition(parts: Set[EntailmentContext], usageInfo: VarUsa
 
   private def rootParamSubsts(sid: RichSid): Seq[Set[Var]] = parts.toSeq.flatMap(_.root.rootParamSubst(sid))
 
-  //private def rootParamSubsts(sid: RichSid): Seq[Set[Var]] = parts.toSeq.flatMap(_.rootParamSubsts(sid))
-
   // END Consistency-related code
 
   def usageInfoOfCall(n: ContextPredCall): VarUsageInfo = {
-    val res = n.subst.toSeq.map(usageInfo.getOrElse(_, VarUnused))
+    val res = n.subst.toSeq.map(constraints.usage)
     logger.debug(s"Usage info for $n w.r.t. $this: $res")
     res
   }
 
   override def toString: String = {
     val ctxString = if (parts.nonEmpty) parts.mkString("\n       ") else "emp"
-    val usageStr = usageInfo.map{
-      case (vs, usage) => vs.mkString(",") + ": " + usage.shortString
-    }.mkString("; ")
-    val ensuredStr = if (pureConstraints.ensured.nonEmpty) {
-      pureConstraints.ensured.mkString("; ensured = {", ",", "}")
-    } else ""
-    val missingStr = if (pureConstraints.missing.nonEmpty) {
-      pureConstraints.missing.mkString("; missing = {", ",", "}")
-    } else ""
-    s"Decomp($ctxString;\n       usage = {$usageStr}$ensuredStr$missingStr; hash = ${this.hashCode})"
+    s"Decomp($ctxString;\n       $constraints; hash = ${this.hashCode})"
   }
 
 }

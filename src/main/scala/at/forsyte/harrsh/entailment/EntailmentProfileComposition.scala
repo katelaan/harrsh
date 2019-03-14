@@ -43,8 +43,7 @@ object EntailmentProfileComposition extends HarrshLogging {
         decompOfFst <- fst
         decompOfSnd <- snd
         combined <- decompOfFst.compositionOptions(sid, decompOfSnd)
-        // TODO: Shouldn't we also check for consistency in general here?
-        if !combined.explicitlyAllocsNull
+        _ = assert(combined.hasConsistentConstraints && !combined.isInconsistentWithFocus(sid))
       } yield combined
       logger.debug(s"Decomps in profile composition:\n${if (res.nonEmpty) res.mkString("\n") else "empty (sink state)"}")
       res
@@ -136,7 +135,7 @@ object EntailmentProfileComposition extends HarrshLogging {
           None
         case None =>
           logger.debug(s"Will put contexts rooted in ${rootsToMerge.mkString(",")} under new root node labeled by $rule")
-          Some(mergeRoots(decomp, rootsToMerge, rule, pred, assignmentsByVar.mapValues(_.head)))
+          mergeRoots(decomp, rootsToMerge, rule, pred, assignmentsByVar.mapValues(_.head))
       }
     }
 
@@ -151,7 +150,7 @@ object EntailmentProfileComposition extends HarrshLogging {
       assignmentsByVar
     }
 
-    private def mergeRoots(decomp: ContextDecomposition, rootsToMerge: Seq[ContextPredCall], rule: RuleBody, pred: Predicate, assignmentsByVar: Map[Var, Set[Var]]): ContextDecomposition = {
+    private def mergeRoots(decomp: ContextDecomposition, rootsToMerge: Seq[ContextPredCall], rule: RuleBody, pred: Predicate, assignmentsByVar: Map[Var, Set[Var]]): Option[ContextDecomposition] = {
       val (ctxsToMerge, unchangedCtxs) = decomp.parts.partition(ctx => rootsToMerge.contains(ctx.root))
       logger.debug(s"Roots that were matched: $rootsToMerge")
       logger.debug(s"Will apply $rule to merge:\n${ctxsToMerge.mkString("\n")}")
@@ -160,15 +159,12 @@ object EntailmentProfileComposition extends HarrshLogging {
       val newRoot = ContextPredCall(pred, subst)
       val concatenatedLeaves = ctxsToMerge.flatMap(_.calls)
       val ctxAfterMerging = EntailmentContext(newRoot, concatenatedLeaves)
-      val restrictedUsageInfo = VarUsageByLabel.restrictToOccurringLabels(decomp.usageInfo, decomp)
-      val allPureConstraints = decomp.pureConstraints.addToMissingUnlessEnsured(rule.body.pure)
-      ContextDecomposition(unchangedCtxs + ctxAfterMerging, restrictedUsageInfo, allPureConstraints)
-    }
-
-    private def integrateUsageInfo(ctxsToMerge: Set[OldEntailmentContext], nodeLabelsInMergedInterface: Iterable[ContextPredCall]) = {
-      // Because we're not doing any unification, the usage info can simply be merged -- no propagation of unification results necessary
-      val mergedUsageInfo = ctxsToMerge.map(_.usageInfo).reduceLeft(VarUsageByLabel.merge)
-      VarUsageByLabel.restrictToSubstitutionsInLabels(mergedUsageInfo, nodeLabelsInMergedInterface)
+      // TODO: Does it really make sense to fail if we'd lose speculation, or should we just ensure not to lose speculative info in restriction?
+      decomp.constraints.restrictToNonPlaceholdersAnd(decomp.occurringLabels) map {
+        restrictedConstraints =>
+          val allConstraints = restrictedConstraints.addToSpeculationUnlessEnsured(rule.body.pure)
+          ContextDecomposition(unchangedCtxs + ctxAfterMerging, allConstraints)
+      }
     }
 
   }
