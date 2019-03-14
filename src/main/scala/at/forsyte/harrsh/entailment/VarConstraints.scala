@@ -1,12 +1,13 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.entailment.VarConstraints.DiseqConstraint
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 import at.forsyte.harrsh.seplog.{NullConst, Var}
 import at.forsyte.harrsh.util.Combinators
 
-case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], Set[Var])], speculativeDiseqs: Set[(Set[Var], Set[Var])], speculativeEqs: Set[(Var, Var)]) extends HarrshLogging {
+case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstraint], speculativeDiseqs: Set[DiseqConstraint], speculativeEqs: Set[(Var, Var)]) extends HarrshLogging {
 
   // TODO: The usage map / classes implicitly contain speculation (the result of identifying parameters in matching). Do we handle this correctly? Think in particular about going to the sink state or returning no state in profile composition when we filter out all decompositions because of inconsistencies
   // FIXME: It seems like the implicit equality speculation is actually unsound in case we forget one of the participating variables! Should probably track such equalities explicitly here as well!
@@ -24,11 +25,11 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
 
   lazy val classes: Set[Set[Var]] = usage.keySet
 
-  lazy val allDiseqs: Set[(Set[Var], Set[Var])] = ensuredDiseqs ++ speculativeDiseqs
+  private lazy val allDiseqs: Set[DiseqConstraint] = ensuredDiseqs ++ speculativeDiseqs
 
   def isWellFormed: Boolean = {
     val noOverlaps = VarConstraints.hasDisjointEqualityClasses(usage)
-    val diseqsAmongClasses = allDiseqs forall (diseq => classes.contains(diseq._1) && classes.contains(diseq._2))
+    val diseqsAmongClasses = allDiseqs forall (diseq => diseq.underlying subsetOf classes)
     val ensuredNotSpeculative = ensuredDiseqs.intersect(speculativeDiseqs).isEmpty
     val nonEmptyClasses = classes forall (_.nonEmpty)
     val orderedSpeculation = speculativeEqs forall (p => p._1 <= p._2)
@@ -57,14 +58,14 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
       val lclass = classOfOption(atom.l)
       lclass.nonEmpty && lclass == classOfOption(atom.r)
     } else {
-      ensuredDiseqs exists (VarConstraints.impliesDiseq(_, atom.l, atom.r))
+      ensuredDiseqs exists (_.isImpliedBy(atom.l, atom.r))
     }
     logger.debug(s"$this implies $atom without speculation: $res")
     res
   }
 
   def isConsistent: Boolean = {
-    def contradictoryDiseq = allDiseqs.exists(diseq => diseq._1 == diseq._2)
+    def contradictoryDiseq = allDiseqs.exists(_.isContradictory)
     !nullAlloced && !contradictoryDiseq
   }
 
@@ -92,7 +93,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
     } else {
       Some(VarConstraints(
         usage.filterKeys(_.exists(varsToRetain)),
-        ensuredDiseqs.filter(pair => pair._1.exists(varsToRetain) && pair._2.exists(varsToRetain)),
+        ensuredDiseqs.filter(_.isAbout(varsToRetain)),
         speculativeDiseqs,
         speculativeEqs
       ))
@@ -146,9 +147,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
   }
 
   private def areRequiredInSpeculativeDiseqs(vs: Set[Var]): Boolean = {
-    speculativeDiseqs exists {
-      pair => (pair._1 subsetOf vs) || (pair._2 subsetOf vs)
-    }
+    speculativeDiseqs exists (_.requires(vs))
   }
 
   /**
@@ -196,7 +195,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
     val (eqs, diseqs) = atoms.partition(_.isEquality)
     val newSpeculativeEqs = speculativeEqs ++ eqs.map(_.ordered).map(atom => (atom.l,atom.r))
     val newSpeculativeDiseqs = speculativeDiseqs ++ diseqs.map{
-      case PureAtom(l, r, _) => (classOf(l), classOf(r))
+      case PureAtom(l, r, _) => DiseqConstraint(Set(classOf(l), classOf(r)))
     }
     logger.debug(s"Considering $atoms for speculation wrt $this:\nNow have speculative equalities $newSpeculativeEqs and disequalities $newSpeculativeDiseqs.")
 
@@ -255,7 +254,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
       ensuredDiseqs.mkString("; ensured = {", ",", "}")
     } else ""
 
-    val missingDiseqsStrs = speculativeDiseqs map (pair => pair._1.mkString("{",",","}") + '\u2249' + pair._2.mkString("{",",","}") )
+    val missingDiseqsStrs = speculativeDiseqs map (_.toString)
     val missingEqsStrs = speculativeEqs map (pair => PureAtom(pair._1, pair._2, isEquality = true).toString)
     val missingStrs = missingDiseqsStrs ++ missingEqsStrs
     val missingStr = if (missingStrs.nonEmpty) {
@@ -269,6 +268,34 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
 
 object VarConstraints extends HarrshLogging {
 
+  case class DiseqConstraint(underlying: Set[Set[Var]]) {
+
+    assert(Set(1,2).contains(underlying.size))
+
+    private lazy val toPair = (underlying.head, if (underlying.size == 2) underlying.tail.head else underlying.head)
+
+    def isAbout(vars: Set[Var]): Boolean = underlying forall (_.exists(vars))
+
+    def isContradictory: Boolean = underlying.size == 1
+
+    def isVacuous: Boolean = underlying.exists(_.isEmpty)
+
+    def update(f: SubstitutionUpdate) = DiseqConstraint(underlying.map(f(_)))
+
+    def requires(vs: Set[Var]): Boolean = {
+      underlying exists (_ subsetOf vs)
+    }
+
+    def isImpliedBy(l: Var, r: Var): Boolean = {
+      Set(toPair, toPair.swap).exists(pair => pair._1.contains(l) && pair._2.contains(r))
+    }
+
+    override def toString: String = {
+      val (fst, snd) = toPair
+      fst.mkString("{",",","}") + '\u2249' + snd.mkString("{",",","}")
+    }
+  }
+
   def fromAtoms(vars: Iterable[Var], atoms: Iterable[PureAtom]): VarConstraints = {
     val closure = Closure.ofAtoms(atoms)
     val closureClasses = closure.classes
@@ -280,7 +307,7 @@ object VarConstraints extends HarrshLogging {
     logger.debug(s"Classes of $atoms: ${allClasses.mkString(",")}")
     val usage: VarUsageByLabel = allClasses.zip(Stream.continually(VarUnused)).toMap
     val ensuredDiseqs = atoms.filter(!_.isEquality).map{
-      case PureAtom(l, r, _) => (classOf(l), classOf(r))
+      case PureAtom(l, r, _) => DiseqConstraint(Set(classOf(l), classOf(r)))
     }
     VarConstraints(usage, ensuredDiseqs.toSet, Set.empty, Set.empty)
   }
@@ -292,23 +319,21 @@ object VarConstraints extends HarrshLogging {
   }
 
   // TODO: Can we manage to get around this, e.g. by storing *no* instead of *all* disequalities implied by allocation?
-  def diseqsImpliedByAllocation(usage: VarUsageByLabel): Set[(Set[Var], Set[Var])] = {
+  def diseqsImpliedByAllocation(usage: VarUsageByLabel): Set[DiseqConstraint] = {
     val allocedClasses = usage.filter(_._2 == VarAllocated).keySet
-    Combinators.pairsWithoutRepetitions(allocedClasses)
+    Combinators.pairsWithoutRepetitions(allocedClasses) map {
+      pair => DiseqConstraint(Set(pair._1, pair._2))
+    }
   }
 
-  def updateDiseqs(diseqs: Set[(Set[Var], Set[Var])], f: SubstitutionUpdate): Set[(Set[Var], Set[Var])] = {
-    diseqs map (pair => (f(pair._1), f(pair._2)))
+  def updateDiseqs(diseqs: Set[DiseqConstraint], f: SubstitutionUpdate): Set[DiseqConstraint] = {
+    diseqs map (_.update(f))
   }
 
-  def updateAndDropEmptyDiseqs(diseqs: Set[(Set[Var], Set[Var])], f: SubstitutionUpdate): Set[(Set[Var], Set[Var])] = {
-    updateDiseqs(diseqs, f) filterNot (pair => pair._1.isEmpty || pair._2.isEmpty)
+  def updateAndDropEmptyDiseqs(diseqs: Set[DiseqConstraint], f: SubstitutionUpdate): Set[DiseqConstraint] = {
+    updateDiseqs(diseqs, f) filterNot (_.isVacuous)
   }
 
-  def impliesDiseq(diseq: (Set[Var], Set[Var]), l: Var, r: Var): Boolean = {
-    Set(diseq, diseq.swap).exists(pair => pair._1.contains(l) && pair._2.contains(r))
-  }
-
-  def hasDisjointEqualityClasses(usage: VarUsageByLabel) = Combinators.counts(usage.keys.toSeq.flatten).forall(_._2 == 1)
+  def hasDisjointEqualityClasses(usage: VarUsageByLabel): Boolean = Combinators.counts(usage.keys.toSeq.flatten).forall(_._2 == 1)
 
 }
