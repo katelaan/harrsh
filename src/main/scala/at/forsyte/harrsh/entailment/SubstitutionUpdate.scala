@@ -20,23 +20,32 @@ sealed trait SubstitutionUpdate extends (Var => Set[Var]) {
 
 case class SubstitutionUpdateMap(underlying: Map[Var, Set[Var]]) extends SubstitutionUpdate with HarrshLogging {
 
+  override def toString: String = {
+    underlying.map(pair => pair._1 + "->" + pair._2.mkString("{",",","}")).mkString("Update(", "; ", ")")
+  }
+
   override def apply(v: Var): Set[Var] = underlying.getOrElse(v, Set(v))
 
   override def closeUnderEquivalenceClasses(classes: Iterable[Set[Var]]): SubstitutionUpdate = {
     var prevMap: Map[Var, Set[Var]] = Map.empty
     var currMap: Map[Var, Set[Var]] = underlying
+
+    val step: Map[Var, Set[Var]] = classes.flatten.map{
+            v:Var => v -> (classes.filter(_.contains(v)).flatten.toSet + v)
+    }.toMap
+
     while (prevMap != currMap) {
       prevMap = currMap
       currMap = for {
         (k, vs) <- prevMap
-      } yield (k, vs ++ vs flatMap prevMap)
+      } yield (k, vs ++ vs flatMap (v => step.getOrElse(v, Set(v))))
     }
     logger.debug(s"Equivalence classes ${classes.mkString(", ")} extended\n$underlying to:\n$currMap")
     SubstitutionUpdateMap(currMap)
   }
 }
 
-case class RenamingToFreshVarsUpdate(underlying: Var => Var) extends SubstitutionUpdate {
+case class RenamingToFreshVarsUpdate(description: String, underlying: Var => Var) extends SubstitutionUpdate {
 
   override def apply(v: Var): Set[Var] = Set(underlying(v))
 
@@ -70,8 +79,10 @@ object SubstitutionUpdate extends HarrshLogging {
     }
   }
 
-  def fromPairs(pairs: Seq[(Var,Var)]): SubstitutionUpdate = {
-    SubstitutionUpdateMap(pairs.toMap.mapValues(Set(_)))
+  def renaming(pairs: Seq[(Var,Var)]): SubstitutionUpdate = {
+    val asMap = pairs.toMap
+    val renaming: Var => Var = v => asMap.getOrElse(v, v)
+    RenamingToFreshVarsUpdate(pairs.mkString("Renaming(", ", ", ")"), renaming)
   }
 
   def fromSetsOfEqualVars(classes: Iterable[Set[Var]]): SubstitutionUpdate = {
@@ -107,6 +118,10 @@ object SubstitutionUpdate extends HarrshLogging {
 //    renameArgs
 //  }
 
+  def forgetVars(varsToDrop: Iterable[Var]): SubstitutionUpdate = {
+    SubstitutionUpdateMap(varsToDrop.zip(Stream.continually(Set.empty[Var])).toMap)
+  }
+
   def redundantPlaceholderDropper(nodeLabels: Iterable[ContextPredCall]): SubstitutionUpdate = {
     def getRedundantVars(vs: Set[Var]): Set[Var] = {
       val (phs, nonPhs) = vs.partition(PlaceholderVar.isPlaceholder)
@@ -122,8 +137,7 @@ object SubstitutionUpdate extends HarrshLogging {
     val equivalenceClasses = Substitution.extractVarEquivClasses(nodeLabels map (_.subst))
     val redundantVars = equivalenceClasses.flatMap(getRedundantVars)
     logger.trace(s"Redundant vars: $redundantVars")
-
-    SubstitutionUpdateMap(redundantVars.zip(Stream.continually(Set.empty[Var])).toMap)
+    forgetVars(redundantVars)
   }
 
 }

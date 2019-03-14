@@ -84,7 +84,7 @@ object ContextPredCall extends HarrshLogging {
     val renameTo = (1 to order.size) map (PlaceholderVar(_).toFreeVar)
     val pairs = renameFrom.zip(renameTo)
     logger.trace("Will establish placeholder normalform via update " + pairs)
-    SubstitutionUpdate.fromPairs(pairs)
+    SubstitutionUpdate.renaming(pairs)
   }
 
 }

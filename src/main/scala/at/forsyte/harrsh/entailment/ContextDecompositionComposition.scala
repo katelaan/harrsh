@@ -89,7 +89,7 @@ object ContextDecompositionComposition extends HarrshLogging {
     val (fst, other) = (unprocessed.head, unprocessed.tail)
     (
       // Don't merge fst with anything, just add to processed
-      Seq((processed :+ fst, other, constraints, SubstitutionUpdate.fromPairs(Seq.empty)))
+      Seq((processed :+ fst, other, constraints, SubstitutionUpdateMap(Map.empty)))
         ++ tryMerge(sid, fst, other, constraints).map(t => (processed, t._1 +: t._2, t._3, t._4))
       )
   }

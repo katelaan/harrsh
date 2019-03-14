@@ -73,12 +73,12 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
   def forget(vs: Set[Var]): VarConstraints = {
     assume(!areRequiredInSpeculation(vs))
 
-    val updateMap = classes.map(c => (c,c -- vs)).toMap
-    val newUsage = usage.map(pair => (updateMap(pair._1), pair._2)).filterKeys(_.nonEmpty)
-    val newEnsuredDiseqs = VarConstraints.updateAndDropEmptyDiseqs(ensuredDiseqs, updateMap)
+    val f = SubstitutionUpdate.forgetVars(vs)
+    val newUsage = usage.map(pair => (f(pair._1), pair._2)).filterKeys(_.nonEmpty)
+    val newEnsuredDiseqs = VarConstraints.updateAndDropEmptyDiseqs(ensuredDiseqs, f)
     //val newSpeculation = VarConstraints.updateAndDropEmptyDiseqs(speculatedDiseqs, updateMap)
     // Because we're never allowed to lose speculative constraints in a forget operation, we don't need to check for empty constraints here.
-    val newSpeculativeDiseqs = VarConstraints.updateDiseqs(speculativeDiseqs, updateMap)
+    val newSpeculativeDiseqs = VarConstraints.updateDiseqs(speculativeDiseqs, f)
     // Note: The speculative equalities need not be updated, because we assume that the vars we forget are not needed in speculation
     VarConstraints(newUsage, newEnsuredDiseqs, newSpeculativeDiseqs, speculativeEqs)
   }
@@ -177,57 +177,42 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
   def update(f: SubstitutionUpdate): Option[VarConstraints] = {
     assert(isConsistent,
       s"Applying an update to an already inconsistent constraint set " + this)
-
-    //val alloced: Set[Var] = fst.allocedVars ++ snd.allocedVars
-
-    val updateMap = updateMapFromSubstitution(f)
-    val updatedUsage = updatedUsageInfo(updateMap)
-    updatedUsage foreach (u => logger.debug(s"Updated usage by $updateMap from $usage to $u"))
-    updatedUsage flatMap (updateFromNewUsage(_, updateMap))
+    val updatedUsage = updatedUsageInfo(f)
+    updatedUsage foreach (u => logger.debug(s"Updated usage by $f from $usage to $u"))
+    updatedUsage flatMap (updateFromNewUsage(_, f))
   }
 
-  private def updateMapFromSubstitution(f: SubstitutionUpdate): Map[Set[Var], Set[Var]] = {
-    var prevMap = Map.empty[Set[Var], Set[Var]]
-    var currMap = classes.map(c => (c,c.flatMap(f))).toMap
-    while (currMap != prevMap) {
-      logger.debug("Curr map: " + currMap)
-      prevMap = currMap
-      currMap = for {
-        (ks, vs) <- prevMap
-      } yield (ks, vs ++ prevMap.filterKeys(_.intersect(vs).nonEmpty).values.toSet.flatten)
-    }
-    currMap
-  }
+//  private def updateMapFromSubstitution(f: SubstitutionUpdate): Map[Set[Var], Set[Var]] = {
+//    var prevMap = Map.empty[Set[Var], Set[Var]]
+//    var currMap = classes.map(c => (c,c.flatMap(f))).toMap
+//    while (currMap != prevMap) {
+//      logger.debug("Curr map: " + currMap)
+//      prevMap = currMap
+//      currMap = for {
+//        (ks, vs) <- prevMap
+//      } yield (ks, vs ++ prevMap.filterKeys(_.intersect(vs).nonEmpty).values.toSet.flatten)
+//    }
+//    currMap
+//  }
 
-  private def updateFromNewUsage(newUsage: VarUsageByLabel, updateMap: Map[Set[Var], Set[Var]]): Option[VarConstraints] = {
+  private def updateFromNewUsage(newUsage: VarUsageByLabel, f: SubstitutionUpdate): Option[VarConstraints] = {
     assert(VarConstraints.hasDisjointEqualityClasses(newUsage), "Non-disjoint classes in usage " + newUsage)
-    val ensuredAfterUpdate = VarConstraints.updateDiseqs(ensuredDiseqs, updateMap)
+    val ensuredAfterUpdate = VarConstraints.updateDiseqs(ensuredDiseqs, f)
     val newEnsured = ensuredAfterUpdate ++ VarConstraints.diseqsImpliedByAllocation(newUsage)
     logger.trace(s"Updated $ensuredDiseqs via $ensuredAfterUpdate to $newEnsured")
-    val newSpeculation = VarConstraints.updateDiseqs(speculativeDiseqs, updateMap) -- newEnsured
+    val newSpeculation = VarConstraints.updateDiseqs(speculativeDiseqs, f) -- newEnsured
     // Note: Since the update does not contain the information whether it is speculative or not,
     // speculative equalities must be changed/removed explicitly, not implicitly via updates
     val res = VarConstraints(newUsage, newEnsured, newSpeculation, speculativeEqs)
 
     if (res.isInconsistent) {
-      logger.debug(s"The update $updateMap has turned $this into inconsistent constraints $res")
+      logger.debug(s"The update $f has turned $this into inconsistent constraints $res")
       None
     }
     else {
       Some(res)
     }
   }
-
-  // TODO It seems like we don't need this, since this is already achieved in the ++ operation?
-//  def markAsEnsured(atoms: Set[PureAtom]): VarConstraints = {
-//    val (eqs, diseqs) = atoms.partition(_.isEquality)
-//    val ensuredEqs = eqs.map(_.ordered).map(atom => (atom.l, atom.r))
-//    val newSpeculativeEqs = speculativeEqs -- ensuredEqs
-//    val newSpeculativeDiseqs = speculativeDiseqs filterNot {
-//      diseq => atoms.exists(atom => VarConstraints.impliesDiseq(diseq, atom.l, atom.r))
-//    }
-//    copy(speculativeDiseqs = newSpeculativeDiseqs, speculativeEqs = newSpeculativeEqs)
-//  }
 
   def addToSpeculation(atoms: Iterable[PureAtom]): VarConstraints = {
     val (eqs, diseqs) = atoms.partition(_.isEquality)
@@ -245,13 +230,13 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
     } else this
   }
 
-  private def updatedUsageInfo(updateMap: Map[Set[Var], Set[Var]]): Option[Map[Set[Var], VarUsage]] = {
-    val grouped: Map[Set[Var], Map[Set[Var], VarUsage]] = usage.groupBy(pair => updateMap(pair._1))
+  private def updatedUsageInfo(f: SubstitutionUpdate): Option[Map[Set[Var], VarUsage]] = {
+    val grouped: Map[Set[Var], Map[Set[Var], VarUsage]] = usage.groupBy(pair => f(pair._1))
 
     def doubleAlloc(group: Map[Set[Var], VarUsage]) : Boolean = group.values.count(_ == VarAllocated) >= 2
 
     if (grouped.values.exists(doubleAlloc)) {
-      logger.debug(s"Update via $updateMap failed because of double allocation (${grouped.values.filter(doubleAlloc)})")
+      logger.debug(s"Update via $f failed because of double allocation (${grouped.values.filter(doubleAlloc)})")
       None
     }
     else {
@@ -292,15 +277,6 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
 
 object VarConstraints extends HarrshLogging {
 
-  // TODO: Do we actually need this? It should be enough to explicitly add disequalities to the ensured constraints?
-//  def dropIfBothAllocated(speculativeDiseqs: Set[(Set[Var], Set[Var])], newUsage: Map[Set[Var], VarUsage]): Set[(Set[Var], Set[Var])] = {
-//    speculativeDiseqs filterNot {
-//      // Note: The first condition ensures that we don't accidentally drop inconsistent constraints!
-//      // TODO: Check if we actually need that condition, as we only apply this to missing constraints
-//      pair => (pair._1 != pair._2) && newUsage(pair._1) == VarAllocated && newUsage(pair._2) == VarAllocated
-//    }
-//  }
-
   def fromAtoms(vars: Set[Var], atoms: Iterable[PureAtom]): VarConstraints = {
     val closure = Closure.ofAtoms(atoms)
     val closureClasses = closure.classes
@@ -329,12 +305,12 @@ object VarConstraints extends HarrshLogging {
     Combinators.pairsWithoutRepetitions(allocedClasses)
   }
 
-  def updateDiseqs(diseqs: Set[(Set[Var], Set[Var])], updateMap: Map[Set[Var], Set[Var]]): Set[(Set[Var], Set[Var])] = {
-    diseqs map (pair => (updateMap(pair._1), updateMap(pair._2)))
+  def updateDiseqs(diseqs: Set[(Set[Var], Set[Var])], f: SubstitutionUpdate): Set[(Set[Var], Set[Var])] = {
+    diseqs map (pair => (f(pair._1), f(pair._2)))
   }
 
-  def updateAndDropEmptyDiseqs(diseqs: Set[(Set[Var], Set[Var])], updateMap: Map[Set[Var], Set[Var]]): Set[(Set[Var], Set[Var])] = {
-    updateDiseqs(diseqs, updateMap) filterNot (pair => pair._1.isEmpty || pair._2.isEmpty)
+  def updateAndDropEmptyDiseqs(diseqs: Set[(Set[Var], Set[Var])], f: SubstitutionUpdate): Set[(Set[Var], Set[Var])] = {
+    updateDiseqs(diseqs, f) filterNot (pair => pair._1.isEmpty || pair._2.isEmpty)
   }
 
   def impliesDiseq(diseq: (Set[Var], Set[Var]), l: Var, r: Var): Boolean = {

@@ -52,9 +52,9 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
 
   def updateSubst(f: SubstitutionUpdate): Option[ContextDecomposition] = {
     logger.debug(s"Will apply update to $this")
-    //val extendedF = f.closeUnderEquivalenceClasses(constraints.classes)
-    constraints.update(f) map {
-      updatedConstraints => ContextDecomposition(parts map (_.updateSubst(f)), updatedConstraints)
+    val extendedF = f.closeUnderEquivalenceClasses(constraints.classes)
+    constraints.update(extendedF) map {
+      updatedConstraints => ContextDecomposition(parts map (_.updateSubst(extendedF)), updatedConstraints)
     }
   }
 
@@ -62,7 +62,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     val maxPlaceholder = PlaceholderVar.maxIndex(placeholders)
     val newPlaceholders = (1 to varsToRename.size) map (i => PlaceholderVar(maxPlaceholder + i))
     val pairs: Seq[(Var, Var)] = varsToRename.toSeq.zip(newPlaceholders.map(_.toFreeVar))
-    SubstitutionUpdate.fromPairs(pairs)
+    SubstitutionUpdate.renaming(pairs)
   }
 
   def forget(varsToForget: Set[Var]): Option[ContextDecomposition] = {

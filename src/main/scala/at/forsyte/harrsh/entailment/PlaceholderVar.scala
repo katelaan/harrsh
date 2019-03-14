@@ -83,10 +83,11 @@ object PlaceholderVar {
   def placeholderClashAvoidanceUpdate(phs: Set[PlaceholderVar]) : SubstitutionUpdate = {
     val maxPv = max(phs)
     val shiftBy = maxPv.index
-    RenamingToFreshVarsUpdate(fv => fromVar(fv) match {
-      case Some(PlaceholderVar(value)) => PlaceholderVar(value + shiftBy).toFreeVar
-      case None => fv
-    })
+    RenamingToFreshVarsUpdate("Placeholder clash avoidance update",
+      fv => fromVar(fv) match {
+        case Some(PlaceholderVar(value)) => PlaceholderVar(value + shiftBy).toFreeVar
+        case None => fv
+      })
   }
 
 }
