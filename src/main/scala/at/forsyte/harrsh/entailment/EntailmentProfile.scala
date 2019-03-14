@@ -36,7 +36,7 @@ case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: 
     assert(to.distinct == to,
       "This assertion is a reminder that if the update merges two vars (and thus potentially two classes), just using the renaming update won't be sound.")
     val callUpdate = SubstitutionUpdate.renaming(orderedParams zip to)
-    val renamed = decomps.flatMap(_.updateSubst(callUpdate))
+    val renamed = decomps.flatMap(_.updateSubst(callUpdate, mayEnsureEqualities = true))
     // TODO Do we want to improve the consistency check, which currently only looks at root parameters? (But that would require knowing which other variables are guaranteed to be allocated in the SID, i.e., additional preprocessing!)
     // TODO [Rootedness] The following code depends on rootedness annotations. Do we want to be able to explicitly enable it?
     val consistent = renamed filter (_.hasConsistentConstraints) filterNot (_.isInconsistentWithFocus(sid))

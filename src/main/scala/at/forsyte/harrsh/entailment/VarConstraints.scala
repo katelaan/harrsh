@@ -13,6 +13,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
   // FIXME: It seems like the implicit equality speculation is actually unsound in case we forget one of the participating variables! Should probably track such equalities explicitly here as well!
 
   assert(isWellFormed, s"$this is not well-formed")
+  assert(VarConstraints.diseqsImpliedByAllocation(usage) subsetOf ensuredDiseqs)
 
   val isSpeculative: Boolean = speculativeDiseqs.nonEmpty || speculativeEqs.nonEmpty
 
@@ -54,14 +55,12 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
   def impliesWithoutSpeculation(atoms: Iterable[PureAtom]): Boolean = atoms forall impliesWithoutSpeculation
 
   def impliesWithoutSpeculation(atom: PureAtom): Boolean = {
-    val res = if (atom.isEquality) {
+    if (atom.isEquality) {
       val lclass = classOfOption(atom.l)
       lclass.nonEmpty && lclass == classOfOption(atom.r)
     } else {
       ensuredDiseqs exists (_.isImpliedBy(atom.l, atom.r))
     }
-    logger.debug(s"$this implies $atom without speculation: $res")
-    res
   }
 
   def isConsistent: Boolean = {
@@ -103,15 +102,15 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
   def mergeUsingUpdate(otherBeforeUpdate: VarConstraints, upd: SubstitutionUpdate): Option[VarConstraints] = {
     logger.debug(s"Will try to merge constraints:\n$this and\n$otherBeforeUpdate")
     for {
-      thisUpd <- update(upd)
-      other <- otherBeforeUpdate.update(upd)
+      thisUpd <- update(upd, mayEnsureEqualities = true)
+      other <- otherBeforeUpdate.update(upd, mayEnsureEqualities = true)
       _ = assume(thisUpd.allocedVars.intersect(other.allocedVars).isEmpty)
       allClasses = thisUpd.classes ++ other.classes
       newUsage = allClasses.map(c => (c, Set(thisUpd.usage.getOrElse(c,VarUnused), other.usage.getOrElse(c,VarUnused)).max)).toMap
       allEnsured = thisUpd.ensuredDiseqs ++ other.ensuredDiseqs ++ VarConstraints.diseqsImpliedByAllocation(newUsage)
       // Note: Crucially, we check whether the missing equalities are ensured *before* the update
       // After the update, they are ensured by definition, as they will have been propagated into the classes!
-      missingEqs = speculativeEqsNotEnsuredIn(otherBeforeUpdate) ++ other.speculativeEqsNotEnsuredIn(this)
+      missingEqs = speculativeEqsNotEnsuredIn(otherBeforeUpdate) ++ otherBeforeUpdate.speculativeEqsNotEnsuredIn(this)
     } yield VarConstraints(
       newUsage,
       allEnsured,
@@ -121,7 +120,9 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
   }
 
   def speculativeEqsNotEnsuredIn(other: VarConstraints): Set[(Var, Var)] = {
-    speculativeEqs.filterNot(atom => other.impliesWithoutSpeculation(PureAtom(atom._1, atom._2, isEquality = true)))
+    val res = speculativeEqs.filterNot(atom => other.impliesWithoutSpeculation(PureAtom(atom._1, atom._2, isEquality = true)))
+    logger.debug(s"Checking which among $speculativeEqs are not ensured in $other => $res")
+    res
   }
 
   /**
@@ -158,28 +159,26 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     * @param f
     * @return
     */
-  def unsafeUpdate(f: SubstitutionUpdate): VarConstraints = {
+  def unsafeUpdate(f: SubstitutionUpdate, mayEnsureEqualities: Boolean): VarConstraints = {
     // TODO: More efficient implementation of this where we skip the checks
-    update(f).get
+    update(f, mayEnsureEqualities).get
   }
 
-  def update(f: SubstitutionUpdate): Option[VarConstraints] = {
+  def update(f: SubstitutionUpdate, mayEnsureEqualities: Boolean): Option[VarConstraints] = {
     assert(isConsistent,
       s"Applying an update to an already inconsistent constraint set " + this)
     val updatedUsage = updatedUsageInfo(f)
     updatedUsage foreach (u => logger.debug(s"Updated usage by $f from $usage to $u"))
-    updatedUsage flatMap (updateFromNewUsage(_, f))
+    updatedUsage flatMap (updateFromNewUsage(_, f, mayEnsureEqualities))
   }
 
-  private def updateFromNewUsage(newUsage: VarUsageByLabel, f: SubstitutionUpdate): Option[VarConstraints] = {
+  private def updateFromNewUsage(newUsage: VarUsageByLabel, f: SubstitutionUpdate, mayEnsureEqualities: Boolean): Option[VarConstraints] = {
     assert(VarConstraints.hasDisjointEqualityClasses(newUsage), "Non-disjoint classes in usage " + newUsage)
     val ensuredAfterUpdate = VarConstraints.updateDiseqs(ensuredDiseqs, f)
     val newEnsured = ensuredAfterUpdate ++ VarConstraints.diseqsImpliedByAllocation(newUsage)
     logger.trace(s"Updated $ensuredDiseqs via $ensuredAfterUpdate to $newEnsured")
     val newSpeculativeDiseqs = VarConstraints.updateDiseqs(speculativeDiseqs, f) -- newEnsured
-    val newSpeculativeEqs = speculativeEqs.map{
-      eq => (f(eq._1).head, f(eq._2).head)
-    }.filterNot(pair => pair._1 == pair._2)
+    val newSpeculativeEqs = updateSpeculativeEqs(f, mayEnsureEqualities)
     val res = VarConstraints(newUsage, newEnsured, newSpeculativeDiseqs, newSpeculativeEqs)
 
     if (res.isInconsistent) {
@@ -191,6 +190,20 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     }
   }
 
+  private def updateSpeculativeEqs(f: SubstitutionUpdate, mayEnsureEqualities: Boolean): Set[(Var,Var)] = {
+    if (mayEnsureEqualities) {
+      speculativeEqs.map {
+        eq => (f(eq._1).head, f(eq._2).head)
+      }.filterNot(pair => pair._1 == pair._2)
+    } else {
+      speculativeEqs map {
+        // If the update sets equal the variables, we must not execute it, sicne we're not allowed to propagate this information
+        // This is an extremely hacky solution...
+        eq => if (Set(eq._1,eq._2) subsetOf f(eq._1)) eq else (f(eq._1).head,f(eq._2).head)
+      }
+    }
+  }
+
   def addToSpeculation(atoms: Iterable[PureAtom]): Option[VarConstraints] = {
     val (eqs, diseqs) = atoms.partition(_.isEquality)
 
@@ -198,7 +211,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     val maybeUpdated = if (eqs.nonEmpty) {
       val f = SubstitutionUpdate.fromSetsOfEqualVars(eqs.map(_.getVars))
       logger.debug(s"Speculative equalities must be propagated into $this via $f")
-      update(f)
+      update(f, mayEnsureEqualities = false)
     } else {
       Some(this)
     }

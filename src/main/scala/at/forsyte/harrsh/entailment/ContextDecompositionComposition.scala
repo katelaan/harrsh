@@ -48,7 +48,8 @@ object ContextDecompositionComposition extends HarrshLogging {
 
   private def makePlaceholdersDisjoint(fst: ContextDecomposition, snd: ContextDecomposition): (ContextDecomposition, ContextDecomposition) = {
     val clashAvoidanceUpdate = PlaceholderVar.placeholderClashAvoidanceUpdate(snd.placeholders)
-    (fst.updateSubst(clashAvoidanceUpdate).get, snd)
+    // Note: It does not matter for correctness what we pass to mayEnsureEqualities here, since we apply a bijection
+    (fst.updateSubst(clashAvoidanceUpdate, mayEnsureEqualities = false).get, snd)
   }
 
   private def allMergeOptions(sid: RichSid, unionDecomp: ContextDecomposition): Seq[ContextDecomposition] = {

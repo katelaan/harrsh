@@ -19,7 +19,8 @@ object EntailmentContextComposition extends HarrshLogging {
       _ = if (isEmpty) logger.debug(s"Will drop empty context instantiation $instantiation (calls contain root)")
       if !isEmpty
       _ = logger.debug("Will propagate unification into " + constraints)
-      constraintsAfterPropagation <- constraints.update(propagateUnification)
+      // Note: Since we are merging contexts from the same decomposition, the update must *not* drop missing equalities
+      constraintsAfterPropagation <- constraints.update(propagateUnification, mayEnsureEqualities = false)
       newConstraints <- constraintsAfterPropagation.addToSpeculation(speculativeEqs)
       _ = logger.debug(s"Unification changed constraints $constraints to $newConstraints")
     } yield (instantiation, newConstraints, propagateUnification)
@@ -42,13 +43,7 @@ object EntailmentContextComposition extends HarrshLogging {
   private def unification(fst: ContextPredCall, snd: ContextPredCall): SubstitutionUpdate = {
     val zipped: Seq[(Set[Var], Set[Var])] = fst.subst.toSeq zip snd.subst.toSeq
     val unificationResult = zipped.map(pair => pair._1.union(pair._2))
-//    val speculativeEqs = zipped.filter(pair => pair._1.intersect(pair._2).isEmpty).map{
-//      // Arbitrarily pick one pair of variables to define the missing equality
-//      pair => PureAtom(pair._1.head, pair._2.head, isEquality = true)
-//    }
     SubstitutionUpdate.fromSetsOfEqualVars(unificationResult)
-    //logger.debug(s"Matching of $fst and $snd imposes the following speculative equalities: $speculativeEqs")
-    //(SubstitutionUpdate.fromSetsOfEqualVars(unificationResult), speculativeEqs)
   }
 
   private case class CompositionInterface(ctxToEmbed: EntailmentContext, embeddingTarget: EntailmentContext, leafToReplaceInEmbedding: ContextPredCall)

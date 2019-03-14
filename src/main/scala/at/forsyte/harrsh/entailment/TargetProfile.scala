@@ -98,7 +98,8 @@ object TargetProfile extends HarrshLogging {
       decompBeforeUpdate = ContextDecomposition(newCtxs.toSet, constraintsWithNewSpeculation)
       update = SubstitutionUpdate.fromSetsOfEqualVars(newEqualities)
       _ = logger.debug(s"Will apply update derived from ${newEqualities.mkString("{",", ","}")}, discarding the result in case of inconsistencies")
-      newDecomp <- decompBeforeUpdate.updateSubst(update)
+      // Note: If we set mayEnsureEqualities to true, we'd immediately lose the speculative equalities we just added
+      newDecomp <- decompBeforeUpdate.updateSubst(update, mayEnsureEqualities = false)
       if newDecomp.hasConsistentConstraints
       if !newDecomp.isInconsistentWithFocus(sid)
       res = newDecomp.toPlaceholderNormalForm

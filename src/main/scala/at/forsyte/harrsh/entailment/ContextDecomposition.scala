@@ -50,10 +50,10 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     } yield composed
   }
 
-  def updateSubst(f: SubstitutionUpdate): Option[ContextDecomposition] = {
+  def updateSubst(f: SubstitutionUpdate, mayEnsureEqualities: Boolean): Option[ContextDecomposition] = {
     logger.debug(s"Will apply update to $this")
     val extendedF = f.closeUnderEquivalenceClasses(constraints.classes)
-    constraints.update(extendedF) map {
+    constraints.update(extendedF, mayEnsureEqualities) map {
       updatedConstraints => ContextDecomposition(parts map (_.updateSubst(extendedF)), updatedConstraints)
     }
   }
@@ -86,7 +86,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     // TODO: More efficient variable dropping for decomps?
     val update: SubstitutionUpdate = renameVarsToFreshPlaceholders(vars)
     val partsAfterDropping = parts map (_.updateSubst(update))
-    val constraintsAfterDropping = constraints.unsafeUpdate(update)
+    val constraintsAfterDropping = constraints.unsafeUpdate(update, mayEnsureEqualities = true)
     val redundantPlaceholders = constraintsAfterDropping.placeholders filterNot {
       ph => partsAfterDropping.exists(_.placeholders.contains(ph))
     }
@@ -124,13 +124,14 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     val orderedLabels = withoutRedundancies.orderedParts flatMap (_.labels)
     val establishNormalForm = ContextPredCall.placeholderNormalFormUpdater(orderedLabels)
     // Can never fail since we simply rename things without identifying them, so _.get is safe
-    withoutRedundancies.updateSubst(establishNormalForm).get
+    // Note: It does not matter for correctness what we pass to mayEnsureEqualities here, since we apply a bijection
+    withoutRedundancies.updateSubst(establishNormalForm, mayEnsureEqualities = false).get
   }
 
   private def dropRedundantPlaceholders: ContextDecomposition = {
     val dropper = SubstitutionUpdate.redundantPlaceholderDropper(allPredCalls)
     val partsAfterDropping = parts map (_.updateSubst(dropper))
-    val constraintsAfterDropping = constraints.unsafeUpdate(dropper)
+    val constraintsAfterDropping = constraints.unsafeUpdate(dropper, mayEnsureEqualities = true)
     ContextDecomposition(partsAfterDropping, constraintsAfterDropping)
   }
 
