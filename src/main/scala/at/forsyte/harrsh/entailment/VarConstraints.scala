@@ -277,10 +277,10 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
 
 object VarConstraints extends HarrshLogging {
 
-  def fromAtoms(vars: Set[Var], atoms: Iterable[PureAtom]): VarConstraints = {
+  def fromAtoms(vars: Iterable[Var], atoms: Iterable[PureAtom]): VarConstraints = {
     val closure = Closure.ofAtoms(atoms)
     val closureClasses = closure.classes
-    val trivialClasses = (vars -- closureClasses.flatten) map (Set(_))
+    val trivialClasses = (vars.toSet -- closureClasses.flatten) map (Set(_))
     val allClasses = closureClasses ++ trivialClasses
     def classOf(v: Var) = allClasses.find(_.contains(v)).getOrElse{
       throw new IllegalArgumentException(s"Constructing constraints for $vars, but $atoms contain additional variable $v")
