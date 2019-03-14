@@ -35,7 +35,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     val nonEmptyClasses = classes forall (_.nonEmpty)
     val orderedSpeculation = speculativeEqs forall (p => p._1 <= p._2)
     val speculativeEqsNotPlaceholder = speculativeEqs forall (pair => !PlaceholderVar.isPlaceholder(pair._1) && !PlaceholderVar.isPlaceholder(pair._2))
-    logger.trace(s"No overlaps=$noOverlaps, diseqs among classes=$diseqsAmongClasses, ensured not speculative=$ensuredNotSpeculative, non-empty classes=$nonEmptyClasses, ordered speculation=$orderedSpeculation, no placeholder speculation=$speculativeEqsNotPlaceholder")
+    logger.debug(s"No overlaps=$noOverlaps, diseqs among classes=$diseqsAmongClasses, ensured not speculative=$ensuredNotSpeculative, non-empty classes=$nonEmptyClasses, ordered speculation=$orderedSpeculation, no placeholder speculation=$speculativeEqsNotPlaceholder")
     noOverlaps && diseqsAmongClasses && ensuredNotSpeculative && nonEmptyClasses && orderedSpeculation && speculativeEqsNotPlaceholder
   }
 
@@ -108,7 +108,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
   }
 
   def mergeUsingUpdate(otherBeforeUpdate: VarConstraints, upd: SubstitutionUpdate): Option[VarConstraints] = {
-    logger.debug(s"Will try to merge constraints:\n$this and\n$otherBeforeUpdate")
+    logger.debug(s"Will try to merge constraints:\n$this and\n$otherBeforeUpdate using\n$upd")
     for {
       thisUpd <- update(upd, mayEnsureEqualities = true)
       other <- otherBeforeUpdate.update(upd, mayEnsureEqualities = true)
@@ -122,7 +122,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     } yield VarConstraints(
       newUsage,
       allEnsured,
-      (speculativeDiseqs ++ other.speculativeDiseqs) -- allEnsured,
+      (thisUpd.speculativeDiseqs ++ other.speculativeDiseqs) -- allEnsured,
       missingEqs
     )
   }
