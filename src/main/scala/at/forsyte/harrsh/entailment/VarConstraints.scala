@@ -35,6 +35,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     val nonEmptyClasses = classes forall (_.nonEmpty)
     val orderedSpeculation = speculativeEqs forall (p => p._1 <= p._2)
     val speculativeEqsNotPlaceholder = speculativeEqs forall (pair => !PlaceholderVar.isPlaceholder(pair._1) && !PlaceholderVar.isPlaceholder(pair._2))
+    logger.trace(s"No overlaps=$noOverlaps, diseqs among classes=$diseqsAmongClasses, ensured not speculative=$ensuredNotSpeculative, non-empty classes=$nonEmptyClasses, ordered speculation=$orderedSpeculation, no placeholder speculation=$speculativeEqsNotPlaceholder")
     noOverlaps && diseqsAmongClasses && ensuredNotSpeculative && nonEmptyClasses && orderedSpeculation && speculativeEqsNotPlaceholder
   }
 
@@ -191,7 +192,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
   }
 
   private def updateSpeculativeEqs(f: SubstitutionUpdate, mayEnsureEqualities: Boolean): Set[(Var,Var)] = {
-    if (mayEnsureEqualities) {
+    val updated = if (mayEnsureEqualities) {
       speculativeEqs.map {
         eq => (f(eq._1).head, f(eq._2).head)
       }.filterNot(pair => pair._1 == pair._2)
@@ -201,6 +202,9 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
         // This is an extremely hacky solution...
         eq => if (Set(eq._1,eq._2) subsetOf f(eq._1)) eq else (f(eq._1).head,f(eq._2).head)
       }
+    }
+    updated map {
+      pair => if (pair._1 <= pair._2) pair else pair.swap
     }
   }
 
