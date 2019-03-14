@@ -209,7 +209,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
 
     // Make sure the speculative equalities are reflected in the equivalence classes
     val maybeUpdated = if (eqs.nonEmpty) {
-      val f = SubstitutionUpdate.fromSetsOfEqualVars(eqs.map(_.getVars))
+      val f = SubstitutionUpdate.fromSetsOfEqualVars(eqs.map(_.getVars)).closeUnderEquivalenceClasses(classes)
       logger.debug(s"Speculative equalities must be propagated into $this via $f")
       update(f, mayEnsureEqualities = false)
     } else {
