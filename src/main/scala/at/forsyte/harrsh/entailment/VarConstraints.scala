@@ -84,11 +84,11 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     VarConstraints(newUsage, newEnsuredDiseqs, newSpeculativeDiseqs, speculativeEqs)
   }
 
-  def restrictToNonPlaceholdersAnd(classes: Set[Set[Var]]): Option[VarConstraints] = {
-    val varsToRetainExplicitly = classes.flatten
+  def restrictToNonPlaceholdersAnd(classesToKeep: Set[Set[Var]]): Option[VarConstraints] = {
+    val varsToRetainExplicitly = classesToKeep.flatten
     val varsToRetain = allVars filter (v => varsToRetainExplicitly(v) || !PlaceholderVar.isPlaceholder(v))
     if (areRequiredInSpeculativeDiseqs(allVars -- varsToRetain)) {
-      logger.debug(s"Can't restrict to $classes, because that would lose speculative information")
+      logger.debug(s"Can't restrict to $classesToKeep, because that would lose speculative information")
       None
     } else {
       Some(VarConstraints(
@@ -98,6 +98,13 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
         speculativeEqs
       ))
     }
+  }
+
+  def restrictPlaceholdersTo(placeholders: Set[Var]): VarConstraints = {
+    val allPlaceholders = allVars filter PlaceholderVar.isPlaceholder
+    val toDrop = allPlaceholders -- placeholders
+    val update = SubstitutionUpdate.forgetVars(toDrop)
+    unsafeUpdate(update, mayEnsureEqualities = false)
   }
 
   def mergeUsingUpdate(otherBeforeUpdate: VarConstraints, upd: SubstitutionUpdate): Option[VarConstraints] = {

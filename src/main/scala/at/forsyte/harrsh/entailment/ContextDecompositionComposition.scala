@@ -65,15 +65,11 @@ object ContextDecompositionComposition extends HarrshLogging {
       val processedAndPropagated = processed map (_.updateSubst(upd))
       logger.debug(s"After propagation of constraints:\n$processedAndPropagated")
 
-      // TODO Do we actually have to clean again or is this ensured automatically via the step-by-step update of the constraints? I think it should be the latter
-      // TODO Code duplication w.r.t. ContextDecomposition.occurringLabels
-      //val occurringVarSets = processedAndPropagated.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)
-      //val cleanedUsageInfo = VarUsageByLabel.restrictToOccurringLabels(usageInfo, occurringVarSets)
-      //logger.debug("Cleaning usage info: " + usageInfo + " into " + cleanedUsageInfo)
-      //val cleanedPureConstraints = propagatedPureConstraints.restrictPlaceholdersTo(occurringVarSets.flatten)
-      //val pureWithoutImpliedMissing = cleanedPureConstraints.dropMissingIfImpliedByAllocation(cleanedUsageInfo)
+      val occurringVarSets = processedAndPropagated.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)
+      val placeholders = occurringVarSets.flatten.filter(PlaceholderVar.isPlaceholder)
+      val cleanedConstraints = constraints.restrictPlaceholdersTo(placeholders)
 
-      val composed = ContextDecomposition(processedAndPropagated.toSet, constraints)
+      val composed = ContextDecomposition(processedAndPropagated.toSet, cleanedConstraints)
       val res = Seq(composed.toPlaceholderNormalForm)
       logger.debug(s"New merge result: $res")
       res
