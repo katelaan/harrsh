@@ -159,12 +159,11 @@ object EntailmentProfileComposition extends HarrshLogging {
       val newRoot = ContextPredCall(pred, subst)
       val concatenatedLeaves = ctxsToMerge.flatMap(_.calls)
       val ctxAfterMerging = EntailmentContext(newRoot, concatenatedLeaves)
-      // TODO: Does it really make sense to fail if we'd lose speculation, or should we just ensure not to lose speculative info in restriction?
-      decomp.constraints.restrictToNonPlaceholdersAnd(decomp.occurringLabels) map {
-        restrictedConstraints =>
-          val allConstraints = restrictedConstraints.addToSpeculationUnlessEnsured(rule.body.pure)
-          ContextDecomposition(unchangedCtxs + ctxAfterMerging, allConstraints)
-      }
+
+      for {
+        restrictedConstraints <- decomp.constraints.restrictToNonPlaceholdersAnd(decomp.occurringLabels)
+        withNewSpeculation <- restrictedConstraints.addToSpeculationUnlessEnsured(rule.body.pure)
+      } yield ContextDecomposition(unchangedCtxs + ctxAfterMerging, withNewSpeculation)
     }
 
   }

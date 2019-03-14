@@ -137,6 +137,7 @@ object LocalProfile extends HarrshLogging {
     val rhsToEnsure = Closure.fromSH(renamedRhs).asSetOfAtoms ++ pureConstraintsAbducedByMatching
     val lhsEnsuredConstraints = Closure.fromSH(lhs).asSetOfAtoms
     val rhsMissing = rhsToEnsure -- lhsEnsuredConstraints
+    logger.debug(s"Pure constraints: Ensured are $lhsEnsuredConstraints; missing are: $rhsMissing")
     (lhsEnsuredConstraints, rhsMissing)
   }
 
@@ -151,69 +152,40 @@ object LocalProfile extends HarrshLogging {
   }
 
   private def contextFromConsistentConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], ensured: Set[PureAtom], missing: Set[PureAtom], sid: RichSid, predicate: Predicate): Option[ContextDecomposition] = {
+    // TODO: Clean up this monster of a method
     assert(rootParams.toSet subsetOf renamedRhs.allVars)
     val vars = renamedRhs.allVars ++ ensured.flatMap(_.getVars) ++ missing.flatMap(_.getVars)
-    val constraintsWithoutUsage = VarConstraints.fromAtoms(vars, ensured ++ missing).addToSpeculation(missing)
-    val toSet = (v: Var) => constraintsWithoutUsage.classOf(v)
-    val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
+    VarConstraints.fromAtoms(vars, ensured).addToSpeculation(missing).flatMap { constraintsWithoutUsage =>
+      val toSet = (v: Var) => constraintsWithoutUsage.classOf(v)
+      val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
 
-    val root = ContextPredCall(predicate, toSubst(rootParams))
-    val leaves = renamedRhs.predCalls map {
-      case PredCall(name, args) => ContextPredCall(sid(name), toSubst(args))
-    }
-    val leavesAsSet = leaves.toSet
-    if (leavesAsSet.size == leaves.size) {
-      // Compute usage
-      val renamedPtr = renamedRhs.pointers.head
-      val varToUsageInfo = (v: Var) => {
-        if (toSet(v).contains(renamedPtr.from)) VarAllocated
-        else if (renamedPtr.to.flatMap(toSet).contains(v)) VarReferenced
-        else VarUnused
+      val root = ContextPredCall(predicate, toSubst(rootParams))
+      val leaves = renamedRhs.predCalls map {
+        case PredCall(name, args) => ContextPredCall(sid(name), toSubst(args))
       }
-      val usageInfo: VarUsageByLabel = vars.map(v => (toSet(v), varToUsageInfo(v))).toMap
-      val constraints = constraintsWithoutUsage.copy(usage = usageInfo)
+      val leavesAsSet = leaves.toSet
+      if (leavesAsSet.size == leaves.size) {
+        // Compute usage
+        val renamedPtr = renamedRhs.pointers.head
+        val varToUsageInfo = (v: Var) => {
+          if (toSet(v).contains(renamedPtr.from)) VarAllocated
+          else if (renamedPtr.to.flatMap(toSet).contains(v)) VarReferenced
+          else VarUnused
+        }
+        val usageInfo: VarUsageByLabel = vars.map(v => (toSet(v), varToUsageInfo(v))).toMap
+        val constraints = constraintsWithoutUsage.copy(usage = usageInfo)
 
-      val ctx = EntailmentContext(root, leavesAsSet)
-      val decomp = ContextDecomposition(Set(ctx), constraints)
-      Some(decomp.toPlaceholderNormalForm)
-    } else {
-      // Otherwise we've set the parameters for two calls to be equal,
-      // which always corresponds to an unsatisfiable unfolding for SIDs that satisfy progress.
-      // We must not make it satisfiable by accidentally identifying these calls in the set conversion
-      None
+        val ctx = EntailmentContext(root, leavesAsSet)
+        val decomp = ContextDecomposition(Set(ctx), constraints)
+        Some(decomp.toPlaceholderNormalForm)
+      } else {
+        // Otherwise we've set the parameters for two calls to be equal,
+        // which always corresponds to an unsatisfiable unfolding for SIDs that satisfy progress.
+        // We must not make it satisfiable by accidentally identifying these calls in the set conversion
+        None
+      }
     }
   }
-
-//  private def contextFromConsistentConstraints(renamedRhs: SymbolicHeap, rootParams: Seq[Var], ensured: Set[PureAtom], missing: Set[PureAtom], sid: RichSid, predicate: Predicate): Option[ContextDecomposition] = {
-//    val allEnsured = pure.closure
-//    val toSet = (v: Var) => allEnsured.getEquivalenceClass(v)
-//    val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
-//
-//    val root = ContextPredCall(predicate, toSubst(rootParams))
-//    val leaves = renamedRhs.predCalls map {
-//      case PredCall(name, args) => ContextPredCall(sid(name), toSubst(args))
-//    }
-//    val leavesAsSet = leaves.toSet
-//    if (leavesAsSet.size == leaves.size) {
-//      // Compute usage
-//      val renamedPtr = renamedRhs.pointers.head
-//      val varToUsageInfo = (v: Var) => {
-//        if (toSet(v).contains(renamedPtr.from)) VarAllocated
-//        else if (renamedPtr.to.flatMap(toSet).contains(v)) VarReferenced
-//        else VarUnused
-//      }
-//      val usageInfo: VarUsageByLabel = renamedRhs.allVars.map(v => (toSet(v), varToUsageInfo(v))).toMap
-//
-//      val ctx = EntailmentContext(root, leavesAsSet)
-//      val decomp = ContextDecomposition(Set(ctx), usageInfo, pure)
-//      Some(decomp.toPlaceholderNormalForm)
-//    } else {
-//      // Otherwise we've set the parameters for two calls to be equal,
-//      // which always corresponds to an unsatisfiable unfolding for SIDs that satisfy progress.
-//      // We must not make it satisfiable by accidentally identifying these calls in the set conversion
-//      None
-//    }
-//  }
 
   private case class MatchResult(renamingTargets: Seq[Var], abducedPureConstraints: Set[PureAtom])
 

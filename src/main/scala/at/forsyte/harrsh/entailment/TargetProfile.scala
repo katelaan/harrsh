@@ -92,7 +92,7 @@ object TargetProfile extends HarrshLogging {
         else
           "No speculation necessary to apply the emp-closure."
       }
-      constraintsWithNewSpeculation = decomp.constraints.addToSpeculationUnlessEnsured(newAtomsRelevantForSpeculation)
+      constraintsWithNewSpeculation <- decomp.constraints.addToSpeculationUnlessEnsured(newAtomsRelevantForSpeculation)
       _ = logger.debug(s"Updated constraints from ${decomp.constraints} to $constraintsWithNewSpeculation")
       newEqualities = newPureAtoms.filter(_.isEquality).map(atom => Set(atom.l,atom.r))
       decompBeforeUpdate = ContextDecomposition(newCtxs.toSet, constraintsWithNewSpeculation)

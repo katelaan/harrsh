@@ -99,7 +99,10 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
   // END compose, rename, forget
 
   def isFinal(sid: RichSid, rhs: TopLevelConstraint): Boolean = {
-    val res = if (constraints.isSpeculative || parts.size > rhs.size) {
+    val res = if (constraints.isSpeculative) {
+      logger.debug(s"$constraints are speculative => Decomposition is non-final")
+      false
+    } else if (parts.size > rhs.size) {
       false
     } else {
       val lhsRoots = parts map (_.root)

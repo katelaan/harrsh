@@ -47,6 +47,8 @@ case class SubstitutionUpdateMap(underlying: Map[Var, Set[Var]]) extends Substit
 
 case class RenamingToFreshVarsUpdate(description: String, underlying: Var => Var) extends SubstitutionUpdate {
 
+  override def toString: String = description
+
   override def apply(v: Var): Set[Var] = Set(underlying(v))
 
   override def closeUnderEquivalenceClasses(classes: Iterable[Set[Var]]): SubstitutionUpdate = {

@@ -20,7 +20,7 @@ object EntailmentContextComposition extends HarrshLogging {
       if !isEmpty
       _ = logger.debug("Will propagate unification into " + constraints)
       constraintsAfterPropagation <- constraints.update(propagateUnification)
-      newConstraints = constraintsAfterPropagation.addToSpeculation(speculativeEqs)
+      newConstraints <- constraintsAfterPropagation.addToSpeculation(speculativeEqs)
       _ = logger.debug(s"Unification changed constraints $constraints to $newConstraints")
     } yield (instantiation, newConstraints, propagateUnification)
   }

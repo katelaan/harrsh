@@ -149,16 +149,6 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
     speculativeDiseqs exists {
       pair => (pair._1 subsetOf vs) || (pair._2 subsetOf vs)
     }
-
-    // TODO: It's possible to do this with just one traversal of the set.
-//    val diseqsToForget = speculatedDiseqs filter {
-//      pair => (pair._1 subsetOf vs) || (pair._2 subsetOf vs)
-//    }
-//
-//    // We'd forget a disequality even though one side contains a variable that we do *not* forget
-//    diseqsToForget.exists {
-//      pair => ((pair._1 union pair._2) -- vs).nonEmpty
-//    }
   }
 
   /**
@@ -182,28 +172,16 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
     updatedUsage flatMap (updateFromNewUsage(_, f))
   }
 
-//  private def updateMapFromSubstitution(f: SubstitutionUpdate): Map[Set[Var], Set[Var]] = {
-//    var prevMap = Map.empty[Set[Var], Set[Var]]
-//    var currMap = classes.map(c => (c,c.flatMap(f))).toMap
-//    while (currMap != prevMap) {
-//      logger.debug("Curr map: " + currMap)
-//      prevMap = currMap
-//      currMap = for {
-//        (ks, vs) <- prevMap
-//      } yield (ks, vs ++ prevMap.filterKeys(_.intersect(vs).nonEmpty).values.toSet.flatten)
-//    }
-//    currMap
-//  }
-
   private def updateFromNewUsage(newUsage: VarUsageByLabel, f: SubstitutionUpdate): Option[VarConstraints] = {
     assert(VarConstraints.hasDisjointEqualityClasses(newUsage), "Non-disjoint classes in usage " + newUsage)
     val ensuredAfterUpdate = VarConstraints.updateDiseqs(ensuredDiseqs, f)
     val newEnsured = ensuredAfterUpdate ++ VarConstraints.diseqsImpliedByAllocation(newUsage)
     logger.trace(s"Updated $ensuredDiseqs via $ensuredAfterUpdate to $newEnsured")
-    val newSpeculation = VarConstraints.updateDiseqs(speculativeDiseqs, f) -- newEnsured
-    // Note: Since the update does not contain the information whether it is speculative or not,
-    // speculative equalities must be changed/removed explicitly, not implicitly via updates
-    val res = VarConstraints(newUsage, newEnsured, newSpeculation, speculativeEqs)
+    val newSpeculativeDiseqs = VarConstraints.updateDiseqs(speculativeDiseqs, f) -- newEnsured
+    val newSpeculativeEqs = speculativeEqs.map{
+      eq => (f(eq._1).head, f(eq._2).head)
+    }.filterNot(pair => pair._1 == pair._2)
+    val res = VarConstraints(newUsage, newEnsured, newSpeculativeDiseqs, newSpeculativeEqs)
 
     if (res.isInconsistent) {
       logger.debug(s"The update $f has turned $this into inconsistent constraints $res")
@@ -214,20 +192,34 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[(Set[Var], 
     }
   }
 
-  def addToSpeculation(atoms: Iterable[PureAtom]): VarConstraints = {
+  def addToSpeculation(atoms: Iterable[PureAtom]): Option[VarConstraints] = {
     val (eqs, diseqs) = atoms.partition(_.isEquality)
     val newSpeculativeEqs = speculativeEqs ++ eqs.map(_.ordered).map(atom => (atom.l,atom.r))
-    val newSpeculativeDiseqs = speculativeDiseqs filterNot {
-      diseq => atoms.exists(atom => VarConstraints.impliesDiseq(diseq, atom.l, atom.r))
+    val newSpeculativeDiseqs = speculativeDiseqs ++ diseqs.map{
+      case PureAtom(l, r, _) => (classOf(l), classOf(r))
     }
-    copy(speculativeDiseqs = newSpeculativeDiseqs, speculativeEqs = newSpeculativeEqs)
+    logger.debug(s"Considering $atoms for speculation wrt $this:\nNow have speculative equalities $newSpeculativeEqs and disequalities $newSpeculativeDiseqs.")
+
+    // Make sure the speculative equalities are reflected in the equivalence classes
+    val updated = if (eqs.nonEmpty) {
+      val f = SubstitutionUpdate.fromSetsOfEqualVars(eqs.map(_.getVars))
+      logger.debug(s"Speculative equalities must be propagated into $this via $f")
+      update(f)
+    } else {
+      Some(this)
+    }
+    val res = updated.map(_.copy(speculativeDiseqs = newSpeculativeDiseqs, speculativeEqs = newSpeculativeEqs))
+    if (res.isEmpty) {
+      logger.debug(s"Speculation $atoms would lead to double allocation. Returning no result.")
+    }
+    res
   }
 
-  def addToSpeculationUnlessEnsured(atoms: Iterable[PureAtom]): VarConstraints = {
+  def addToSpeculationUnlessEnsured(atoms: Iterable[PureAtom]): Option[VarConstraints] = {
     if (atoms.nonEmpty) {
       val notImplied = atoms filterNot impliesWithoutSpeculation
       addToSpeculation(notImplied)
-    } else this
+    } else Some(this)
   }
 
   private def updatedUsageInfo(f: SubstitutionUpdate): Option[Map[Set[Var], VarUsage]] = {

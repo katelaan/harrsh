@@ -11,7 +11,7 @@ object StringUtils {
     if (reps.isEmpty) s else literalReplacements(reps.tail, s.replaceAllLiterally(reps.head._1, reps.head._2))
   }
 
-  private def computeColumnLength(entries : Seq[Any], minLength : Int) : Int = Math.max(minLength,entries.map(_.toString.size).max + 1)
+  private def computeColumnLength(entries : Seq[Any], minLength : Int) : Int = Math.max(minLength, (""+:entries).map(_.toString.size).max + 1)
 
   sealed trait ColAlignment {
     def alignRight: Boolean = this match {
