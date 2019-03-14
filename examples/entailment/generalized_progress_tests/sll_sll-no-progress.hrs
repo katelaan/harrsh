@@ -1,4 +1,3 @@
-# The no-progress SID defined in this way always has length at least 2, so the entailment does not hold
 query {
      sll(x1, x2) |= sllnp(x1, x2)
 }
@@ -9,5 +8,5 @@ sid {
     sll <= x1 -> y * sll(y,x2)
 }
 info {
-    status = false
+    status = true
 }
