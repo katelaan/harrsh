@@ -35,7 +35,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     val nonEmptyClasses = classes forall (_.nonEmpty)
     val orderedSpeculation = speculativeEqs forall (p => p._1 <= p._2)
     val speculativeEqsNotPlaceholder = speculativeEqs forall (pair => !PlaceholderVar.isPlaceholder(pair._1) && !PlaceholderVar.isPlaceholder(pair._2))
-    logger.debug(s"No overlaps=$noOverlaps, diseqs among classes=$diseqsAmongClasses, ensured not speculative=$ensuredNotSpeculative, non-empty classes=$nonEmptyClasses, ordered speculation=$orderedSpeculation, no placeholder speculation=$speculativeEqsNotPlaceholder")
+    logger.trace(s"No overlaps=$noOverlaps, diseqs among classes=$diseqsAmongClasses, ensured not speculative=$ensuredNotSpeculative, non-empty classes=$nonEmptyClasses, ordered speculation=$orderedSpeculation, no placeholder speculation=$speculativeEqsNotPlaceholder")
     noOverlaps && diseqsAmongClasses && ensuredNotSpeculative && nonEmptyClasses && orderedSpeculation && speculativeEqsNotPlaceholder
   }
 
@@ -129,7 +129,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
 
   def speculativeEqsNotEnsuredIn(other: VarConstraints): Set[(Var, Var)] = {
     val res = speculativeEqs.filterNot(atom => other.impliesWithoutSpeculation(PureAtom(atom._1, atom._2, isEquality = true)))
-    logger.debug(s"Checking which among $speculativeEqs are not ensured in $other => $res")
+    logger.trace(s"Checking which among $speculativeEqs are not ensured in $other => $res")
     res
   }
 
@@ -176,7 +176,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     assert(isConsistent,
       s"Applying an update to an already inconsistent constraint set " + this)
     val updatedUsage = updatedUsageInfo(f)
-    updatedUsage foreach (u => logger.debug(s"Updated usage by $f from $usage to $u"))
+    updatedUsage foreach (u => logger.trace(s"Updated usage by $f from $usage to $u"))
     updatedUsage flatMap (updateFromNewUsage(_, f, mayEnsureEqualities))
   }
 
@@ -221,7 +221,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     // Make sure the speculative equalities are reflected in the equivalence classes
     val maybeUpdated = if (eqs.nonEmpty) {
       val f = SubstitutionUpdate.fromSetsOfEqualVars(eqs.map(_.getVars)).closeUnderEquivalenceClasses(classes)
-      logger.debug(s"Speculative equalities must be propagated into $this via $f")
+      logger.trace(s"Speculative equalities must be propagated into $this via $f")
       update(f, mayEnsureEqualities = false)
     } else {
       Some(this)
@@ -238,11 +238,11 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
         val newSpeculativeDiseqs = (speculativeDiseqs ++ diseqs.map{
           case PureAtom(l, r, _) => DiseqConstraint(Set(updated.classOf(l), updated.classOf(r)))
         }) -- nowEnsured
-        logger.debug(s"Considering $atoms for speculation wrt $this:\nNow have speculative equalities $newSpeculativeEqs and disequalities $newSpeculativeDiseqs.")
+        logger.trace(s"Considering $atoms for speculation wrt $this:\nNow have speculative equalities $newSpeculativeEqs and disequalities $newSpeculativeDiseqs.")
 
         Some(updated.copy(speculativeDiseqs = newSpeculativeDiseqs, speculativeEqs = newSpeculativeEqs))
       case None =>
-        logger.debug(s"Speculation $atoms would lead to double allocation. Returning no result.")
+        logger.trace(s"Speculation $atoms would lead to double allocation. Returning no result.")
         None
     }
   }
