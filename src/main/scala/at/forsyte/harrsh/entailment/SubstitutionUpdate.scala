@@ -93,32 +93,7 @@ object SubstitutionUpdate extends HarrshLogging {
     }.toMap
 
     SubstitutionUpdateMap(initialMap).closeUnderEquivalenceClasses(classes)
-//    var prevMap: Map[Var, Set[Var]] = Map.empty
-//    var currMap: Map[Var, Set[Var]] = classes.flatten.map{
-//      v:Var => v -> (classes.filter(_.contains(v)).flatten.toSet + v)
-//    }.toMap
-//    while (prevMap != currMap) {
-//      prevMap = currMap
-//      currMap = for {
-//        (k, vs) <- prevMap
-//      } yield (k, vs flatMap prevMap)
-//    }
-//    logger.debug(s"Equivalence classes ${classes.mkString(", ")} lead to the following updates:\n$currMap")
-//    SubstitutionUpdateMap(currMap)
   }
-
-//  def fromRuleAndParamSubstitution(rule: RuleBody, paramSubst: Substitution): SubstitutionUpdate = {
-//    val freeVarsToLeafSubst = rule.body.freeVars.zip(paramSubst.toSeq).toMap
-//    val boundVars = rule.body.boundVars.toSeq
-//    val allUnusedPlaceholders = PlaceholderVar.allUnusedPlaceholders(used = paramSubst.placeholders)
-//    val boundVarsToPlaceholders = boundVars.zip(allUnusedPlaceholders).toMap
-//    val renameArgs: SubstitutionUpdate = {
-//      case fv: FreeVar => freeVarsToLeafSubst(fv)
-//      case NullConst => Set(NullConst)
-//      case bv: BoundVar => Set[Var](boundVarsToPlaceholders(bv))
-//    }
-//    renameArgs
-//  }
 
   def forgetVars(varsToDrop: Iterable[Var]): SubstitutionUpdate = {
     SubstitutionUpdateMap(varsToDrop.zip(Stream.continually(Set.empty[Var])).toMap)
