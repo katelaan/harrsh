@@ -1,0 +1,11 @@
+# Concatenating two lists yields a list
+query {
+  dll(x1,x2) |= dll(x1,x2)
+}
+sid {
+  dll <= emp : {null = x1} ;
+  dll <= x1 -> (x2, y) * dll(y,x1);
+}
+info {
+  status = true
+}

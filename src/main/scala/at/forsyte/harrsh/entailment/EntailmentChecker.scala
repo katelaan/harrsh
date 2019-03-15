@@ -130,10 +130,10 @@ object EntailmentChecker extends HarrshLogging {
   private def pureProfile(atoms: Seq[PureAtom], computeEvenIfEmpty: Boolean): Option[EntailmentProfile] = {
     if (!computeEvenIfEmpty && atoms.isEmpty) None
     else {
-      val vars = atoms.flatMap(_.getNonNullVars).distinct
+      val vars = atoms.flatMap(_.getVars).distinct
       val constraints = VarConstraints.fromAtoms(vars.toSet, atoms)
       val decomp = ContextDecomposition(Set.empty, constraints)
-      val profile = EntailmentProfile(Set(decomp), vars)
+      val profile = EntailmentProfile(Set(decomp), vars.filter(!_.isNull))
       logger.debug(s"Created pure profile $profile from top-level atoms $atoms")
       Some(profile)
     }

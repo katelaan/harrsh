@@ -44,9 +44,8 @@ object EntailmentProfileComposition extends HarrshLogging {
         decompOfFst <- fst
         decompOfSnd <- snd
         combined <- decompOfFst.compositionOptions(sid, decompOfSnd)
-        _ = assert(combined.hasConsistentConstraints && !combined.isInconsistentWithFocus(sid))
       } yield combined
-      logger.debug(s"Decomps in profile composition:\n${if (res.nonEmpty) res.mkString("\n") else "empty (sink state)"}")
+      logger.debug(s"Preliminary decomps in profile composition:\n${if (res.nonEmpty) res.mkString("\n") else "empty (sink state)"}")
       res
     }
 

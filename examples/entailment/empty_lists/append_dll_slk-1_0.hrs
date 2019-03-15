@@ -1,0 +1,13 @@
+# Concatenating two lists yields a list
+query {
+  dll_e1(x1,x2) |= dll_e2(x1,x2)
+}
+sid {
+  dll_e1 <= x1 -> (p1, q1) * dll(q1,s) : {x1 = s, x2 = p1} ;
+  dll_e2 <= x1 -> (p1, n) * dll(q1,s) : {n = q1, p1 = p2, x1 = s, x2 = p2} ;
+  dll <= emp : {null = x1} ;
+  dll <= x1 -> (p_20, q_19) * dll(q_19,self_21) : {x2 = p_20, x1 = self_21} ;
+}
+info {
+  status = true
+}

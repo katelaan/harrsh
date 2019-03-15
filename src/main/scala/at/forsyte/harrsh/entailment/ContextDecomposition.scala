@@ -45,8 +45,8 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
   def compositionOptions(sid: RichSid, other: ContextDecomposition): Seq[ContextDecomposition] = {
     for {
       composed <- ContextDecompositionComposition(sid, this, other)
-      if composed.constraints.isConsistent
-      if !composed.isInconsistentWithFocus(sid)
+      if composed.hasConsistentConstraints
+      // Crucially, *DO NOT* check for consistency with focus here, as leaves will null alloc could still be removed in emp closure
     } yield composed
   }
 

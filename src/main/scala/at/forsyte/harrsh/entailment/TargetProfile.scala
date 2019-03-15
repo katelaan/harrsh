@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{FreeVar, Var}
+import at.forsyte.harrsh.seplog.{FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 import at.forsyte.harrsh.util.Combinators.inCase
@@ -61,16 +61,16 @@ object TargetProfile extends HarrshLogging {
   private def composeAndForget(profiles: Seq[EntailmentProfile], lab: SymbolicHeap, sid: RichSid): Option[EntailmentProfile] = {
     val composed = EntailmentProfileComposition.composeAll(sid, profiles, lab.freeVars ++ lab.boundVars)
     logger.debug(s"Target profile after initial composition:\n$composed")
-    composed foreach {
-      p => assert(p.decomps forall (!_.isInconsistentWithFocus(sid)),
-        s"Composed profile contains inconsistent decompositions:\n" + p.decomps.filter(_.isInconsistentWithFocus(sid)).mkString("\n")
-      )
-    }
     val processComposedProfile = (inCase(sid.hasEmptyBaseRules)(empClosure(sid))
+      andThen filterOutInconsistentFocus(sid)
       andThen inCase(sid.hasRecursiveRulesWithoutPointers)(mergeUsingNonProgressRules(sid))
       andThen restrictToFreeVars(lab)
       andThen dropNonviable(sid))
     composed map processComposedProfile
+  }
+
+  private def filterOutInconsistentFocus(sid: RichSid)(profile: EntailmentProfile) = {
+    profile.copy(decomps = profile.decomps.filterNot(_.isInconsistentWithFocus(sid)))
   }
 
   private def empClosure(sid: RichSid)(profile: EntailmentProfile): EntailmentProfile = {
@@ -79,8 +79,6 @@ object TargetProfile extends HarrshLogging {
   }
 
   private def empClosureOfDecomp(sid: RichSid)(decomp: ContextDecomposition): Set[ContextDecomposition] = {
-    assert(!decomp.isInconsistentWithFocus(sid),
-      "Trying to compute emp-closure of inconsistent decomposition " + decomp)
     val empClosureByCtx: Seq[Set[(EntailmentContext, Set[PureAtom])]] = decomp.parts.toSeq map empClosureOfContext(sid)
     for {
       closureOption: Seq[(EntailmentContext, Set[PureAtom])] <- Combinators.choices(empClosureByCtx)
@@ -135,7 +133,7 @@ object TargetProfile extends HarrshLogging {
     }
 
     def constraintOptionsForCall(call: ContextPredCall) = {
-      val update: Map[Var, Var] = (call.freeVarSeq zip call.subst.toSeq.map(_.head)).toMap
+      val update: Map[Var, Var] = ((NullConst, NullConst) +: (call.freeVarSeq zip call.subst.toSeq.map(_.head))).toMap
       for {
         option <- sid.constraintOptionsForEmptyModels(call.pred)
       } yield option.map(atom => PureAtom(update(atom.l), update(atom.r), atom.isEquality))
