@@ -55,8 +55,9 @@ object ScriptToQuery extends HarrshLogging {
     logger.debug(s"Top-level assertion(s):\n${(List(left) ++ maybeRight).mkString("\n")}")
     logger.debug(s"Predicate definitions:\n${rules.mkString("\n")}")
 
-    // FIXME: Compute rootedness?
-    val sid = SidFactory.makeSidfromRuleBodies("undefined", rules, fileName)
+    val originalSid = SidFactory.makeSidfromRuleBodies("undefined", rules, fileName)
+    val sid = SidFactory.transformToDefaultFVs(originalSid)
+
     val status = s.status.getOrElse(ProblemStatus.Unknown)
 
     maybeRight match {

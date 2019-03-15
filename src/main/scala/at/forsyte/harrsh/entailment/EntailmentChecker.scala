@@ -1,7 +1,6 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PureAtom, RichSid}
@@ -26,6 +25,7 @@ object EntailmentChecker extends HarrshLogging {
     * @return Computed result + optionally whether the result is as expected?
     */
   def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, Option[Boolean], EntailmentStats) = {
+    assume(entailmentInstance.usesDefaultFVs)
     val (entailmentHolds,stats) = solve(entailmentInstance, reportProgress, printResult, exportToLatex)
     entailmentInstance.entailmentHolds match {
       case Some(shouldHold) =>

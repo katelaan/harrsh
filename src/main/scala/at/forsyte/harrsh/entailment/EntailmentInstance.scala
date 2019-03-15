@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.StringUtils
 
@@ -20,9 +21,15 @@ case class EntailmentInstance(lhs: EntailmentQuerySide, rhs: EntailmentQuerySide
     s"EntailmentInstance {\n  LHS {\n${idt(lhs.prettyPrint)}\n  }\n  RHS {\n${idt(rhs.prettyPrint)}\n  }\n  Status: $status}"
   }
 
-
   lazy val queryString = s"${lhs.calls} |= ${rhs.calls}"
 
   lazy val originalQueryString = s"${lhs.originalAssertion} |= ${rhs.originalAssertion}"
+
+  def usesDefaultFVs: Boolean = {
+    val defaultNamesInPreds = (lhs.sid.preds ++ rhs.sid.preds) forall {
+      p => p.params == Var.getFvSeq(p.params.length)
+    }
+    defaultNamesInPreds
+  }
 
 }

@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{FreeVar, Renaming}
+import at.forsyte.harrsh.seplog.{FreeVar, Renaming, Var}
 
 object SidFactory extends HarrshLogging {
 
@@ -95,5 +95,17 @@ object SidFactory extends HarrshLogging {
 
   // TODO: Introduce unique names for bound vars + don't hardcode prefix?
   private def defaultBoundVarNames(sh: SymbolicHeap): Seq[String] = sh.boundVars.toSeq.map(bv => "_"+bv.index)
+
+  def transformToDefaultFVs(sid: Sid): Sid = {
+    val renamedPreds = for {
+      pred <- sid.preds
+      defaultVars = Var.getFvSeq(pred.params.length)
+      renaming = Renaming.fromPairs(pred.params zip defaultVars)
+      rules = pred.rules map {
+        case RuleBody(qvars, body) => RuleBody(qvars, body.rename(renaming, Some(defaultVars)))
+      }
+    } yield Predicate(pred.head, rules)
+    sid.copy(preds = renamedPreds)
+  }
 
 }
