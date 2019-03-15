@@ -1,4 +1,3 @@
-# Concatenating two lists yields a list
 query {
   dll_e1(x1,x2) |= dll_e2(x1,x2)
 }

@@ -1,4 +1,3 @@
-# Concatenating two lists yields a list
 query {
   dll(x1,x2) |= dll(x1,x2)
 }
