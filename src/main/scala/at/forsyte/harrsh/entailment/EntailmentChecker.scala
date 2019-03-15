@@ -48,6 +48,7 @@ object EntailmentChecker extends HarrshLogging {
     * @return True iff the entailment holds
     */
   def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, EntailmentStats) = {
+    logger.debug(s"Solving $entailmentInstance...")
     val res@(holds, stats) = runEntailmentAutomaton(entailmentInstance, reportProgress, printResult, exportToLatex)
 
     entailmentInstance.entailmentHolds foreach {

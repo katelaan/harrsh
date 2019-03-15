@@ -51,7 +51,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
   }
 
   def updateSubst(f: SubstitutionUpdate, mayEnsureEqualities: Boolean): Option[ContextDecomposition] = {
-    logger.debug(s"Will apply update to $this")
+    logger.debug(s"Will apply update $f to $this")
     val extendedF = f.closeUnderEquivalenceClasses(constraints.classes)
     constraints.update(extendedF, mayEnsureEqualities) map {
       updatedConstraints => ContextDecomposition(parts map (_.updateSubst(extendedF)), updatedConstraints)

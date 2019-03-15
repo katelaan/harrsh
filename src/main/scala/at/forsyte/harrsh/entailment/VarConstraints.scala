@@ -173,6 +173,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
   }
 
   def update(f: SubstitutionUpdate, mayEnsureEqualities: Boolean): Option[VarConstraints] = {
+    // TODO: Find a simpler, more uniform way of handling the update
     assert(isConsistent,
       s"Applying an update to an already inconsistent constraint set " + this)
     val updatedUsage = updatedUsageInfo(f)
@@ -254,8 +255,26 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     } else Some(this)
   }
 
+  def makeDisjoint(groupedNonDisjoint: Map[Set[Var], Map[Set[Var], VarUsage]]): Map[Set[Var], Map[Set[Var], VarUsage]] = {
+    Combinators.counts(groupedNonDisjoint.keys.toSeq.flatten).find{_._2 > 1} match {
+      case None =>
+        // Already disjoint
+        groupedNonDisjoint
+      case Some((v,_)) =>
+        val (overlapping, disjoint) = groupedNonDisjoint.partition(_._1.contains(v))
+        val newEntry: (Set[Var], Map[Set[Var], VarUsage]) = (overlapping.keySet.flatten, overlapping.values.flatten.toMap)
+        val merged = disjoint + newEntry
+        logger.trace(s"Merged $groupedNonDisjoint into\n$merged")
+        makeDisjoint(merged)
+    }
+  }
+
   private def updatedUsageInfo(f: SubstitutionUpdate): Option[Map[Set[Var], VarUsage]] = {
-    val grouped: Map[Set[Var], Map[Set[Var], VarUsage]] = usage.groupBy(pair => f(pair._1))
+    val groupedNonDisjoint: Map[Set[Var], Map[Set[Var], VarUsage]] = usage.groupBy(pair => f(pair._1))
+    // In case the update is a non-injective renaming, we might end up with non-disjoint groups.
+    // For example, if we have {x1, x3} and {x2, x4} and then rename both x1 and x3 to null.
+    // We have to catch this and merge accordingly
+    val grouped = makeDisjoint(groupedNonDisjoint)
 
     def doubleAlloc(group: Map[Set[Var], VarUsage]) : Boolean = group.values.count(_ == VarAllocated) >= 2
 

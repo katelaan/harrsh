@@ -12,6 +12,8 @@ case class EntailmentQuerySide(sid: RichSid, calls: TopLevelConstraint, original
 
 case class EntailmentInstance(lhs: EntailmentQuerySide, rhs: EntailmentQuerySide, entailmentHolds: Option[Boolean]) {
 
+  override def toString: String = prettyPrint
+
   def prettyPrint: String = {
     val idt = StringUtils.indent(4)_
     val status = entailmentHolds match {
