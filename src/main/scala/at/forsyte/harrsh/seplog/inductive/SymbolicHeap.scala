@@ -101,13 +101,13 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
     val renamedAtoms = atoms.rename(f, avoidDoubleCapture = false)
     overrideFreeVars match {
       case Some(newFreeVarSeq) =>
-        val res = SymbolicHeap(renamedAtoms, newFreeVarSeq)
-        if (res.freeVars.toSet == res.atoms.freeVarSeq.toSet) {
-          res
-        } else {
-          throw new IllegalArgumentException(s"Free vars supposed to be in result are ${res.freeVars.toSet}, but new free vars actually are ${res.atoms.freeVarSeq}")
-          //throw new IllegalArgumentException(s"Original free vars are $freeVars, new free vars are ${res.atoms.freeVarSeq}, but no order for the new sequence was provided")
-        }
+        SymbolicHeap(renamedAtoms, newFreeVarSeq)
+//        if (res.freeVars.toSet == res.atoms.freeVarSeq.toSet) {
+//          res
+//        } else {
+//          throw new IllegalArgumentException(s"Free vars supposed to be in result are ${res.freeVars.toSet}, but new free vars actually are ${res.atoms.freeVarSeq}")
+//          //throw new IllegalArgumentException(s"Original free vars are $freeVars, new free vars are ${res.atoms.freeVarSeq}, but no order for the new sequence was provided")
+//        }
       case None =>
         val res = SymbolicHeap(renamedAtoms, Var.freeNonNullVars(freeVars.map(f.apply)))
         if (res.freeVars.forall(v => freeVars.contains(v))) {

@@ -1,11 +1,10 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{NullConst, Var}
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RichSid}
 
 case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarConstraints) extends HarrshLogging {
-  assert(constraints.isWellFormed, "Well-formedness constraint violated in " + constraints)
 
   assert(constraints.definedOnAllOf(occurringLabels),
     s"Inconsistent decomposition: Occurring labels are $occurringLabels, but constraints $constraints only defined on ${constraints.classes}"
@@ -43,26 +42,22 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
   // BEGIN compose, rename, forget
 
   def compositionOptions(sid: RichSid, other: ContextDecomposition): Seq[ContextDecomposition] = {
-    for {
-      composed <- ContextDecompositionComposition(sid, this, other)
-      if composed.hasConsistentConstraints
-      // Crucially, *DO NOT* check for consistency with focus here, as leaves will null alloc could still be removed in emp closure
-    } yield composed
+    // Crucially, *DO NOT* check for consistency with focus here, as leaves will null alloc could still be removed in emp closure
+    ContextDecompositionComposition(sid, this, other)
   }
 
-  def updateSubst(f: SubstitutionUpdate, mayEnsureEqualities: Boolean): Option[ContextDecomposition] = {
+  def updateSubst(f: ConstraintUpdater): Option[ContextDecomposition] = {
     logger.debug(s"Will apply update $f to $this")
-    val extendedF = f.closeUnderEquivalenceClasses(constraints.classes)
-    constraints.update(extendedF, mayEnsureEqualities) map {
-      updatedConstraints => ContextDecomposition(parts map (_.updateSubst(extendedF)), updatedConstraints)
+    f(constraints) map {
+      updatedConstraints => ContextDecomposition(parts map (_.updateSubst(f)), updatedConstraints)
     }
   }
 
-  private def renameVarsToFreshPlaceholders(varsToRename: Iterable[Var]): SubstitutionUpdate = {
+  private def renameVarsToFreshPlaceholders(varsToRename: Iterable[Var]): ConstraintUpdater = {
     val maxPlaceholder = PlaceholderVar.maxIndex(placeholders)
     val newPlaceholders = (1 to varsToRename.size) map (i => PlaceholderVar(maxPlaceholder + i))
     val pairs: Seq[(Var, Var)] = varsToRename.toSeq.zip(newPlaceholders.map(_.toFreeVar))
-    SubstitutionUpdate.renaming(pairs)
+    BijectiveRenamingUpdate.fromPairs(pairs)
   }
 
   def forget(varsToForget: Set[Var]): Option[ContextDecomposition] = {
@@ -84,14 +79,15 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
 
   private def replaceByPlaceholders(vars: Set[Var]) = {
     // TODO: More efficient variable dropping for decomps?
-    val update: SubstitutionUpdate = renameVarsToFreshPlaceholders(vars)
+    val update: ConstraintUpdater = renameVarsToFreshPlaceholders(vars)
     val partsAfterDropping = parts map (_.updateSubst(update))
-    val constraintsAfterDropping = constraints.unsafeUpdate(update, mayEnsureEqualities = true)
-    val redundantPlaceholders = constraintsAfterDropping.placeholders filterNot {
+    val constraintsAfterRenaming = update.unsafeUpdate(constraints)
+    val redundantPlaceholders = constraintsAfterRenaming.placeholders filterNot {
       ph => partsAfterDropping.exists(_.placeholders.contains(ph))
     }
     logger.debug(s"Will drop redundant placeholders $redundantPlaceholders introduced when forgetting $vars")
-    val cleanedConstraints = constraintsAfterDropping.forget(redundantPlaceholders.map(_.toFreeVar))
+    val dropper = DropperUpdate(redundantPlaceholders.map(_.toFreeVar))
+    val cleanedConstraints = dropper.unsafeUpdate(constraintsAfterRenaming)
 
     ContextDecomposition(partsAfterDropping, cleanedConstraints).toPlaceholderNormalForm
   }
@@ -125,14 +121,32 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     val establishNormalForm = ContextPredCall.placeholderNormalFormUpdater(orderedLabels)
     // Can never fail since we simply rename things without identifying them, so _.get is safe
     // Note: It does not matter for correctness what we pass to mayEnsureEqualities here, since we apply a bijection
-    withoutRedundancies.updateSubst(establishNormalForm, mayEnsureEqualities = false).get
+    withoutRedundancies.updateSubst(establishNormalForm).get
   }
 
   private def dropRedundantPlaceholders: ContextDecomposition = {
-    val dropper = SubstitutionUpdate.redundantPlaceholderDropper(allPredCalls)
+    val dropper = DropperUpdate(redundantPlaceholders)
     val partsAfterDropping = parts map (_.updateSubst(dropper))
-    val constraintsAfterDropping = constraints.unsafeUpdate(dropper, mayEnsureEqualities = true)
+    val constraintsAfterDropping = dropper.unsafeUpdate(constraints)
     ContextDecomposition(partsAfterDropping, constraintsAfterDropping)
+  }
+
+  private def redundantPlaceholders: Set[Var] = {
+    def getRedundantVars(vs: Set[Var]): Set[Var] = {
+      val (phs, nonPhs) = vs.partition(PlaceholderVar.isPlaceholder)
+      if (nonPhs.nonEmpty) {
+        // There is a proper free var in this equivalence class => discard all equivalent placeholders
+        phs
+      } else {
+        // Keep only the smallest placeholder among multiple placeholders
+        val typedPhs = phs map (ph => PlaceholderVar.fromVar(ph).get)
+        phs - PlaceholderVar.min(typedPhs).toFreeVar
+      }
+    }
+    val equivalenceClasses = Substitution.extractVarEquivClasses(allPredCalls map (_.subst))
+    val redundantVars = equivalenceClasses.flatMap(getRedundantVars)
+    logger.trace(s"Redundant vars: $redundantVars")
+    redundantVars
   }
 
   def isInPlaceholderNormalForm: Boolean = {
@@ -176,10 +190,8 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots) && !parts.exists(_.hasNullInRootPosition(sid))
   }
 
-  lazy val hasConsistentConstraints: Boolean = constraints.isConsistent
-
-  def isInconsistentWithFocus(sid: RichSid): Boolean = {
-    parts.exists(_.hasNullInRootPosition(sid))
+  def isConsistentWithFocus(sid: RichSid): Boolean = {
+    parts.forall(!_.hasNullInRootPosition(sid))
   }
 
   private def doubleAlloc(sid: RichSid): Boolean = {

@@ -13,7 +13,8 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
   // FIXME: It seems like the implicit equality speculation is actually unsound in case we forget one of the participating variables! Should probably track such equalities explicitly here as well!
 
   assert(isWellFormed, s"$this is not well-formed")
-  assert(VarConstraints.diseqsImpliedByAllocation(usage) subsetOf ensuredDiseqs)
+  assert(allocatedEnsuredNotNull)
+  assert(isConsistent)
 
   val isSpeculative: Boolean = speculativeDiseqs.nonEmpty || speculativeEqs.nonEmpty
 
@@ -28,7 +29,7 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
 
   private lazy val allDiseqs: Set[DiseqConstraint] = ensuredDiseqs ++ speculativeDiseqs
 
-  def isWellFormed: Boolean = {
+  private def isWellFormed: Boolean = {
     val noOverlaps = VarConstraints.hasDisjointEqualityClasses(usage)
     val diseqsAmongClasses = allDiseqs forall (diseq => diseq.underlying subsetOf classes)
     val ensuredNotSpeculative = ensuredDiseqs.intersect(speculativeDiseqs).isEmpty
@@ -37,6 +38,15 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     val speculativeEqsNotPlaceholder = speculativeEqs forall (pair => !PlaceholderVar.isPlaceholder(pair._1) && !PlaceholderVar.isPlaceholder(pair._2))
     logger.trace(s"No overlaps=$noOverlaps, diseqs among classes=$diseqsAmongClasses, ensured not speculative=$ensuredNotSpeculative, non-empty classes=$nonEmptyClasses, ordered speculation=$orderedSpeculation, no placeholder speculation=$speculativeEqsNotPlaceholder")
     noOverlaps && diseqsAmongClasses && ensuredNotSpeculative && nonEmptyClasses && orderedSpeculation && speculativeEqsNotPlaceholder
+  }
+
+  private def allocatedEnsuredNotNull: Boolean = {
+    VarConstraints.diseqsImpliedByAllocation(usage) subsetOf ensuredDiseqs
+  }
+
+  private def isConsistent: Boolean = {
+    def contradictoryDiseq = allDiseqs.exists(_.isContradictory)
+    !nullAlloced && !contradictoryDiseq
   }
 
   def definedOnAllOf(varSets: Set[Set[Var]]): Boolean = varSets subsetOf classes
@@ -64,26 +74,6 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     }
   }
 
-  def isConsistent: Boolean = {
-    def contradictoryDiseq = allDiseqs.exists(_.isContradictory)
-    !nullAlloced && !contradictoryDiseq
-  }
-
-  def isInconsistent: Boolean = !isConsistent
-
-  def forget(vs: Set[Var]): VarConstraints = {
-    assume(!areRequiredInSpeculation(vs))
-
-    val f = SubstitutionUpdate.forgetVars(vs)
-    val newUsage = usage.map(pair => (f(pair._1), pair._2)).filterKeys(_.nonEmpty)
-    val newEnsuredDiseqs = VarConstraints.updateAndDropEmptyDiseqs(ensuredDiseqs, f)
-    //val newSpeculation = VarConstraints.updateAndDropEmptyDiseqs(speculatedDiseqs, updateMap)
-    // Because we're never allowed to lose speculative constraints in a forget operation, we don't need to check for empty constraints here.
-    val newSpeculativeDiseqs = VarConstraints.updateDiseqs(speculativeDiseqs, f)
-    // Note: The speculative equalities need not be updated, because we assume that the vars we forget are not needed in speculation
-    VarConstraints(newUsage, newEnsuredDiseqs, newSpeculativeDiseqs, speculativeEqs)
-  }
-
   def restrictToNonPlaceholdersAnd(classesToKeep: Set[Set[Var]]): Option[VarConstraints] = {
     val varsToRetainExplicitly = classesToKeep.flatten
     val varsToRetain = allVars filter (v => varsToRetainExplicitly(v) || !PlaceholderVar.isPlaceholder(v))
@@ -103,28 +93,8 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
   def restrictPlaceholdersTo(placeholders: Set[Var]): VarConstraints = {
     val allPlaceholders = allVars filter PlaceholderVar.isPlaceholder
     val toDrop = allPlaceholders -- placeholders
-    val update = SubstitutionUpdate.forgetVars(toDrop)
-    unsafeUpdate(update, mayEnsureEqualities = false)
-  }
-
-  def mergeUsingUpdate(otherBeforeUpdate: VarConstraints, upd: SubstitutionUpdate): Option[VarConstraints] = {
-    logger.debug(s"Will try to merge constraints:\n$this and\n$otherBeforeUpdate using\n$upd")
-    for {
-      thisUpd <- update(upd, mayEnsureEqualities = true)
-      other <- otherBeforeUpdate.update(upd, mayEnsureEqualities = true)
-      _ = assume(thisUpd.allocedVars.intersect(other.allocedVars).isEmpty)
-      allClasses = thisUpd.classes ++ other.classes
-      newUsage = allClasses.map(c => (c, Set(thisUpd.usage.getOrElse(c,VarUnused), other.usage.getOrElse(c,VarUnused)).max)).toMap
-      allEnsured = thisUpd.ensuredDiseqs ++ other.ensuredDiseqs ++ VarConstraints.diseqsImpliedByAllocation(newUsage)
-      // Note: Crucially, we check whether the missing equalities are ensured *before* the update
-      // After the update, they are ensured by definition, as they will have been propagated into the classes!
-      missingEqs = speculativeEqsNotEnsuredIn(otherBeforeUpdate) ++ otherBeforeUpdate.speculativeEqsNotEnsuredIn(this)
-    } yield VarConstraints(
-      newUsage,
-      allEnsured,
-      (thisUpd.speculativeDiseqs ++ other.speculativeDiseqs) -- allEnsured,
-      missingEqs
-    )
+    val dropper = DropperUpdate(toDrop)
+    dropper.unsafeUpdate(this)
   }
 
   def speculativeEqsNotEnsuredIn(other: VarConstraints): Set[(Var, Var)] = {
@@ -159,122 +129,13 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     speculativeDiseqs exists (_.requires(vs))
   }
 
-  /**
-    * Use this when you know that the update can never fail, e.g. because it never merges any equivalence classes.
-    *
-    * For example, this is the case when we simply rename variables (without double capture) or when we drop names.
-    *
-    * @param f
-    * @return
-    */
-  def unsafeUpdate(f: SubstitutionUpdate, mayEnsureEqualities: Boolean): VarConstraints = {
-    // TODO: More efficient implementation of this where we skip the checks
-    update(f, mayEnsureEqualities).get
-  }
-
-  def update(f: SubstitutionUpdate, mayEnsureEqualities: Boolean): Option[VarConstraints] = {
-    // TODO: Find a simpler, more uniform way of handling the update
-    assert(isConsistent,
-      s"Applying an update to an already inconsistent constraint set " + this)
-    val updatedUsage = updatedUsageInfo(f)
-    updatedUsage foreach (u => logger.trace(s"Updated usage by $f from $usage to $u"))
-    updatedUsage flatMap (updateFromNewUsage(_, f, mayEnsureEqualities))
-  }
-
-  private def updateFromNewUsage(newUsage: VarUsageByLabel, f: SubstitutionUpdate, mayEnsureEqualities: Boolean): Option[VarConstraints] = {
-    assert(VarConstraints.hasDisjointEqualityClasses(newUsage), "Non-disjoint classes in usage " + newUsage)
-    val ensuredAfterUpdate = VarConstraints.updateDiseqs(ensuredDiseqs, f)
-    val newEnsured = ensuredAfterUpdate ++ VarConstraints.diseqsImpliedByAllocation(newUsage)
-    logger.trace(s"Updated $ensuredDiseqs via $ensuredAfterUpdate to $newEnsured")
-    val newSpeculativeDiseqs = VarConstraints.updateDiseqs(speculativeDiseqs, f) -- newEnsured
-    val newSpeculativeEqs = updateSpeculativeEqs(f, mayEnsureEqualities)
-    val res = VarConstraints(newUsage, newEnsured, newSpeculativeDiseqs, newSpeculativeEqs)
-
-    if (res.isInconsistent) {
-      logger.debug(s"The update $f has turned $this into inconsistent constraints $res")
-      None
-    }
-    else {
-      Some(res)
-    }
-  }
-
-  private def updateSpeculativeEqs(f: SubstitutionUpdate, mayEnsureEqualities: Boolean): Set[(Var,Var)] = {
-    val updated = if (mayEnsureEqualities) {
-      speculativeEqs.map {
-        eq => (f(eq._1).head, f(eq._2).head)
-      }.filterNot(pair => pair._1 == pair._2)
-    } else {
-      speculativeEqs map {
-        // If the update sets equal the variables, we must not execute it, sicne we're not allowed to propagate this information
-        // This is an extremely hacky solution...
-        eq => if (Set(eq._1,eq._2) subsetOf f(eq._1)) eq else (f(eq._1).head,f(eq._2).head)
-      }
-    }
-    updated map {
-      pair => if (pair._1 <= pair._2) pair else pair.swap
-    }
-  }
-
-  def addToSpeculation(atoms: Iterable[PureAtom]): Option[VarConstraints] = {
-    val (eqs, diseqs) = atoms.partition(_.isEquality)
-
-    // Make sure the speculative equalities are reflected in the equivalence classes
-    val maybeUpdated = if (eqs.nonEmpty) {
-      val f = SubstitutionUpdate.fromSetsOfEqualVars(eqs.map(_.getVars)).closeUnderEquivalenceClasses(classes)
-      logger.trace(s"Speculative equalities must be propagated into $this via $f")
-      update(f, mayEnsureEqualities = false)
-    } else {
-      Some(this)
-    }
-
-    maybeUpdated match {
-      case Some(updated) =>
-        val newSpeculativeEqs = (speculativeEqs ++ eqs.map(_.ordered).map(atom => (atom.l,atom.r))) filterNot {
-          pair => PlaceholderVar.isPlaceholder(pair._1) || PlaceholderVar.isPlaceholder(pair._2)
-        }
-        // The speculative equalities may invalidate some of the speculative disequalities
-        // We thus remove the now-ensured equalities from the speculative disequalities
-        val nowEnsured = updated.ensuredDiseqs
-        val newSpeculativeDiseqs = (speculativeDiseqs ++ diseqs.map{
-          case PureAtom(l, r, _) => DiseqConstraint(Set(updated.classOf(l), updated.classOf(r)))
-        }) -- nowEnsured
-        logger.trace(s"Considering $atoms for speculation wrt $this:\nNow have speculative equalities $newSpeculativeEqs and disequalities $newSpeculativeDiseqs.")
-
-        Some(updated.copy(speculativeDiseqs = newSpeculativeDiseqs, speculativeEqs = newSpeculativeEqs))
-      case None =>
-        logger.trace(s"Speculation $atoms would lead to double allocation. Returning no result.")
-        None
-    }
-  }
-
-  def addToSpeculationUnlessEnsured(atoms: Iterable[PureAtom]): Option[VarConstraints] = {
-    if (atoms.nonEmpty) {
-      val notImplied = atoms filterNot impliesWithoutSpeculation
-      addToSpeculation(notImplied)
-    } else Some(this)
-  }
-
-  def makeDisjoint(groupedNonDisjoint: Map[Set[Var], Map[Set[Var], VarUsage]]): Map[Set[Var], Map[Set[Var], VarUsage]] = {
-    Combinators.counts(groupedNonDisjoint.keys.toSeq.flatten).find{_._2 > 1} match {
-      case None =>
-        // Already disjoint
-        groupedNonDisjoint
-      case Some((v,_)) =>
-        val (overlapping, disjoint) = groupedNonDisjoint.partition(_._1.contains(v))
-        val newEntry: (Set[Var], Map[Set[Var], VarUsage]) = (overlapping.keySet.flatten, overlapping.values.flatten.toMap)
-        val merged = disjoint + newEntry
-        logger.trace(s"Merged $groupedNonDisjoint into\n$merged")
-        makeDisjoint(merged)
-    }
-  }
-
   private def updatedUsageInfo(f: SubstitutionUpdate): Option[Map[Set[Var], VarUsage]] = {
-    val groupedNonDisjoint: Map[Set[Var], Map[Set[Var], VarUsage]] = usage.groupBy(pair => f(pair._1))
-    // In case the update is a non-injective renaming, we might end up with non-disjoint groups.
-    // For example, if we have {x1, x3} and {x2, x4} and then rename both x1 and x3 to null.
-    // We have to catch this and merge accordingly
-    val grouped = makeDisjoint(groupedNonDisjoint)
+//    val groupedNonDisjoint: Map[Set[Var], Map[Set[Var], VarUsage]] = usage.groupBy(pair => f(pair._1))
+//    // In case the update is a non-injective renaming, we might end up with non-disjoint groups.
+//    // For example, if we have {x1, x3} and {x2, x4} and then rename both x1 and x3 to null.
+//    // We have to catch this and merge accordingly
+//    val grouped = makeDisjoint(groupedNonDisjoint)
+    val grouped: Map[Set[Var], Map[Set[Var], VarUsage]] = usage.groupBy(pair => f(pair._1))
 
     def doubleAlloc(group: Map[Set[Var], VarUsage]) : Boolean = group.values.count(_ == VarAllocated) >= 2
 
@@ -332,7 +193,7 @@ object VarConstraints extends HarrshLogging {
 
     def isVacuous: Boolean = underlying.exists(_.isEmpty)
 
-    def update(f: SubstitutionUpdate) = DiseqConstraint(underlying.map(f(_)))
+    def update(f: ConstraintUpdater) = DiseqConstraint(underlying.map(f(_)))
 
     def requires(vs: Set[Var]): Boolean = {
       underlying exists (_ subsetOf vs)
@@ -376,14 +237,6 @@ object VarConstraints extends HarrshLogging {
     Combinators.pairsWithoutRepetitions(allocedClasses) map {
       pair => DiseqConstraint(Set(pair._1, pair._2))
     }
-  }
-
-  def updateDiseqs(diseqs: Set[DiseqConstraint], f: SubstitutionUpdate): Set[DiseqConstraint] = {
-    diseqs map (_.update(f))
-  }
-
-  def updateAndDropEmptyDiseqs(diseqs: Set[DiseqConstraint], f: SubstitutionUpdate): Set[DiseqConstraint] = {
-    updateDiseqs(diseqs, f) filterNot (_.isVacuous)
   }
 
   def hasDisjointEqualityClasses(usage: VarUsageByLabel): Boolean = Combinators.counts(usage.keys.toSeq.flatten).forall(_._2 == 1)

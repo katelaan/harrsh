@@ -34,7 +34,7 @@ object TargetProfile extends HarrshLogging {
     val renamedProfiles = RenamedSourceStates(sid, src, lab)
     if (renamedProfiles.isConsistent) {
       val local = LocalProfile(lab, sid)
-      assert(local.decomps forall (d => d.hasConsistentConstraints && !d.isInconsistentWithFocus(sid)),
+      assert(local.decomps forall (_.isConsistentWithFocus(sid)),
         s"Local profile $local contains inconsistent decompositions")
       combineLocalAndSourceProfiles(local, renamedProfiles, lab, sid)
     } else {
@@ -70,7 +70,7 @@ object TargetProfile extends HarrshLogging {
   }
 
   private def filterOutInconsistentFocus(sid: RichSid)(profile: EntailmentProfile) = {
-    profile.copy(decomps = profile.decomps.filterNot(_.isInconsistentWithFocus(sid)))
+    profile.copy(decomps = profile.decomps.filter(_.isConsistentWithFocus(sid)))
   }
 
   private def empClosure(sid: RichSid)(profile: EntailmentProfile): EntailmentProfile = {
@@ -92,16 +92,21 @@ object TargetProfile extends HarrshLogging {
         else
           "No speculation necessary to apply the emp-closure."
       }
-      constraintsWithNewSpeculation <- decomp.constraints.addToSpeculationUnlessEnsured(newAtomsRelevantForSpeculation)
-      _ = logger.debug(s"Updated constraints from ${decomp.constraints} to $constraintsWithNewSpeculation")
-      newEqualities = newPureAtoms.filter(_.isEquality).map(atom => Set(atom.l,atom.r))
-      decompBeforeUpdate = ContextDecomposition(newCtxs.toSet, constraintsWithNewSpeculation)
-      update = SubstitutionUpdate.fromSetsOfEqualVars(newEqualities)
-      _ = logger.debug(s"Will apply update derived from ${newEqualities.mkString("{",", ","}")}, discarding the result in case of inconsistencies")
-      // Note: If we set mayEnsureEqualities to true, we'd immediately lose the speculative equalities we just added
-      newDecomp <- decompBeforeUpdate.updateSubst(update, mayEnsureEqualities = false)
-      if newDecomp.hasConsistentConstraints
-      if !newDecomp.isInconsistentWithFocus(sid)
+
+//      constraintsWithNewSpeculation <- decomp.constraints.addToSpeculationUnlessEnsured(newAtomsRelevantForSpeculation)
+//      _ = logger.debug(s"Updated constraints from ${decomp.constraints} to $constraintsWithNewSpeculation")
+//      newEqualities = newPureAtoms.filter(_.isEquality).map(atom => Set(atom.l,atom.r))
+//      decompBeforeUpdate = ContextDecomposition(newCtxs.toSet, constraintsWithNewSpeculation)
+//      update = SubstitutionUpdate.fromSetsOfEqualVars(newEqualities)
+//      _ = logger.debug(s"Will apply update derived from ${newEqualities.mkString("{",", ","}")}, discarding the result in case of inconsistencies")
+//      // Note: If we set mayEnsureEqualities to true, we'd immediately lose the speculative equalities we just added
+//      newDecomp <- decompBeforeUpdate.updateSubst(update, mayEnsureEqualities = false)
+
+      // TODO: Is it okay to simply reuse the constraints here, or should we explicitly drop those classes that don't occur after the emp closure?
+      decompBeforeUpdate = ContextDecomposition(newCtxs.toSet, decomp.constraints)
+      speculationUpdate = SpeculativeUpdate(newAtomsRelevantForSpeculation, decomp.constraints.classes)
+      newDecomp <- decompBeforeUpdate.updateSubst(speculationUpdate)
+      if newDecomp.isConsistentWithFocus(sid)
       res = newDecomp.toPlaceholderNormalForm
       _ = logger.debug("Emp-closure is consistent. Will retain updated decomposition\n" + res)
     } yield res

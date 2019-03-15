@@ -80,10 +80,10 @@ object PlaceholderVar {
     phs.isEmpty || phs.map(_.index).max == phs.size
   }
 
-  def placeholderClashAvoidanceUpdate(phs: Set[PlaceholderVar]) : SubstitutionUpdate = {
+  def placeholderClashAvoidanceUpdate(phs: Set[PlaceholderVar]) : ConstraintUpdater = {
     val maxPv = max(phs)
     val shiftBy = maxPv.index
-    RenamingToFreshVarsUpdate("Placeholder clash avoidance update",
+    BijectiveRenamingUpdate(s"Placeholder clash avoidance update with shift $shiftBy",
       fv => fromVar(fv) match {
         case Some(PlaceholderVar(value)) => PlaceholderVar(value + shiftBy).toFreeVar
         case None => fv

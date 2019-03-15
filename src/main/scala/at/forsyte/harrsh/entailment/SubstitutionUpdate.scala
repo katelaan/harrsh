@@ -45,7 +45,7 @@ case class SubstitutionUpdateMap(underlying: Map[Var, Set[Var]]) extends Substit
   }
 }
 
-case class RenamingToFreshVarsUpdate(description: String, underlying: Var => Var) extends SubstitutionUpdate {
+case class RenamingToFreshVarsUpdate(description: String, underlying: Var => Var) extends SubstitutionUpdate with HarrshLogging {
 
   override def toString: String = description
 
@@ -55,6 +55,7 @@ case class RenamingToFreshVarsUpdate(description: String, underlying: Var => Var
     // Nothing to do, since we're introducing new names.
     this
   }
+
 }
 
 object SubstitutionUpdate extends HarrshLogging {

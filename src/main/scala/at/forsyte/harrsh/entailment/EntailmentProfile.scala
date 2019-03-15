@@ -8,10 +8,6 @@ import at.forsyte.harrsh.seplog.inductive.RichSid
 // TODO: Turn parameters into Set. This probably has repercussions for the current treatment of non-standard calls, so I can't do it right now. See also TODO in ComposeProfiles
 case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: Seq[Var]) extends HarrshLogging {
 
-  assert(decomps forall (_.hasConsistentConstraints),
-    "Explicit null allocation in profile " + this
-  )
-
   assert(decomps forall (_.isInPlaceholderNormalForm),
     s"The decomposition ${decomps.find(!_.isInPlaceholderNormalForm).get} is not in placeholder normalform"
   )
@@ -34,11 +30,15 @@ case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: 
   def rename(sid: RichSid, to: Seq[Var]): EntailmentProfile = {
     logger.debug(s"Will rename $orderedParams to $to in $this")
     assert(to.size == orderedParams.size)
-    val callUpdate = SubstitutionUpdate.renaming(orderedParams zip to)
-    val renamed = decomps.flatMap(_.updateSubst(callUpdate, mayEnsureEqualities = true))
+    val instantiation = orderedParams zip to
+    val renamed = for {
+      decomp <- decomps
+      update = InstantiationUpdate(instantiation, decomp.constraints.classes)
+      instantiated <- decomp.updateSubst(update)
+    } yield instantiated
     // TODO Do we want to improve the consistency check, which currently only looks at root parameters? (But that would require knowing which other variables are guaranteed to be allocated in the SID, i.e., additional preprocessing!)
     // TODO [Rootedness] The following code depends on rootedness annotations. Do we want to be able to explicitly enable it?
-    val consistent = renamed filter (_.hasConsistentConstraints) filterNot (_.isInconsistentWithFocus(sid)) map (_.toPlaceholderNormalForm)
+    val consistent = renamed filter (_.isConsistentWithFocus(sid)) map (_.toPlaceholderNormalForm)
     EntailmentProfile(consistent, to.distinct.filterNot(_.isNull))
   }
 

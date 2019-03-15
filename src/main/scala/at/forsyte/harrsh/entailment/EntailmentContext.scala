@@ -17,7 +17,7 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
     } yield p
   }
 
-  def updateSubst(f: SubstitutionUpdate): EntailmentContext = EntailmentContext(root.update(f), calls map (_.update(f)))
+  def updateSubst(f: ConstraintUpdater): EntailmentContext = EntailmentContext(root.update(f), calls map (_.update(f)))
 
   def isConcrete: Boolean = calls.isEmpty
 

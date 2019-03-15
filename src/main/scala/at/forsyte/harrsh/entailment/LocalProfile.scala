@@ -10,7 +10,7 @@ object LocalProfile extends HarrshLogging {
   def apply(lab: SymbolicHeap, sid: RichSid): EntailmentProfile = {
     logger.debug(s"Will compute profile for local allocation of $lab")
     val params = varsInLocalAllocation(lab)
-    val decomps = decompsOfLocalAllocation(params, lab, sid).filterNot(_.isInconsistentWithFocus(sid))
+    val decomps = decompsOfLocalAllocation(params, lab, sid).filter(_.isConsistentWithFocus(sid))
     logger.debug(s"Decompositions in local profile of $lab:\n${decomps.mkString("\n")}")
     EntailmentProfile(decomps, params)
   }
@@ -156,7 +156,9 @@ object LocalProfile extends HarrshLogging {
     assert(rootParams.toSet subsetOf renamedRhs.allVars)
     assert(ensured.intersect(missing).isEmpty)
     val vars = renamedRhs.allVars ++ ensured.flatMap(_.getVars) ++ missing.flatMap(_.getVars)
-    VarConstraints.fromAtoms(vars, ensured).addToSpeculation(missing).flatMap { constraintsWithoutUsage =>
+    val initialConstraints = VarConstraints.fromAtoms(vars, ensured)
+    val addSpeculation = SpeculativeUpdate(missing, initialConstraints.classes)
+    addSpeculation(initialConstraints).flatMap { constraintsWithoutUsage =>
       val toSet = (v: Var) => constraintsWithoutUsage.classOf(v)
       val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
 

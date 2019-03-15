@@ -16,7 +16,7 @@ case class ContextPredCall(pred: Predicate, subst: Substitution) {
     s"${pred.head}(${args.mkString(", ")})"
   }
 
-  def update(f: SubstitutionUpdate): ContextPredCall = copy(subst = subst.update(f))
+  def update(f: ConstraintUpdater): ContextPredCall = copy(subst = subst.update(f))
 
   def freeVarSeq: Seq[FreeVar] = pred.params
 
@@ -66,7 +66,7 @@ case class ContextPredCall(pred: Predicate, subst: Substitution) {
 
 object ContextPredCall extends HarrshLogging {
 
-  def placeholderNormalFormUpdater(orderedNodeLabels: Seq[ContextPredCall]): SubstitutionUpdate = {
+  def placeholderNormalFormUpdater(orderedNodeLabels: Seq[ContextPredCall]): ConstraintUpdater = {
     logger.trace("Will order placeholders in order of occurrence in " + orderedNodeLabels)
     val found = mutable.Set.empty[PlaceholderVar]
     val order = new mutable.ListBuffer[PlaceholderVar]()
@@ -84,7 +84,7 @@ object ContextPredCall extends HarrshLogging {
     val renameTo = (1 to order.size) map (PlaceholderVar(_).toFreeVar)
     val pairs = renameFrom.zip(renameTo)
     logger.trace("Will establish placeholder normalform via update " + pairs)
-    SubstitutionUpdate.renaming(pairs)
+    BijectiveRenamingUpdate.fromPairs(pairs)
   }
 
 }

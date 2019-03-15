@@ -42,7 +42,7 @@ case class Substitution(toSeq: Seq[Set[Var]]) extends AnyVal {
     * Update this Labeling by applying f to all values in the labeling.
     * @param f Function to apply to each value in the range of the labeling
     */
-  def update(f: SubstitutionUpdate): Substitution = Substitution(toSeq map (f(_)))
+  def update(f: ConstraintUpdater): Substitution = Substitution(toSeq map (f(_)))
 
 }
 
