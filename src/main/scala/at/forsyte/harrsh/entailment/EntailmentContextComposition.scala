@@ -13,18 +13,36 @@ object EntailmentContextComposition extends HarrshLogging {
       if !doubleAlloc(t1.root, n2, constraints.usage)
       //propagateUnification = unification(t1.root, n2)
       (speculativeEqs, nonspeculativeEqs) = unificationEqualities(t1.root, n2)
-      if speculativeEqs.isEmpty
+      // TODO: Abort if we need to speculate something about bound vars
+      //if speculativeEqs.isEmpty
       // TODO: Streamline this into a single update step? Nontrivial because of possible transitive equalities between placeholders
+
+      // Step 1: Equalities with placeholders
       instantiationPreUnification = instantiate(t2, n2, t1)
       nonspeculativeUpdate = PureAtomUpdate(nonspeculativeEqs, fst.classes ++ snd.classes)
-      intermediateConstraints <- nonspeculativeUpdate(constraints)
-      instantiationAfterUnification = instantiationPreUnification.updateSubst(nonspeculativeUpdate)
+      intermediateConstraints1 <- nonspeculativeUpdate(constraints)
+      intermediateInstantiation1 = instantiationPreUnification.updateSubst(nonspeculativeUpdate)
 
-      dropperUpdate = DropperUpdate(instantiationAfterUnification.redundantPlaceholders)
-      instantiation = instantiationAfterUnification.updateSubst(dropperUpdate)
-      updatedConstraints <- dropperUpdate(intermediateConstraints)
-      _ = assert(!instantiation.calls.contains(instantiation.root))
-    } yield (instantiation, updatedConstraints, ChainedUpdater(nonspeculativeUpdate, dropperUpdate))
+      // Step 2: Speculative equalities
+      speculativeUpdate = SpeculativeUpdate(speculativeEqs, intermediateConstraints1.classes)
+      intermediateConstraints2 <- speculativeUpdate(intermediateConstraints1)
+      intermediateInstantiation2 = intermediateInstantiation1.updateSubst(speculativeUpdate)
+
+      // Step 3: Get rid of superfluous placeholders
+      dropperUpdate = DropperUpdate(intermediateInstantiation2.redundantPlaceholders)
+      instantiation = intermediateInstantiation2.updateSubst(dropperUpdate)
+      updatedConstraints <- dropperUpdate(intermediateConstraints2)
+
+      // Avoid speculation that would lead to unfounded proofs
+      if !instantiation.calls.contains(instantiation.root)
+//      _ = assert(!instantiation.calls.contains(instantiation.root),
+//        s"Fully circular context $instantiation when assuming constraints $updatedConstraints"
+//      )
+
+      _ = logger.debug(s"Constraints:\n0. $constraints\n1. $intermediateConstraints1\n2. $intermediateConstraints2\n3. $updatedConstraints")
+
+      fullUpdate = ChainedUpdater(ChainedUpdater(nonspeculativeUpdate, speculativeUpdate), dropperUpdate)
+    } yield (instantiation, updatedConstraints, fullUpdate)
   }
 
   private def unificationEqualities(fst: ContextPredCall, snd: ContextPredCall): (Seq[PureAtom],Seq[PureAtom]) = {

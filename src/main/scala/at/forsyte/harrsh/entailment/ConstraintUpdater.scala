@@ -230,7 +230,7 @@ case class PureAtomUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Va
       // Equalities involving placeholders can always be assumed and thus need not be added to speculation
       orderedEqs = eqs.filterNot(atom => PlaceholderVar.isPlaceholder(atom.l) || PlaceholderVar.isPlaceholder(atom.r)).map(_.ordered).map(atom => (atom.l, atom.r))
       allSpeculativeEqs = cs.speculativeEqs ++ orderedEqs
-      unsatisfiedSpeculativeEqs = allSpeculativeEqs filterNot (holdsIn(newUsage, _))
+      unsatisfiedSpeculativeEqs = allSpeculativeEqs //filterNot (holdsIn(newUsage, _))
       // The speculative equalities may invalidate some of the speculative disequalities
       // We thus remove the now-ensured equalities from the speculative disequalities
       nowEnsured = updateDiseqs(cs.ensuredDiseqs)
@@ -242,11 +242,11 @@ case class PureAtomUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Va
 
   }
 
-  private def holdsIn(newUsage: VarUsageByLabel, eq: (Var, Var)): Boolean = {
-    newUsage.keys.exists{
-      vs => vs.contains(eq._1) && vs.contains(eq._2)
-    }
-  }
+//  private def holdsIn(newUsage: VarUsageByLabel, eq: (Var, Var)): Boolean = {
+//    newUsage.keys.exists{
+//      vs => vs.contains(eq._1) && vs.contains(eq._2)
+//    }
+//  }
 
   private def newSpeculatedDiseqs(newUsage: VarUsageByLabel, oldSpeculativeDiseqs: Set[DiseqConstraint], nowEnsured: Set[DiseqConstraint]): Set[DiseqConstraint] = {
     val classes = newUsage.keys

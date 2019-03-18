@@ -97,7 +97,7 @@ object ContextDecompositionComposition extends HarrshLogging {
       _ = logger.debug(s"Will try to compose $fst with $candidate wrt constraints $constraints.")
       ((composed, newConstraints, updater), i) <- EntailmentContextComposition(sid, fst, candidate, constraints).zipWithIndex
       stillUnprocessed = other.filter(_ != candidate)
-      _ = logger.debug(s"Composition success #${i+1}: Composed context $composed\nusing updater $updater\nStill unprocessed:\n${stillUnprocessed.mkString("\n")}")
+      _ = logger.debug(s"Composition success #${i+1}: Composed context $composed\nusing updater $updater\nStill unprocessed:\n${stillUnprocessed.mkString("\n")}\nIntermediate constraints:\n$newConstraints")
     } yield (composed, stillUnprocessed, newConstraints, updater)
   }
 
