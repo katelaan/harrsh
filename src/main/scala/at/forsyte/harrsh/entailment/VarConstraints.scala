@@ -49,6 +49,11 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     !nullAlloced && !contradictoryDiseq
   }
 
+  // See hasNamesForAllUsedParams
+//  def placeholderUsed = usage.exists{
+//    case (k,v) => v != VarUnused && k.forall(PlaceholderVar.isPlaceholder)
+//  }
+
   def definedOnAllOf(varSets: Set[Set[Var]]): Boolean = varSets subsetOf classes
 
   def classOf(v: Var): Set[Var] = classes.find(_.contains(v)).getOrElse{

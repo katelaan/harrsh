@@ -7,6 +7,7 @@ import at.forsyte.harrsh.seplog.inductive.PureAtom
 import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 
 sealed trait ConstraintUpdater extends HarrshLogging {
 
@@ -187,15 +188,16 @@ case object TrivialUpdate extends ConstraintUpdater {
 
 }
 
-case class EmpClosureUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Var]]) extends ConstraintUpdater {
+case class PureAtomUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Var]]) extends ConstraintUpdater {
 
   // TODO Code duplication with SpeculativeUpdate
+  // TODO This does too much when we call it in EntailmentContextComposition: There we already know that no speculation is involved, and we only have equalities
 
   logger.debug{
     if (atoms.nonEmpty)
       s"Will add $atoms (unless already ensured)"
     else
-      "No equalities necessary to apply the emp-closure."
+      "No atoms to add."
   }
 
   val (eqs, diseqs) = atoms.partition(_.isEquality)
@@ -226,6 +228,7 @@ case class EmpClosureUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[
       // Equalities involving placeholders can always be assumed and thus need not be added to speculation
       orderedEqs = eqs.filterNot(atom => PlaceholderVar.isPlaceholder(atom.l) || PlaceholderVar.isPlaceholder(atom.r)).map(_.ordered).map(atom => (atom.l, atom.r))
       allSpeculativeEqs = cs.speculativeEqs ++ orderedEqs
+      unsatisfiedSpeculativeEqs = allSpeculativeEqs filterNot (holdsIn(newUsage, _))
       // The speculative equalities may invalidate some of the speculative disequalities
       // We thus remove the now-ensured equalities from the speculative disequalities
       nowEnsured = updateDiseqs(cs.ensuredDiseqs)
@@ -234,9 +237,15 @@ case class EmpClosureUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[
       if nowEnsured forall (!_.isIllegal)
       nowSpeculatedDiseqs = newSpeculatedDiseqs(newUsage, cs.speculativeDiseqs, nowEnsured)
       if nowSpeculatedDiseqs forall (!_.isIllegal)
-      _ = logger.trace(s"Considering $atoms as additional constraints wrt $cs:\nNow have speculative equalities $allSpeculativeEqs and disequalities $nowSpeculatedDiseqs.")
-    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, allSpeculativeEqs)
+      _ = logger.trace(s"Considering $atoms as additional constraints wrt $cs:\nNow have speculative equalities $unsatisfiedSpeculativeEqs and disequalities $nowSpeculatedDiseqs.")
+    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, unsatisfiedSpeculativeEqs)
 
+  }
+
+  private def holdsIn(newUsage: VarUsageByLabel, eq: (Var, Var)): Boolean = {
+    newUsage.keys.exists{
+      vs => vs.contains(eq._1) && vs.contains(eq._2)
+    }
   }
 
   private def newSpeculatedDiseqs(newUsage: VarUsageByLabel, oldSpeculativeDiseqs: Set[DiseqConstraint], nowEnsured: Set[DiseqConstraint]): Set[DiseqConstraint] = {
@@ -329,14 +338,33 @@ case class BijectiveRenamingUpdate(description: String, renaming: Var => Var) ex
 
 }
 
-
-
-object BijectiveRenamingUpdate {
+object BijectiveRenamingUpdate extends HarrshLogging {
 
   def fromPairs(pairs: Seq[(Var,Var)]): BijectiveRenamingUpdate = {
     val asMap = pairs.toMap
     val renaming: Var => Var = v => asMap.getOrElse(v, v)
     BijectiveRenamingUpdate(pairs.mkString(", "), renaming)
+  }
+
+  def placeholderNormalFormUpdater(orderedNodeLabels: Seq[ContextPredCall]): ConstraintUpdater = {
+    logger.trace("Will order placeholders in order of occurrence in " + orderedNodeLabels)
+    val found = mutable.Set.empty[PlaceholderVar]
+    val order = new mutable.ListBuffer[PlaceholderVar]()
+    for {
+      nodeLabel <- orderedNodeLabels
+      vs <- nodeLabel.subst.toSeq
+      v <- vs
+      ph <- PlaceholderVar.fromVar(v)
+      if !found.contains(ph)
+    } {
+      order.append(ph)
+      found.add(ph)
+    }
+    val renameFrom = order map (_.toFreeVar)
+    val renameTo = (1 to order.size) map (PlaceholderVar(_).toFreeVar)
+    val pairs = renameFrom.zip(renameTo)
+    logger.trace("Will establish placeholder normalform via update " + pairs)
+    fromPairs(pairs)
   }
 
 }
@@ -384,52 +412,3 @@ case class DropperUpdate(varsToDrop: Set[Var]) extends ConstraintUpdater {
   }
 
 }
-
-//case class DropperUpdate(varsToDrop: Set[Var], allowDroppingSpeculation: Boolean) extends ConstraintUpdater {
-//  // TODO: I'm not sure allowing to drop speculation ever makes sense (since speculation should never involve placeholders)
-//
-//  override def apply(vs: Set[Var]): Set[Var] = vs filterNot varsToDrop
-//
-//  override def apply(cs: VarConstraints): Option[VarConstraints] = {
-//    for {
-//      newUsage <- applyToUsage(cs.usage, mayMergeClasses = false)
-//      newSpeculativeDiseqs <- updateSpeculativeDiseqs(cs.speculativeDiseqs)
-//      newSpeculativeEqs <- updateSpeculativeEqs(cs.speculativeEqs)
-//    } yield
-//      VarConstraints(
-//        newUsage filterKeys(_.nonEmpty),
-//        updateAndDropEmptyDiseqs(cs.ensuredDiseqs),
-//        newSpeculativeDiseqs,
-//        newSpeculativeEqs
-//      )
-//  }
-//
-//  private def updateSpeculativeEqs(eqs: Set[(Var,Var)]): Option[Set[(Var,Var)]] = {
-//    if (allowDroppingSpeculation) {
-//      Some(eqs filterNot (p => varsToDrop.contains(p._1) || varsToDrop.contains(p._2)))
-//    } else {
-//      if (eqs.exists(p => varsToDrop.contains(p._1) || varsToDrop.contains(p._2)))
-//        None
-//      else
-//        Some(eqs)
-//    }
-//  }
-//
-//  private def updateSpeculativeDiseqs(diseqs: Set[DiseqConstraint]): Option[Set[DiseqConstraint]] = {
-//    if (allowDroppingSpeculation) {
-//      Some(updateAndDropEmptyDiseqs(diseqs))
-//    } else {
-//      val updated = updateDiseqs(diseqs)
-//      if (updated.exists(_.isVacuous)) {
-//        None
-//      } else {
-//        Some(updated)
-//      }
-//    }
-//  }
-//
-//  private def updateAndDropEmptyDiseqs(diseqs: Set[DiseqConstraint]): Set[DiseqConstraint] = {
-//    updateDiseqs(diseqs) filterNot (_.isVacuous)
-//  }
-//
-//}

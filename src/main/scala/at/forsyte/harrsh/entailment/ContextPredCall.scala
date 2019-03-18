@@ -1,11 +1,8 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{FreeVar, NullConst, Var}
 import at.forsyte.harrsh.seplog.inductive.{Predicate, RichSid}
 import at.forsyte.harrsh.util.ToLatex._
-
-import scala.collection.mutable
 
 case class ContextPredCall(pred: Predicate, subst: Substitution) {
 
@@ -62,29 +59,4 @@ case class ContextPredCall(pred: Predicate, subst: Substitution) {
       }
     }
   }
-}
-
-object ContextPredCall extends HarrshLogging {
-
-  def placeholderNormalFormUpdater(orderedNodeLabels: Seq[ContextPredCall]): ConstraintUpdater = {
-    logger.trace("Will order placeholders in order of occurrence in " + orderedNodeLabels)
-    val found = mutable.Set.empty[PlaceholderVar]
-    val order = new mutable.ListBuffer[PlaceholderVar]()
-    for {
-      nodeLabel <- orderedNodeLabels
-      vs <- nodeLabel.subst.toSeq
-      v <- vs
-      ph <- PlaceholderVar.fromVar(v)
-      if !found.contains(ph)
-    } {
-      order.append(ph)
-      found.add(ph)
-    }
-    val renameFrom = order map (_.toFreeVar)
-    val renameTo = (1 to order.size) map (PlaceholderVar(_).toFreeVar)
-    val pairs = renameFrom.zip(renameTo)
-    logger.trace("Will establish placeholder normalform via update " + pairs)
-    BijectiveRenamingUpdate.fromPairs(pairs)
-  }
-
 }

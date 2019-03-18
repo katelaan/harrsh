@@ -14,6 +14,11 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     s"Decompositions in $this use only placeholders ${occurringLabels.flatten.filter(PlaceholderVar.isPlaceholder)}, but constraints refer to additional placeholders: ${constraints.placeholders}"
   )
 
+  assert({
+    val phs = parts.toSeq.flatMap(_.placeholders)
+    phs.distinct == phs
+  }, s"The same placeholder used in multiple contexts in $this (Usage: ${parts.toSeq.flatMap(_.placeholders)})")
+
   lazy val occurringLabels: Set[Set[Var]] = allPredCalls.flatMap(_.subst.toSeq)
 
   /**
@@ -64,7 +69,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     if (varsToForget.isEmpty) {
       Some(this)
     } else {
-      logger.debug(s"Will remove variables ${varsToForget.mkString(",")} from decomposition")
+      logger.debug(s"Will remove variables ${varsToForget.mkString(",")} from decomposition $this")
       if (constraints.areRequiredInSpeculation(varsToForget)) {
         // We're forgetting variables for which there are still missing constraints
         // After dropping, it will no longer be possible to supply the constraints
@@ -72,12 +77,12 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
         logger.debug(s"Discarding decomposition: Speculative constraints in $constraints require at least one discarded variable from ${varsToForget.mkString(", ")}")
         None
       } else {
-        Some(replaceByPlaceholders(varsToForget))
+        replaceByPlaceholders(varsToForget)
       }
     }
   }
 
-  private def replaceByPlaceholders(vars: Set[Var]) = {
+  private def replaceByPlaceholders(vars: Set[Var])= {
     // TODO: More efficient variable dropping for decomps?
     val update: ConstraintUpdater = renameVarsToFreshPlaceholders(vars)
     val partsAfterDropping = parts map (_.updateSubst(update))
@@ -89,7 +94,12 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     val dropper = DropperUpdate(redundantPlaceholders.map(_.toFreeVar))
     val cleanedConstraints = dropper.unsafeUpdate(constraintsAfterRenaming)
 
-    ContextDecomposition(partsAfterDropping, cleanedConstraints).toPlaceholderNormalForm
+    if (!cleanedConstraints.hasNamesForAllUsedParams) {
+      logger.debug(s"Discarding decomposition: After forgetting, a placeholder would be used in ($constraints)")
+      None
+    } else {
+      Some(ContextDecomposition(partsAfterDropping, cleanedConstraints).toPlaceholderNormalForm)
+    }
   }
 
   // END compose, rename, forget
@@ -118,7 +128,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     // TODO Perhaps get rid of the first step, see assertion at the beginning of the class
     val withoutRedundancies = dropRedundantPlaceholders
     val orderedLabels = withoutRedundancies.orderedParts flatMap (_.labels)
-    val establishNormalForm = ContextPredCall.placeholderNormalFormUpdater(orderedLabels)
+    val establishNormalForm = BijectiveRenamingUpdate.placeholderNormalFormUpdater(orderedLabels)
     // Can never fail since we simply rename things without identifying them, so _.get is safe
     // Note: It does not matter for correctness what we pass to mayEnsureEqualities here, since we apply a bijection
     withoutRedundancies.updateSubst(establishNormalForm).get
@@ -132,21 +142,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
   }
 
   private def redundantPlaceholders: Set[Var] = {
-    def getRedundantVars(vs: Set[Var]): Set[Var] = {
-      val (phs, nonPhs) = vs.partition(PlaceholderVar.isPlaceholder)
-      if (nonPhs.nonEmpty) {
-        // There is a proper free var in this equivalence class => discard all equivalent placeholders
-        phs
-      } else {
-        // Keep only the smallest placeholder among multiple placeholders
-        val typedPhs = phs map (ph => PlaceholderVar.fromVar(ph).get)
-        phs - PlaceholderVar.min(typedPhs).toFreeVar
-      }
-    }
-    val equivalenceClasses = Substitution.extractVarEquivClasses(allPredCalls map (_.subst))
-    val redundantVars = equivalenceClasses.flatMap(getRedundantVars)
-    logger.trace(s"Redundant vars: $redundantVars")
-    redundantVars
+    parts flatMap (_.redundantPlaceholders)
   }
 
   def isInPlaceholderNormalForm: Boolean = {

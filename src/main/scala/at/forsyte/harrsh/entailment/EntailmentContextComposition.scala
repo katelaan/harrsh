@@ -1,53 +1,44 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PureAtom, RichSid}
 
 object EntailmentContextComposition extends HarrshLogging {
 
-  def apply(sid: RichSid, fst: EntailmentContext, snd: EntailmentContext, constraints: VarConstraints): Stream[EntailmentContext] = {
+  def apply(sid: RichSid, fst: EntailmentContext, snd: EntailmentContext, constraints: VarConstraints): Stream[(EntailmentContext, ConstraintUpdater)] = {
     for {
       CompositionInterface(t1, t2, n2) <- compositionCandidates(fst, snd)
       _ = logger.debug(s"Trying to compose on root ${t1.root} and leaf $n2")
       if !doubleAlloc(t1.root, n2, constraints.usage)
       //propagateUnification = unification(t1.root, n2)
-      speculativeEqs = unificationEqualities(t1.root, n2)
+      (speculativeEqs, nonspeculativeEqs) = unificationEqualities(t1.root, n2)
       if speculativeEqs.isEmpty
-      instantiation = instantiate(t2, n2, t1)
+      // TODO: Streamline this into a single update step? Nontrivial because of possible transitive equalities between placeholders
+      instantiationPreUnification = instantiate(t2, n2, t1)
+      nonspeculativeUpdate = PureAtomUpdate(nonspeculativeEqs, fst.classes ++ snd.classes)
+      instantiationAferUnification = instantiationPreUnification.updateSubst(nonspeculativeUpdate)
+      dropperUpdate = DropperUpdate(instantiationAferUnification.redundantPlaceholders)
+      instantiation = instantiationAferUnification.updateSubst(dropperUpdate)
       _ = assert(!instantiation.calls.contains(instantiation.root))
-    } yield instantiation
+    } yield (instantiation, nonspeculativeUpdate)
   }
 
-//  def apply(sid: RichSid, fst: EntailmentContext, snd: EntailmentContext, constraints: VarConstraints): Stream[(EntailmentContext, VarConstraints, SubstitutionUpdate)] = {
-//    for {
-//      CompositionInterface(t1, t2, n2) <- compositionCandidates(fst, snd)
-//      _ = logger.debug(s"Trying to compose on root ${t1.root} and leaf $n2")
-//      if !doubleAlloc(t1.root, n2, constraints.usage)
-//      //propagateUnification = unification(t1.root, n2)
-//      speculativeEqs = unificationEqualities(t1.root, n2)
-//      // FIXME: Do we even have to allow unification here, or can we simply abort if speculativeEqs is nonempty?
-//      propagateUnification = SpeculativeUpdate(speculativeEqs)
-//      instantiation = instantiate(t2, n2, t1, propagateUnification)
-//      isEmpty = instantiation.calls.contains(instantiation.root)
-//      _ = if (isEmpty) logger.debug(s"Will drop empty context instantiation $instantiation (calls contain root)")
-//      if !isEmpty
-//      _ = logger.debug("Will propagate unification into " + constraints)
-//      // Note: Since we are merging contexts from the same decomposition, the update must *not* drop missing equalities
-//      constraintsAfterPropagation <- constraints.update(propagateUnification, mayEnsureEqualities = false)
-//      newConstraints <- constraintsAfterPropagation.addToSpeculation(speculativeEqs)
-//      _ = logger.debug(s"Unification changed constraints $constraints to $newConstraints")
-//    } yield (instantiation, newConstraints, propagateUnification)
-//  }
-
-  private def unificationEqualities(fst: ContextPredCall, snd: ContextPredCall): Seq[PureAtom] = {
-    val res = for {
+  private def unificationEqualities(fst: ContextPredCall, snd: ContextPredCall): (Seq[PureAtom],Seq[PureAtom]) = {
+    val pairs = for {
       (v1, v2) <- fst.subst.toSeq zip snd.subst.toSeq
       // If we're equating two vars which aren't already known to be equal...
       if v1 != v2
-      // ...and neither of these is a placeholder, then we have to explicitly make them equal
-      if v1.exists(!PlaceholderVar.isPlaceholder(_)) && v2.exists(!PlaceholderVar.isPlaceholder(_))
-    } yield PureAtom(v1.head, v2.head, isEquality = true)
-    if (res.nonEmpty) {
+    } yield (v1, v2)
+
+    val (speculativeUnif, nonspeculativeUnif) = pairs.partition {
+      case (v1, v2) =>
+        v1.exists(!PlaceholderVar.isPlaceholder(_)) && v2.exists(!PlaceholderVar.isPlaceholder(_))
+    }
+
+    def mkAtom(pair: (Set[Var], Set[Var])) = PureAtom(pair._1.head, pair._2.head, isEquality = true)
+    val res@(speculative, nonspeculative) = (speculativeUnif map mkAtom, nonspeculativeUnif map mkAtom)
+    if (speculative.nonEmpty) {
       logger.debug(s"Unification of $fst and $snd imposes new equalities $res")
     }
     res

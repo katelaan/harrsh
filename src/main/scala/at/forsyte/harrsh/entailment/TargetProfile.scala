@@ -85,19 +85,17 @@ object TargetProfile extends HarrshLogging {
       _ = logger.debug(s"Considering emp-closure for $decomp:\nWill update contexts as follows:\n${closureOption.map(p => p._1 + " with new pure constraints " + p._2).mkString(",\n")}")
       (newCtxs, pureConstraintsByCtx) = closureOption.unzip
       newPureAtoms = pureConstraintsByCtx.flatten
-
-//      leftoverPlaceholders = newCtxs.flatMap(_.placeholdersAsVars).toSet
-//      cleanedConstraints = decomp.constraints.restrictPlaceholdersTo(leftoverPlaceholders)
-//      decompBeforeUpdate = ContextDecomposition(newCtxs.toSet, cleanedConstraints)
-//      pureAtomUpdate = EmpClosureUpdate(newPureAtoms, decompBeforeUpdate.constraints.classes)
-//      newDecomp <- decompBeforeUpdate.updateSubst(pureAtomUpdate)
-
-      pureAtomUpdate = EmpClosureUpdate(newPureAtoms, decomp.constraints.classes)
+      pureAtomUpdate = PureAtomUpdate(newPureAtoms, decomp.constraints.classes)
       withNewAtoms <- pureAtomUpdate(decomp.constraints)
-      updatedCtxs = newCtxs map (_.updateSubst(pureAtomUpdate))
+      updatedCtxs = newCtxs.map(_.updateSubst(pureAtomUpdate)).toSet
+      // Get rid of placeholders that occurred only in the call(s) which we removed
       leftoverPlaceholders = updatedCtxs.flatMap(_.placeholdersAsVars).toSet
       cleanedConstraints = withNewAtoms.restrictPlaceholdersTo(leftoverPlaceholders)
-      newDecomp = ContextDecomposition(updatedCtxs.toSet, cleanedConstraints)
+      // Get rid of redundant placeholders
+      placeholderDropper = DropperUpdate(updatedCtxs.flatMap(_.redundantPlaceholders))
+      finalCtxs = updatedCtxs map (_.updateSubst(placeholderDropper))
+      finalConstraints = placeholderDropper.unsafeUpdate(cleanedConstraints)
+      newDecomp = ContextDecomposition(finalCtxs, finalConstraints)
 
       if newDecomp.isConsistentWithFocus(sid)
       res = newDecomp.toPlaceholderNormalForm

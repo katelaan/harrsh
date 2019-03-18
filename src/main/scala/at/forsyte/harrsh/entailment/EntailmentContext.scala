@@ -8,23 +8,25 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
 
   lazy val labels: Seq[ContextPredCall] = Seq(root) ++ calls
 
-  lazy val placeholders: Seq[PlaceholderVar] = {
+  lazy val placeholders: Set[PlaceholderVar] = {
     for {
-      l <- labels
+      l <- labels.toSet[ContextPredCall]
       vs <- l.subst.toSeq
       v <- vs
       p <- PlaceholderVar.fromVar(v)
     } yield p
   }
 
-  lazy val placeholdersAsVars: Seq[Var] = {
+  lazy val placeholdersAsVars: Set[Var] = {
     for {
-      l <- labels
+      l <- labels.toSet[ContextPredCall]
       vs <- l.subst.toSeq
       v <- vs
       if PlaceholderVar.isPlaceholder(v)
     } yield v
   }
+
+  lazy val classes: Set[Set[Var]] = labels.toSet[ContextPredCall].flatMap(_.subst.toSeq)
 
   def updateSubst(f: ConstraintUpdater): EntailmentContext = EntailmentContext(root.update(f), calls map (_.update(f)))
 
@@ -38,6 +40,25 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
 
   def hasNonNullNamesForRootParams(sid: RichSid): Boolean = rootParamSubsts(sid).forall {
     labelingVars => labelingVars.exists(PlaceholderVar.isNonPlaceholderNonNullFreeVar)
+  }
+
+  def redundantPlaceholders: Set[Var] = {
+    val equivalenceClasses = Substitution.extractVarEquivClasses(labels map (_.subst))
+    val redundantVars = equivalenceClasses.flatMap(getRedundantVars)
+    //logger.trace(s"Redundant vars: $redundantVars")
+    redundantVars
+  }
+
+  private def getRedundantVars(vs: Set[Var]): Set[Var] = {
+    val (phs, nonPhs) = vs.partition(PlaceholderVar.isPlaceholder)
+    if (nonPhs.nonEmpty) {
+      // There is a proper free var in this equivalence class => discard all equivalent placeholders
+      phs
+    } else {
+      // Keep only the smallest placeholder among multiple placeholders
+      val typedPhs = phs map (ph => PlaceholderVar.fromVar(ph).get)
+      phs - PlaceholderVar.min(typedPhs).toFreeVar
+    }
   }
 
   override def toString: String = {

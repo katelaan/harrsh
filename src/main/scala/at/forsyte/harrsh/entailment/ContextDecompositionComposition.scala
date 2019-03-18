@@ -78,13 +78,13 @@ object ContextDecompositionComposition extends HarrshLogging {
       )
   }
 
-  private def tryMerge(sid: RichSid, fst: EntailmentContext, other: Seq[EntailmentContext], constraints: VarConstraints): Stream[(EntailmentContext, Seq[EntailmentContext])] = {
+  private def tryMerge(sid: RichSid, fst: EntailmentContext, other: Seq[EntailmentContext], constraints: VarConstraints): Stream[(EntailmentContext, Seq[EntailmentContext], ConstraintUpdater)] = {
     for {
       candidate <- other.toStream
       _ = logger.debug(s"Will try to compose $fst with $candidate wrt constraints $constraints.")
-      (composed, i) <- EntailmentContextComposition(sid, fst, candidate, constraints).zipWithIndex
-      _ = logger.debug(s"Composition success #${i+1}: Composed context $composed")
-    } yield (composed, other.filter(_ != candidate))
+      ((composed, updater), i) <- EntailmentContextComposition(sid, fst, candidate, constraints).zipWithIndex
+      _ = logger.debug(s"Composition success #${i+1}: Composed context $composed\nusing updater $updater")
+    } yield (composed, other.filter(_ != candidate), updater)
   }
 
 //  private def allMergeOptions(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], constraints: VarConstraints): Seq[ContextDecomposition] = {
