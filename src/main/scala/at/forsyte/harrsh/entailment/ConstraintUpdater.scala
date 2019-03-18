@@ -92,6 +92,7 @@ case class MergeUpdate(fstClasses: Set[Set[Var]], sndClasses: Set[Set[Var]]) ext
   }
 
   private def holdsAfterUpdate(eq: (Var, Var)): Boolean = {
+    // Is the right var in the updated class of the left var?
     val classOfLeft = updateMap.keys.find(_.contains(eq._1))
     updateMap(classOfLeft.get).contains(eq._2)
   }
@@ -154,23 +155,27 @@ case class InstantiationUpdate(instantiation: Seq[(Var, Var)], classes: Set[Set[
   override def apply(vs: Set[Var]): Set[Var] = map2(map1(vs))
 
   override def apply(cs: VarConstraints): Option[VarConstraints] = {
-    // TODO: Continue here. This can merge classes, but it's not exactly like the merge update since we completely rename stuff
-    ???
+    // TODO: Reduce code duplication wrt MergeUpdate. This only differs in the treatment of speculative equalities
+    for {
+      newUsage <- applyToUsage(cs.usage, mayMergeClasses = true)
+      nowEnsured = updateDiseqs(cs.ensuredDiseqs)
+      if nowEnsured forall (!_.isContradictory)
+      nowSpeculatedDiseqs = updateDiseqs(cs.speculativeDiseqs) -- nowEnsured
+      if nowSpeculatedDiseqs forall (!_.isContradictory)
+      // Only difference to merge update
+      nowSpeculatedEqs = cs.speculativeEqs map instantiateEquality filterNot holdsAfterUpdate
+    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, nowSpeculatedEqs)
   }
 
-//  private def makeDisjoint(groupedNonDisjoint: Map[Set[Var], Iterable[Set[Var]]]): Map[Set[Var], Iterable[Set[Var]]] = {
-//    Combinators.counts(groupedNonDisjoint.keys.toSeq.flatten).find{_._2 > 1} match {
-//      case None =>
-//        // Already disjoint
-//        groupedNonDisjoint
-//      case Some((v,_)) =>
-//        val (overlapping, disjoint) = groupedNonDisjoint.partition(_._1.contains(v))
-//        val newEntry: (Set[Var], Iterable[Set[Var]]) = (overlapping.keySet.flatten, overlapping.values.flatten)
-//        val merged = disjoint + newEntry
-//        logger.trace(s"Merged $groupedNonDisjoint into\n$merged")
-//        makeDisjoint(merged)
-//    }
-//  }
+  private def instantiateEquality(eq: (Var, Var)): (Var, Var) = {
+    (instantiationFun(eq._1), instantiationFun(eq._2))
+  }
+
+  private def holdsAfterUpdate(eq: (Var, Var)): Boolean = {
+    // Is the right var in the updated class of the left var?
+    val updatedClassOfLeft = map2.values.find(_.contains(eq._1))
+    updatedClassOfLeft.get.contains(eq._2)
+  }
 
 }
 
@@ -179,6 +184,69 @@ case object TrivialUpdate extends ConstraintUpdater {
   override def apply(vs: Set[Var]): Set[Var] = vs
 
   override def apply(cs: VarConstraints): Option[VarConstraints] = Some(cs)
+
+}
+
+case class EmpClosureUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Var]]) extends ConstraintUpdater {
+
+  // TODO Code duplication with SpeculativeUpdate
+
+  logger.debug{
+    if (atoms.nonEmpty)
+      s"Will add $atoms (unless already ensured)"
+    else
+      "No equalities necessary to apply the emp-closure."
+  }
+
+  val (eqs, diseqs) = atoms.partition(_.isEquality)
+
+  private val map: Map[Set[Var], Set[Var]] = {
+    val initialPairs = originalClasses zip originalClasses
+    assert(initialPairs forall (p => p._1 == p._2))
+    val finalPairs = eqs.foldLeft(initialPairs) {
+      case (pairs, atom) =>
+        val lclass = pairs.find(_._2.contains(atom.l)).get._2
+        val rclass = pairs.find(_._2.contains(atom.r)).get._2
+        val combined = lclass union rclass
+        pairs map {
+          pair => if (pair._2 == lclass || pair._2 == rclass) (pair._1, combined) else pair
+        }
+    }
+    val res = finalPairs.toMap
+    logger.debug(s"Atom $this lead to update map\n$res")
+    res
+  }
+
+  override def apply(vs: Set[Var]): Set[Var] = map(vs)
+
+  override def apply(cs: VarConstraints): Option[VarConstraints] = {
+    for {
+      newUsage <- applyToUsage(cs.usage, mayMergeClasses = true)
+      // Difference to SpeculativeUpdate: Placeholders are allowed
+      // Equalities involving placeholders can always be assumed and thus need not be added to speculation
+      orderedEqs = eqs.filterNot(atom => PlaceholderVar.isPlaceholder(atom.l) || PlaceholderVar.isPlaceholder(atom.r)).map(_.ordered).map(atom => (atom.l, atom.r))
+      allSpeculativeEqs = cs.speculativeEqs ++ orderedEqs
+      // The speculative equalities may invalidate some of the speculative disequalities
+      // We thus remove the now-ensured equalities from the speculative disequalities
+      nowEnsured = updateDiseqs(cs.ensuredDiseqs)
+      // Difference to SpeculativeUpdate: Since placeholders are allowed to occur in the update,
+      // we must ensure now that we don't retain disequalities that rely on placeholders
+      if nowEnsured forall (!_.isIllegal)
+      nowSpeculatedDiseqs = newSpeculatedDiseqs(newUsage, cs.speculativeDiseqs, nowEnsured)
+      if nowSpeculatedDiseqs forall (!_.isIllegal)
+      _ = logger.trace(s"Considering $atoms as additional constraints wrt $cs:\nNow have speculative equalities $allSpeculativeEqs and disequalities $nowSpeculatedDiseqs.")
+    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, allSpeculativeEqs)
+
+  }
+
+  private def newSpeculatedDiseqs(newUsage: VarUsageByLabel, oldSpeculativeDiseqs: Set[DiseqConstraint], nowEnsured: Set[DiseqConstraint]): Set[DiseqConstraint] = {
+    val classes = newUsage.keys
+    def classOf(v: Var) = classes.find(_.contains(v)).get
+    val renamedSpeculated = updateDiseqs(oldSpeculativeDiseqs)
+    (renamedSpeculated ++ diseqs.map {
+      case PureAtom(l, r, _) => DiseqConstraint(Set(classOf(l), classOf(r)))
+    }) -- nowEnsured
+  }
 
 }
 

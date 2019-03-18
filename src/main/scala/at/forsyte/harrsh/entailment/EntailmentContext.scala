@@ -17,6 +17,15 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
     } yield p
   }
 
+  lazy val placeholdersAsVars: Seq[Var] = {
+    for {
+      l <- labels
+      vs <- l.subst.toSeq
+      v <- vs
+      if PlaceholderVar.isPlaceholder(v)
+    } yield v
+  }
+
   def updateSubst(f: ConstraintUpdater): EntailmentContext = EntailmentContext(root.update(f), calls map (_.update(f)))
 
   def isConcrete: Boolean = calls.isEmpty

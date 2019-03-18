@@ -191,6 +191,12 @@ object VarConstraints extends HarrshLogging {
 
     def isContradictory: Boolean = underlying.size == 1
 
+    def needsPlaceholder: Boolean = underlying.exists {
+      _ forall PlaceholderVar.isPlaceholder
+    }
+
+    def isIllegal = isContradictory || needsPlaceholder
+
     def isVacuous: Boolean = underlying.exists(_.isEmpty)
 
     def update(f: ConstraintUpdater) = DiseqConstraint(underlying.map(f(_)))

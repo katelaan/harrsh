@@ -82,30 +82,23 @@ object TargetProfile extends HarrshLogging {
     val empClosureByCtx: Seq[Set[(EntailmentContext, Set[PureAtom])]] = decomp.parts.toSeq map empClosureOfContext(sid)
     for {
       closureOption: Seq[(EntailmentContext, Set[PureAtom])] <- Combinators.choices(empClosureByCtx)
-      _ = logger.debug(s"Considering emp-closure for $decomp:\n${closureOption.map(p => p._1 + " with new pure constraints " + p._2).mkString(",\n")}")
+      _ = logger.debug(s"Considering emp-closure for $decomp:\nWill update contexts as follows:\n${closureOption.map(p => p._1 + " with new pure constraints " + p._2).mkString(",\n")}")
       (newCtxs, pureConstraintsByCtx) = closureOption.unzip
       newPureAtoms = pureConstraintsByCtx.flatten
-      newAtomsRelevantForSpeculation = newPureAtoms filterNot (atom => atom.isEquality && (PlaceholderVar.isPlaceholder(atom.l) || PlaceholderVar.isPlaceholder(atom.r)))
-      _ = logger.debug{
-        if (newAtomsRelevantForSpeculation.nonEmpty)
-          s"Will speculate $newAtomsRelevantForSpeculation (unless already ensured)"
-        else
-          "No speculation necessary to apply the emp-closure."
-      }
 
-//      constraintsWithNewSpeculation <- decomp.constraints.addToSpeculationUnlessEnsured(newAtomsRelevantForSpeculation)
-//      _ = logger.debug(s"Updated constraints from ${decomp.constraints} to $constraintsWithNewSpeculation")
-//      newEqualities = newPureAtoms.filter(_.isEquality).map(atom => Set(atom.l,atom.r))
-//      decompBeforeUpdate = ContextDecomposition(newCtxs.toSet, constraintsWithNewSpeculation)
-//      update = SubstitutionUpdate.fromSetsOfEqualVars(newEqualities)
-//      _ = logger.debug(s"Will apply update derived from ${newEqualities.mkString("{",", ","}")}, discarding the result in case of inconsistencies")
-//      // Note: If we set mayEnsureEqualities to true, we'd immediately lose the speculative equalities we just added
-//      newDecomp <- decompBeforeUpdate.updateSubst(update, mayEnsureEqualities = false)
+//      leftoverPlaceholders = newCtxs.flatMap(_.placeholdersAsVars).toSet
+//      cleanedConstraints = decomp.constraints.restrictPlaceholdersTo(leftoverPlaceholders)
+//      decompBeforeUpdate = ContextDecomposition(newCtxs.toSet, cleanedConstraints)
+//      pureAtomUpdate = EmpClosureUpdate(newPureAtoms, decompBeforeUpdate.constraints.classes)
+//      newDecomp <- decompBeforeUpdate.updateSubst(pureAtomUpdate)
 
-      // TODO: Is it okay to simply reuse the constraints here, or should we explicitly drop those classes that don't occur after the emp closure?
-      decompBeforeUpdate = ContextDecomposition(newCtxs.toSet, decomp.constraints)
-      speculationUpdate = SpeculativeUpdate(newAtomsRelevantForSpeculation, decomp.constraints.classes)
-      newDecomp <- decompBeforeUpdate.updateSubst(speculationUpdate)
+      pureAtomUpdate = EmpClosureUpdate(newPureAtoms, decomp.constraints.classes)
+      withNewAtoms <- pureAtomUpdate(decomp.constraints)
+      updatedCtxs = newCtxs map (_.updateSubst(pureAtomUpdate))
+      leftoverPlaceholders = updatedCtxs.flatMap(_.placeholdersAsVars).toSet
+      cleanedConstraints = withNewAtoms.restrictPlaceholdersTo(leftoverPlaceholders)
+      newDecomp = ContextDecomposition(updatedCtxs.toSet, cleanedConstraints)
+
       if newDecomp.isConsistentWithFocus(sid)
       res = newDecomp.toPlaceholderNormalForm
       _ = logger.debug("Emp-closure is consistent. Will retain updated decomposition\n" + res)
