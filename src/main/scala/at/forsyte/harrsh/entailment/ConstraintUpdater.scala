@@ -188,18 +188,7 @@ case class InstantiationUpdate(instantiation: Seq[(Var, Var)], classes: Set[Set[
 
 }
 
-case object TrivialUpdate extends ConstraintUpdater {
-
-  override def apply(vs: Set[Var]): Set[Var] = vs
-
-  override def apply(cs: VarConstraints): Option[VarConstraints] = Some(cs)
-
-}
-
 case class PureAtomUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Var]]) extends ConstraintUpdater {
-
-  // TODO Code duplication with SpeculativeUpdate
-  // TODO This does too much when we call it in EntailmentContextComposition: There we already know that no speculation is involved, and we only have equalities
 
   logger.debug{
     if (atoms.nonEmpty)
@@ -254,63 +243,6 @@ case class PureAtomUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Va
     def classOf(v: Var) = classes.find(_.contains(v)).get
     val renamedSpeculated = updateDiseqs(oldSpeculativeDiseqs)
     (renamedSpeculated ++ diseqs.map {
-      case PureAtom(l, r, _) => DiseqConstraint(Set(classOf(l), classOf(r)))
-    }) -- nowEnsured
-  }
-
-}
-
-case class SpeculativeUpdate(speculation: Iterable[PureAtom], originalClasses: Set[Set[Var]]) extends ConstraintUpdater {
-
-  val (speculatedEqs, speculatedDiseqs) = speculation.partition(_.isEquality)
-
-  assert(speculatedEqs forall {
-    atom => !PlaceholderVar.isPlaceholder(atom.l) && !PlaceholderVar.isPlaceholder(atom.r)
-  },
-    s"Placeholders in speculation $this")
-
-  private val map: Map[Set[Var], Set[Var]] = {
-    val initialPairs = originalClasses zip originalClasses
-    assert(initialPairs forall (p => p._1 == p._2))
-    val finalPairs = speculatedEqs.foldLeft(initialPairs) {
-      case (pairs, atom) =>
-        val lclass = pairs.find(_._2.contains(atom.l)).get._2
-        val rclass = pairs.find(_._2.contains(atom.r)).get._2
-        val combined = lclass union rclass
-        pairs map {
-          pair => if (pair._2 == lclass || pair._2 == rclass) (pair._1, combined) else pair
-        }
-    }
-    val res = finalPairs.toMap
-    logger.debug(s"Speculative update $this leads to update map\n$res")
-    res
-  }
-
-  override def apply(vs: Set[Var]): Set[Var] = map(vs)
-
-  override def apply(cs: VarConstraints): Option[VarConstraints] = {
-    for {
-      newUsage <- applyToUsage(cs.usage, mayMergeClasses = true)
-      orderedEqs = speculatedEqs.map(_.ordered).map(atom => (atom.l, atom.r))
-      // Important: Check wrt *old* usage info, in the new usage info the equalities do, of course, hold!
-      newOrderedEqs = orderedEqs filterNot (ConstraintUpdater.holdsInUsage(cs.usage,_))
-      allSpeculativeEqs = cs.speculativeEqs ++ newOrderedEqs
-      // The speculative equalities may invalidate some of the speculative disequalities
-      // We thus remove the now-ensured equalities from the speculative disequalities
-      nowEnsured = updateDiseqs(cs.ensuredDiseqs)
-      if nowEnsured forall (!_.isContradictory)
-      nowSpeculatedDiseqs = newSpeculatedDiseqs(newUsage, cs.speculativeDiseqs, nowEnsured)
-      if nowSpeculatedDiseqs forall (!_.isContradictory)
-      _ = logger.trace(s"Considering $speculation for speculation wrt $cs:\nNow have speculative equalities $allSpeculativeEqs and disequalities $nowSpeculatedDiseqs.")
-    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, allSpeculativeEqs)
-
-  }
-
-  private def newSpeculatedDiseqs(newUsage: VarUsageByLabel, oldSpeculativeDiseqs: Set[DiseqConstraint], nowEnsured: Set[DiseqConstraint]): Set[DiseqConstraint] = {
-    val classes = newUsage.keys
-    def classOf(v: Var) = classes.find(_.contains(v)).get
-    val renamedSpeculated = updateDiseqs(oldSpeculativeDiseqs)
-    (renamedSpeculated ++ speculatedDiseqs.map {
       case PureAtom(l, r, _) => DiseqConstraint(Set(classOf(l), classOf(r)))
     }) -- nowEnsured
   }

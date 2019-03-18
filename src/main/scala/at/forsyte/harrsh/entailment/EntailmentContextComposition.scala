@@ -11,27 +11,20 @@ object EntailmentContextComposition extends HarrshLogging {
       CompositionInterface(t1, t2, n2) <- compositionCandidates(fst, snd)
       _ = logger.debug(s"Trying to compose on root ${t1.root} and leaf $n2")
       if !doubleAlloc(t1.root, n2, constraints.usage)
-      //propagateUnification = unification(t1.root, n2)
-      (speculativeEqs, nonspeculativeEqs) = unificationEqualities(t1.root, n2)
+      eqs = unificationEqualities(t1.root, n2)
       // TODO: Abort if we need to speculate something about bound vars
-      //if speculativeEqs.isEmpty
       // TODO: Streamline this into a single update step? Nontrivial because of possible transitive equalities between placeholders
 
-      // Step 1: Equalities with placeholders
       instantiationPreUnification = instantiate(t2, n2, t1)
-      nonspeculativeUpdate = PureAtomUpdate(nonspeculativeEqs, fst.classes ++ snd.classes)
-      intermediateConstraints1 <- nonspeculativeUpdate(constraints)
-      intermediateInstantiation1 = instantiationPreUnification.updateSubst(nonspeculativeUpdate)
+      // Step 1: Aply equalities imposed by unification
+      speculativeUpdate = PureAtomUpdate(eqs, fst.classes ++ snd.classes)
+      intermediateConstraints <- speculativeUpdate(constraints)
+      intermediateInstantiation = instantiationPreUnification.updateSubst(speculativeUpdate)
 
-      // Step 2: Speculative equalities
-      speculativeUpdate = SpeculativeUpdate(speculativeEqs, intermediateConstraints1.classes)
-      intermediateConstraints2 <- speculativeUpdate(intermediateConstraints1)
-      intermediateInstantiation2 = intermediateInstantiation1.updateSubst(speculativeUpdate)
-
-      // Step 3: Get rid of superfluous placeholders
-      dropperUpdate = DropperUpdate(intermediateInstantiation2.redundantPlaceholders)
-      instantiation = intermediateInstantiation2.updateSubst(dropperUpdate)
-      updatedConstraints <- dropperUpdate(intermediateConstraints2)
+      // Step 2: Get rid of superfluous placeholders
+      dropperUpdate = DropperUpdate(intermediateInstantiation.redundantPlaceholders)
+      instantiation = intermediateInstantiation.updateSubst(dropperUpdate)
+      updatedConstraints <- dropperUpdate(intermediateConstraints)
 
       // Avoid speculation that would lead to unfounded proofs
       if !instantiation.calls.contains(instantiation.root)
@@ -39,30 +32,18 @@ object EntailmentContextComposition extends HarrshLogging {
 //        s"Fully circular context $instantiation when assuming constraints $updatedConstraints"
 //      )
 
-      _ = logger.debug(s"Constraints:\n0. $constraints\n1. $intermediateConstraints1\n2. $intermediateConstraints2\n3. $updatedConstraints")
+      //_ = logger.debug(s"Constraints:\n0. $constraints\n1. $intermediateConstraints\n2. $updatedConstraints")
 
-      fullUpdate = ChainedUpdater(ChainedUpdater(nonspeculativeUpdate, speculativeUpdate), dropperUpdate)
+      fullUpdate = ChainedUpdater(speculativeUpdate, dropperUpdate)
     } yield (instantiation, updatedConstraints, fullUpdate)
   }
 
-  private def unificationEqualities(fst: ContextPredCall, snd: ContextPredCall): (Seq[PureAtom],Seq[PureAtom]) = {
-    val pairs = for {
+  private def unificationEqualities(fst: ContextPredCall, snd: ContextPredCall): Seq[PureAtom] = {
+    for {
       (v1, v2) <- fst.subst.toSeq zip snd.subst.toSeq
       // If we're equating two vars which aren't already known to be equal...
       if v1 != v2
-    } yield (v1, v2)
-
-    val (speculativeUnif, nonspeculativeUnif) = pairs.partition {
-      case (v1, v2) =>
-        v1.exists(!PlaceholderVar.isPlaceholder(_)) && v2.exists(!PlaceholderVar.isPlaceholder(_))
-    }
-
-    def mkAtom(pair: (Set[Var], Set[Var])) = PureAtom(pair._1.head, pair._2.head, isEquality = true)
-    val res@(speculative, nonspeculative) = (speculativeUnif map mkAtom, nonspeculativeUnif map mkAtom)
-    if (speculative.nonEmpty) {
-      logger.debug(s"Unification of $fst and $snd imposes new equalities $res")
-    }
-    res
+    } yield PureAtom(v1.head, v2.head, isEquality = true)
   }
 
   private case class CompositionInterface(ctxToEmbed: EntailmentContext, embeddingTarget: EntailmentContext, leafToReplaceInEmbedding: ContextPredCall)

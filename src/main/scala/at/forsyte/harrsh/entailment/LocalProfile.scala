@@ -157,7 +157,7 @@ object LocalProfile extends HarrshLogging {
     assert(ensured.intersect(missing).isEmpty)
     val vars = renamedRhs.allVars ++ ensured.flatMap(_.getVars) ++ missing.flatMap(_.getVars)
     val initialConstraints = VarConstraints.fromAtoms(vars, ensured)
-    val addSpeculation = SpeculativeUpdate(missing, initialConstraints.classes)
+    val addSpeculation = PureAtomUpdate(missing, initialConstraints.classes)
     addSpeculation(initialConstraints).flatMap { constraintsWithoutUsage =>
       val toSet = (v: Var) => constraintsWithoutUsage.classOf(v)
       val toSubst = (vs: Seq[Var]) => Substitution(vs map toSet)
