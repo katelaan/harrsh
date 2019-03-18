@@ -53,9 +53,12 @@ object ContextDecompositionComposition extends HarrshLogging {
   }
 
   private def allMergeOptions(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], constraints: VarConstraints): Seq[ContextDecomposition] = {
+    logger.debug(s"Computing merge options; already processed:\n${processed.mkString("\n")}\nStill unprocessed:\n${unprocessed.mkString("\n")}")
+
     if (unprocessed.isEmpty) {
       val occurringVarSets = processed.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)
       val placeholders = occurringVarSets.flatten.filter(PlaceholderVar.isPlaceholder)
+      logger.debug(s"Will restrict placeholders to $placeholders in merge result:\n${processed.mkString("\n")}")
       val maybeRes = for {
         cleanedConstraints <- constraints.restrictPlaceholdersTo(placeholders)
         composed = ContextDecomposition(processed.toSet, cleanedConstraints)
@@ -71,28 +74,31 @@ object ContextDecompositionComposition extends HarrshLogging {
       }
     } else {
       for {
-        (nowProcessed, stillUnprocessed) <- optionalMerge(sid, processed, unprocessed, constraints)
-        merged <- allMergeOptions(sid, nowProcessed, stillUnprocessed, constraints)
+        (nowProcessed, stillUnprocessed, newConstraints) <- optionalMerge(sid, processed, unprocessed, constraints)
+        merged <- allMergeOptions(sid, nowProcessed, stillUnprocessed, newConstraints)
       } yield merged
     }
   }
 
-  private def optionalMerge(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], constraints: VarConstraints): Seq[(Seq[EntailmentContext], Seq[EntailmentContext])] = {
+  private def optionalMerge(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], constraints: VarConstraints): Seq[(Seq[EntailmentContext], Seq[EntailmentContext], VarConstraints)] = {
     val (fst, other) = (unprocessed.head, unprocessed.tail)
     (
       // Don't merge fst with anything, just add to processed
-      Seq((processed :+ fst, other))
-        ++ tryMerge(sid, fst, other, constraints).map(t => (processed, t._1 +: t._2))
+      Seq((processed :+ fst, other, constraints))
+        ++ tryMerge(sid, fst, other, constraints).map{
+        case (composed, stillUnprocessed, newConstraints, updater) => (processed map (_.updateSubst(updater)), composed +: (stillUnprocessed map (_.updateSubst(updater))), newConstraints)
+      }
       )
   }
 
-  private def tryMerge(sid: RichSid, fst: EntailmentContext, other: Seq[EntailmentContext], constraints: VarConstraints): Stream[(EntailmentContext, Seq[EntailmentContext], ConstraintUpdater)] = {
+  private def tryMerge(sid: RichSid, fst: EntailmentContext, other: Seq[EntailmentContext], constraints: VarConstraints): Stream[(EntailmentContext, Seq[EntailmentContext], VarConstraints, ConstraintUpdater)] = {
     for {
       candidate <- other.toStream
       _ = logger.debug(s"Will try to compose $fst with $candidate wrt constraints $constraints.")
-      ((composed, updater), i) <- EntailmentContextComposition(sid, fst, candidate, constraints).zipWithIndex
-      _ = logger.debug(s"Composition success #${i+1}: Composed context $composed\nusing updater $updater")
-    } yield (composed, other.filter(_ != candidate), updater)
+      ((composed, newConstraints, updater), i) <- EntailmentContextComposition(sid, fst, candidate, constraints).zipWithIndex
+      stillUnprocessed = other.filter(_ != candidate)
+      _ = logger.debug(s"Composition success #${i+1}: Composed context $composed\nusing updater $updater\nStill unprocessed:\n${stillUnprocessed.mkString("\n")}")
+    } yield (composed, stillUnprocessed, newConstraints, updater)
   }
 
 //  private def allMergeOptions(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], constraints: VarConstraints): Seq[ContextDecomposition] = {

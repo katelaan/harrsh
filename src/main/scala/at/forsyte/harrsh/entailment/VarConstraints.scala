@@ -56,11 +56,6 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     !nullAlloced && !contradictoryDiseq
   }
 
-  // See hasNamesForAllUsedParams
-//  def placeholderUsed = usage.exists{
-//    case (k,v) => v != VarUnused && k.forall(PlaceholderVar.isPlaceholder)
-//  }
-
   def definedOnAllOf(varSets: Set[Set[Var]]): Boolean = varSets subsetOf classes
 
   def classOf(v: Var): Set[Var] = classes.find(_.contains(v)).getOrElse{
@@ -206,8 +201,6 @@ object VarConstraints extends HarrshLogging {
     def needsPlaceholder: Boolean = underlying.exists {
       _ forall PlaceholderVar.isPlaceholder
     }
-
-    def isIllegal = isContradictory || needsPlaceholder
 
     def isVacuous: Boolean = underlying.exists(_.isEmpty)
 

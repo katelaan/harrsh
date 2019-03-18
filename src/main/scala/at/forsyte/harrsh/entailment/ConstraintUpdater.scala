@@ -164,18 +164,20 @@ case class InstantiationUpdate(instantiation: Seq[(Var, Var)], classes: Set[Set[
       nowSpeculatedDiseqs = updateDiseqs(cs.speculativeDiseqs) -- nowEnsured
       if nowSpeculatedDiseqs forall (!_.isContradictory)
       // Only difference to merge update
-      nowSpeculatedEqs = cs.speculativeEqs map instantiateEquality filterNot holdsAfterUpdate
+      nowSpeculatedEqs = cleanSpeculativeEqs(cs)
     } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, nowSpeculatedEqs)
+  }
+
+  private def cleanSpeculativeEqs(cs: VarConstraints) : Set[(Var,Var)] = {
+    // Only drop speculative equalities if made equal explicitly by the update
+    // It's *not* sound to check whether the equality holds after the update -- all do by definition!
+    cs.speculativeEqs map instantiateEquality filterNot (eq => eq._1 == eq._2) map {
+      eq => if (eq._1 < eq._2) eq else eq.swap
+    }
   }
 
   private def instantiateEquality(eq: (Var, Var)): (Var, Var) = {
     (instantiationFun(eq._1), instantiationFun(eq._2))
-  }
-
-  private def holdsAfterUpdate(eq: (Var, Var)): Boolean = {
-    // Is the right var in the updated class of the left var?
-    val updatedClassOfLeft = map2.values.find(_.contains(eq._1))
-    updatedClassOfLeft.get.contains(eq._2)
   }
 
 }
@@ -215,7 +217,7 @@ case class PureAtomUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Va
         }
     }
     val res = finalPairs.toMap
-    logger.debug(s"Atom $this lead to update map\n$res")
+    logger.debug(s"Atoms $atoms lead to update map\n$res")
     res
   }
 
@@ -224,7 +226,7 @@ case class PureAtomUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Va
   override def apply(cs: VarConstraints): Option[VarConstraints] = {
     for {
       newUsage <- applyToUsage(cs.usage, mayMergeClasses = true)
-      // Difference to SpeculativeUpdate: Placeholders are allowed
+      // TODO: Only difference to SpeculativeUpdate: Placeholders are allowed
       // Equalities involving placeholders can always be assumed and thus need not be added to speculation
       orderedEqs = eqs.filterNot(atom => PlaceholderVar.isPlaceholder(atom.l) || PlaceholderVar.isPlaceholder(atom.r)).map(_.ordered).map(atom => (atom.l, atom.r))
       allSpeculativeEqs = cs.speculativeEqs ++ orderedEqs
@@ -232,11 +234,9 @@ case class PureAtomUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Va
       // The speculative equalities may invalidate some of the speculative disequalities
       // We thus remove the now-ensured equalities from the speculative disequalities
       nowEnsured = updateDiseqs(cs.ensuredDiseqs)
-      // Difference to SpeculativeUpdate: Since placeholders are allowed to occur in the update,
-      // we must ensure now that we don't retain disequalities that rely on placeholders
-      if nowEnsured forall (!_.isIllegal)
+      if nowEnsured forall (!_.isContradictory)
       nowSpeculatedDiseqs = newSpeculatedDiseqs(newUsage, cs.speculativeDiseqs, nowEnsured)
-      if nowSpeculatedDiseqs forall (!_.isIllegal)
+      if nowSpeculatedDiseqs forall (!_.isContradictory)
       _ = logger.trace(s"Considering $atoms as additional constraints wrt $cs:\nNow have speculative equalities $unsatisfiedSpeculativeEqs and disequalities $nowSpeculatedDiseqs.")
     } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, unsatisfiedSpeculativeEqs)
 

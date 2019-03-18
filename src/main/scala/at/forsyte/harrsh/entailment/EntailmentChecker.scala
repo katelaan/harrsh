@@ -81,11 +81,11 @@ object EntailmentChecker extends HarrshLogging {
     }
 
     val entailmentHolds = checkAcceptance(entailmentInstance.rhs.sid, entailmentInstance.lhs.calls, entailmentInstance.rhs.calls, reachableStatesByPred)
-    if (exportToLatex) {
-      print("Will export result to LaTeX...")
-      IOUtils.writeFile("entailment.tex", EntailmentResultToLatex.entailmentCheckingResultToLatex(entailmentInstance, entailmentHolds, aut, reachableStatesByPred, transitionsByHeadPred))
-      println(" Done.")
-    }
+//    if (exportToLatex) {
+//      print("Will export result to LaTeX...")
+//      IOUtils.writeFile("entailment.tex", EntailmentResultToLatex.entailmentCheckingResultToLatex(entailmentInstance, entailmentHolds, aut, reachableStatesByPred, transitionsByHeadPred))
+//      println(" Done.")
+//    }
 
     val stats = entailmentStats(reachableStatesByPred)
     (entailmentHolds,stats)
@@ -109,7 +109,7 @@ object EntailmentChecker extends HarrshLogging {
     // there is no consistent profile for emp
     val profileForLhsPureConstraints = pureProfile(lhsConstraint.pure, computeEvenIfEmpty = lhsConstraint.calls.isEmpty)
     val combinedProfiles = for {
-      toplevelStatesForCalls <- Combinators.choices(renamedReachableStates.map(_.toSeq)).toStream
+      toplevelStatesForCalls <- Combinators.choices(renamedReachableStates.map(_.toSeq))
       toplevelStates = profileForLhsPureConstraints match {
         case None => toplevelStatesForCalls
         case Some(pureProfile) => pureProfile +: toplevelStatesForCalls
@@ -117,13 +117,16 @@ object EntailmentChecker extends HarrshLogging {
       composed <- EntailmentProfileComposition.composeAll(sid, toplevelStates, lhsConstraint.nonNullVars)
       restricted = if (lhsConstraint.isQuantifierFree) composed else composed.forget(lhsConstraint.boundVars)
     } yield restricted
+
+    logger.debug(combinedProfiles.size + " combined profile(s):\n" + combinedProfiles.mkString("\n"))
+
     if (combinedProfiles.isEmpty) {
       logger.info(s"There is no profile for $lhsConstraint => $lhsConstraint is unsatisfiable => entailment holds.")
       true
     } else {
       combinedProfiles.forall { p =>
         logger.debug(s"Will check if $p is final...")
-        p.decomps.exists(_.isFinal(sid, rhsConstraint))
+        p.decomps.exists(decomp => decomp.isFinal(sid, rhsConstraint))
       }
     }
   }

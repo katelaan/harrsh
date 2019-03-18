@@ -6,7 +6,7 @@ import at.forsyte.harrsh.seplog.inductive.{PureAtom, RichSid}
 
 object EntailmentContextComposition extends HarrshLogging {
 
-  def apply(sid: RichSid, fst: EntailmentContext, snd: EntailmentContext, constraints: VarConstraints): Stream[(EntailmentContext, ConstraintUpdater)] = {
+  def apply(sid: RichSid, fst: EntailmentContext, snd: EntailmentContext, constraints: VarConstraints): Stream[(EntailmentContext, VarConstraints, ConstraintUpdater)] = {
     for {
       CompositionInterface(t1, t2, n2) <- compositionCandidates(fst, snd)
       _ = logger.debug(s"Trying to compose on root ${t1.root} and leaf $n2")
@@ -17,11 +17,12 @@ object EntailmentContextComposition extends HarrshLogging {
       // TODO: Streamline this into a single update step? Nontrivial because of possible transitive equalities between placeholders
       instantiationPreUnification = instantiate(t2, n2, t1)
       nonspeculativeUpdate = PureAtomUpdate(nonspeculativeEqs, fst.classes ++ snd.classes)
+      updatedConstraints <- nonspeculativeUpdate(constraints)
       instantiationAferUnification = instantiationPreUnification.updateSubst(nonspeculativeUpdate)
       dropperUpdate = DropperUpdate(instantiationAferUnification.redundantPlaceholders)
       instantiation = instantiationAferUnification.updateSubst(dropperUpdate)
       _ = assert(!instantiation.calls.contains(instantiation.root))
-    } yield (instantiation, nonspeculativeUpdate)
+    } yield (instantiation, updatedConstraints, nonspeculativeUpdate)
   }
 
   private def unificationEqualities(fst: ContextPredCall, snd: ContextPredCall): (Seq[PureAtom],Seq[PureAtom]) = {
