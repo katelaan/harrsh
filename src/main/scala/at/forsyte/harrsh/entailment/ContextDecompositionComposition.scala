@@ -56,11 +56,19 @@ object ContextDecompositionComposition extends HarrshLogging {
     if (unprocessed.isEmpty) {
       val occurringVarSets = processed.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)
       val placeholders = occurringVarSets.flatten.filter(PlaceholderVar.isPlaceholder)
-      val cleanedConstraints = constraints.restrictPlaceholdersTo(placeholders)
-      val composed = ContextDecomposition(processed.toSet, cleanedConstraints)
-      val res = Seq(composed.toPlaceholderNormalForm)
-      logger.debug(s"New merge result: $res")
-      res
+      val maybeRes = for {
+        cleanedConstraints <- constraints.restrictPlaceholdersTo(placeholders)
+        composed = ContextDecomposition(processed.toSet, cleanedConstraints)
+        res = composed.toPlaceholderNormalForm
+      } yield res
+      maybeRes match {
+        case None =>
+          logger.debug(s"Merging failed because placeholders were used in speculation in $constraints of processed contexts\n${processed.mkString("\n")}")
+          Seq.empty
+        case Some(res) =>
+          logger.debug(s"New merge result: $res")
+          Seq(res)
+      }
     } else {
       for {
         (nowProcessed, stillUnprocessed) <- optionalMerge(sid, processed, unprocessed, constraints)

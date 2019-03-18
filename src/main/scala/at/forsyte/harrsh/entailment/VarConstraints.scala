@@ -102,11 +102,11 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     }
   }
 
-  def restrictPlaceholdersTo(placeholders: Set[Var]): VarConstraints = {
+  def restrictPlaceholdersTo(placeholders: Set[Var]): Option[VarConstraints] = {
     val allPlaceholders = allVars filter PlaceholderVar.isPlaceholder
     val toDrop = allPlaceholders -- placeholders
     val dropper = DropperUpdate(toDrop)
-    dropper.unsafeUpdate(this)
+    dropper(this)
   }
 
   def speculativeEqsNotEnsuredIn(other: VarConstraints): Set[(Var, Var)] = {

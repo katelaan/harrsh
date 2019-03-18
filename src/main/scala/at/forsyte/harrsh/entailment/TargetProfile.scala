@@ -90,11 +90,11 @@ object TargetProfile extends HarrshLogging {
       updatedCtxs = newCtxs.map(_.updateSubst(pureAtomUpdate)).toSet
       // Get rid of placeholders that occurred only in the call(s) which we removed
       leftoverPlaceholders = updatedCtxs.flatMap(_.placeholders)
-      cleanedConstraints = withNewAtoms.restrictPlaceholdersTo(leftoverPlaceholders)
+      cleanedConstraints <- withNewAtoms.restrictPlaceholdersTo(leftoverPlaceholders)
       // Get rid of redundant placeholders
       placeholderDropper = DropperUpdate(updatedCtxs.flatMap(_.redundantPlaceholders))
       finalCtxs = updatedCtxs map (_.updateSubst(placeholderDropper))
-      finalConstraints = placeholderDropper.unsafeUpdate(cleanedConstraints)
+      finalConstraints <- placeholderDropper(cleanedConstraints)
       newDecomp = ContextDecomposition(finalCtxs, finalConstraints)
 
       if newDecomp.isConsistentWithFocus(sid)
