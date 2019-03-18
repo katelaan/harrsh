@@ -163,7 +163,7 @@ object EntailmentProfileComposition extends HarrshLogging {
       for {
         restrictedConstraints <- decomp.constraints.restrictToNonPlaceholdersAnd(decomp.occurringLabels)
         mergedDecomp = ContextDecomposition(unchangedCtxs + ctxAfterMerging, restrictedConstraints)
-        speculationUpdate = PureAtomUpdate(rule.body.pure, mergedDecomp.constraints.classes)
+        speculationUpdate = SpeculativeUpdate(rule.body.pure, mergedDecomp.constraints.classes)
         withSpeculation <- mergedDecomp.updateSubst(speculationUpdate)
       } yield withSpeculation
     }

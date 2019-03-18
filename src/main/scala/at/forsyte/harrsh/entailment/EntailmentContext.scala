@@ -34,13 +34,14 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
   }
 
   def redundantPlaceholders: Set[Var] = {
-    val equivalenceClasses = Substitution.extractVarEquivClasses(labels map (_.subst))
-    val redundantVars = equivalenceClasses.flatMap(getRedundantVars)
-    //logger.trace(s"Redundant vars: $redundantVars")
-    redundantVars
+    classes flatMap redundantPlaceholdersInSet
+//    val equivalenceClasses = Substitution.extractVarEquivClasses(labels map (_.subst))
+//    val redundantVars = equivalenceClasses.flatMap(redundantPlaceholdersInSet)
+//    //logger.trace(s"Redundant vars: $redundantVars")
+//    redundantVars
   }
 
-  private def getRedundantVars(vs: Set[Var]): Set[Var] = {
+  private def redundantPlaceholdersInSet(vs: Set[Var]): Set[Var] = {
     val (phs, nonPhs) = vs.partition(PlaceholderVar.isPlaceholder)
     if (nonPhs.nonEmpty) {
       // There is a proper free var in this equivalence class => discard all equivalent placeholders

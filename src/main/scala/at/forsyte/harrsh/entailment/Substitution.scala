@@ -48,30 +48,4 @@ case class Substitution(toSeq: Seq[Set[Var]]) extends AnyVal {
 
 object Substitution {
   def identity(fvs: Seq[Var]): Substitution = Substitution(fvs map (Set(_)))
-
-  def extractVarEquivClasses(substs: Iterable[Substitution]) : Set[Set[Var]] = {
-    // TODO: More efficient solution
-    var candidates: Set[Set[Var]] = for {
-      subst <- substs.toSet[Substitution]
-      vs <- subst.toSeq
-    } yield vs
-    mergeOverlapping(candidates)
-  }
-
-  @tailrec private def mergeOverlapping(candidates: Set[Set[Var]]): Set[Set[Var]] = getOverlapping(candidates) match {
-    case Some((set1, set2)) =>
-      val merged = candidates - set1 - set2 + (set1 union set2)
-      mergeOverlapping(merged)
-    case None => candidates
-  }
-
-  private def getOverlapping(sets: Set[Set[Var]]): Option[(Set[Var], Set[Var])] = {
-    (for {
-      set1 <- sets
-      set2 <- sets
-      if set1 != set2
-      if (set1 intersect set2).nonEmpty
-    } yield (set1, set2)).headOption
-  }
-
 }

@@ -53,24 +53,6 @@ sealed trait ConstraintUpdater extends HarrshLogging {
 
 object ConstraintUpdater extends HarrshLogging {
 
-  def closeUnderEquivalenceClasses(map: Map[Var, Set[Var]], classes: Iterable[Set[Var]]): SubstitutionUpdate = {
-    var prevMap: Map[Var, Set[Var]] = Map.empty
-    var currMap: Map[Var, Set[Var]] = map
-
-    val step: Map[Var, Set[Var]] = classes.flatten.map{
-      v:Var => v -> (classes.filter(_.contains(v)).flatten.toSet + v)
-    }.toMap
-
-    while (prevMap != currMap) {
-      prevMap = currMap
-      currMap = for {
-        (k, vs) <- prevMap
-      } yield (k, vs ++ vs flatMap (v => step.getOrElse(v, Set(v))))
-    }
-    logger.debug(s"Equivalence classes ${classes.mkString(", ")} extended\n$map to:\n$currMap")
-    SubstitutionUpdateMap(currMap)
-  }
-
   def holdsInUsage(usage: VarUsageByLabel, eq: (Var, Var)): Boolean = {
     usage.keys.exists{
       vs => vs.contains(eq._1) && vs.contains(eq._2)
@@ -188,11 +170,11 @@ case class InstantiationUpdate(instantiation: Seq[(Var, Var)], classes: Set[Set[
 
 }
 
-case class PureAtomUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Var]]) extends ConstraintUpdater {
+case class SpeculativeUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Var]]) extends ConstraintUpdater {
 
   logger.debug{
     if (atoms.nonEmpty)
-      s"Will add $atoms (unless already ensured)"
+      s"Will add $atoms to speculation (unless already ensured)"
     else
       "No atoms to add."
   }
@@ -221,7 +203,6 @@ case class PureAtomUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Va
   override def apply(cs: VarConstraints): Option[VarConstraints] = {
     for {
       newUsage <- applyToUsage(cs.usage, mayMergeClasses = true)
-      // TODO: Only difference to SpeculativeUpdate: Placeholders are allowed
       // Equalities involving placeholders can always be assumed and thus need not be added to speculation
       orderedEqs = eqs.filterNot(atom => PlaceholderVar.isPlaceholder(atom.l) || PlaceholderVar.isPlaceholder(atom.r)).map(_.ordered).map(atom => (atom.l, atom.r))
       // Important: Check wrt *old* usage info, in the new usage info the equalities do, of course, hold!

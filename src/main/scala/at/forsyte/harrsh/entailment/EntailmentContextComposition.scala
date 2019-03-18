@@ -17,7 +17,7 @@ object EntailmentContextComposition extends HarrshLogging {
 
       instantiationPreUnification = instantiate(t2, n2, t1)
       // Step 1: Aply equalities imposed by unification
-      speculativeUpdate = PureAtomUpdate(eqs, fst.classes ++ snd.classes)
+      speculativeUpdate = SpeculativeUpdate(eqs, fst.classes ++ snd.classes)
       intermediateConstraints <- speculativeUpdate(constraints)
       intermediateInstantiation = instantiationPreUnification.updateSubst(speculativeUpdate)
 

@@ -63,23 +63,23 @@ object EntailmentResultToLatex {
       case other => other
     }
 
-    private def pureConstraintToTikz(pureConstraints: PureConstraintTracker, ctxRootId: String, nodeId: String, style: String): Option[String] = {
-      val pureAtomsToLatex = (deqs: Set[PureAtom]) =>
-        if (deqs.isEmpty) {
-          "---"
-        } else {
-          deqs.map(a => s"$$${varsToMath(a.l)} ${if (a.isEquality) "=" else "\\neq"} ${varsToMath(a.r)}$$").mkString(", ")
-        }
-
-      if (pureConstraints.ensured.nonEmpty || pureConstraints.missing.nonEmpty) {
-        val ensuredLabel = s"Guaranteed: ${pureAtomsToLatex(pureConstraints.ensured)}"
-        val missingLabel = s"Missing: ${pureAtomsToLatex(pureConstraints.missing)}"
-        val missingStyle = if (pureConstraints.missing.nonEmpty) s"$MissingStyleClass," else ""
-        Some(s"\\node[$NodeLabelStyleClass,$style,${missingStyle}right=2mm of $ctxRootId] ($nodeId) {\\footnotesize $ensuredLabel \\nodepart{two} \\footnotesize $missingLabel};")
-      } else {
-        None
-      }
-    }
+//    private def pureConstraintToTikz(pureConstraints: PureConstraintTracker, ctxRootId: String, nodeId: String, style: String): Option[String] = {
+//      val pureAtomsToLatex = (deqs: Set[PureAtom]) =>
+//        if (deqs.isEmpty) {
+//          "---"
+//        } else {
+//          deqs.map(a => s"$$${varsToMath(a.l)} ${if (a.isEquality) "=" else "\\neq"} ${varsToMath(a.r)}$$").mkString(", ")
+//        }
+//
+//      if (pureConstraints.ensured.nonEmpty || pureConstraints.missing.nonEmpty) {
+//        val ensuredLabel = s"Guaranteed: ${pureAtomsToLatex(pureConstraints.ensured)}"
+//        val missingLabel = s"Missing: ${pureAtomsToLatex(pureConstraints.missing)}"
+//        val missingStyle = if (pureConstraints.missing.nonEmpty) s"$MissingStyleClass," else ""
+//        Some(s"\\node[$NodeLabelStyleClass,$style,${missingStyle}right=2mm of $ctxRootId] ($nodeId) {\\footnotesize $ensuredLabel \\nodepart{two} \\footnotesize $missingLabel};")
+//      } else {
+//        None
+//      }
+//    }
 
     private def nodeLabelToLatexLines(nodeLabel: ContextPredCall, usageInfo: VarUsageByLabel, nodeId: String, style: String): Stream[String] = {
       val tikzNodeLabel = nodeLabel.symbolicHeapLabel

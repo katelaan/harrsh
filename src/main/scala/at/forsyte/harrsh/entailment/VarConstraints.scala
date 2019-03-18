@@ -9,9 +9,6 @@ import at.forsyte.harrsh.util.Combinators
 
 case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstraint], speculativeDiseqs: Set[DiseqConstraint], speculativeEqs: Set[(Var, Var)]) extends HarrshLogging {
 
-  // TODO: The usage map / classes implicitly contain speculation (the result of identifying parameters in matching). Do we handle this correctly? Think in particular about going to the sink state or returning no state in profile composition when we filter out all decompositions because of inconsistencies
-  // FIXME: It seems like the implicit equality speculation is actually unsound in case we forget one of the participating variables! Should probably track such equalities explicitly here as well!
-
   assert(isWellFormed, s"$this is not well-formed")
   assert(allocatedEnsuredNotNull)
   assert(isConsistent)
@@ -121,42 +118,17 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
     * @return
     */
   def areRequiredInSpeculation(vs: Set[Var]): Boolean = {
-    // TODO: is it correct that we can actually *never* drop a speculative constraint, no matter if all vars in the constraint are forgotten? I think that's the case, so I changed the code accordingly
     areRequiredInSpeculativeEqs(vs) || areRequiredInSpeculativeDiseqs(vs)
   }
 
   private def areRequiredInSpeculativeEqs(vs: Set[Var]): Boolean = {
     speculativeEqs exists {
-      //pair => vs.contains(pair._1) != vs.contains(pair._2)
       pair => vs.contains(pair._1) || vs.contains(pair._2)
     }
   }
 
   private def areRequiredInSpeculativeDiseqs(vs: Set[Var]): Boolean = {
     speculativeDiseqs exists (_.requires(vs))
-  }
-
-  private def updatedUsageInfo(f: SubstitutionUpdate): Option[Map[Set[Var], VarUsage]] = {
-//    val groupedNonDisjoint: Map[Set[Var], Map[Set[Var], VarUsage]] = usage.groupBy(pair => f(pair._1))
-//    // In case the update is a non-injective renaming, we might end up with non-disjoint groups.
-//    // For example, if we have {x1, x3} and {x2, x4} and then rename both x1 and x3 to null.
-//    // We have to catch this and merge accordingly
-//    val grouped = makeDisjoint(groupedNonDisjoint)
-    val grouped: Map[Set[Var], Map[Set[Var], VarUsage]] = usage.groupBy(pair => f(pair._1))
-
-    def doubleAlloc(group: Map[Set[Var], VarUsage]) : Boolean = group.values.count(_ == VarAllocated) >= 2
-
-    if (grouped.values.exists(doubleAlloc)) {
-      logger.debug(s"Update via $f failed because of double allocation (${grouped.values.filter(doubleAlloc)})")
-      None
-    }
-    else {
-      val res = grouped map {
-        case (updated, allUsagesForUpdated) => updated -> allUsagesForUpdated.values.max
-      }
-      logger.trace(s"Grouped $usage into\n$grouped\n=> Resulting usage info $res")
-      Some(res)
-    }
   }
 
   def hasNamesForAllUsedParams: Boolean = {

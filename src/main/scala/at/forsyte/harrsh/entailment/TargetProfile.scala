@@ -85,7 +85,7 @@ object TargetProfile extends HarrshLogging {
       _ = logger.debug(s"Considering emp-closure for $decomp:\nWill update contexts as follows:\n${closureOption.map(p => p._1 + " with new pure constraints " + p._2).mkString(",\n")}")
       (newCtxs, pureConstraintsByCtx) = closureOption.unzip
       newPureAtoms = pureConstraintsByCtx.flatten
-      pureAtomUpdate = PureAtomUpdate(newPureAtoms, decomp.constraints.classes)
+      pureAtomUpdate = SpeculativeUpdate(newPureAtoms, decomp.constraints.classes)
       withNewAtoms <- pureAtomUpdate(decomp.constraints)
       updatedCtxs = newCtxs.map(_.updateSubst(pureAtomUpdate)).toSet
       // Get rid of placeholders that occurred only in the call(s) which we removed
