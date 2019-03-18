@@ -71,6 +71,12 @@ object ConstraintUpdater extends HarrshLogging {
     SubstitutionUpdateMap(currMap)
   }
 
+  def holdsInUsage(usage: VarUsageByLabel, eq: (Var, Var)): Boolean = {
+    usage.keys.exists{
+      vs => vs.contains(eq._1) && vs.contains(eq._2)
+    }
+  }
+
 }
 
 case class MergeUpdate(fstClasses: Set[Set[Var]], sndClasses: Set[Set[Var]]) extends ConstraintUpdater {
@@ -229,24 +235,19 @@ case class PureAtomUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Va
       // TODO: Only difference to SpeculativeUpdate: Placeholders are allowed
       // Equalities involving placeholders can always be assumed and thus need not be added to speculation
       orderedEqs = eqs.filterNot(atom => PlaceholderVar.isPlaceholder(atom.l) || PlaceholderVar.isPlaceholder(atom.r)).map(_.ordered).map(atom => (atom.l, atom.r))
-      allSpeculativeEqs = cs.speculativeEqs ++ orderedEqs
-      unsatisfiedSpeculativeEqs = allSpeculativeEqs //filterNot (holdsIn(newUsage, _))
+      // Important: Check wrt *old* usage info, in the new usage info the equalities do, of course, hold!
+      newOrderedEqs = orderedEqs filterNot (ConstraintUpdater.holdsInUsage(cs.usage,_))
+      allSpeculativeEqs = cs.speculativeEqs ++ newOrderedEqs
       // The speculative equalities may invalidate some of the speculative disequalities
       // We thus remove the now-ensured equalities from the speculative disequalities
       nowEnsured = updateDiseqs(cs.ensuredDiseqs)
       if nowEnsured forall (!_.isContradictory)
       nowSpeculatedDiseqs = newSpeculatedDiseqs(newUsage, cs.speculativeDiseqs, nowEnsured)
       if nowSpeculatedDiseqs forall (!_.isContradictory)
-      _ = logger.trace(s"Considering $atoms as additional constraints wrt $cs:\nNow have speculative equalities $unsatisfiedSpeculativeEqs and disequalities $nowSpeculatedDiseqs.")
-    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, unsatisfiedSpeculativeEqs)
+      _ = logger.trace(s"Considering $atoms as additional constraints wrt $cs:\nNow have speculative equalities $allSpeculativeEqs and disequalities $nowSpeculatedDiseqs.")
+    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, allSpeculativeEqs)
 
   }
-
-//  private def holdsIn(newUsage: VarUsageByLabel, eq: (Var, Var)): Boolean = {
-//    newUsage.keys.exists{
-//      vs => vs.contains(eq._1) && vs.contains(eq._2)
-//    }
-//  }
 
   private def newSpeculatedDiseqs(newUsage: VarUsageByLabel, oldSpeculativeDiseqs: Set[DiseqConstraint], nowEnsured: Set[DiseqConstraint]): Set[DiseqConstraint] = {
     val classes = newUsage.keys
@@ -291,7 +292,9 @@ case class SpeculativeUpdate(speculation: Iterable[PureAtom], originalClasses: S
     for {
       newUsage <- applyToUsage(cs.usage, mayMergeClasses = true)
       orderedEqs = speculatedEqs.map(_.ordered).map(atom => (atom.l, atom.r))
-      allSpeculativeEqs = cs.speculativeEqs ++ orderedEqs
+      // Important: Check wrt *old* usage info, in the new usage info the equalities do, of course, hold!
+      newOrderedEqs = orderedEqs filterNot (ConstraintUpdater.holdsInUsage(cs.usage,_))
+      allSpeculativeEqs = cs.speculativeEqs ++ newOrderedEqs
       // The speculative equalities may invalidate some of the speculative disequalities
       // We thus remove the now-ensured equalities from the speculative disequalities
       nowEnsured = updateDiseqs(cs.ensuredDiseqs)
