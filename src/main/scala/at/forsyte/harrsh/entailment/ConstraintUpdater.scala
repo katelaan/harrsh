@@ -221,7 +221,7 @@ case class PureAtomUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Va
     res
   }
 
-  override def apply(vs: Set[Var]): Set[Var] = map(vs)
+  override def apply(vs: Set[Var]): Set[Var] = map.getOrElse(vs, vs)
 
   override def apply(cs: VarConstraints): Option[VarConstraints] = {
     for {
@@ -410,5 +410,16 @@ case class DropperUpdate(varsToDrop: Set[Var]) extends ConstraintUpdater {
   private def updateAndDropEmptyDiseqs(diseqs: Set[DiseqConstraint]): Set[DiseqConstraint] = {
     updateDiseqs(diseqs) filterNot (_.isVacuous)
   }
+
+}
+
+case class ChainedUpdater(fst: ConstraintUpdater, snd: ConstraintUpdater) extends ConstraintUpdater {
+
+  override def apply(vs: Set[Var]): Set[Var] = snd(fst(vs))
+
+  override def apply(cs: VarConstraints): Option[VarConstraints] = for {
+    intermediate <- fst(cs)
+    updated <- snd(intermediate)
+  } yield updated
 
 }

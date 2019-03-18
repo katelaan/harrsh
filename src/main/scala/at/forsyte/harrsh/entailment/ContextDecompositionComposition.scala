@@ -53,7 +53,7 @@ object ContextDecompositionComposition extends HarrshLogging {
   }
 
   private def allMergeOptions(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], constraints: VarConstraints): Seq[ContextDecomposition] = {
-    logger.debug(s"Computing merge options; already processed:\n${processed.mkString("\n")}\nStill unprocessed:\n${unprocessed.mkString("\n")}")
+    logger.debug(s"Computing merge options; already processed:\n${processed.mkString("\n")}\nStill unprocessed:\n${unprocessed.mkString("\n")}\nCurrent constraints: $constraints")
 
     if (unprocessed.isEmpty) {
       val occurringVarSets = processed.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)

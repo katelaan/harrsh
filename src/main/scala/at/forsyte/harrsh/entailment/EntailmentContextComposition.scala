@@ -17,12 +17,14 @@ object EntailmentContextComposition extends HarrshLogging {
       // TODO: Streamline this into a single update step? Nontrivial because of possible transitive equalities between placeholders
       instantiationPreUnification = instantiate(t2, n2, t1)
       nonspeculativeUpdate = PureAtomUpdate(nonspeculativeEqs, fst.classes ++ snd.classes)
-      updatedConstraints <- nonspeculativeUpdate(constraints)
-      instantiationAferUnification = instantiationPreUnification.updateSubst(nonspeculativeUpdate)
-      dropperUpdate = DropperUpdate(instantiationAferUnification.redundantPlaceholders)
-      instantiation = instantiationAferUnification.updateSubst(dropperUpdate)
+      intermediateConstraints <- nonspeculativeUpdate(constraints)
+      instantiationAfterUnification = instantiationPreUnification.updateSubst(nonspeculativeUpdate)
+
+      dropperUpdate = DropperUpdate(instantiationAfterUnification.redundantPlaceholders)
+      instantiation = instantiationAfterUnification.updateSubst(dropperUpdate)
+      updatedConstraints <- dropperUpdate(intermediateConstraints)
       _ = assert(!instantiation.calls.contains(instantiation.root))
-    } yield (instantiation, updatedConstraints, nonspeculativeUpdate)
+    } yield (instantiation, updatedConstraints, ChainedUpdater(nonspeculativeUpdate, dropperUpdate))
   }
 
   private def unificationEqualities(fst: ContextPredCall, snd: ContextPredCall): (Seq[PureAtom],Seq[PureAtom]) = {
@@ -44,12 +46,6 @@ object EntailmentContextComposition extends HarrshLogging {
     }
     res
   }
-
-//  private def unification(fst: ContextPredCall, snd: ContextPredCall): SubstitutionUpdate = {
-//    val zipped: Seq[(Set[Var], Set[Var])] = fst.subst.toSeq zip snd.subst.toSeq
-//    val unificationResult = zipped.map(pair => pair._1.union(pair._2))
-//    SubstitutionUpdate.fromSetsOfEqualVars(unificationResult)
-//  }
 
   private case class CompositionInterface(ctxToEmbed: EntailmentContext, embeddingTarget: EntailmentContext, leafToReplaceInEmbedding: ContextPredCall)
 
