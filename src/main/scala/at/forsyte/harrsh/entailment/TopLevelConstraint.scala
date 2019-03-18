@@ -5,11 +5,11 @@ import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{EmptyPredicates, PredCall, PureAtom, SymbolicHeap}
 import at.forsyte.harrsh.util.Combinators
 
+import scala.annotation.tailrec
+
 case class TopLevelConstraint(calls: Seq[PredCall], pure: Seq[PureAtom]) extends HarrshLogging {
 
   lazy val size: NodeId = calls.size
-  lazy val names: Seq[String] = calls map (_.name)
-  lazy val orderedCalls: Seq[PredCall] = calls.sortBy(_.name)
 
   override def toString: String = toSymbolicHeap.toString
 
@@ -31,22 +31,57 @@ case class TopLevelConstraint(calls: Seq[PredCall], pure: Seq[PureAtom]) extends
   }
 
   private def heapEntailmentHolds(lhs: Set[ContextPredCall], lhsConstraints: VarConstraints, predsWithEmptyModels: EmptyPredicates): Boolean = {
-    val orderedLhs = TopLevelConstraint.sorted(lhs)
-    val (rhsCallsPresentInLhs, callsMissingInLhs, extraPredsInLhs) = TopLevelConstraint.compareOrderedPredSeqs(orderedLhs, orderedCalls)
-    if (extraPredsInLhs.nonEmpty) {
-      logger.debug(s"$lhs does not imply $this, because it contains extra predicate call(s) ${extraPredsInLhs.mkString(" * ")}")
+    val lhsByPred: Map[String, Set[ContextPredCall]] = lhs.groupBy(_.pred.head)
+    val rhsByPred = calls.groupBy(_.name)
+    val occurringPreds = lhsByPred.keySet ++ rhsByPred.keySet
+    occurringPreds forall {
+      pred => callsWithSameHeadAreMatchable(lhsByPred.getOrElse(pred, Set.empty),
+        rhsByPred.getOrElse(pred, Seq.empty),
+        lhsConstraints,
+        predsWithEmptyModels)
+    }
+  }
+
+  private def callsWithSameHeadAreMatchable(lhsCalls: Set[ContextPredCall], rhsCalls: Seq[PredCall], lhsConstraints: VarConstraints, predsWithEmptyModels: EmptyPredicates): Boolean = {
+    if (lhsCalls.size > rhsCalls.size) {
+      logger.debug(s"LHS $lhsCalls do not imply RHS $rhsCalls, because LHS contains additional predicate call(s)")
       false
     } else {
-      val (possiblyEmptyPreds, nonemptyPreds) = callsMissingInLhs.partition(canBeEmpty(_, lhsConstraints, predsWithEmptyModels))
-      if (nonemptyPreds.isEmpty) {
-        logger.debug(s"Will try to match $orderedLhs against ${rhsCallsPresentInLhs.mkString(" * ")}")
-        val res = TopLevelConstraint.matchable(orderedLhs, rhsCallsPresentInLhs)
-        logger.debug(s"LHS $lhs matchable against (partial) RHS ${rhsCallsPresentInLhs.mkString(" * ")}? ===> $res")
-        res
+      canMatchOneByOne(lhsCalls, rhsCalls, lhsConstraints, predsWithEmptyModels)
+    }
+  }
+
+  private def canReplaceMissingCallsByEmpty(rhsCalls: Seq[PredCall], lhsConstraints: VarConstraints, predsWithEmptyModels: EmptyPredicates): Boolean = {
+    rhsCalls forall (canBeEmpty(_, lhsConstraints, predsWithEmptyModels))
+  }
+
+  @tailrec
+  private def canMatchOneByOne(lhsCalls: Set[ContextPredCall], rhsCalls: Seq[PredCall], lhsConstraints: VarConstraints, predsWithEmptyModels: EmptyPredicates): Boolean = {
+    if (lhsCalls.isEmpty) {
+      if (rhsCalls.isEmpty) {
+        logger.debug("Matching succeeded. Entailment holds.")
+        true
+      } else {
+        logger.debug(s"All LHS calls have been matched. Entailment holds if remainin RHS calls $rhsCalls can be empty under constraints $lhsConstraints")
+        canReplaceMissingCallsByEmpty(rhsCalls, lhsConstraints, predsWithEmptyModels)
       }
-      else {
-        logger.debug(s"The predicate(s) ${nonemptyPreds.mkString(", ")} can't be empty, but are missing on the LHS.")
-        false
+    } else if (rhsCalls.isEmpty) {
+      logger.debug(s"LHS calls $lhsCalls could not be matched => Entailment does not hold")
+      false
+    } else {
+      val (hd, tl) = (rhsCalls.head, rhsCalls.tail)
+      lhsCalls.find(call => TopLevelConstraint.argsImplySubst(hd.args, call.subst)) match {
+        case None =>
+          if (canBeEmpty(hd, lhsConstraints, predsWithEmptyModels)) {
+            logger.debug(s"Can't match RHS call $hd against any of the unmatched LHS calls $lhsCalls, but it can be empty => Continue matching")
+            canMatchOneByOne(lhsCalls, tl, lhsConstraints, predsWithEmptyModels)
+          } else {
+            logger.debug(s"Can't match RHS call $hd against any of the unmatched LHS calls $lhsCalls and it can't be empty => Entailment does not hold")
+            false
+          }
+        case Some(lhsCall) =>
+          logger.debug(s"Matched $lhsCall |= $hd. Will continue matching.")
+          canMatchOneByOne(lhsCalls - lhsCall, tl, lhsConstraints, predsWithEmptyModels)
       }
     }
   }
@@ -73,63 +108,7 @@ case class TopLevelConstraint(calls: Seq[PredCall], pure: Seq[PureAtom]) extends
 
 object TopLevelConstraint extends HarrshLogging {
 
-  def sorted(calls: Iterable[ContextPredCall]): Seq[ContextPredCall] = calls.toSeq.sortBy(_.pred.head)
-
-  def compareOrderedPredSeqs(lhsPreds: Seq[ContextPredCall], rhsPreds: Seq[PredCall]): (Seq[PredCall], Seq[PredCall], Seq[ContextPredCall]) = {
-    if (lhsPreds.isEmpty) (Seq.empty, rhsPreds, Seq.empty)
-    else if (rhsPreds.isEmpty) (Seq.empty, Seq.empty, lhsPreds)
-    else {
-      val (lhsHd, rhsHd) = (lhsPreds.head.pred.head, rhsPreds.head.name)
-      if (lhsHd == rhsHd) {
-        val (present, missing, extra) = compareOrderedPredSeqs(lhsPreds.tail, rhsPreds.tail)
-        (rhsPreds.head +: present, missing, extra)
-      }
-      else if (lhsHd > rhsHd) {
-        // The RHS head predicate does not occur on the left
-        val (present, missing, extra) = compareOrderedPredSeqs(lhsPreds, rhsPreds.tail)
-        (present, rhsPreds.head +: missing, extra)
-      } else {
-        // The LHD head predicate does not occur on the right
-        assert(lhsHd < rhsHd)
-        val (present, missing, extra) = compareOrderedPredSeqs(lhsPreds.tail, rhsPreds)
-        (present, missing, lhsPreds.head +: extra)
-      }
-    }
-  }
-
-  def matchable(lhsCalls: Seq[ContextPredCall], rhsCalls: Seq[PredCall]): Boolean = {
-    assert(lhsCalls.size == rhsCalls.size,
-      s"Trying to match call sequences of different length: $lhsCalls against $rhsCalls")
-
-    // TODO: Cache this in the decomposition?
-    val lhsSubstByPredName: Map[String, Seq[Substitution]] = lhsCalls.groupBy(_.pred.head).map{
-      case (name, matches) => (name, matches.map(_.subst))
-    }
-
-    val rhsParamsByPredName: Map[String, Seq[Seq[Var]]] = rhsCalls.groupBy(_.name).map{
-      case (name, matches) => (name, matches.map(_.args))
-    }
-
-    callsMatchableWithoutRenaming(rhsParamsByPredName, lhsSubstByPredName)
-  }
-
-  def callsMatchableWithoutRenaming(lhs: Map[String, Seq[Seq[Var]]], rhs: Map[String, Seq[Substitution]]): Boolean = {
-    assert(lhs.keySet == rhs.keySet,
-      s"Trying to match $lhs against $rhs, but only one of the maps contains ${lhs.keySet diff rhs.keySet}")
-    lhs.keys.forall(pred => callargsAndSubstsMatch(lhs(pred), rhs(pred)))
-  }
-
-  private def callargsAndSubstsMatch(lhsArgs: Seq[Seq[Var]], rhsSubsts: Seq[Substitution]): Boolean = {
-    Combinators.permutations(lhsArgs).exists(argsSeqImplySubstSeq(_, rhsSubsts))
-  }
-
-  private def argsSeqImplySubstSeq(lhsLinearization: Seq[Seq[Var]], rhsSubsts: Seq[Substitution]): Boolean = {
-    (lhsLinearization, rhsSubsts).zipped.forall{
-      case (args,subst) => argsImplySubst(args, subst)
-    }
-  }
-
-  private def argsImplySubst(args: Seq[Var], subst: Substitution): Boolean = {
+  def argsImplySubst(args: Seq[Var], subst: Substitution): Boolean = {
     (args, subst.toSeq).zipped.forall{
       case (arg, substVal) => substVal.contains(arg)
     }
