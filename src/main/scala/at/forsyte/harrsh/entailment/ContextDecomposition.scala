@@ -10,7 +10,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     s"Inconsistent decomposition: Occurring labels are $occurringLabels, but constraints $constraints only defined on ${constraints.classes}"
   )
 
-  assert(constraints.placeholders.map(_.toFreeVar.asInstanceOf[Var]) subsetOf occurringLabels.flatten,
+  assert(constraints.placeholders subsetOf occurringLabels.flatten,
     s"Decompositions in $this use only placeholders ${occurringLabels.flatten.filter(PlaceholderVar.isPlaceholder)}, but constraints refer to additional placeholders: ${constraints.placeholders}"
   )
 
@@ -38,7 +38,9 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
 
   lazy val boundVars: Set[Var] = constraints.boundVars
 
-  lazy val placeholders: Set[PlaceholderVar] = constraints.placeholders
+  lazy val placeholders: Set[Var] = constraints.placeholders
+
+  lazy val typedPlaceholders: Set[PlaceholderVar] = constraints.placeholders flatMap (PlaceholderVar.fromVar)
 
   lazy val allocedVars: Set[Var] = constraints.allocedVars
 
@@ -59,7 +61,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
   }
 
   private def renameVarsToFreshPlaceholders(varsToRename: Iterable[Var]): ConstraintUpdater = {
-    val maxPlaceholder = PlaceholderVar.maxIndex(placeholders)
+    val maxPlaceholder = PlaceholderVar.maxIndex(typedPlaceholders)
     val newPlaceholders = (1 to varsToRename.size) map (i => PlaceholderVar(maxPlaceholder + i))
     val pairs: Seq[(Var, Var)] = varsToRename.toSeq.zip(newPlaceholders.map(_.toFreeVar))
     BijectiveRenamingUpdate.fromPairs(pairs)
@@ -87,18 +89,19 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     val update: ConstraintUpdater = renameVarsToFreshPlaceholders(vars)
     val partsAfterDropping = parts map (_.updateSubst(update))
     val constraintsAfterRenaming = update.unsafeUpdate(constraints)
-    val redundantPlaceholders = constraintsAfterRenaming.placeholders filterNot {
+    val redundantPlaceholders = constraintsAfterRenaming.redundantPlaceholders ++ constraintsAfterRenaming.placeholders.filterNot{
       ph => partsAfterDropping.exists(_.placeholders.contains(ph))
     }
     logger.debug(s"Will drop redundant placeholders $redundantPlaceholders introduced when forgetting $vars")
-    val dropper = DropperUpdate(redundantPlaceholders.map(_.toFreeVar))
+    val dropper = DropperUpdate(redundantPlaceholders)
+    val cleanedParts = partsAfterDropping.map(_.updateSubst(dropper))
     val cleanedConstraints = dropper.unsafeUpdate(constraintsAfterRenaming)
 
     if (!cleanedConstraints.hasNamesForAllUsedParams) {
-      logger.debug(s"Discarding decomposition: After forgetting, a placeholder would be used in ($constraints)")
+      logger.debug(s"Discarding decomposition: After forgetting, a placeholder would be used in $cleanedConstraints")
       None
     } else {
-      Some(ContextDecomposition(partsAfterDropping, cleanedConstraints).toPlaceholderNormalForm)
+      Some(ContextDecomposition(cleanedParts, cleanedConstraints).toPlaceholderNormalForm)
     }
   }
 
@@ -147,7 +150,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
 
   def isInPlaceholderNormalForm: Boolean = {
     // TODO Perhaps get rid of the first step, see assertion at the beginning of the class
-    noRedundantPlaceholders && PlaceholderVar.noGapsInPlaceholders(placeholders) && placeholdersOrdered
+    noRedundantPlaceholders && PlaceholderVar.noGapsInPlaceholders(typedPlaceholders) && placeholdersOrdered
   }
 
   private def noRedundantPlaceholders: Boolean = {

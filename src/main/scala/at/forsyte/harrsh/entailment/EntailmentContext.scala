@@ -8,16 +8,7 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
 
   lazy val labels: Seq[ContextPredCall] = Seq(root) ++ calls
 
-  lazy val placeholders: Set[PlaceholderVar] = {
-    for {
-      l <- labels.toSet[ContextPredCall]
-      vs <- l.subst.toSeq
-      v <- vs
-      p <- PlaceholderVar.fromVar(v)
-    } yield p
-  }
-
-  lazy val placeholdersAsVars: Set[Var] = {
+  lazy val placeholders: Set[Var] = {
     for {
       l <- labels.toSet[ContextPredCall]
       vs <- l.subst.toSeq

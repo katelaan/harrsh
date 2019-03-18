@@ -44,7 +44,7 @@ object ContextDecompositionComposition extends HarrshLogging {
   }
 
   private def makePlaceholdersDisjoint(fst: ContextDecomposition, snd: ContextDecomposition): (ContextDecomposition, ContextDecomposition) = {
-    val clashAvoidanceUpdate = PlaceholderVar.placeholderClashAvoidanceUpdate(snd.placeholders)
+    val clashAvoidanceUpdate = PlaceholderVar.placeholderClashAvoidanceUpdate(snd.typedPlaceholders)
     (fst.updateSubst(clashAvoidanceUpdate).get, snd)
   }
 

@@ -22,10 +22,17 @@ case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstr
   lazy val allocedVars: Set[Var] = usage.filter(_._2 == VarAllocated).keySet.flatten
   lazy val boundVars: Set[Var] = allVars filter (_.isBound)
   lazy val nonNullNonPlaceholderVars: Set[Var] = allVars.filterNot(v => v.isNull || PlaceholderVar.isPlaceholder(v))
-  lazy val placeholders: Set[PlaceholderVar] = allVars flatMap PlaceholderVar.fromVar
+  lazy val placeholders: Set[Var] = allVars filter PlaceholderVar.isPlaceholder
   lazy val nullAlloced: Boolean = usageOfOption(NullConst).contains(VarAllocated)
 
   lazy val classes: Set[Set[Var]] = usage.keySet
+
+  def redundantPlaceholders: Set[Var] = for {
+    cls <- classes
+    (phs, nonphs) = cls.partition(PlaceholderVar.isPlaceholder)
+    if nonphs.nonEmpty
+    ph <- phs
+  } yield ph
 
   private lazy val allDiseqs: Set[DiseqConstraint] = ensuredDiseqs ++ speculativeDiseqs
 

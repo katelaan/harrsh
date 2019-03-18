@@ -89,7 +89,7 @@ object TargetProfile extends HarrshLogging {
       withNewAtoms <- pureAtomUpdate(decomp.constraints)
       updatedCtxs = newCtxs.map(_.updateSubst(pureAtomUpdate)).toSet
       // Get rid of placeholders that occurred only in the call(s) which we removed
-      leftoverPlaceholders = updatedCtxs.flatMap(_.placeholdersAsVars).toSet
+      leftoverPlaceholders = updatedCtxs.flatMap(_.placeholders)
       cleanedConstraints = withNewAtoms.restrictPlaceholdersTo(leftoverPlaceholders)
       // Get rid of redundant placeholders
       placeholderDropper = DropperUpdate(updatedCtxs.flatMap(_.redundantPlaceholders))
