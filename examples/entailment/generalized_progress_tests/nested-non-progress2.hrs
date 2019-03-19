@@ -1,0 +1,12 @@
+query {
+   bottom(x1, x2) * bottom(x2, x3) |= top(x1, x2, x3)
+}
+sid {
+  top <= level1(x1, x2, x3);
+  level1 <= level2(x1, x2, x3);
+  level2 <= bottom(x1, x2) * bottom(x2, x3);
+  bottom(x1, x2) <= x1 -> x2;
+}
+info {
+  status = true
+}

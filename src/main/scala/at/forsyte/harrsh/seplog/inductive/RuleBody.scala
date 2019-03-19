@@ -9,7 +9,7 @@ import at.forsyte.harrsh.seplog.Var.Naming
 case class RuleBody(qvarNames : Seq[String], body : SymbolicHeap) {
 
   lazy val freeVarNames: Seq[String] = body.freeVars.map(_.toString)
-  lazy val naming: Naming = Naming.mkNaming(freeVarNames, qvarNames)
+  lazy val naming: Naming = Naming.mkNaming(freeVarNames, body.boundVars, qvarNames)
 
   lazy val isEmptyBaseRule: Boolean = body.predCalls.isEmpty && !body.hasPointer
 

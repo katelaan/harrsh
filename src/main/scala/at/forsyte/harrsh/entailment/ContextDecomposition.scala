@@ -19,6 +19,8 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     phs.distinct == phs
   }, s"The same placeholder used in multiple contexts in $this (Usage: ${parts.toSeq.flatMap(_.placeholders)})")
 
+  val isEmpty: Boolean = parts.isEmpty
+
   lazy val occurringLabels: Set[Set[Var]] = allPredCalls.flatMap(_.subst.toSeq)
 
   /**
@@ -178,15 +180,7 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
   }
 
   def isViable(sid: RichSid): Boolean = {
-    def containsMultipleContextsWithRoots(pred: Predicate): Boolean = {
-      parts.count(_.root.pred == pred) > 1
-    }
-
-    // We don't do a full viability check (yet)
-    // This overapproximation of viability discards those decompositions that contain two contexts rooted in a predicate that can
-    // occur at most once in any given sid-unfolding tree.
-    // TODO: Does it make sense to do a (partial) consistency check here (null roots), or should this only be called when this has already been ruled out?
-    !sid.predsThatOccurAtMostOnceInUnfolding.exists(containsMultipleContextsWithRoots) && !parts.exists(_.hasNullInRootPosition(sid))
+    ???
   }
 
   def isConsistentWithFocus(sid: RichSid): Boolean = {

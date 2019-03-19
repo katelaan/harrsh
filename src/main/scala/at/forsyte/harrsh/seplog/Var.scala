@@ -3,6 +3,8 @@ package at.forsyte.harrsh.seplog
 import at.forsyte.harrsh.seplog.inductive.{PointsTo, PureAtom}
 import at.forsyte.harrsh.util.StringUtils
 
+import scala.collection.SortedSet
+
 /**
   * Created by jens on 11/2/16.
   */
@@ -160,9 +162,9 @@ object Var {
       c => if (c == BoundVarPrefix.head) 'y' else c
     }
 
-    def mkNaming(freeVars : Seq[String], boundVars : Seq[String]) : Naming = {
+    def mkNaming(freeVars : Seq[String], boundVars: SortedSet[BoundVar], boundVarNames : Seq[String]) : Naming = {
       val freeVarNaming = freeVars map (v => (FreeVar(v),v))
-      val boundVarNaming = boundVars.zipWithIndex map (p => (BoundVar(p._2+1),p._1))
+      val boundVarNaming = boundVars zip boundVarNames
       Map.empty[Var,String] ++ freeVarNaming ++ boundVarNaming ++ Map(NullConst -> NullConst.toString)
     }
 

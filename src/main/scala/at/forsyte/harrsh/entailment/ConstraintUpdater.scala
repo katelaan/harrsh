@@ -170,7 +170,7 @@ case class InstantiationUpdate(instantiation: Seq[(Var, Var)], classes: Set[Set[
 
 }
 
-case class SpeculativeUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Var]]) extends ConstraintUpdater {
+case class SpeculativeUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set[Var]], assumeWithoutSpeculation: Set[Var] = Set.empty) extends ConstraintUpdater {
 
   logger.debug{
     if (atoms.nonEmpty)
@@ -186,6 +186,7 @@ case class SpeculativeUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set
     assert(initialPairs forall (p => p._1 == p._2))
     val finalPairs = eqs.foldLeft(initialPairs) {
       case (pairs, atom) =>
+        logger.debug(s"Will update $pairs using $atom")
         val lclass = pairs.find(_._2.contains(atom.l)).get._2
         val rclass = pairs.find(_._2.contains(atom.r)).get._2
         val combined = lclass union rclass
@@ -204,7 +205,10 @@ case class SpeculativeUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set
     for {
       newUsage <- applyToUsage(cs.usage, mayMergeClasses = true)
       // Equalities involving placeholders can always be assumed and thus need not be added to speculation
-      orderedEqs = eqs.filterNot(atom => PlaceholderVar.isPlaceholder(atom.l) || PlaceholderVar.isPlaceholder(atom.r)).map(_.ordered).map(atom => (atom.l, atom.r))
+      orderedNonplaceholderEqs = eqs.filterNot(atom => PlaceholderVar.isPlaceholder(atom.l) || PlaceholderVar.isPlaceholder(atom.r)).map(_.ordered).map(atom => (atom.l, atom.r))
+      orderedEqs = if (assumeWithoutSpeculation.isEmpty) orderedNonplaceholderEqs else {
+        orderedNonplaceholderEqs.filterNot(pair => assumeWithoutSpeculation.contains(pair._1) || assumeWithoutSpeculation.contains(pair._2))
+      }
       // Important: Check wrt *old* usage info, in the new usage info the equalities do, of course, hold!
       newOrderedEqs = orderedEqs filterNot (ConstraintUpdater.holdsInUsage(cs.usage,_))
       allSpeculativeEqs = cs.speculativeEqs ++ newOrderedEqs

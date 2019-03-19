@@ -64,8 +64,8 @@ object TargetProfile extends HarrshLogging {
     val processComposedProfile = (inCase(sid.hasEmptyBaseRules)(empClosure(sid))
       andThen filterOutInconsistentFocus(sid)
       andThen inCase(sid.hasRecursiveRulesWithoutPointers)(mergeUsingNonProgressRules(sid))
-      andThen restrictToFreeVars(lab)
-      andThen dropNonviable(sid))
+      andThen restrictToFreeVars(lab))
+      //andThen dropNonviable(sid))
     composed map processComposedProfile
   }
 
@@ -141,7 +141,6 @@ object TargetProfile extends HarrshLogging {
   }
 
   private def mergeUsingNonProgressRules(sid: RichSid)(profile: EntailmentProfile): EntailmentProfile = {
-    logger.debug("Will try to apply non-progress rules to intermediate profile " + profile)
     val merged = EntailmentProfileComposition.mergeUsingNonProgressRules(profile, sid)
     if (merged != profile) {
       logger.debug(s"Updated target profile by applying non-progress rules:\n${merged.decomps.mkString("\n")}")
@@ -160,13 +159,13 @@ object TargetProfile extends HarrshLogging {
     }
   }
 
-  private def dropNonviable(sid: RichSid)(profile: EntailmentProfile) = {
-    // TODO: Option to turn on/off viability checks (perhaps also multiple variants of viability checks)
-    logger.debug("Will drop non-viable decompositions in intermediate profile " + profile)
-    val viable = profile.dropNonViableDecompositions(sid)
-    if (viable != profile) {
-      logger.debug(s"After dropping at least one nonviable decomposition:\n${profile.decomps.mkString("\n")}")
-    }
-    viable
-  }
+//  private def dropNonviable(sid: RichSid)(profile: EntailmentProfile) = {
+//    // TODO: Option to turn on/off viability checks (perhaps also multiple variants of viability checks)
+//    logger.debug("Will drop non-viable decompositions in intermediate profile " + profile)
+//    val viable = profile.dropNonViableDecompositions(sid)
+//    if (viable != profile) {
+//      logger.debug(s"After dropping at least one nonviable decomposition:\n${profile.decomps.mkString("\n")}")
+//    }
+//    viable
+//  }
 }

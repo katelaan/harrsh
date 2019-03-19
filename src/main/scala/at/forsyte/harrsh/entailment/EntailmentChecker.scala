@@ -114,8 +114,10 @@ object EntailmentChecker extends HarrshLogging {
         case None => toplevelStatesForCalls
         case Some(pureProfile) => pureProfile +: toplevelStatesForCalls
       }
+      // TODO: Is it correct that we don't want/need all composition steps of TargetProfile.composeAndForget? (Since emp closure is done in the acceptance check, and focus check is thus not necessary)
       composed <- EntailmentProfileComposition.composeAll(sid, toplevelStates, lhsConstraint.nonNullVars)
-      restricted = if (lhsConstraint.isQuantifierFree) composed else composed.forget(lhsConstraint.boundVars)
+      merged = EntailmentProfileComposition.mergeUsingNonProgressRules(composed, sid)
+      restricted = if (lhsConstraint.isQuantifierFree) merged else merged.forget(lhsConstraint.boundVars)
     } yield restricted
 
     logger.debug(combinedProfiles.size + " combined profile(s):\n" + combinedProfiles.mkString("\n"))

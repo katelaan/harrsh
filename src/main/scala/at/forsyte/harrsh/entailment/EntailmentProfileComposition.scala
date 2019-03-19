@@ -1,8 +1,8 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.{PredCall, Predicate, RuleBody, RichSid}
+import at.forsyte.harrsh.seplog.{BoundVar, Var}
+import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
 
 object EntailmentProfileComposition extends HarrshLogging {
@@ -55,38 +55,26 @@ object EntailmentProfileComposition extends HarrshLogging {
     // TODO: Simplify application of non-progress rules to profiles?
 
     def apply(profile: EntailmentProfile, sid: RichSid): EntailmentProfile = {
-      val newDecomps = for {
-        decomp <- profile.decomps
-        merged <- useNonProgressRulesToMergeContexts(decomp, sid)
-      } yield merged
-      EntailmentProfile(newDecomps, profile.orderedParams)
+      if (sid.empClosedNonProgressRules.isEmpty) {
+        profile
+      } else {
+        logger.debug("Will try to apply non-progress rules to non-empty decompositions in " + profile)
+        val newDecomps = for {
+          decomp <- profile.decomps
+          merged <- if (decomp.isEmpty) Seq(decomp) else useNonProgressRulesToMergeContexts(decomp, sid)
+        } yield merged
+        EntailmentProfile(newDecomps, profile.orderedParams)
+      }
     }
 
     def useNonProgressRulesToMergeContexts(decomp: ContextDecomposition, sid: RichSid): Seq[ContextDecomposition] = {
       val nonProgressRules = sid.empClosedNonProgressRules
-      if (nonProgressRules.nonEmpty) {
-        logger.debug(s"Will try to apply non-progress rules to contexts in decomposition. Rules to consider: ${nonProgressRules.map(pair => s"${pair._1.defaultCall} <= ${pair._2}")}")
-        mergeWithZeroOrMoreRuleApplications(decomp, nonProgressRules, sid)
-      }
-      else {
-        val msg = if (!decomp.isMultiPartDecomposition) "Singleton decomposition => No merging via non-progress rules possible"
-        else "The SID does not contain any non-progress rule. Will return decomposition as is."
-        logger.debug(msg)
-        Seq(decomp)
-      }
+      logger.debug(s"Will try to apply non-progress rules to contexts in decomposition\n$decomp.\nRules to consider: ${nonProgressRules.map(pair => s"${pair._1.defaultCall} <= ${pair._2}")}")
+      mergeWithZeroOrMoreRuleApplications(decomp, nonProgressRules, sid)
     }
 
     private def mergeWithZeroOrMoreRuleApplications(decomp: ContextDecomposition, rules: Set[(Predicate, RuleBody)], sid: RichSid): Seq[ContextDecomposition] = {
-      val afterMerging = for {
-        decompAfterRuleApplication <- applyAllPossibleRulesInMerge(decomp, rules)
-        afterAdditionalApplications <- mergeWithZeroOrMoreRuleApplications(decompAfterRuleApplication, rules, sid)
-      } yield afterAdditionalApplications
-
-      if (afterMerging.isEmpty) {
-        Seq(decomp)
-      } else {
-        afterMerging
-      }
+      decomp +: applyAllPossibleRulesInMerge(decomp, rules).flatMap(mergeWithZeroOrMoreRuleApplications(_, rules, sid))
     }
 
     private def applyAllPossibleRulesInMerge(decomp: ContextDecomposition, rules: Set[(Predicate, RuleBody)]): Stream[ContextDecomposition] = {
@@ -95,7 +83,15 @@ object EntailmentProfileComposition extends HarrshLogging {
 
     private def applyRuleInMerge(decomp: ContextDecomposition, rule: RuleBody, pred: Predicate): Option[ContextDecomposition] = {
       assert(!rule.hasPointer)
-      val callsInRule = rule.body.predCalls
+      val decompBoundVars = decomp.boundVars.map(_.asInstanceOf[BoundVar])
+      val shiftedRule = if (decompBoundVars.nonEmpty) {
+        val shiftedBody = SymbolicHeap(rule.body.atoms.shiftBoundVars(rule.body.boundVars.toSet, decompBoundVars.max.index + 1), rule.body.freeVars)
+        logger.debug(s"Shifted rule body from ${rule.body} to $shiftedBody to avoid clashing bound vars")
+        rule.copy(body = shiftedBody)
+      } else {
+        rule
+      }
+      val callsInRule = shiftedRule.body.predCalls
       val roots = decomp.parts map (_.root)
       if (callsInRule.size > roots.size)
       // The rule contains more calls than the ETypes has parts => Rule can't be applicable
@@ -103,7 +99,7 @@ object EntailmentProfileComposition extends HarrshLogging {
       else {
         // FIXME: More efficient choice of possible pairings for matching (don't brute force over all seqs)
         val possibleMatchings = Combinators.allSeqsWithoutRepetitionOfLength(callsInRule.length, roots)
-        possibleMatchings.toStream.flatMap(tryMergeGivenRoots(decomp, rule, pred, _)).headOption
+        possibleMatchings.toStream.flatMap(tryMergeGivenRoots(decomp, shiftedRule, pred, _)).headOption
       }
     }
 
@@ -151,6 +147,7 @@ object EntailmentProfileComposition extends HarrshLogging {
     }
 
     private def mergeRoots(decomp: ContextDecomposition, rootsToMerge: Seq[ContextPredCall], rule: RuleBody, pred: Predicate, assignmentsByVar: Map[Var, Set[Var]]): Option[ContextDecomposition] = {
+      assume(decomp.boundVars.intersect(rule.body.boundVars.toSet).isEmpty)
       val (ctxsToMerge, unchangedCtxs) = decomp.parts.partition(ctx => rootsToMerge.contains(ctx.root))
       logger.debug(s"Roots that were matched: $rootsToMerge")
       logger.debug(s"Will apply $rule to merge:\n${ctxsToMerge.mkString("\n")}")
@@ -159,13 +156,18 @@ object EntailmentProfileComposition extends HarrshLogging {
       val newRoot = ContextPredCall(pred, subst)
       val concatenatedLeaves = ctxsToMerge.flatMap(_.calls)
       val ctxAfterMerging = EntailmentContext(newRoot, concatenatedLeaves)
+      val ruleBoundVars = rule.body.boundVars.toSet[Var]
+      val classesForNewBoundVars = ruleBoundVars map (Set(_))
 
       for {
         restrictedConstraints <- decomp.constraints.restrictToNonPlaceholdersAnd(decomp.occurringLabels)
         mergedDecomp = ContextDecomposition(unchangedCtxs + ctxAfterMerging, restrictedConstraints)
-        speculationUpdate = SpeculativeUpdate(rule.body.pure, mergedDecomp.constraints.classes)
+        // Since the fresh bound vars aren't used in any way, we can actually discard speculative equalities that use them
+        // FIXME: What about speculative disequalities?
+        speculationUpdate = SpeculativeUpdate(rule.body.pure, mergedDecomp.constraints.classes ++ classesForNewBoundVars, assumeWithoutSpeculation = ruleBoundVars)
         withSpeculation <- mergedDecomp.updateSubst(speculationUpdate)
-      } yield withSpeculation
+        finalDecomp <- if (ruleBoundVars.nonEmpty) withSpeculation.forget(ruleBoundVars) else Some(withSpeculation)
+      } yield finalDecomp
     }
 
   }
