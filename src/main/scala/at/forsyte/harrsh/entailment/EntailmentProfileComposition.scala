@@ -152,16 +152,19 @@ object EntailmentProfileComposition extends HarrshLogging {
       logger.debug(s"Roots that were matched: $rootsToMerge")
       logger.debug(s"Will apply $rule to merge:\n${ctxsToMerge.mkString("\n")}")
       logger.debug(s"Merge based on variable assignment $assignmentsByVar")
-      val subst = Substitution(rule.body.freeVars map assignmentsByVar)
+      // Note: Not all variables of the rule need to be involved in the matching, that's why we must supply default targets
+      val subst = Substitution(rule.body.freeVars map (v => assignmentsByVar.getOrElse(v, decomp.constraints.classOf(v))))
       val newRoot = ContextPredCall(pred, subst)
       val concatenatedLeaves = ctxsToMerge.flatMap(_.calls)
       val ctxAfterMerging = EntailmentContext(newRoot, concatenatedLeaves)
+      val newCtxs = unchangedCtxs + ctxAfterMerging
+      val occurringLabels = newCtxs.flatMap(_.classes)
       val ruleBoundVars = rule.body.boundVars.toSet[Var]
       val classesForNewBoundVars = ruleBoundVars map (Set(_))
 
       for {
-        restrictedConstraints <- decomp.constraints.restrictToNonPlaceholdersAnd(decomp.occurringLabels)
-        mergedDecomp = ContextDecomposition(unchangedCtxs + ctxAfterMerging, restrictedConstraints)
+        restrictedConstraints <- decomp.constraints.restrictToNonPlaceholdersAnd(occurringLabels)
+        mergedDecomp = ContextDecomposition(newCtxs, restrictedConstraints)
         // Since the fresh bound vars aren't used in any way, we can actually discard speculative equalities that use them
         // FIXME: What about speculative disequalities?
         speculationUpdate = SpeculativeUpdate(rule.body.pure, mergedDecomp.constraints.classes ++ classesForNewBoundVars, assumeWithoutSpeculation = ruleBoundVars)
