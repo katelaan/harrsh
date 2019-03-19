@@ -38,8 +38,8 @@ object ScriptToQuery extends HarrshLogging {
 
     val assertToSh = (a: Assert) => collectAtoms(a.term, env, constsToFvs).head.toSymbolicHeap
 
-    val left = assertToSh(s.asserts.head)
-    val maybeRight = s.asserts.tail.headOption map {
+    val leftWithNonDefaultNames = assertToSh(s.asserts.head)
+    val maybeRightWithNonDefaultNames = s.asserts.tail.headOption map {
       a =>
         // The second assert must be negated (and hence correspond to the RHS of the entailment)
         assert(a.term match {
@@ -52,11 +52,13 @@ object ScriptToQuery extends HarrshLogging {
 
     val rules: Seq[(String,RuleBody)] = s.funs flatMap (fun => funDefToRules(fun, env))
 
-    logger.debug(s"Top-level assertion(s):\n${(List(left) ++ maybeRight).mkString("\n")}")
+    logger.debug(s"Top-level assertion(s):\n${(List(leftWithNonDefaultNames) ++ maybeRightWithNonDefaultNames).mkString("\n")}")
     logger.debug(s"Predicate definitions:\n${rules.mkString("\n")}")
 
     val originalSid = SidFactory.makeSidfromRuleBodies("undefined", rules, fileName)
     val sid = SidFactory.transformToDefaultFVs(originalSid)
+
+    val (left, maybeRight) = toDefaultVars(leftWithNonDefaultNames, maybeRightWithNonDefaultNames)
 
     val status = s.status.getOrElse(ProblemStatus.Unknown)
 
@@ -70,6 +72,15 @@ object ScriptToQuery extends HarrshLogging {
       case None =>
         SatQuery(sid, left, status, Some(fileName))
     }
+  }
+
+  private def toDefaultVars(leftWithNonDefaultNames: SymbolicHeap, maybeRightWithNonDefaultNames: Option[SymbolicHeap]) = {
+    val allTopLevelVars = (leftWithNonDefaultNames.freeVars ++ maybeRightWithNonDefaultNames.map(_.freeVars).getOrElse(Seq.empty)).distinct
+    val defaultVars = Var.getFvSeq(allTopLevelVars.length)
+    val renaming = Renaming.fromPairs(allTopLevelVars zip defaultVars)
+    val left = leftWithNonDefaultNames.rename(renaming, Some(defaultVars))
+    val maybeRight = maybeRightWithNonDefaultNames map (_.rename(renaming, Some(defaultVars)))
+    (left, maybeRight)
   }
 
   case class Env(preds: Set[String], types: DataTypes, selToIx: Map[String, Int]) {
