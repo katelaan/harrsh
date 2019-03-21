@@ -23,6 +23,15 @@ case class EntailmentInstance(lhs: EntailmentQuerySide, rhs: EntailmentQuerySide
     s"EntailmentInstance {\n  LHS {\n${idt(lhs.prettyPrint)}\n  }\n  RHS {\n${idt(rhs.prettyPrint)}\n  }\n  Status: $status}"
   }
 
+  def sidPropertiesToString: String = {
+    s"Properties{\n  LHS: ${querySidePropsToString(lhs)}\n  RHS: ${querySidePropsToString(rhs)}\n}"
+  }
+
+  private def querySidePropsToString(side: EntailmentQuerySide): String = {
+    val sid = side.sid
+    s" rooted=${sid.isRooted}, reversed=${sid.isReverseRooted}, focused=${sid.isFocused}"
+  }
+
   lazy val queryString = s"${lhs.calls} |= ${rhs.calls}"
 
   lazy val originalQueryString = s"${lhs.originalAssertion} |= ${rhs.originalAssertion}"

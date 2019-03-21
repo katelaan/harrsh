@@ -217,6 +217,7 @@ object SlCompMode {
               Some(e)
             case Success(ei) =>
               println(ei.prettyPrint)
+              println(ei.sidPropertiesToString)
               None
           }
         case _ =>

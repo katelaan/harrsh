@@ -128,7 +128,9 @@ object EntailmentChecker extends HarrshLogging {
     } else {
       combinedProfiles.forall { p =>
         logger.debug(s"Will check if $p is final...")
-        p.decomps.exists(decomp => decomp.isFinal(sid, rhsConstraint))
+        val res = p.decomps.exists(decomp => decomp.isFinal(sid, rhsConstraint))
+        if (!res) logger.debug("Entailment does *not* hold because the following profile is not final:\n" + p)
+        res
       }
     }
   }
