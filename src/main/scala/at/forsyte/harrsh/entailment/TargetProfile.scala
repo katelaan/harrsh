@@ -10,13 +10,6 @@ sealed trait TargetProfile {
   def get: Option[EntailmentProfile]
 }
 
-case class UnmatchableLocalAllocation(lab: SymbolicHeap) extends TargetProfile with HarrshLogging {
-  override def get: Option[EntailmentProfile] = {
-    logger.debug(s"No profile for local allocation of $lab => Return inconsistent state")
-    Some(EntailmentProfile(Set.empty, lab.freeVars))
-  }
-}
-
 case object InconsistentProfile extends TargetProfile with HarrshLogging {
   override def get: Option[EntailmentProfile] = {
     logger.debug(s"Transition undefined (inconsistent source instantiations or inconsistent composition)")
@@ -34,7 +27,7 @@ object TargetProfile extends HarrshLogging {
     val renamedProfiles = RenamedSourceStates(sid, src, lab)
     if (renamedProfiles.isConsistent) {
       val local = LocalProfile(lab, sid)
-      assert(local.decomps forall (_.isConsistentWithFocus(sid)),
+      assert(local.isConsistentWithFocus(sid),
         s"Local profile $local contains inconsistent decompositions")
       combineLocalAndSourceProfiles(local, renamedProfiles, lab, sid)
     } else {
@@ -43,18 +36,14 @@ object TargetProfile extends HarrshLogging {
   }
 
   private def combineLocalAndSourceProfiles(local: EntailmentProfile, instantiatedProfiles: RenamedSourceStates, lab: SymbolicHeap, sid: RichSid) = {
-    if (local.nonEmpty) {
-      val profiles = local +: instantiatedProfiles
-      composeAndForget(profiles, lab, sid) match {
-        case None =>
-          logger.debug("Profiles are incompatible. No composition result.")
-          InconsistentProfile
-        case Some(composed) =>
-          logger.debug("Composition result: " + composed)
-          ConsistentTargetProfile(composed)
-      }
-    } else {
-      UnmatchableLocalAllocation(lab)
+    val profiles = local +: instantiatedProfiles
+    composeAndForget(profiles, lab, sid) match {
+      case None =>
+        logger.debug("Profiles are incompatible. No composition result.")
+        InconsistentProfile
+      case Some(composed) =>
+        logger.debug("Composition result: " + composed)
+        ConsistentTargetProfile(composed)
     }
   }
 
@@ -65,17 +54,17 @@ object TargetProfile extends HarrshLogging {
       andThen filterOutInconsistentFocus(sid)
       andThen inCase(sid.hasRecursiveRulesWithoutPointers)(mergeUsingNonProgressRules(sid))
       andThen restrictToFreeVars(lab))
-      //andThen dropNonviable(sid))
     composed map processComposedProfile
   }
 
   private def filterOutInconsistentFocus(sid: RichSid)(profile: EntailmentProfile) = {
-    profile.copy(decomps = profile.decomps.filter(_.isConsistentWithFocus(sid)))
+    profile.applyToDecomps(_.filter(_.isConsistentWithFocus(sid)))
   }
 
-  private def empClosure(sid: RichSid)(profile: EntailmentProfile): EntailmentProfile = {
-    logger.debug("Will compute emp-closure")
-    profile.copy(decomps = profile.decomps.flatMap(empClosureOfDecomp(sid)))
+  private def empClosure(sid: RichSid)(profile: EntailmentProfile): EntailmentProfile = profile.applyToDecomps {
+    decomps =>
+      logger.debug("Will compute emp-closure")
+      decomps.flatMap(empClosureOfDecomp(sid))
   }
 
   private def empClosureOfDecomp(sid: RichSid)(decomp: ContextDecomposition): Set[ContextDecomposition] = {
@@ -143,7 +132,7 @@ object TargetProfile extends HarrshLogging {
   private def mergeUsingNonProgressRules(sid: RichSid)(profile: EntailmentProfile): EntailmentProfile = {
     val merged = EntailmentProfileComposition.mergeUsingNonProgressRules(profile, sid)
     if (merged != profile) {
-      logger.debug(s"Updated target profile by applying non-progress rules:\n${merged.decomps.mkString("\n")}")
+      logger.debug(s"Updated target profile by applying non-progress rules:\n${merged.decompsOrEmptySet.mkString("\n")}")
     }
     merged
   }
@@ -158,14 +147,4 @@ object TargetProfile extends HarrshLogging {
       profile
     }
   }
-
-//  private def dropNonviable(sid: RichSid)(profile: EntailmentProfile) = {
-//    // TODO: Option to turn on/off viability checks (perhaps also multiple variants of viability checks)
-//    logger.debug("Will drop non-viable decompositions in intermediate profile " + profile)
-//    val viable = profile.dropNonViableDecompositions(sid)
-//    if (viable != profile) {
-//      logger.debug(s"After dropping at least one nonviable decomposition:\n${profile.decomps.mkString("\n")}")
-//    }
-//    viable
-//  }
 }

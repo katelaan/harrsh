@@ -12,20 +12,22 @@ object EntailmentProfileComposition extends HarrshLogging {
     // TODO: Get rid of the second parameter once we use sets. (The new parameters then simply are the union of the params of the constituting profiles)
     def apply(sid: RichSid, profiles: Seq[EntailmentProfile], newOrderedParams: Seq[Var]): Option[EntailmentProfile] = {
       logger.debug(s"Will compose the following ${profiles.size} profiles:\n" + profiles.mkString("\n"))
-      assert(profiles forall (p => p.decomps.forall(_.isConsistentWithFocus(sid))))
-      if (profiles.forall(_.nonEmpty)) {
-        val composedDecomps = allPossibleDecompCompositions(sid, profiles map (_.decomps))
+      assert(profiles forall (_.isConsistentWithFocus(sid)))
+      if (profiles.forall(_.isDecomposable)) {
+        val composedDecomps = allPossibleDecompCompositions(sid, profiles map (_.decompsOrEmptySet))
         if (composedDecomps.isEmpty) {
           logger.debug(s"Composed profiles are contradictory => No composition result")
           None
         } else {
-          val res = EntailmentProfile(composedDecomps, newOrderedParams)
-          logger.debug(s"Profile composition result:\n${if (res.nonEmpty) res.decomps.mkString("\n") else "empty (sink state)"}")
+          val res = ProfileOfDecomps(composedDecomps, newOrderedParams)
+          logger.debug(s"Profile composition result:\n$res")
           Some(res)
         }
       } else {
         logger.debug(s"Short-circuiting (propagating sink state) profile composition of:\n${profiles.mkString("\n")}")
-        Some(EntailmentProfile(Set.empty, newOrderedParams))
+        for {
+          combinedConstraints <- VarConstraints.combineEnsured(profiles.map(_.sharedConstraints))
+        } yield ProfileOfNondecomposableModels(combinedConstraints, newOrderedParams)
       }
     }
 
@@ -54,7 +56,12 @@ object EntailmentProfileComposition extends HarrshLogging {
   object mergeUsingNonProgressRules {
     // TODO: Simplify application of non-progress rules to profiles?
 
-    def apply(profile: EntailmentProfile, sid: RichSid): EntailmentProfile = {
+    def apply(profile: EntailmentProfile, sid: RichSid): EntailmentProfile = profile match {
+      case p: ProfileOfNondecomposableModels => p
+      case p: ProfileOfDecomps => mergeDecomps(p, sid)
+    }
+
+    def mergeDecomps(profile: ProfileOfDecomps, sid: RichSid): EntailmentProfile = {
       if (sid.empClosedNonProgressRules.isEmpty) {
         profile
       } else {
@@ -63,7 +70,7 @@ object EntailmentProfileComposition extends HarrshLogging {
           decomp <- profile.decomps
           merged <- if (decomp.isEmpty) Seq(decomp) else useNonProgressRulesToMergeContexts(decomp, sid)
         } yield merged
-        EntailmentProfile(newDecomps, profile.orderedParams)
+        ProfileOfDecomps(newDecomps, profile.orderedParams)
       }
     }
 

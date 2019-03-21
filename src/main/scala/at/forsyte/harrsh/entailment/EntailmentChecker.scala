@@ -65,7 +65,7 @@ object EntailmentChecker extends HarrshLogging {
     val allProfiles = reachableStatesByPred.values.flatten.toList
     val allDecomps: Seq[ContextDecomposition] = for {
       c <- allProfiles
-      s <- c.decomps
+      s <- c.decompsOrEmptySet
     } yield s
     val totalNumContexts = allDecomps.map(_.parts.size).sum
     EntailmentStats(numExploredPreds, allProfiles.size, allDecomps.size, totalNumContexts)
@@ -99,7 +99,7 @@ object EntailmentChecker extends HarrshLogging {
       // Note: Because of ALL-SAT of the underlying SID, emptiness of the fixed point means that there is no way to
       // express the predicate wrt the RHS-SID as opposed to that the predicate is UNSAT. For this reason, we add
       // an empty profile in case the fixed point does not contain an entry for the predicate.
-      reachableForCall = reachable.getOrElse(call.name, Set(EntailmentProfile(Set.empty, Var.getFvSeq(call.args.length))))
+      reachableForCall = reachable.getOrElse(call.name, Set(ProfileOfNondecomposableModels(Var.getFvSeq(call.args.length))))
       _ = if (reachableForCall.isEmpty) throw new Exception(""+call)
       // We do not make the ALL-SAT assumption for the top-level formula. Instantiating profiles with the call args
       // can thus yield an inconsistent profile. We discard such profiles here
@@ -128,7 +128,7 @@ object EntailmentChecker extends HarrshLogging {
     } else {
       combinedProfiles.forall { p =>
         logger.debug(s"Will check if $p is final...")
-        val res = p.decomps.exists(decomp => decomp.isFinal(sid, rhsConstraint))
+        val res = p.isFinal(sid, rhsConstraint)
         if (!res) logger.debug("Entailment does *not* hold because the following profile is not final:\n" + p)
         res
       }
@@ -141,7 +141,7 @@ object EntailmentChecker extends HarrshLogging {
       val vars = atoms.flatMap(_.getVars).distinct
       val constraints = VarConstraints.fromAtoms(vars.toSet, atoms)
       val decomp = ContextDecomposition(Set.empty, constraints)
-      val profile = EntailmentProfile(Set(decomp), vars.filter(!_.isNull))
+      val profile = ProfileOfDecomps(Set(decomp), vars.filter(!_.isNull))
       logger.debug(s"Created pure profile $profile from top-level atoms $atoms")
       Some(profile)
     }
@@ -169,12 +169,17 @@ object EntailmentChecker extends HarrshLogging {
       (Stream("PROFILE {",
         s"  FVS: ${state.orderedParams.mkString(", ")}")
         ++ Some("  ACCEPTING").filter(_ => isFinal(state))
-        ++ serializeDecomps(state.decomps) ++ Stream("}"))
+        ++ serializeContent(state) ++ Stream("}"))
+    }
+
+    def serializeContent(profile: EntailmentProfile) = profile match {
+      case ProfileOfDecomps(decomps, _) => serializeDecomps(decomps)
+      case ProfileOfNondecomposableModels(constraints, _) =>
+        Stream(indent("NO CONSISTENT DECOMPOSITION"), indent(constraints.toString))
     }
 
     def serializeDecomps(decomps: Set[ContextDecomposition]): Stream[String] = {
-      if (decomps.nonEmpty) decomps.toStream.flatMap(serializeContextDecomposition).map(indent)
-      else Stream(indent("NO CONSISTENT DECOMPOSITION"))
+      decomps.toStream.flatMap(serializeContextDecomposition).map(indent)
     }
 
     def serializeContextDecomposition(decomp: ContextDecomposition): Stream[String] = {

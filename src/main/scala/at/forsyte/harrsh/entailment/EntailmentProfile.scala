@@ -4,29 +4,115 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.RichSid
 
-// TODO: Turn parameters into Set. This probably has repercussions for the current treatment of non-standard calls, so I can't do it right now. See also TODO in ComposeProfiles
-case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: Seq[Var]) extends HarrshLogging {
+sealed trait EntailmentProfile {
+
+  def sharedConstraints: VarConstraints
+  val orderedParams: Seq[Var]
+
+  def isDecomposable: Boolean = this match {
+    case _:ProfileOfNondecomposableModels => false
+    case _:ProfileOfDecomps => true
+  }
+
+  /**
+    * Have a separate definition for this (rather than defining decomps in all deriving classes)
+    * so that we can only consciously convert a non-decomposable profile into an empty sequence of decompositions.
+    */
+  def decompsOrEmptySet: Set[ContextDecomposition]
+
+  def isFinal(sid: RichSid, rhs: TopLevelConstraint): Boolean
+
+  def renameOrFail(sid: RichSid, to: Seq[Var]): Option[EntailmentProfile]
+
+  def forget(varsToForget: Set[Var]): EntailmentProfile
+
+  def isConsistentWithFocus(sid: RichSid): Boolean
+
+  def applyToDecomps(f: Set[ContextDecomposition] => Set[ContextDecomposition]): EntailmentProfile
+
+  def overrideOrderedParams(newParams: Seq[Var]): EntailmentProfile = this match {
+    case p:ProfileOfNondecomposableModels => p.copy(orderedParams = newParams)
+    case p:ProfileOfDecomps => p.copy(orderedParams = newParams)
+  }
+
+}
+
+case class ProfileOfNondecomposableModels(override val sharedConstraints: VarConstraints, override val orderedParams: Seq[Var]) extends EntailmentProfile {
+
+  // We only care about ensured constraints here so that we can decide whether the profile is relevant for the top-level formula or not
+  assert(!sharedConstraints.isSpeculative)
+
+  override def isFinal(sid: RichSid, rhs: TopLevelConstraint): Boolean = false
+
+  override def decompsOrEmptySet: Set[ContextDecomposition] = Set.empty
+
+  override def renameOrFail(sid: RichSid, to: Seq[Var]): Option[EntailmentProfile] = {
+    // TODO: Some code duplication with the rename operation of decomposable profiles
+    val instantiation = orderedParams zip to
+    val update = InstantiationUpdate(instantiation, sharedConstraints.classes)
+    for {
+      updated <- update(sharedConstraints)
+    } yield ProfileOfNondecomposableModels(updated, to.distinct.filterNot(_.isNull))
+  }
+
+  override def forget(varsToForget: Set[Var]): EntailmentProfile = {
+    val newConstraints = DropperUpdate(varsToForget).unsafeUpdate(sharedConstraints)
+    ProfileOfNondecomposableModels(newConstraints, orderedParams.filterNot(varsToForget))
+  }
+
+  override def toString: String = {
+    s"ProfileOfNondecomposableModels($sharedConstraints)"
+  }
+
+  override def isConsistentWithFocus(sid: RichSid): Boolean = true
+
+  override def applyToDecomps(f: Set[ContextDecomposition] => Set[ContextDecomposition]): EntailmentProfile = this
+
+}
+
+object ProfileOfNondecomposableModels {
+
+  def apply(orderedParams: Seq[Var]): ProfileOfNondecomposableModels = ProfileOfNondecomposableModels(VarConstraints.fromAtoms(orderedParams, Seq.empty), orderedParams)
+
+}
+
+case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val orderedParams: Seq[Var]) extends EntailmentProfile with HarrshLogging {
+
+  assert(decomps.nonEmpty)
 
   assert(decomps forall (_.isInPlaceholderNormalForm),
     s"The decomposition ${decomps.find(!_.isInPlaceholderNormalForm).get} is not in placeholder normalform"
   )
 
-  val nonEmpty = decomps.nonEmpty
+  override def decompsOrEmptySet: Set[ContextDecomposition] = decomps
 
   private val nonPlaceholderVarsInContexts = decomps.flatMap(_.nonNullNonPlaceholderVars)
 
-  lazy val guaranteedAllocated = {
+  lazy val guaranteedAllocated: Set[Var] = {
     // Note: There can be differences between allocation depending on "speculative" equalities imposed by picking specific ways to construct parse trees.
     // To quickly find all benchmarks that exhibit this behavior, run batch mode after uncommenting this assertion and removing the "lazy" modifier
     //assert(decomps.map(_.allocedVars).size <= 1, s"Differences in allocated vars of decompositions (${decomps.map(_.allocedVars)}) in profile $this")
     decomps.map(_.allocedVars).reduce(_ intersect _)
   }
 
-  if (nonEmpty && !(nonPlaceholderVarsInContexts subsetOf orderedParams.toSet)) {
+  if (!(nonPlaceholderVarsInContexts subsetOf orderedParams.toSet)) {
     throw new IllegalArgumentException(s"Constructing state for $orderedParams, but profile contains FVs $nonPlaceholderVarsInContexts:\n${decomps.mkString("\n")}")
   }
 
-  def rename(sid: RichSid, to: Seq[Var]): EntailmentProfile = {
+  override def sharedConstraints: VarConstraints = {
+    // TODO: Is it correct that the ensured constraints are always shared among all decomps? Should be the case, right?
+    VarConstraints.keepWhatsEnsured(decomps.head.constraints)
+  }
+
+  override def isFinal(sid: RichSid, rhs: TopLevelConstraint): Boolean = {
+    // A profiles represents all the possible ways to parse a symbolic heap as an unfolding forest
+    // As long as one of those ways is a valid unfolding forest w.r.t. rhs, we accept.
+    val res = decomps.exists(_.isFinal(sid, rhs))
+    logger.trace(s"Checked wheter $this is final => $res")
+    res
+  }
+
+  private def rename(sid: RichSid, to: Seq[Var]): (Set[ContextDecomposition], Seq[Var]) = {
     logger.debug(s"Will rename $orderedParams to $to in $this")
     assert(to.size == orderedParams.size)
     val instantiation = orderedParams zip to
@@ -36,69 +122,50 @@ case class EntailmentProfile(decomps: Set[ContextDecomposition], orderedParams: 
       instantiated <- decomp.updateSubst(update)
     } yield instantiated
     // TODO Do we want to improve the consistency check, which currently only looks at root parameters? (But that would require knowing which other variables are guaranteed to be allocated in the SID, i.e., additional preprocessing!)
-    // TODO [Rootedness] The following code depends on rootedness annotations. Do we want to be able to explicitly enable it?
     val consistent = renamed filter (_.isConsistentWithFocus(sid)) map (_.toPlaceholderNormalForm)
-    EntailmentProfile(consistent, to.distinct.filterNot(_.isNull))
+    (consistent, to.distinct.filterNot(_.isNull))
   }
 
-  def renameOrFail(sid: RichSid, to: Seq[Var]): Option[EntailmentProfile] = {
-    val res = rename(sid, to)
-    if (nonEmpty && !res.nonEmpty) {
+  override def renameOrFail(sid: RichSid, to: Seq[Var]): Option[EntailmentProfile] = {
+    val (renamedDecomps, renamedParams) = rename(sid, to)
+    if (renamedDecomps.isEmpty) {
       logger.debug(s"Renaming the FVs in $this to $to yielded an inconsistent result => Discarding result profile")
       None
     } else {
-      Some(res)
+      Some(ProfileOfDecomps(renamedDecomps, renamedParams))
     }
   }
 
-  def forget(varsToForget: Set[Var] /*, filter: ForgetFilter = EntailmentProfile.KeepIfNamesForAllUsedParams*/): EntailmentProfile = {
-    val filteredDecomps = for {
-      decomp <- decomps
-      restrictedToFreeVars <- decomp.forget(varsToForget)
-      _ = logger.debug(s"Has enough names after restriction to free variables:\n$restrictedToFreeVars; will keep if viable.")
-      _ = assert(restrictedToFreeVars.boundVars.isEmpty, s"Bound vars remain after restriction to free vars: $restrictedToFreeVars")
-    } yield restrictedToFreeVars
+  override def forget(varsToForget: Set[Var]): EntailmentProfile = {
 
-    EntailmentProfile(filteredDecomps, orderedParams filterNot varsToForget.contains)
+    def filterDecomps(decomps: Set[ContextDecomposition]) = {
+      for {
+        decomp <- decomps
+        restrictedToFreeVars <- decomp.forget(varsToForget)
+        _ = logger.debug(s"Has enough names after restriction to free variables:\n$restrictedToFreeVars; will keep if viable.")
+        _ = assert(restrictedToFreeVars.boundVars.isEmpty, s"Bound vars remain after restriction to free vars: $restrictedToFreeVars")
+      } yield restrictedToFreeVars
+    }
+
+    val newParams = orderedParams filterNot varsToForget.contains
+    applyToDecomps(filterDecomps).overrideOrderedParams(newParams)
   }
 
-  def dropNonViableDecompositions(sid: RichSid): EntailmentProfile = {
-    EntailmentProfile(decomps filter (_.isViable(sid)), orderedParams)
+  def isConsistentWithFocus(sid: RichSid): Boolean = {
+    decomps forall (_.isConsistentWithFocus(sid))
+  }
+
+  def applyToDecomps(f: Set[ContextDecomposition] => Set[ContextDecomposition]): EntailmentProfile = {
+    val afterF = f(decomps)
+    if (afterF.nonEmpty) {
+      this.copy(decomps = afterF)
+    } else {
+      ProfileOfNondecomposableModels(sharedConstraints, orderedParams)
+    }
   }
 
   override def toString: String = {
-    val decompsString = if (decomps.isEmpty) "NO DECOMPS" else decomps.mkString(",\n")
-    "EntailmentProfile(\n" + decompsString + ",\n  params = " + orderedParams.mkString(", ") + "\n)"
+    "ProfileOfDecomps(\n" + decomps.mkString(",\n") + ",\n  params = " + orderedParams.mkString(", ") + "\n)"
   }
 
 }
-
-//object EntailmentProfile extends HarrshLogging {
-//
-//  type ForgetFilter = ContextDecomposition => Boolean
-//
-//  /**
-//    * At the end of the composition, every used parameter needs to have a name, because without names for used params,
-//    * we can never extend the decomposition to a full unfolding: There's no way to compose if you don't have names.
-//    * In the TACAS paper, forget simply throws out all decompositions that use the variables we forget. This is not
-//    * sound here, however, because of possible aliasing effects imposed via pure formulas.
-//    * Checking if everything that's used has a name *after* the forget operation takes care of this by only discarding
-//    * decompositions where some variable we forgot was the *only* name for a used parameter.
-//    */
-//  val KeepIfNamesForAllUsedParams: ForgetFilter = decomp => {
-//    val res = decomp.hasNamesForAllUsedParams
-//    if (!res) logger.debug(s"Will discard $decomp: Not all used vars have names")
-//    res
-//  }
-//
-//  /**
-//    * It's also possible to discard just profiles with wrong roots, which is still a very effective filter for most SIDs,
-//    * but yields to significantly more decomps (and thus a performance penalty) e.g. for grids.
-//    *
-//    * I keep this as failsafe code for the time being, in case we want to have another look at the structure of the larger
-//    * profiles or look at the performance on simple SIDs when usingwith this simpler filter.
-//    */
-//  def keepIfNonNullNamesForAllRootParams(sid: RichSid): ForgetFilter = _.hasNonNullNamesForAllRootParams(sid)
-//
-//}
-

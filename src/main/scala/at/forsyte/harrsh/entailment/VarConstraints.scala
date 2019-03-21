@@ -224,4 +224,23 @@ object VarConstraints extends HarrshLogging {
 
   def hasDisjointEqualityClasses(usage: VarUsageByLabel): Boolean = Combinators.counts(usage.keys.toSeq.flatten).forall(_._2 == 1)
 
+  def keepWhatsEnsured(cs: VarConstraints): VarConstraints = {
+    // FIXME: This actually isn't sound - we can't reconstruct the original equalities if we don't keep them in the constraints!
+    VarConstraints(cs.usage, cs.ensuredDiseqs, Set.empty, Set.empty)
+  }
+
+  def combineEnsured(css: Seq[VarConstraints]): Option[VarConstraints] = {
+    if (css.tail.isEmpty) {
+      Some(css.head)
+    } else {
+      val fst = css.head
+      val snd = css.tail.head
+      val rest = css.tail.tail
+      for {
+        combined <- MergeUpdate.mergeWithUnifyingUpdate(fst, snd)
+        restMerged <- combineEnsured(combined +: rest)
+      } yield restMerged
+    }
+  }
+
 }

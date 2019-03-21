@@ -11,8 +11,15 @@ object LocalProfile extends HarrshLogging {
     logger.debug(s"Will compute profile for local allocation of $lab")
     val params = varsInLocalAllocation(lab)
     val decomps = decompsOfLocalAllocation(params, lab, sid).filter(_.isConsistentWithFocus(sid))
-    logger.debug(s"Decompositions in local profile of $lab:\n${decomps.mkString("\n")}")
-    EntailmentProfile(decomps, params)
+
+    if (decomps.isEmpty) {
+      val constraints = VarConstraints.fromAtoms(params, lab.pure)
+      logger.debug(s"No decompositions in local profile => Will record constraints $constraints")
+      ProfileOfNondecomposableModels(constraints, params)
+    } else {
+      logger.debug(s"Decompositions in local profile of $lab:\n${decomps.mkString("\n")}")
+      ProfileOfDecomps(decomps, params)
+    }
   }
 
   private def decompsOfLocalAllocation(params: Seq[Var], lab: SymbolicHeap, sid: RichSid): Set[ContextDecomposition] = {

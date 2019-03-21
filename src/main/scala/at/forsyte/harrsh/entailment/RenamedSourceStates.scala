@@ -27,20 +27,20 @@ case class ConsistentRenamedSourceStates(renamedProfilesByState: Seq[EntailmentP
 }
 
 object RenamedSourceStates extends HarrshLogging {
-
+  
   def apply(sid: RichSid, src: Seq[EntailmentProfile], lab: SymbolicHeap): RenamedSourceStates = {
     val renamedProfiles = renamedSourceStates(sid, src, lab)
-    if (src.count(_.nonEmpty) < renamedProfiles.count(_.nonEmpty)) {
-      // Some profile empty after renaming => Renaming must have introduced inconsistency (e.g. null alloc)
+    if (renamedProfiles.exists(_.isEmpty)) {
+      // Renaming introduced inconsistency (e.g. null alloc)
       InconsistentRenamedSourceStates
     }
     else {
-      ConsistentRenamedSourceStates(renamedProfiles)
+      ConsistentRenamedSourceStates(renamedProfiles map (_.get))
     }
 
   }
 
-  private def renamedSourceStates(sid: RichSid, src: Seq[EntailmentProfile], lab: SymbolicHeap): Seq[EntailmentProfile] = {
+  private def renamedSourceStates(sid: RichSid, src: Seq[EntailmentProfile], lab: SymbolicHeap): Seq[Option[EntailmentProfile]] = {
     val instantiatedETs = (src, lab.predCalls).zipped.map(renameProfileForCall(sid, _, _))
     for {
       (src, renamed, call) <- (src, instantiatedETs, lab.predCalls).zipped
@@ -50,8 +50,8 @@ object RenamedSourceStates extends HarrshLogging {
     instantiatedETs
   }
 
-  private def renameProfileForCall(sid: RichSid, state: EntailmentProfile, call: PredCall): EntailmentProfile = {
-    state.rename(sid, call.args)
+  private def renameProfileForCall(sid: RichSid, state: EntailmentProfile, call: PredCall): Option[EntailmentProfile] = {
+    state.renameOrFail(sid, call.args)
   }
 
 }

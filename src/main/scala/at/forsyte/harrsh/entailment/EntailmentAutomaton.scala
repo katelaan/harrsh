@@ -24,11 +24,7 @@ class EntailmentAutomaton(sid: RichSid, rhs: TopLevelConstraint) extends HeapAut
   override type State = EntailmentProfile
 
   override def isFinal(s: State): Boolean = {
-    // A state represents all the possible ways to parse an RSH as a SID unfolding tree.
-    // As long as one of those ways is a valid unfolding tree, we accept.
-    val res = s.decomps.exists(_.isFinal(sid, rhs))
-    logger.trace(s"Checked wheter $s is final => $res")
-    res
+    s.isFinal(sid, rhs)
   }
 
   override def inconsistentState(fvs: Seq[FreeVar]): State = EntailmentAutomaton.InconsistentState(fvs)
@@ -45,7 +41,7 @@ object EntailmentAutomaton extends HarrshLogging {
   /**
     * An inconsistent state representing all "sink" states of the given parameter sequence
     */
-  def InconsistentState(orderedParams: Seq[FreeVar]) = EntailmentProfile(Set.empty, orderedParams)
+  def InconsistentState(orderedParams: Seq[FreeVar]) = ProfileOfNondecomposableModels(orderedParams)
 
   private def rename(sh: SymbolicHeap, perm: Seq[FreeVar]): SymbolicHeap = {
     val renamingPairs = sh.freeVars.zip(perm)

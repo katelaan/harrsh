@@ -131,6 +131,11 @@ object MergeUpdate extends HarrshLogging {
     )
   }
 
+  def mergeWithUnifyingUpdate(fst: VarConstraints, snd: VarConstraints): Option[VarConstraints] = {
+    val update = MergeUpdate(fst.classes, snd.classes)
+    mergeUsingUpdate(fst, snd, update)
+  }
+
 }
 
 case class InstantiationUpdate(instantiation: Seq[(Var, Var)], classes: Set[Set[Var]]) extends ConstraintUpdater {
