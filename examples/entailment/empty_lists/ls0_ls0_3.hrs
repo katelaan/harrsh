@@ -1,0 +1,10 @@
+query {
+  ll(x1) * ll(x2) |= ll(x1) * ll(x2)
+}
+sid {
+  ll <= emp : {null = x1} ;
+  ll <= x1 -> y * ll(y) ;
+}
+info {
+  status = true
+}

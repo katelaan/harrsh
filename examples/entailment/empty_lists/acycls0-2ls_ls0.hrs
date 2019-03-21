@@ -1,0 +1,22 @@
+# Entailment between acyclic, possibly empty singly-linked lists
+# To see why this does not hold, consider the symbolic heap
+# x1 -> x3 * x3 -> x2 * x2 -> x3 (i.e., a short lasso-shaped list)
+# It is the case that
+#   x1 -> x3 * x3 -> x2 * x2 -> x3 |= ls(x1,x2) * ls(x2,x3)
+# because
+#   x1 -> x3 * x3 -> x2 |= ls(x1, x2)
+# and
+#   x2 -> x3 |= ls(x2, x3).
+# However,
+# *not* x1 -> x3 * x3 -> x2 * x2 -> x3 |= ls(x1, x3):
+# When we apply the recursive rule the second time, we get the constraint x3 != x3
+query {
+ ls(x1,x2) * ls(x2,x3) : {x1 != x3} |= ls(x1,x3)
+}
+sid {
+  ls <= emp : {x1 = x2} ;
+  ls <= x1 -> y1 * ls(y1,x2) : {null != x1, x1 != x2}
+}
+info {
+  status = false
+}

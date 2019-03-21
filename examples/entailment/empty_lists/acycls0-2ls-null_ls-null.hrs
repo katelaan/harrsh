@@ -1,0 +1,13 @@
+# Entailment between acyclic, possibly empty singly-linked lists
+# This corresponds to SL-COMP benchmark qf_shid_entl/20.tst.smt2
+# Note that this only works because
+query {
+ ls(x1,x2) * ls(x2,null) |= ls(x1,null)
+}
+sid {
+  ls <= emp : {x1 = x2} ;
+  ls <= x1 -> y1 * ls(y1,x2) : {null != x1, x1 != x2}
+}
+info {
+  status = true
+}

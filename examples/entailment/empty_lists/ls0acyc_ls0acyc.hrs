@@ -1,0 +1,11 @@
+# Entailment between acyclic, possibly empty singly-linked lists
+query {
+ ls(x1,x2) |= ls(x1,x2)
+}
+sid {
+  ls <= emp : {x1 = x2} ;
+  ls <= x1 -> y1 * ls(y1,x2) : {null != x1, x1 != x2}
+}
+info {
+  status = true
+}

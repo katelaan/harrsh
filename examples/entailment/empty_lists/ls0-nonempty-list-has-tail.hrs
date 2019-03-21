@@ -1,0 +1,12 @@
+# Derived form SL-COMP benchmark qf_shid_entl/lsegex4_slk-1.smt2
+query {
+ lseg(x2,x1) : {x2 != x1} |= right1(x2,x1)
+}
+sid {
+  right1 <= y1 -> x2 * lseg(x1,y1) ;
+  lseg <= emp : {x1 = x2} ;
+  lseg <= x1 -> y1 * lseg(y1,x2) ;
+}
+info {
+  status = true
+}

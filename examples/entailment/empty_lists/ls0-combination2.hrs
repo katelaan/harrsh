@@ -1,0 +1,12 @@
+# Simplified version of SL-COMP benchmark qf_shid_entl/append_sll_cll_slk-7.smt2
+query {
+ x2 -> x1 * ll(x1) : {null = x1} |= node_e1(x2,x1) : {null = x1}
+}
+sid {
+  node_e1 <= x1 -> y1 : {x2 = y1} ;
+  ll <= emp : {null = x1} ;
+  ll <= x1 -> y1 * ll(y1) ;
+}
+info {
+  status = true
+}
