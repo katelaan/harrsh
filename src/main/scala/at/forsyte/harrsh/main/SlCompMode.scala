@@ -39,7 +39,7 @@ object SlCompMode {
       // General
       params.Timeout -> 2400,
       params.Verbose -> false,
-      params.Debug -> true,
+      params.Debug -> false,
       // Sat Checking
       params.SatCheckingIncrementalFromNumCalls -> 6,
       // Entailment Checking
@@ -285,15 +285,15 @@ object SlCompMode {
         if (res.status == ProblemStatus.Unknown) "n/a" else res.asExpected.toString,
         res.time.toString)
 
-      println(s"FINISHED BENCHMARK SUITE (timeout: ${config.getDuration(params.BatchTimeout).toMillis} ms)")
       val headings = Seq("Benchmark", "Status", "As Expected", "Time")
       println(StringUtils.toTable(StringUtils.defaultTableConfigForHeadings(headings), stats))
+      println(s"FINISHED BENCHMARK SUITE (timeout: ${config.getDuration(params.BatchTimeout).toMillis} ms)")
     }
 
     override def beforeFile(file: String): Unit = println(s"Will check $file...")
 
     override def afterFile(file: String, res: BenchmarkResult): Unit = {
-      println(s"${file}: Computed result: ${res.status}, as expected: ${res.asExpected}, used ${res.time}ms")
+      println(s"$file: Computed result: ${res.status}, as expected: ${res.asExpected}, used ${res.time}ms")
     }
 
   }

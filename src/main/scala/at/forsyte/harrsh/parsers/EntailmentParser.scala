@@ -23,7 +23,7 @@ trait EntailmentParser extends JavaTokenParsers with HarrshLogging {
 
   private def toEntailmentStatus(str: String): ProblemStatus = Try { str.toBoolean } map {
     if (_) ProblemStatus.Correct else ProblemStatus.Incorrect
-  } getOrElse(ProblemStatus.Unknown)
+  } getOrElse ProblemStatus.Unknown
 
   def parseSidGroup: Parser[Sid] = parseGroup("sid"){
     parseSID

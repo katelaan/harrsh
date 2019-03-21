@@ -136,7 +136,21 @@ case class SatQuery(sid: Sid, query: SymbolicHeap, override val status: ProblemS
 }
 
 case class EntailmentQuery(lhs: SymbolicHeap, rhs: SymbolicHeap, sid: Sid, override val status: ProblemStatus, override val fileName: Option[String]) extends Query {
+
   def setFileName(fileName: String): EntailmentQuery = copy(fileName = Some(fileName))
+
+  override def toString: String = {
+    s"""query {
+       | ${SymbolicHeap.toHarrshFormat(lhs)} |= ${SymbolicHeap.toHarrshFormat(rhs)}
+       |}
+       |sid {
+       |  ${sid.toHarrshFormat.mkString("\n  ")}
+       |}
+       |info {
+       |  status = ${status.toBoolean.map(_.toString).getOrElse("unknown")}
+       |}
+     """.stripMargin
+  }
 
 }
 

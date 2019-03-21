@@ -266,7 +266,7 @@ object SymbolicHeap extends HarrshLogging {
     * @param naming Naming of the variables in the serialization
     * @return
     */
-  def toHarrshFormat(sh : SymbolicHeap, naming : Naming) : String = {
+  def toHarrshFormat(sh : SymbolicHeap, naming : Naming = Naming.DefaultNaming) : String = {
     // TODO This is somewhat redundant wrt ordinary string conversion
     val spatial : Seq[ToStringWithVarnames] = sh.pointers ++ sh.predCalls
     val spatialString = if (spatial.isEmpty) "emp" else spatial.map(_.toStringWithVarNames(naming)).mkString(" * ")

@@ -1,0 +1,11 @@
+query {
+  odd(x1, y) * even(y, x2) |= odd(x1, x2)
+}
+sid {
+  odd <= x1 -> x2 ;
+  odd <= x1 -> y * even(y,x2) ;
+  even <= x1 -> y * odd(y,x2)
+}
+info {
+  status = true
+}

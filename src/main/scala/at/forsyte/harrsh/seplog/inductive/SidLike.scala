@@ -45,7 +45,11 @@ trait SidLike extends HarrshLogging {
   }
 
   private def orderedRulesStartingInStartPred: Seq[(String, RuleBody)] = {
-    val startRules: Seq[(String, RuleBody)] = apply(startPred).rules.map(rb => (startPred, rb))
+    val startRules: Seq[(String, RuleBody)] = if (hasRuleForStartPred) {
+      apply(startPred).rules.map(rb => (startPred, rb))
+    } else {
+      Seq.empty
+    }
     val otherRules = for {
       pred <- preds
       if pred.head != startPred
