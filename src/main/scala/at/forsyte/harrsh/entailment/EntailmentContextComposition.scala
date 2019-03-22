@@ -1,12 +1,26 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PureAtom, RichSid}
+import at.forsyte.harrsh.util.{HarrshCache, UnboundedCache}
 
 object EntailmentContextComposition extends HarrshLogging {
 
+  private type From = (RichSid, EntailmentContext, EntailmentContext, VarConstraints)
+  private type Key = (EntailmentContext, EntailmentContext, VarConstraints)
+  private type Value = Stream[(EntailmentContext, VarConstraints, ConstraintUpdater)]
+
+  private val ctxCompositionCache: HarrshCache[From, Value] = new UnboundedCache[From, Key, Value](
+    "Context Composition Cache",
+    tuple => (tuple._2, tuple._3, tuple._4),
+    from => compose(from._1, from._2, from._3, from._4)
+  )
+
   def apply(sid: RichSid, fst: EntailmentContext, snd: EntailmentContext, constraints: VarConstraints): Stream[(EntailmentContext, VarConstraints, ConstraintUpdater)] = {
+    ctxCompositionCache((sid,fst,snd,constraints))
+  }
+
+  private def compose(sid: RichSid, fst: EntailmentContext, snd: EntailmentContext, constraints: VarConstraints): Stream[(EntailmentContext, VarConstraints, ConstraintUpdater)] = {
     for {
       CompositionInterface(t1, t2, n2) <- compositionCandidates(fst, snd)
       _ = logger.debug(s"Trying to compose on root ${t1.root} and leaf $n2")

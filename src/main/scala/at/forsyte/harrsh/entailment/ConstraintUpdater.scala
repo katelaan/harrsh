@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.entailment.VarConstraints.DiseqConstraint
+import at.forsyte.harrsh.entailment
+import at.forsyte.harrsh.entailment.VarConstraints.{DiseqConstraint, PartitionedDiseqs, RewrittenBoundVarDiseqConstraint}
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.PureAtom
@@ -77,7 +78,8 @@ case class MergeUpdate(fstClasses: Set[Set[Var]], sndClasses: Set[Set[Var]]) ext
       nowSpeculatedDiseqs = updateDiseqs(cs.speculativeDiseqs) -- nowEnsured
       if nowSpeculatedDiseqs forall (!_.isContradictory)
       nowSpeculatedEqs = cs.speculativeEqs filterNot holdsAfterUpdate
-    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, nowSpeculatedEqs)
+      nowRewritten <- VarConstraints.updateRewrittenConstraints(this, newUsage, cs.rewrittenSpeculation)
+    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, nowSpeculatedEqs, nowRewritten)
   }
 
   private def holdsAfterUpdate(eq: (Var, Var)): Boolean = {
@@ -125,11 +127,13 @@ object MergeUpdate extends HarrshLogging {
       // Note: Crucially, we check whether the missing equalities are ensured *before* the update
       // After the update, they are ensured by definition, as they will have been propagated into the classes!
       missingEqs = fst.speculativeEqsNotEnsuredIn(snd) ++ snd.speculativeEqsNotEnsuredIn(fst)
+      nowRewritten <- VarConstraints.updateRewrittenConstraints(updater, newUsage, fst.rewrittenSpeculation ++ snd.rewrittenSpeculation)
     } yield VarConstraints(
       newUsage,
       allEnsured,
       (fstUpd.speculativeDiseqs ++ sndUpd.speculativeDiseqs) -- allEnsured,
-      missingEqs
+      missingEqs,
+      nowRewritten
     )
   }
 
@@ -160,7 +164,8 @@ case class InstantiationUpdate(instantiation: Seq[(Var, Var)], classes: Set[Set[
       if nowSpeculatedDiseqs forall (!_.isContradictory)
       // Only difference to merge update
       nowSpeculatedEqs = cleanSpeculativeEqs(cs)
-    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, nowSpeculatedEqs)
+      newRewritten <- VarConstraints.updateRewrittenConstraints(this, newUsage, cs.rewrittenSpeculation)
+    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, nowSpeculatedEqs, newRewritten)
   }
 
   private def cleanSpeculativeEqs(cs: VarConstraints) : Set[(Var,Var)] = {
@@ -225,8 +230,9 @@ case class SpeculativeUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set
       if nowEnsured forall (!_.isContradictory)
       nowSpeculatedDiseqs = newSpeculatedDiseqs(newUsage, cs.speculativeDiseqs, nowEnsured)
       if nowSpeculatedDiseqs forall (!_.isContradictory)
+      newRewritten <- VarConstraints.updateRewrittenConstraints(this, newUsage, cs.rewrittenSpeculation)
       _ = logger.trace(s"Considering $atoms as additional constraints wrt $cs:\nNow have speculative equalities $allSpeculativeEqs and disequalities $nowSpeculatedDiseqs.")
-    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, allSpeculativeEqs)
+    } yield VarConstraints(newUsage, nowEnsured, nowSpeculatedDiseqs, allSpeculativeEqs, newRewritten)
 
   }
 
@@ -253,7 +259,9 @@ case class BijectiveRenamingUpdate(description: String, renaming: Var => Var) ex
         newUsage,
         updateDiseqs(cs.ensuredDiseqs),
         updateDiseqs(cs.speculativeDiseqs),
-        cs.speculativeEqs map updateEq
+        cs.speculativeEqs map updateEq,
+        // Bijective => Can't fail
+        VarConstraints.updateRewrittenConstraints(this, newUsage, cs.rewrittenSpeculation).get
       )
     }
   }
@@ -303,18 +311,22 @@ case class DropperUpdate(varsToDrop: Set[Var]) extends ConstraintUpdater {
   override def apply(cs: VarConstraints): Option[VarConstraints] = {
     for {
       newUsage <- applyToUsage(cs.usage, mayMergeClasses = false)
-      newSpeculativeDiseqs <- updateSpeculativeDiseqs(cs.speculativeDiseqs)
+      (newSpeculativeDiseqs, newRewrittenDiseqs) <- updateSpeculativeDiseqs(cs)
       newSpeculativeEqs <- updateSpeculativeEqs(cs.speculativeEqs)
+      updatedRewritten <- VarConstraints.updateRewrittenConstraints(this, newUsage, cs.rewrittenSpeculation)
+      newRewritten = updatedRewritten ++ newRewrittenDiseqs
     } yield
       VarConstraints(
         newUsage filterKeys(_.nonEmpty),
         updateAndDropEmptyDiseqs(cs.ensuredDiseqs),
         newSpeculativeDiseqs,
-        newSpeculativeEqs
+        newSpeculativeEqs,
+        newRewritten
       )
   }
 
   private def updateSpeculativeEqs(eqs: Set[(Var,Var)]): Option[Set[(Var,Var)]] = {
+    // FIXME: Try to express speculative eqs using non-dropped vars!
     if (eqs.exists(p => varsToDrop.contains(p._1) || varsToDrop.contains(p._2))) {
       logger.debug(s"Discarding constraints: Executing $this would lose speculative equality among $eqs")
       None
@@ -324,15 +336,27 @@ case class DropperUpdate(varsToDrop: Set[Var]) extends ConstraintUpdater {
     }
   }
 
-  private def updateSpeculativeDiseqs(diseqs: Set[DiseqConstraint]): Option[Set[DiseqConstraint]] = {
-    val updated = updateDiseqs(diseqs)
-    if (updated.exists(_.isVacuous)) {
-      logger.debug(s"Discarding constraints: Executing $this would lose speculative disequality among $diseqs")
+  private def updateSpeculativeDiseqs(cs: VarConstraints): Option[(Set[DiseqConstraint], Set[RewrittenBoundVarDiseqConstraint])] = {
+    val PartitionedDiseqs(unaffected, newRewritten, nonrewritable) = VarConstraints.splitSpeculativeDiseqsOnDroppedVars(cs, varsToDrop)
+    if (nonrewritable.nonEmpty) {
+      logger.debug(s"Discarding constraints: Executing $this would lose speculative disequalities ${nonrewritable.mkString(", ")}")
       None
     } else {
-      Some(updated)
+      Some((unaffected map (_.update(this)), newRewritten map (_.update(this))))
     }
   }
+
+//  private def updateSpeculativeDiseqs(diseqs: Set[DiseqConstraint]): Option[Set[DiseqConstraint]] = {
+//    //val PartitionedDiseqs(unaffected, newRewritten, nonrewritable) = VarConstraints.splitSpeculativeDiseqsOnDroppedVars(this, varsToDrop)
+//
+//    val updated = updateDiseqs(diseqs)
+//    if (updated.exists(_.isVacuous)) {
+//      logger.debug(s"Discarding constraints: Executing $this would lose speculative disequality among $diseqs")
+//      None
+//    } else {
+//      Some(updated)
+//    }
+//  }
 
   private def updateAndDropEmptyDiseqs(diseqs: Set[DiseqConstraint]): Set[DiseqConstraint] = {
     updateDiseqs(diseqs) filterNot (_.isVacuous)

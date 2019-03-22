@@ -97,13 +97,19 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     logger.debug(s"Will drop redundant placeholders $redundantPlaceholders introduced when forgetting $vars")
     val dropper = DropperUpdate(redundantPlaceholders)
     val cleanedParts = partsAfterDropping.map(_.updateSubst(dropper))
-    val cleanedConstraints = dropper.unsafeUpdate(constraintsAfterRenaming)
+    logger.debug(s"Will drop $redundantPlaceholders from $constraintsAfterRenaming")
+    for {
+      cleanedConstraints <- dropper(constraintsAfterRenaming)
+      if hasNamesForAllUsedParams(cleanedConstraints)
+    } yield ContextDecomposition(cleanedParts, cleanedConstraints).toPlaceholderNormalForm
+  }
 
+  private def hasNamesForAllUsedParams(cleanedConstraints: VarConstraints): Boolean = {
     if (!cleanedConstraints.hasNamesForAllUsedParams) {
       logger.debug(s"Discarding decomposition: After forgetting, a placeholder would be used in $cleanedConstraints")
-      None
+      false
     } else {
-      Some(ContextDecomposition(cleanedParts, cleanedConstraints).toPlaceholderNormalForm)
+      true
     }
   }
 
