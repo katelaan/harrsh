@@ -2,10 +2,26 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive.RichSid
+import at.forsyte.harrsh.util.{HarrshCache, UnboundedCache}
 
 object ContextDecompositionComposition extends HarrshLogging {
 
+  private type From = (RichSid, ContextDecomposition, ContextDecomposition)
+  private type Key = Set[ContextDecomposition]
+  private type Value = Seq[ContextDecomposition]
+
+  private val decompCompositionCache: HarrshCache[From, Value] = new UnboundedCache[From, Key, Value](
+    "Decomposition Composition Cache",
+    triple => Set(triple._2, triple._3),
+    compose
+  )
+
   def apply(sid: RichSid, fst: ContextDecomposition, snd: ContextDecomposition): Seq[ContextDecomposition] = {
+    decompCompositionCache((sid,fst,snd))
+  }
+
+  private def compose(decomps: (RichSid, ContextDecomposition, ContextDecomposition)): Seq[ContextDecomposition] = {
+    val (sid, fst, snd) = decomps
     logger.debug(s"Will compose decompositions\n$fst and\n$snd")
     for {
       union <- unionWithoutMerges(fst, snd).toSeq

@@ -12,6 +12,8 @@ sealed trait HarrshCache[From,To] extends HarrshLogging {
 
   def apply(from: From): To
 
+  def summary: String
+
 }
 
 class UnboundedCache[From,CacheKey,To](override val description: String, toCacheKey: From => CacheKey, computeResult: From => To) extends HarrshCache[From, To] {
@@ -22,7 +24,7 @@ class UnboundedCache[From,CacheKey,To](override val description: String, toCache
 
   private var hits: Int = 0
   private var misses: Int = 0
-  def stats: String = s"[Hits: $hits; Misses: $misses; Ratio: ${hits / Math.max(1, hits+misses)}]"
+  def stats: String = s"[Hits: $hits; Misses: $misses; Hit rate: ${hits / Math.max(1, hits+misses).toDouble}]"
 
   override def apply(from: From): To = {
     val key = toCacheKey(from)
@@ -43,6 +45,8 @@ class UnboundedCache[From,CacheKey,To](override val description: String, toCache
     cache.clear()
   }
 
+  override def summary: String = description + " " + stats
+
 }
 
 class DeactivatedCache[From,CacheKey,To](override val description: String, toCacheKey: From => CacheKey, computeResult: From => To) extends HarrshCache[From, To] {
@@ -54,4 +58,6 @@ class DeactivatedCache[From,CacheKey,To](override val description: String, toCac
   override def reset(): Unit = {
     // Nothing to do, as nothing is cached
   }
+
+  override def summary: String = description + " (deactivated)"
 }

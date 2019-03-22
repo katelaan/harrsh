@@ -48,7 +48,7 @@ object EntailmentChecker extends HarrshLogging {
     * @return True iff the entailment holds
     */
   def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, EntailmentStats) = {
-    logger.debug(s"Solving $entailmentInstance...")
+    logger.info(s"Solving $entailmentInstance...")
     CacheRegistry.resetAllCaches()
     val res@(holds, stats) = runEntailmentAutomaton(entailmentInstance, reportProgress, printResult, exportToLatex)
 
@@ -57,6 +57,8 @@ object EntailmentChecker extends HarrshLogging {
         if (shouldHold != holds)
           println(s"Unexpected result: Entailment should hold according to input file: $shouldHold; computed result: $holds")
     }
+
+    logger.info("Final cache state: " + CacheRegistry.summary)
 
     res
   }
@@ -87,7 +89,6 @@ object EntailmentChecker extends HarrshLogging {
 //      IOUtils.writeFile("entailment.tex", EntailmentResultToLatex.entailmentCheckingResultToLatex(entailmentInstance, entailmentHolds, aut, reachableStatesByPred, transitionsByHeadPred))
 //      println(" Done.")
 //    }
-
     val stats = entailmentStats(reachableStatesByPred)
     (entailmentHolds,stats)
   }

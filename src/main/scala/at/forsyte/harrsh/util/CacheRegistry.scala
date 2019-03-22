@@ -7,7 +7,7 @@ object CacheRegistry extends HarrshLogging {
   private var registry: Set[HarrshCache[_,_]] = Set.empty
 
   def summary: String = {
-    registry.map(_.description).mkString("CacheRegistry(\n  ", ",\n  ", ")")
+    registry.map(_.summary).mkString("CacheRegistry(\n  ", ",\n  ", ")")
   }
 
   def register(value: HarrshCache[_, _]): Unit = {
