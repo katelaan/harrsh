@@ -3,7 +3,7 @@ package at.forsyte.harrsh.seplog.sidtransformers
 import scala.util.Try
 import at.forsyte.harrsh.entailment.{EntailmentInstance, EntailmentQuerySide, TopLevelConstraint}
 import at.forsyte.harrsh.main.{EntailmentQuery, HarrshLogging}
-import at.forsyte.harrsh.seplog.inductive.{PredCall, Predicate, RichSid, SymbolicHeap}
+import at.forsyte.harrsh.seplog.inductive.{RichSid, SymbolicHeap}
 
 object QueryToEntailmentInstance extends HarrshLogging {
 
@@ -39,7 +39,7 @@ object QueryToEntailmentInstance extends HarrshLogging {
     val (processedSid, processedCalls) = if (computeSccs) {
        splitQueryIntoSccs(intermediateQuery, sideSid, isLhs)
     } else {
-      (sideSid, TopLevelConstraint(intermediateQuery.predCalls, intermediateQuery.pure))
+      (sideSid, TopLevelConstraint.fromSH(intermediateQuery))
     }
 
     EntailmentQuerySide(processedSid, processedCalls, originalQuerySide)

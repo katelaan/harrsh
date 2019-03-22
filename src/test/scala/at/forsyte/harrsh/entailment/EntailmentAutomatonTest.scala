@@ -17,8 +17,8 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
     val odd = ExampleSids.OddNel
     val even = ExampleSids.EvenNel
     val anel = ExampleSids.AcycNel
-    val sinlgePtrLhs = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> x2))
-    val reversedSinlgePtrLhs = SidFactory.fromSymbolicHeap(SymbolicHeap(x2 -> x1))
+    val sinlgePtrLhs = SidFactory.richSidFromSymbolicHeap(SymbolicHeap(x1 -> x2))
+    val reversedSinlgePtrLhs = SidFactory.richSidFromSymbolicHeap(SymbolicHeap(x2 -> x1))
     val twoPtrLhs = SidFactory.makeRootedSid("twoptrs",
       "List of length 2",
       Map("twoptrs" -> x1),
@@ -27,7 +27,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
       // twoptrs <= ∃ y . a -> y * twoptrs(y, b)
       ("twoptrs", Seq("y"), SymbolicHeap(x1 -> y1, P("oneptr")(y1, x2)))
     )
-    val twoFields = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,nil)))
+    val twoFields = SidFactory.richSidFromSymbolicHeap(SymbolicHeap(x1 -> (x2,nil)))
     val oneOrTwoFields = SidFactory.makeRootedSid("onetwo",
       "Either a list pointer or a list pointer with an extra field",
       Map("onetwo" -> x1),
@@ -44,7 +44,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
       ("odd", Seq("n"), SymbolicHeap(x1 -> y1, P("even")(y1, x2))),
       ("even", Seq("n"), SymbolicHeap(x1 -> y1, P("odd")(y1, x2))))
 
-    val sllTable = Table(
+    val sllTable: TableFor4[RichSid, RichSid, PredCall, Boolean] = Table(
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
       // x1 -> x2 |= nel(x1,x2)
       (sinlgePtrLhs, nel, P("nel")(x1,x2), EntailmentHolds),
@@ -90,7 +90,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
 
     val dll = ExampleSids.NeDll
 
-    val dllTable = Table(
+    val dllTable: TableFor4[RichSid, RichSid, PredCall, Boolean] = Table(
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
       // Every tree is a tree
       (dll, dll, P("dll")(x1, x2, x3), EntailmentHolds)
@@ -103,7 +103,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
   property("Soundness of entailment for singly-linked trees") {
 
     val tree = ExampleSids.Tree
-    val singleTreePtr = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> (nil,nil)))
+    val singleTreePtr = SidFactory.richSidFromSymbolicHeap(SymbolicHeap(x1 -> (nil,nil)))
     val almostLinearTree = SidFactory.makeRootedSid("ltree",
       "Null-terminated tree",
       Map("ltree" -> x1, "rtree" -> x1),
@@ -111,10 +111,10 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
       ("ltree", Seq("y", "z"), SymbolicHeap(x1 -> (y1, y2), P("ltree")(y1), P("rtree")(y2))),
       ("rtree", Seq.empty, SymbolicHeap(x1 -> (nil, nil)))
     )
-    val singleTreePtrWoNullInfo = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3)))
-    val singleTreePtrWithNullInfo = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3), x2 =:= nil, x3 =:= nil))
+    val singleTreePtrWoNullInfo = SidFactory.richSidFromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3)))
+    val singleTreePtrWithNullInfo = SidFactory.richSidFromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3), x2 =:= nil, x3 =:= nil))
 
-    val treeTable = Table(
+    val treeTable: TableFor4[RichSid, RichSid, PredCall, Boolean] = Table(
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
       // Every tree is a tree
       (tree, tree, P("tree")(x1), EntailmentHolds),
@@ -136,7 +136,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
     val tll = ExampleSids.Tll
     val tllAcyc = ExampleSids.TllAcyc
 
-    val tllTable = Table(
+    val tllTable: TableFor4[RichSid, RichSid, PredCall, Boolean] = Table(
       ("lhsSid", "rhsSid", "rhsCall", "shouldHold"),
       (tll, tll, P("tll")(x1,x2,x3), EntailmentHolds),
       (tllAcyc, tll, P("tll")(x1,x2,x3), EntailmentHolds),
@@ -147,15 +147,24 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
 
   }
 
-  private def runAllTestsInTable[A <: SidLike](table: TableFor4[A, RichSid, PredCall, Boolean]) = {
+  private def makeEI(lhsSid: RichSid, rhsSid: RichSid, rhsCall: PredCall, shouldHold: Boolean) = {
+    val lhsSh = lhsSid.callToStartPred
+    val rhsSh = rhsCall.toSymbolicHeap
+    val lhs = EntailmentQuerySide(lhsSid, TopLevelConstraint.fromSH(lhsSh), lhsSh)
+    val rhs = EntailmentQuerySide(rhsSid, TopLevelConstraint.fromSH(rhsSh), rhsSh)
+    EntailmentInstance(lhs, rhs, Some(shouldHold))
+  }
+
+  private def runAllTestsInTable(table: TableFor4[RichSid, RichSid, PredCall, Boolean]) = {
     forAll(table) {
       (lhsSid, rhsSid, rhsCall, shouldHold) =>
         Given(s"LHS $lhsSid and RHS $rhsCall w.r.t. RHS-SID $rhsSid")
         Then(s"Entailment should hold: $shouldHold")
 
-        val (aut, reach) = refine(rhsSid, rhsCall, lhsSid)
-        info("Refinement result: " + EntailmentChecker.serializeFixedPoint(aut, reach))
-        verifyEntailment(aut, lhsSid.startPred, reach) shouldEqual shouldHold
+        val reach = refine(rhsSid, rhsCall, lhsSid)
+        val ei = makeEI(lhsSid, rhsSid, rhsCall, shouldHold)
+        info("Refinement result: " + FixedPointSerializer(ei)(reach))
+        verifyEntailment(ei, reach) shouldEqual shouldHold
     }
   }
 
@@ -167,38 +176,18 @@ object EntailmentAutomatonTest extends TestValues {
   val EntailmentFails = false
   val EntailmentHolds = true
 
-  def main(args: Array[String]): Unit = {
-
-    // Limitation of current implementation: Can't deal with redundant extra vars on LHS
-    val tree = ExampleSids.Tree
-    val singleTreePtrWithNullInfo = SidFactory.fromSymbolicHeap(SymbolicHeap(x1 -> (x2,x3), x2 =:= nil, x3 =:= nil))
-    val (lhsSid, rhsSid, rhsCall, shouldHold) = (singleTreePtrWithNullInfo, tree, P("tree")(x1), EntailmentHolds)
-
-    println(s"Success: " + (check(rhsSid, rhsCall, lhsSid) == shouldHold))
-  }
-
-  def refine(sid: RichSid, rhs: PredCall, lhs: SidLike): (EntailmentAutomaton, Map[String, Set[EntailmentProfile]]) = {
+  def refine(sid: RichSid, rhs: PredCall, lhs: SidLike): Map[String, Set[EntailmentProfile]] = {
     val aut = new EntailmentAutomaton(sid, TopLevelConstraint(Seq(rhs), Seq.empty))
-    val reachable = RefinementAlgorithms.allReachableStates(lhs, aut, reportProgress = true)
-    (aut, reachable)
+    RefinementAlgorithms.allReachableStates(lhs, aut, reportProgress = true)
   }
 
-  def verifyEntailment(aut: EntailmentAutomaton, lhsTopLevelPred: String, reachable: Map[String, Set[EntailmentProfile]]) = {
-    val isFinal = (s: EntailmentProfile) => aut.isFinal(s)
-    if (!reachable.keySet.contains(lhsTopLevelPred)) {
-      throw new IllegalArgumentException(s"Malformed test case: LHS start predicate $lhsTopLevelPred unreachable, so entailment trivially holds")
+  def verifyEntailment(ei: EntailmentInstance, reachable: Map[String, Set[EntailmentProfile]]) = {
+    val lhsCall = ei.lhs.topLevelConstraint.calls.head.name
+    if (!reachable.keySet.contains(lhsCall)) {
+      throw new IllegalArgumentException(s"Malformed test case: LHS start predicate $lhsCall unreachable, so entailment trivially holds")
     }
-    val entailmentHolds = reachable(lhsTopLevelPred).forall(isFinal)
+    val entailmentHolds = reachable(lhsCall).forall(_.isFinal(ei.rhs.sid, ei.rhs.topLevelConstraint))
     entailmentHolds
   }
-
-  def check(sid: RichSid, rhs: PredCall, lhs: SidLike): Boolean = {
-    println(s"Checking ${lhs.callToStartPred} |= $rhs for SID '${sid.description}'")
-    val (aut, reachable) = refine(sid, rhs, lhs)
-    println(EntailmentChecker.serializeFixedPoint(aut, reachable))
-    verifyEntailment(aut, lhs.startPred, reachable)
-  }
-
-
 
 }

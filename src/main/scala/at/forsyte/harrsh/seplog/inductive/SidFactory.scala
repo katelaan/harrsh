@@ -87,6 +87,20 @@ object SidFactory extends HarrshLogging {
     backgroundSID.copy(startPred = startPred, preds = newPred +: backgroundSID.preds, description = "symbolic heap")
   }
 
+  def richSidFromSymbolicHeap(sh: SymbolicHeap, backgroundSID: RichSid = RichSid.empty) : RichSid = {
+    val startPred = "sh"
+    val newRule = RuleBody(sh.boundVars.toSeq map (_.toString), sh)
+    val newPred = Predicate(startPred, Seq(newRule))
+    val roots: Map[String, FreeVar] = (for {
+      ptr <- sh.pointers.find(_.from.isFree)
+      from = ptr.from.asInstanceOf[FreeVar]
+    } yield (startPred, from)).toMap
+    backgroundSID.copy(startPred = startPred,
+      preds = newPred +: backgroundSID.preds,
+      roots = backgroundSID.roots ++ roots,
+      description = "symbolic heap")
+  }
+
   def shToRuleBody(sh: SymbolicHeap): RuleBody = {
     // TODO: The SH API is obviously not meant to be used in this way. Refactor?
     val withoutGaps = SymbolicHeap(sh.atoms.closeGapsInBoundVars, sh.freeVars)

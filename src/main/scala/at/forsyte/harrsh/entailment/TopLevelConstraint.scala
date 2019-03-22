@@ -108,6 +108,8 @@ case class TopLevelConstraint(calls: Seq[PredCall], pure: Seq[PureAtom]) extends
 
 object TopLevelConstraint extends HarrshLogging {
 
+  def fromSH(sh: SymbolicHeap) = TopLevelConstraint(sh.predCalls, sh.pure)
+
   def argsImplySubst(args: Seq[Var], subst: Substitution): Boolean = {
     (args, subst.toSeq).zipped.forall{
       case (arg, substVal) => substVal.contains(arg)
