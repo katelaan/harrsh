@@ -65,7 +65,7 @@ case class SymbolicHeap(pure : Seq[PureAtom], pointers: Seq[PointsTo], predCalls
 
   def hasVar(v : Var) : Boolean = allNonNullVars.contains(v)
 
-  def withoutCalls : SymbolicHeap = copy(predCalls = Seq.empty)
+  lazy val withoutCalls : SymbolicHeap = copy(predCalls = Seq.empty)
 
   /**
     * Replaces the predicates calls with the given symbolic heaps, renaming variables as necessary

@@ -4,7 +4,7 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PureAtom, RichSid}
-import at.forsyte.harrsh.util.{Combinators, IOUtils}
+import at.forsyte.harrsh.util.{CacheRegistry, Combinators, IOUtils}
 
 object EntailmentChecker extends HarrshLogging {
 
@@ -49,6 +49,7 @@ object EntailmentChecker extends HarrshLogging {
     */
   def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, EntailmentStats) = {
     logger.debug(s"Solving $entailmentInstance...")
+    CacheRegistry.resetAllCaches()
     val res@(holds, stats) = runEntailmentAutomaton(entailmentInstance, reportProgress, printResult, exportToLatex)
 
     entailmentInstance.entailmentHolds foreach {

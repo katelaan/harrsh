@@ -4,10 +4,22 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.seplog.{FreeVar, NullConst, Renaming, Var}
 import at.forsyte.harrsh.seplog.inductive._
+import at.forsyte.harrsh.util.{HarrshCache, UnboundedCache}
 
 object LocalProfile extends HarrshLogging {
 
+  private val localProfileCache: HarrshCache[(SymbolicHeap, RichSid), EntailmentProfile] = new UnboundedCache[(SymbolicHeap, RichSid), SymbolicHeap, EntailmentProfile](
+    "Local Profile Cache",
+    pair => pair._1.withoutCalls,
+    computeLocalProfile
+  )
+
   def apply(lab: SymbolicHeap, sid: RichSid): EntailmentProfile = {
+    localProfileCache((lab, sid))
+  }
+
+  private def computeLocalProfile(taggedRuleBody: (SymbolicHeap, RichSid)): EntailmentProfile = {
+    val (lab, sid) = taggedRuleBody
     logger.debug(s"Will compute profile for local allocation of $lab")
     val params = varsInLocalAllocation(lab)
     // TODO: Use sharedConstraints as a starting point in constructing the constraints of the decomps
