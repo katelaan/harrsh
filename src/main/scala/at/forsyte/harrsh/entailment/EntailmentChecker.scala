@@ -69,7 +69,7 @@ object EntailmentChecker extends HarrshLogging {
 
   def runSolver(topLevelSolver: TopLevelSolver, entailmentInstance: EntailmentInstance, reportProgress: Boolean, printResult: Boolean): (Boolean, EntailmentStats) = {
     val reachableStatesByPred = runEntailmentAutomaton(entailmentInstance, reportProgress, printResult)
-    val entailmentHolds = topLevelSolver.checkValidity(entailmentInstance.rhs.sid, entailmentInstance.lhs.topLevelConstraint, entailmentInstance.rhs.topLevelConstraint, reachableStatesByPred)
+    val entailmentHolds = topLevelSolver.checkValidity(entailmentInstance, reachableStatesByPred)
     val stats = entailmentStats(reachableStatesByPred)
     (entailmentHolds,stats)
   }

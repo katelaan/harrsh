@@ -4,9 +4,11 @@ import at.forsyte.harrsh.util.Combinators
 
 object BruteForceSolver extends TopLevelSolver {
 
-  override def checkValidity(sid: RichSid, lhsConstraint: TopLevelConstraint, rhsConstraint: TopLevelConstraint, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
-    val (maybePureProfile, renamedProfiles) = computeLhsProfiles(reachable, lhsConstraint, rhsConstraint, sid)
-    val combinedProfiles = bruteForceCombinations(sid, lhsConstraint, maybePureProfile, renamedProfiles)
+  override def checkValidityOfInstantiation(entailmentInstance: EntailmentInstance, profileForLhsPureConstraints: Option[EntailmentProfile], renamedProfiles: Seq[Set[EntailmentProfile]]): Boolean = {
+    val sid = entailmentInstance.rhs.sid
+    val lhsConstraint = entailmentInstance.lhs.topLevelConstraint
+    val rhsConstraint = entailmentInstance.rhs.topLevelConstraint
+    val combinedProfiles = bruteForceCombinations(sid, lhsConstraint, profileForLhsPureConstraints, renamedProfiles)
     logger.debug(combinedProfiles.size + " combined profile(s):\n" + combinedProfiles.mkString("\n"))
     checkIfProfilesAreFinal(combinedProfiles, sid, lhsConstraint, rhsConstraint)
   }

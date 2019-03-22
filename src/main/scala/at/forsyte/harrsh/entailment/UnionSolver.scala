@@ -1,6 +1,12 @@
 package at.forsyte.harrsh.entailment
-import at.forsyte.harrsh.seplog.inductive.RichSid
 
 object UnionSolver extends TopLevelSolver {
-  override def checkValidity(sid: RichSid, lhsConstraint: TopLevelConstraint, rhsConstraint: TopLevelConstraint, reachable: Map[String, Set[EntailmentProfile]]): Boolean = ???
+  override def checkValidityOfInstantiation(entailmentInstance: EntailmentInstance, maybeLhsPureProfile: Option[EntailmentProfile], renamedCallProfileSets: Seq[Set[EntailmentProfile]]): Boolean = {
+    ???
+  }
+
+  //case class UnionProfile
+
+  //case class TaggedProfile()
+
 }

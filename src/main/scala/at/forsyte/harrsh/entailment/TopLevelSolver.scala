@@ -1,12 +1,20 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.entailment.TopLevelSolver.{InstantiationForLhs, LhsHasNondecomposableProfile, TopLevelPreprocessingResult, LhsIsUnsatisfiable}
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PureAtom, RichSid}
 
 trait TopLevelSolver extends HarrshLogging {
 
-  def checkValidity(sid: RichSid, lhsConstraint: TopLevelConstraint, rhsConstraint: TopLevelConstraint, reachable: Map[String, Set[EntailmentProfile]]): Boolean
+  def checkValidity(entailmentInstance: EntailmentInstance, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
+    TopLevelSolver.applyIfInstantiation(
+      checkValidityOfInstantiation(entailmentInstance, _, _),
+      computeLhsProfilesForComposition(reachable, entailmentInstance)
+    )
+  }
+
+  def checkValidityOfInstantiation(entailmentInstance: EntailmentInstance, maybeLhsPureProfile: Option[EntailmentProfile], renamedCallProfileSets: Seq[Set[EntailmentProfile]]): Boolean
 
   private def pureProfile(atoms: Seq[PureAtom], computeEvenIfEmpty: Boolean): Option[EntailmentProfile] = {
     if (!computeEvenIfEmpty && atoms.isEmpty) None
@@ -33,15 +41,76 @@ trait TopLevelSolver extends HarrshLogging {
     } yield reachableForCall flatMap (_.renameOrFail(sid, call.args))
   }
 
-  def computeLhsProfiles(reachable: Map[String, Set[EntailmentProfile]], lhsConstraint: TopLevelConstraint, rhsConstraint: TopLevelConstraint, sid: RichSid): (Option[EntailmentProfile], Seq[Set[EntailmentProfile]]) = {
+  private def computeLhsProfiles(reachable: Map[String, Set[EntailmentProfile]], entailmentInstance: EntailmentInstance): (Option[EntailmentProfile], Seq[Set[EntailmentProfile]]) = {
+    val sid = entailmentInstance.rhs.sid
+    val lhsConstraint = entailmentInstance.lhs.topLevelConstraint
+    val rhsConstraint = entailmentInstance.rhs.topLevelConstraint
     logger.debug(s"Will check whether all profiles in fixed point for $lhsConstraint imply $rhsConstraint wrt $sid")
     if (!rhsConstraint.isQuantifierFree) throw new IllegalArgumentException("RHS is quantified")
-    val renamedReachableStates = renameForCalls(lhsConstraint, reachable, sid)
+    val renamedCallProfiles = renameForCalls(lhsConstraint, reachable, sid)
+    val feasibleCallProfiles = restrictToFeasible(renamedCallProfiles, lhsConstraint)
     // If the LHS does not contain *any* calls, we must always compute a pure profile:
     // Otherwise, we would get the empty profile for the LHS emp and would thus erroneously conclude that
     // there is no consistent profile for emp
     val profileForLhsPureConstraints = pureProfile(lhsConstraint.pure, computeEvenIfEmpty = lhsConstraint.calls.isEmpty)
-    (profileForLhsPureConstraints, renamedReachableStates)
+    logger.debug("Instantiated and filtered profiles are:\n" + FixedPointSerializer(entailmentInstance)(profileForLhsPureConstraints.toSet +: feasibleCallProfiles))
+    (profileForLhsPureConstraints, feasibleCallProfiles)
   }
+
+  private def restrictToFeasible(renamedCallProfiles: Seq[Set[EntailmentProfile]], lhsConstraint: TopLevelConstraint): Seq[Set[EntailmentProfile]] = {
+    renamedCallProfiles map (restrictToFeasible(_, lhsConstraint))
+  }
+
+  private def restrictToFeasible(renamedCallProfiles: Set[EntailmentProfile], lhsConstraint: TopLevelConstraint): Set[EntailmentProfile] = {
+    renamedCallProfiles filter (isFeasible(_, lhsConstraint))
+  }
+
+  private def isFeasible(profile: EntailmentProfile, lhsConstraint: TopLevelConstraint): Boolean = {
+    val res = VarConstraints.areCompatible(profile.sharedConstraints, lhsConstraint.pure)
+    if (!res) logger.debug(s"Will drop profile $profile, as it is contradicted by ${lhsConstraint.pure}")
+    res
+  }
+
+  private def allDecomposable(profiless: Seq[Set[EntailmentProfile]]): Boolean = {
+    profiless.forall{
+      profiles => profiles.nonEmpty && profiles.forall(_.isDecomposable)
+    }
+  }
+
+  def existsUnsatisfiable(profiless: Seq[Set[EntailmentProfile]]): Boolean = {
+    profiless.exists(_.isEmpty)
+  }
+
+  def computeLhsProfilesForComposition(reachable: Map[String, Set[EntailmentProfile]], entailmentInstance: EntailmentInstance): TopLevelPreprocessingResult = {
+    val (maybeLhsPureProfile, renamedCallProfileSets) = computeLhsProfiles(reachable, entailmentInstance)
+    if (existsUnsatisfiable(renamedCallProfileSets)) {
+      logger.debug("LHS is unsatisfiable => Entailment holds")
+      LhsIsUnsatisfiable
+    } else if (allDecomposable(renamedCallProfileSets)) {
+      InstantiationForLhs(maybeLhsPureProfile, renamedCallProfileSets)
+    } else {
+      logger.debug("Entailment does not hold: LHS calls have non-decomposable profile.")
+      LhsHasNondecomposableProfile
+    }
+  }
+
+}
+
+object TopLevelSolver {
+
+  sealed trait TopLevelPreprocessingResult
+  case object LhsHasNondecomposableProfile extends TopLevelPreprocessingResult
+  case object LhsIsUnsatisfiable extends TopLevelPreprocessingResult
+  case class InstantiationForLhs(maybeLhsPureProfile: Option[EntailmentProfile], renamedCallProfileSets: Seq[Set[EntailmentProfile]]) extends TopLevelPreprocessingResult
+
+  def applyIfInstantiation(f: (Option[EntailmentProfile], Seq[Set[EntailmentProfile]]) => Boolean, preprocessingResult: TopLevelPreprocessingResult): Boolean = {
+    preprocessingResult match {
+      case InstantiationForLhs(maybePureProfile, renamedProfiles) => f(maybePureProfile, renamedProfiles)
+      case LhsIsUnsatisfiable => true
+      case LhsHasNondecomposableProfile => false
+    }
+  }
+
+
 
 }

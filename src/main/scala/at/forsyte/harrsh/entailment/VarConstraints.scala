@@ -169,7 +169,7 @@ object VarConstraints extends HarrshLogging {
 
     assert(Set(1,2).contains(underlying.size))
 
-    private lazy val toPair = (underlying.head, if (underlying.size == 2) underlying.tail.head else underlying.head)
+    lazy val toPair = (underlying.head, if (underlying.size == 2) underlying.tail.head else underlying.head)
 
     def isAbout(vars: Set[Var]): Boolean = underlying forall (_.exists(vars))
 
@@ -379,5 +379,31 @@ object VarConstraints extends HarrshLogging {
     }
     res
   }
+
+  def areCompatible(profileConstraints: VarConstraints, topLevelConstraints: Iterable[PureAtom]): Boolean = {
+    val (eqs, diseqs) = topLevelConstraints.partition(_.isEquality)
+    val diseqSets = diseqs map (atom => Set(atom.l, atom.r))
+    profileConstraints.ensuredDiseqs.map(_.toPair).forall{
+      !contradictedBy(_, eqs)
+    } && profileConstraints.classes.forall{
+      !contradictedBy(_, diseqSets)
+    }
+  }
+
+  private def contradictedBy(constraint: (Set[Var], Set[Var]), eqs: Iterable[PureAtom]): Boolean = {
+    eqs.exists{
+      atom => (constraint._1.contains(atom.l) && constraint._2.contains(atom.r)) || (constraint._1.contains(atom.r) && constraint._2.contains(atom.l))
+    }
+  }
+
+  private def contradictedBy(cls: Set[Var], diseqs: Iterable[Set[Var]]): Boolean = {
+    // If both arguments of a disequality are contained in the equivalence class, that's a contradiction
+    diseqs.exists(_ subsetOf cls)
+  }
+
+//  private def notEqualInClosure(constraint: DiseqConstraint, closure: Closure): Boolean = {
+//    def getClass(vs: Set[Var]): Set[Var] = vs.flatMap(closure.getEquivalenceClass(_))
+//    getClass(constraint.underlying.head).intersect(getClass(constraint.underlying.tail.head)).isEmpty
+//  }
 
 }

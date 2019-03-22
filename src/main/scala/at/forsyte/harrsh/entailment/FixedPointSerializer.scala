@@ -10,10 +10,19 @@ case class FixedPointSerializer(ei: EntailmentInstance) {
     lines.mkString("\n")
   }
 
+  def apply(profss: Iterable[Set[EntailmentProfile]]): String = {
+    val lines = Stream("SEQUENCE_OF_PROFILE_SETS {") ++ profss.toStream.flatMap(serializeSetOfProfiles).map(indent) ++ Stream("}")
+      lines.mkString("\n")
+  }
+
   private def indent(s : String) = "  " + s
 
   private def serializePred(pred: String, profs: Set[EntailmentProfile]): Stream[String] = {
     Stream(s"PRED $pred {") ++ profs.toStream.flatMap(serializeProfile).map(indent) ++ Stream("}")
+  }
+
+  private def serializeSetOfProfiles(profs: Set[EntailmentProfile]) = {
+    Stream("SET_OF_PROFILES {") ++ profs.toStream.flatMap(serializeProfile).map(indent) ++ Stream("}")
   }
 
   private def serializeProfile(profile: EntailmentProfile): Stream[String] = {
