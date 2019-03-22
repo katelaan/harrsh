@@ -112,7 +112,10 @@ object TopLevelConstraint extends HarrshLogging {
 
   def argsImplySubst(args: Seq[Var], subst: Substitution): Boolean = {
     (args, subst.toSeq).zipped.forall{
-      case (arg, substVal) => substVal.contains(arg)
+      case (arg, substVal) =>
+        // If the substitution contains a placeholder, we can substitute any value for it, including arg;
+        // if it does not contain a placeholder, we have to check that the equivalence class in the substitution actually contains arg.
+        substVal.contains(arg) || PlaceholderVar.isPlaceholder(substVal.head)
     }
   }
 

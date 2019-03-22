@@ -1,0 +1,17 @@
+# Derived from SL-COMP benchmark qf_shid_entl/tll_slk-12.smt2
+# The interesting thing about this benchmark is that the tll/etll predicates do not use their second parameter in any way.
+# We thus end up with a placeholder variable in the root of all decompositions.
+# Consequently, the top-level solver needs to recognize that it can simply replace the placeholder with any arbitrary variable
+# (including x2), which is why the entailment holds.
+query {
+x1 -> (x2, x3, null, x4) |= etll(x1, x2, x4, x1)
+}
+sid {
+  tll <= x1 -> (y2, y3, y4, y1) : {null = y4, x1 = x3, x4 = y1} ;
+  tll <= x1 -> (y1, y7, y8, y9) * tll(y7,y2,y3,y10) * tll(y8,y4,y5,y6) : {null != y8, x2 = y1, x1 = y2, x3 = y3, x1 = y4, y5 = y10, x4 = y6} ;
+  #etll <= tll(x1,y1,x4,y2) : {x2 = y1, x3 = y2}
+  etll <= tll(x1,x2,x4,x3)
+}
+info {
+  status = true
+}

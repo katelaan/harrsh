@@ -145,7 +145,7 @@ object EntailmentProfileComposition extends HarrshLogging {
           logger.debug(s"Can't match ${rule.body} against $rootsToMerge: ${pair._1} has to be assigned to all of ${pair._2.mkString(", ")}")
           None
         case None =>
-          logger.debug(s"Will put contexts rooted in ${rootsToMerge.mkString(",")} under new root node labeled by $rule")
+          logger.debug(s"Will put contexts rooted in ${rootsToMerge.mkString(",")} under new root node labeled by ${pred.head}")
           mergeRoots(decomp, rootsToMerge, rule, pred, assignmentsByVar.mapValues(_.head))
       }
     }
@@ -185,7 +185,7 @@ object EntailmentProfileComposition extends HarrshLogging {
         speculationUpdate = SpeculativeUpdate(rule.body.pure, mergedDecomp.constraints.classes ++ classesForNewBoundVars, assumeWithoutSpeculation = ruleBoundVars)
         withSpeculation <- mergedDecomp.updateSubst(speculationUpdate)
         finalDecomp <- if (ruleBoundVars.nonEmpty) withSpeculation.forget(ruleBoundVars) else Some(withSpeculation)
-      } yield finalDecomp
+      } yield finalDecomp.toPlaceholderNormalForm
     }
 
   }
