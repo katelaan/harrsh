@@ -195,7 +195,7 @@ object VarConstraints extends HarrshLogging {
   def fromAtoms(vars: Iterable[Var], atoms: Iterable[PureAtom]): VarConstraints = {
     val closure = Closure.ofAtoms(atoms)
     val closureClasses = closure.classes
-    val trivialClasses = (vars.toSet -- closureClasses.flatten) map (Set(_))
+    val trivialClasses = ((vars.toSet + NullConst) -- closureClasses.flatten) map (Set(_))
     val allClasses = closureClasses ++ trivialClasses
     def classOf(v: Var) = allClasses.find(_.contains(v)).getOrElse{
       throw new IllegalArgumentException(s"Constructing constraints for $vars, but $atoms contain additional variable $v")
@@ -224,13 +224,8 @@ object VarConstraints extends HarrshLogging {
 
   def hasDisjointEqualityClasses(usage: VarUsageByLabel): Boolean = Combinators.counts(usage.keys.toSeq.flatten).forall(_._2 == 1)
 
-  def keepWhatsEnsured(cs: VarConstraints): VarConstraints = {
-    // FIXME: This actually isn't sound - we can't reconstruct the original equalities if we don't keep them in the constraints!
-    VarConstraints(cs.usage, cs.ensuredDiseqs, Set.empty, Set.empty)
-  }
-
   def combineEnsured(css: Seq[VarConstraints]): Option[VarConstraints] = {
-    if (css.tail.isEmpty) {
+    val res = if (css.tail.isEmpty) {
       Some(css.head)
     } else {
       val fst = css.head
@@ -241,6 +236,11 @@ object VarConstraints extends HarrshLogging {
         restMerged <- combineEnsured(combined +: rest)
       } yield restMerged
     }
+    res match {
+      case None => logger.debug("Could not combine constraints:\n" + css.mkString("\n"))
+      case Some(cs) => logger.debug(s"Combined constraints:\n${css.mkString("\n")}\ninto $cs")
+    }
+    res
   }
 
 }

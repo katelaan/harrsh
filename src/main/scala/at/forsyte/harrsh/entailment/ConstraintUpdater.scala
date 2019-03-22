@@ -116,7 +116,9 @@ object MergeUpdate extends HarrshLogging {
     for {
       fstUpd <- updater(fst)
       sndUpd <- updater(snd)
-      _ = assert(fstUpd.allocedVars.intersect(sndUpd.allocedVars).isEmpty)
+      doubleAlloc = fstUpd.allocedVars.intersect(sndUpd.allocedVars)
+      _ = if (doubleAlloc.nonEmpty) logger.debug(s"Trying to merge $fstUpd with $sndUpd, but they both allocate $doubleAlloc => Can't compose")
+      if doubleAlloc.isEmpty
       allClasses = fstUpd.classes ++ sndUpd.classes
       newUsage = allClasses.map(c => (c, Set(fstUpd.usage.getOrElse(c,VarUnused), sndUpd.usage.getOrElse(c,VarUnused)).max)).toMap
       allEnsured = fstUpd.ensuredDiseqs ++ sndUpd.ensuredDiseqs ++ VarConstraints.diseqsImpliedByAllocation(newUsage)

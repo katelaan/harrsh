@@ -10,16 +10,34 @@ object LocalProfile extends HarrshLogging {
   def apply(lab: SymbolicHeap, sid: RichSid): EntailmentProfile = {
     logger.debug(s"Will compute profile for local allocation of $lab")
     val params = varsInLocalAllocation(lab)
+    // TODO: Use sharedConstraints as a starting point in constructing the constraints of the decomps
+    val sharedConstraints = ensuredLocalConstraints(params, lab)
     val decomps = decompsOfLocalAllocation(params, lab, sid).filter(_.isConsistentWithFocus(sid))
 
     if (decomps.isEmpty) {
-      val constraints = VarConstraints.fromAtoms(params, lab.pure)
-      logger.debug(s"No decompositions in local profile => Will record constraints $constraints")
-      ProfileOfNondecomposableModels(constraints, params)
+      logger.debug(s"No decompositions in local profile => Will record constraints $sharedConstraints")
+      ProfileOfNondecomposableModels(sharedConstraints, params)
     } else {
       logger.debug(s"Decompositions in local profile of $lab:\n${decomps.mkString("\n")}")
-      ProfileOfDecomps(decomps, params)
+      ProfileOfDecomps(decomps, sharedConstraints, params)
     }
+  }
+
+  private def usageLookupForHeap(lab: SymbolicHeap): Set[Var] => VarUsage = {
+    val ptrSet = lab.pointers.toSet[PointsTo]
+    val alloced: Set[Var] = lab.pointers.map(_.from).toSet
+    val refed: Set[Var] = ptrSet.flatMap(_.to)
+      vs: Set[Var] =>
+        if (vs.exists(alloced)) VarAllocated
+        else if (vs.exists(refed)) VarReferenced
+        else VarUnused
+  }
+
+  private def ensuredLocalConstraints(params: Seq[Var], lab: SymbolicHeap): VarConstraints = {
+    val initialConstraints = VarConstraints.fromAtoms(params, Closure.fromSH(lab).asSetOfAtoms)
+    val usageOf = usageLookupForHeap(lab)
+    val usage = initialConstraints.usage map (pair => (pair._1, usageOf(pair._1)))
+    initialConstraints.copy(usage = usage)
   }
 
   private def decompsOfLocalAllocation(params: Seq[Var], lab: SymbolicHeap, sid: RichSid): Set[ContextDecomposition] = {

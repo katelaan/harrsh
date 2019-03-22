@@ -141,7 +141,7 @@ object EntailmentChecker extends HarrshLogging {
       val vars = atoms.flatMap(_.getVars).distinct
       val constraints = VarConstraints.fromAtoms(vars.toSet, atoms)
       val decomp = ContextDecomposition(Set.empty, constraints)
-      val profile = ProfileOfDecomps(Set(decomp), vars.filter(!_.isNull))
+      val profile = ProfileOfDecomps(Set(decomp), constraints, vars.filter(!_.isNull))
       logger.debug(s"Created pure profile $profile from top-level atoms $atoms")
       Some(profile)
     }
@@ -169,11 +169,12 @@ object EntailmentChecker extends HarrshLogging {
       (Stream("PROFILE {",
         s"  FVS: ${state.orderedParams.mkString(", ")}")
         ++ Some("  ACCEPTING").filter(_ => isFinal(state))
+        ++ Some("  SHARED: " + state.sharedConstraints)
         ++ serializeContent(state) ++ Stream("}"))
     }
 
     def serializeContent(profile: EntailmentProfile) = profile match {
-      case ProfileOfDecomps(decomps, _) => serializeDecomps(decomps)
+      case ProfileOfDecomps(decomps, _, _) => serializeDecomps(decomps)
       case ProfileOfNondecomposableModels(constraints, _) =>
         Stream(indent("NO CONSISTENT DECOMPOSITION"), indent(constraints.toString))
     }

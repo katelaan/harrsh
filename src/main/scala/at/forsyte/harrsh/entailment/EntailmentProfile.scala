@@ -6,7 +6,10 @@ import at.forsyte.harrsh.seplog.inductive.RichSid
 
 sealed trait EntailmentProfile {
 
-  def sharedConstraints: VarConstraints
+  // We only care about ensured constraints here so that we can decide whether the profile is relevant for the top-level formula or not
+  assert(!sharedConstraints.isSpeculative)
+
+  val sharedConstraints: VarConstraints
   val orderedParams: Seq[Var]
 
   def isDecomposable: Boolean = this match {
@@ -38,9 +41,6 @@ sealed trait EntailmentProfile {
 }
 
 case class ProfileOfNondecomposableModels(override val sharedConstraints: VarConstraints, override val orderedParams: Seq[Var]) extends EntailmentProfile {
-
-  // We only care about ensured constraints here so that we can decide whether the profile is relevant for the top-level formula or not
-  assert(!sharedConstraints.isSpeculative)
 
   override def isFinal(sid: RichSid, rhs: TopLevelConstraint): Boolean = false
 
@@ -76,7 +76,7 @@ object ProfileOfNondecomposableModels {
 
 }
 
-case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val orderedParams: Seq[Var]) extends EntailmentProfile with HarrshLogging {
+case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val sharedConstraints: VarConstraints, override val orderedParams: Seq[Var]) extends EntailmentProfile with HarrshLogging {
 
   assert(decomps.nonEmpty)
 
@@ -99,11 +99,6 @@ case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val ord
     throw new IllegalArgumentException(s"Constructing state for $orderedParams, but profile contains FVs $nonPlaceholderVarsInContexts:\n${decomps.mkString("\n")}")
   }
 
-  override def sharedConstraints: VarConstraints = {
-    // TODO: Is it correct that the ensured constraints are always shared among all decomps? Should be the case, right?
-    VarConstraints.keepWhatsEnsured(decomps.head.constraints)
-  }
-
   override def isFinal(sid: RichSid, rhs: TopLevelConstraint): Boolean = {
     // A profiles represents all the possible ways to parse a symbolic heap as an unfolding forest
     // As long as one of those ways is a valid unfolding forest w.r.t. rhs, we accept.
@@ -112,28 +107,39 @@ case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val ord
     res
   }
 
-  private def rename(sid: RichSid, to: Seq[Var]): (Set[ContextDecomposition], Seq[Var]) = {
-    logger.debug(s"Will rename $orderedParams to $to in $this")
-    assert(to.size == orderedParams.size)
-    val instantiation = orderedParams zip to
+  private def renameDecomps(sid: RichSid, instantiationUpdateFactory: Set[Set[Var]] => InstantiationUpdate): Set[ContextDecomposition] = {
     val renamed = for {
       decomp <- decomps
-      update = InstantiationUpdate(instantiation, decomp.constraints.classes)
+      update = instantiationUpdateFactory(decomp.constraints.classes)
       instantiated <- decomp.updateSubst(update)
     } yield instantiated
     // TODO Do we want to improve the consistency check, which currently only looks at root parameters? (But that would require knowing which other variables are guaranteed to be allocated in the SID, i.e., additional preprocessing!)
-    val consistent = renamed filter (_.isConsistentWithFocus(sid)) map (_.toPlaceholderNormalForm)
-    (consistent, to.distinct.filterNot(_.isNull))
+    renamed filter (_.isConsistentWithFocus(sid)) map (_.toPlaceholderNormalForm)
+  }
+
+  private def instantiationUpdateFactory(to: Seq[Var]): Set[Set[Var]] => InstantiationUpdate = {
+    assert(to.size == orderedParams.size)
+    val instantiation = orderedParams zip to
+    classes =>
+      InstantiationUpdate(instantiation, classes)
   }
 
   override def renameOrFail(sid: RichSid, to: Seq[Var]): Option[EntailmentProfile] = {
-    val (renamedDecomps, renamedParams) = rename(sid, to)
-    if (renamedDecomps.isEmpty) {
+    logger.debug(s"Will rename $orderedParams to $to in $this")
+    val updateFactory = instantiationUpdateFactory(to)
+    val res = for {
+      // Rename shared constraints first, since this is generally where the inconsistency in renaming will come in (not only in the speculation),
+      // so doing this first allows us to short-circuit the renaming process
+      renamedSharedConstraints <- updateFactory(sharedConstraints.classes)(sharedConstraints)
+      renamedDecomps = renameDecomps(sid, updateFactory)
+      renamedParams = to.distinct.filterNot(_.isNull)
+      if renamedDecomps.nonEmpty
+    } yield ProfileOfDecomps(renamedDecomps, renamedSharedConstraints, renamedParams)
+
+    if (res.isEmpty) {
       logger.debug(s"Renaming the FVs in $this to $to yielded an inconsistent result => Discarding result profile")
-      None
-    } else {
-      Some(ProfileOfDecomps(renamedDecomps, renamedParams))
     }
+    res
   }
 
   override def forget(varsToForget: Set[Var]): EntailmentProfile = {
@@ -147,8 +153,14 @@ case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val ord
       } yield restrictedToFreeVars
     }
 
-    val newParams = orderedParams filterNot varsToForget.contains
-    applyToDecomps(filterDecomps).overrideOrderedParams(newParams)
+    val newParams = orderedParams filterNot varsToForget
+    val newSharedConstraints = DropperUpdate(varsToForget).unsafeUpdate(sharedConstraints)
+    val newDecomps = filterDecomps(decomps)
+    if (newDecomps.isEmpty) {
+      ProfileOfNondecomposableModels(newSharedConstraints, newParams)
+    } else {
+      ProfileOfDecomps(newDecomps, newSharedConstraints, newParams)
+    }
   }
 
   def isConsistentWithFocus(sid: RichSid): Boolean = {

@@ -16,24 +16,17 @@ object ContextDecompositionComposition extends HarrshLogging {
 
   private def unionWithoutMerges(fst: ContextDecomposition, snd: ContextDecomposition): Option[ContextDecomposition] = {
     val (shiftedFst, shiftedSnd) = makePlaceholdersDisjoint(fst, snd)
-    val sharedAllocation = shiftedFst.allocedVars.intersect(shiftedSnd.allocedVars)
-    if (sharedAllocation.nonEmpty) {
-      logger.debug(s"Trying to merge $shiftedFst with $shiftedSnd, but they both allocate $sharedAllocation => Can't compose")
-      None
+    logger.trace(s"Decompositions after shifting:\n$shiftedFst and\n$shiftedSnd")
+
+    val mergeNondisjointVarLabelSets = MergeUpdate(shiftedFst.constraints.classes, shiftedSnd.constraints.classes)
+    val maybeUnion = mergeWithUnifyingUpdate(shiftedFst, shiftedSnd, mergeNondisjointVarLabelSets)
+
+    maybeUnion match {
+      case Some(union) => logger.debug("Union decomposition (on which merge options will be computed):\n" + union)
+      case None => logger.debug("Union is undefined => Discarding decomposition.")
     }
-    else {
-      logger.trace(s"Decompositions after shifting:\n$shiftedFst and\n$shiftedSnd")
 
-      val mergeNondisjointVarLabelSets = MergeUpdate(shiftedFst.constraints.classes, shiftedSnd.constraints.classes)
-      val maybeUnion = mergeWithUnifyingUpdate(shiftedFst, shiftedSnd, mergeNondisjointVarLabelSets)
-
-      maybeUnion match {
-        case Some(union) => logger.debug("Union decomposition (on which merge options will be computed):\n" + union)
-        case None => logger.debug("Union is undefined => Discarding decomposition.")
-      }
-
-      maybeUnion
-    }
+    maybeUnion
   }
 
   private def mergeWithUnifyingUpdate(fst: ContextDecomposition, snd: ContextDecomposition, upd: MergeUpdate): Option[ContextDecomposition] = {
