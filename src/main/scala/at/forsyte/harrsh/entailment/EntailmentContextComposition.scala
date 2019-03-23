@@ -93,19 +93,4 @@ object EntailmentContextComposition extends HarrshLogging {
     EntailmentContext(newRoot, newLeaves)
   }
 
-//  def instantiate(toInstantiate: EntailmentContext, abstractLeaf: ContextPredCall, instantiation: EntailmentContext, propagateUnification: SubstitutionUpdate): EntailmentContext = {
-//    // When executing more than one composition step for a pair of decompositions,
-//    // the following assertion does not necessarily hold from the second composition step onwards
-//    // That's because we propagate any unification that happens in a context composition into all later composition
-//    // steps, thus potentially introducing placeholders from earlier contexts into later contexts
-//    // TODO Currently, the composition code should no longer depend in any way on non-overlapping placeholders, but I'll keep this assertion here for the time being as a reminder to revisit the invariants that have to hold in composition.
-////    assert(EntailmentContext.haveDisjointPlaceholders(toInstantiate, instantiation),
-////      s"Overlapping placeholders between $toInstantiate and $instantiation")
-//
-//    val newRoot = toInstantiate.root.update(propagateUnification)
-//    val allLeaves = (toInstantiate.calls - abstractLeaf) ++ instantiation.calls
-//    val newLeaves = allLeaves.map(_.update(propagateUnification))
-//    EntailmentContext(newRoot, newLeaves)
-//  }
-
 }

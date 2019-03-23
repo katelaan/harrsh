@@ -1,11 +1,10 @@
 package at.forsyte.harrsh.entailment
 
-import at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.entailment.VarConstraints.{DiseqConstraint, PartitionedDiseqs, RewrittenBoundVarDiseqConstraint}
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.PureAtom
-import at.forsyte.harrsh.util.Combinators
+import at.forsyte.harrsh.util.{Combinators, HarrshCache, UnboundedCache}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -14,7 +13,11 @@ sealed trait ConstraintUpdater extends HarrshLogging {
 
   def apply(vs: Set[Var]): Set[Var]
 
-  def apply(cs: VarConstraints): Option[VarConstraints]
+  final def apply(cs: VarConstraints): Option[VarConstraints] = {
+    ConstraintUpdater.constraintUpdateCache(this, cs)
+  }
+
+  protected def updateVarConstraints(cs: VarConstraints): Option[VarConstraints]
 
   def unsafeUpdate(constraints: VarConstraints): VarConstraints = apply(constraints).get
 
@@ -60,6 +63,16 @@ object ConstraintUpdater extends HarrshLogging {
     }
   }
 
+  private type From = (ConstraintUpdater, VarConstraints)
+  private type Key = (ConstraintUpdater, VarConstraints)
+  private type Value = Option[VarConstraints]
+
+  private val constraintUpdateCache: HarrshCache[From, Value] = new UnboundedCache[From, Key, Value](
+    "Constraint Update Cache",
+    identity,
+    from => from._1.updateVarConstraints(from._2)
+  )
+
 }
 
 case class MergeUpdate(fstClasses: Set[Set[Var]], sndClasses: Set[Set[Var]]) extends ConstraintUpdater {
@@ -70,7 +83,7 @@ case class MergeUpdate(fstClasses: Set[Set[Var]], sndClasses: Set[Set[Var]]) ext
 
   override def apply(vs: Set[Var]): Set[Var] = updateMap(vs)
 
-  override def apply(cs: VarConstraints): Option[VarConstraints] = {
+  override protected def updateVarConstraints(cs: VarConstraints): Option[VarConstraints] = {
     for {
       newUsage <- applyToUsage(cs.usage, mayMergeClasses = true)
       nowEnsured = updateDiseqs(cs.ensuredDiseqs)
@@ -154,7 +167,7 @@ case class InstantiationUpdate(instantiation: Seq[(Var, Var)], classes: Set[Set[
 
   override def apply(vs: Set[Var]): Set[Var] = map2(map1(vs))
 
-  override def apply(cs: VarConstraints): Option[VarConstraints] = {
+  override protected def updateVarConstraints(cs: VarConstraints): Option[VarConstraints] = {
     // TODO: Reduce code duplication wrt MergeUpdate. This only differs in the treatment of speculative equalities
     for {
       newUsage <- applyToUsage(cs.usage, mayMergeClasses = true)
@@ -213,7 +226,7 @@ case class SpeculativeUpdate(atoms: Iterable[PureAtom], originalClasses: Set[Set
 
   override def apply(vs: Set[Var]): Set[Var] = map.getOrElse(vs, vs)
 
-  override def apply(cs: VarConstraints): Option[VarConstraints] = {
+  override protected def updateVarConstraints(cs: VarConstraints): Option[VarConstraints] = {
     for {
       newUsage <- applyToUsage(cs.usage, mayMergeClasses = true)
       // Equalities involving placeholders can always be assumed and thus need not be added to speculation
@@ -253,7 +266,7 @@ case class BijectiveRenamingUpdate(description: String, renaming: Var => Var) ex
 
   override def apply(vs: Set[Var]): Set[Var] = vs map renaming
 
-  override def apply(cs: VarConstraints): Option[VarConstraints] = {
+  override protected def updateVarConstraints(cs: VarConstraints): Option[VarConstraints] = {
     applyToUsage(cs.usage, mayMergeClasses = false) map { newUsage =>
       VarConstraints(
         newUsage,
@@ -308,7 +321,7 @@ case class DropperUpdate(varsToDrop: Set[Var]) extends ConstraintUpdater {
 
   override def apply(vs: Set[Var]): Set[Var] = vs filterNot varsToDrop
 
-  override def apply(cs: VarConstraints): Option[VarConstraints] = {
+  override protected def updateVarConstraints(cs: VarConstraints): Option[VarConstraints] = {
     for {
       newUsage <- applyToUsage(cs.usage, mayMergeClasses = false)
       (newSpeculativeDiseqs, newRewrittenDiseqs) <- updateSpeculativeDiseqs(cs)
@@ -368,7 +381,7 @@ case class ChainedUpdater(fst: ConstraintUpdater, snd: ConstraintUpdater) extend
 
   override def apply(vs: Set[Var]): Set[Var] = snd(fst(vs))
 
-  override def apply(cs: VarConstraints): Option[VarConstraints] = for {
+  override protected def updateVarConstraints(cs: VarConstraints): Option[VarConstraints] = for {
     intermediate <- fst(cs)
     updated <- snd(intermediate)
   } yield updated
