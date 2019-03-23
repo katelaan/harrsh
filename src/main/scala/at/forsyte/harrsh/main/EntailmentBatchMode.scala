@@ -107,6 +107,8 @@ object EntailmentBatchMode {
     }
     val config = StringUtils.TableConfig(headings, minColLengths, alignment)
     println(StringUtils.toTable(config, entries))
+    val totalTime = bms.flatMap(_.time).sum
+    println("Total analysis time: " + totalTime)
   }
 
   private def exportResultsToLatex(results: Seq[(Option[EntailmentInstance], EntailmentResult)]): Unit = {
