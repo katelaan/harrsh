@@ -39,6 +39,9 @@ object EntailmentChecker extends HarrshLogging {
     }
   }
 
+  val UseUnionSolver = true
+  val Solver: TopLevelSolver = if (UseUnionSolver) UnionSolver else BruteForceSolver
+
   /**
     * Check whether the given entailment instance holds
     * @param entailmentInstance Instance to solve
@@ -48,7 +51,7 @@ object EntailmentChecker extends HarrshLogging {
   def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, EntailmentStats) = {
     logger.info(s"Solving $entailmentInstance...")
     CacheRegistry.resetAllCaches()
-    val res@(holds, stats) = runSolver(BruteForceSolver, entailmentInstance, reportProgress, printResult)
+    val res@(holds, stats) = runSolver(Solver, entailmentInstance, reportProgress, printResult)
 
     //    if (exportToLatex) {
     //      print("Will export result to LaTeX...")

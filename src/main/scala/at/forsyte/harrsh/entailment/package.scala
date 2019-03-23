@@ -6,19 +6,6 @@ package object entailment {
 
   case class DoubleAllocException(msg: String) extends Exception(msg)
 
-  type NodeId = Int
-
-  object NodeId {
-
-    def freshIds(usedIds: Set[NodeId], numIds: Int): Seq[NodeId] = {
-      val maxUsed = if (usedIds.nonEmpty) usedIds.max else -1
-      maxUsed + 1 to maxUsed + numIds
-    }
-
-    def zero: NodeId = 0
-
-  }
-
   type Unification = Seq[Set[Var]]
 
   sealed trait VarUsage {

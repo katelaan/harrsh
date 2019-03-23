@@ -41,6 +41,19 @@ sealed trait EntailmentProfile {
 
 }
 
+object EntailmentProfile extends HarrshLogging {
+
+  def forgetVarsInDecomps(decomps: Set[ContextDecomposition], varsToForget: Set[Var]): Set[ContextDecomposition] = {
+    for {
+      decomp <- decomps
+      restrictedToFreeVars <- decomp.forget(varsToForget)
+      _ = logger.debug(s"Has enough names after restriction to free variables:\n$restrictedToFreeVars; will keep if viable.")
+      _ = assert(restrictedToFreeVars.boundVars.isEmpty, s"Bound vars remain after restriction to free vars: $restrictedToFreeVars")
+    } yield restrictedToFreeVars
+  }
+
+}
+
 case class ProfileOfNondecomposableModels(override val sharedConstraints: VarConstraints, override val params: Set[Var]) extends EntailmentProfile with CachedHashcode {
 
   override def isFinal(sid: RichSid, rhs: TopLevelConstraint): Boolean = false
@@ -147,18 +160,9 @@ case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val sha
 
   override def forget(varsToForget: Set[Var]): EntailmentProfile = {
 
-    def filterDecomps(decomps: Set[ContextDecomposition]) = {
-      for {
-        decomp <- decomps
-        restrictedToFreeVars <- decomp.forget(varsToForget)
-        _ = logger.debug(s"Has enough names after restriction to free variables:\n$restrictedToFreeVars; will keep if viable.")
-        _ = assert(restrictedToFreeVars.boundVars.isEmpty, s"Bound vars remain after restriction to free vars: $restrictedToFreeVars")
-      } yield restrictedToFreeVars
-    }
-
     val newParams = params filterNot varsToForget
     val newSharedConstraints = DropperUpdate(varsToForget).unsafeUpdate(sharedConstraints)
-    val newDecomps = filterDecomps(decomps)
+    val newDecomps = EntailmentProfile.forgetVarsInDecomps(decomps, varsToForget)
     if (newDecomps.isEmpty) {
       ProfileOfNondecomposableModels(newSharedConstraints, newParams)
     } else {
@@ -180,7 +184,11 @@ case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val sha
   }
 
   override def toString: String = {
-    "ProfileOfDecomps(\n" + decomps.mkString(",\n") + ",\n  params = {" + params.mkString(", ") + "}\n)"
+    s"""ProfileOfDecomps(
+       |  params = {${params.toSeq.sorted.mkString(", ")}}
+       |  shared = $sharedConstraints
+       |  ${decomps.mkString("\n  ")}
+       |)""".stripMargin
   }
 
 }

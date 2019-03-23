@@ -1,16 +1,14 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{EmptyPredicates, PredCall, PureAtom, SymbolicHeap}
-import at.forsyte.harrsh.util.Combinators
 
 import scala.annotation.tailrec
 
 case class TopLevelConstraint(calls: Seq[PredCall], pure: Seq[PureAtom]) extends HarrshLogging {
 
-  lazy val size: NodeId = calls.size
+  lazy val size: Int = calls.size
 
   override def toString: String = toSymbolicHeap.toString
 
