@@ -1,0 +1,10 @@
+query {
+ lseg(x1,y1) * lseg(y1,y2) * lseg(y2,y3) * lseg(y3, y4) * lseg(y4,y5) * lseg(y5,x2) |= lseg(x1, x2)
+}
+sid {
+  lseg <= emp : {x1 = x2} ;
+  lseg <= x1 -> y1 * lseg(y1,x2) ;
+}
+info {
+  status = true
+}

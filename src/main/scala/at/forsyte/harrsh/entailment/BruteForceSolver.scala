@@ -19,7 +19,7 @@ object BruteForceSolver extends TopLevelSolver {
       toplevelProfiles = profileForLhsPureConstraints.toSeq ++ toplevelProfilesForCalls
       // TODO: Is it correct that we don't want/need all composition steps of TargetProfile.composeAndForget? (Since emp closure is done in the acceptance check, and focus check is thus not necessary)
       composed <- EntailmentProfileComposition.composeAll(sid, toplevelProfiles, lhsConstraint.nonNullVars)
-      merged = EntailmentProfileComposition.mergeUsingNonProgressRules(composed, sid)
+      merged = MergeUsingNonProgressRules(composed, sid)
       restricted = if (lhsConstraint.isQuantifierFree) merged else merged.forget(lhsConstraint.boundVars)
     } yield restricted
   }

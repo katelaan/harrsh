@@ -110,48 +110,4 @@ object ContextDecompositionComposition extends HarrshLogging {
     } yield (composed, stillUnprocessed, newConstraints, updater)
   }
 
-//  private def allMergeOptions(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], constraints: VarConstraints): Seq[ContextDecomposition] = {
-//    if (unprocessed.isEmpty) {
-//      logger.debug(s"At the end of the merge process:\n$processed")
-//      // Since the constraints are updated context by context, not all processed contexts will already reflect the new constraints.
-//      // We thus perform another unification step.
-//      val upd = PropagationUpdate(constraints.classes)
-//      val processedAndPropagated = processed map (_.updateSubst(upd))
-//      logger.debug(s"After propagation of constraints:\n$processedAndPropagated")
-//
-//      val occurringVarSets = processedAndPropagated.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)
-//      val placeholders = occurringVarSets.flatten.filter(PlaceholderVar.isPlaceholder)
-//      val cleanedConstraints = constraints.restrictPlaceholdersTo(placeholders)
-//
-//      val composed = ContextDecomposition(processedAndPropagated.toSet, cleanedConstraints)
-//      val res = Seq(composed.toPlaceholderNormalForm)
-//      logger.debug(s"New merge result: $res")
-//      res
-//    } else {
-//      for {
-//        (nowProcessed, stillUnprocessed, newConstraints, variableMergingImposedByComposition) <- optionalMerge(sid, processed, unprocessed, constraints)
-//        unprocessedWithMergedVars = stillUnprocessed.map(_.updateSubst(variableMergingImposedByComposition))
-//        merged <- allMergeOptions(sid, nowProcessed, unprocessedWithMergedVars, newConstraints)
-//      } yield merged
-//    }
-//  }
-
-//  private def optionalMerge(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], constraints: VarConstraints): Seq[(Seq[EntailmentContext], Seq[EntailmentContext], VarConstraints, SubstitutionUpdate)] = {
-//    val (fst, other) = (unprocessed.head, unprocessed.tail)
-//    (
-//      // Don't merge fst with anything, just add to processed
-//      Seq((processed :+ fst, other, constraints, SubstitutionUpdateMap(Map.empty)))
-//        ++ tryMerge(sid, fst, other, constraints).map(t => (processed, t._1 +: t._2, t._3, t._4))
-//      )
-//  }
-//
-//  private def tryMerge(sid: RichSid, fst: EntailmentContext, other: Seq[EntailmentContext], constraints: VarConstraints): Stream[(EntailmentContext, Seq[EntailmentContext], VarConstraints, SubstitutionUpdate)] = {
-//    for {
-//      candidate <- other.toStream
-//      _ = logger.debug(s"Will try to compose $fst with $candidate wrt constraints $constraints.")
-//      ((composed, newConstraints, variableMergingImposedByComposition), i) <- EntailmentContextComposition(sid, fst, candidate, constraints).zipWithIndex
-//      _ = logger.debug(s"Composition success #${i+1}: Composed context $composed with constraints $newConstraints")
-//    } yield (composed, other.filter(_ != candidate), newConstraints, variableMergingImposedByComposition)
-//  }
-
 }

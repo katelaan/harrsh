@@ -130,7 +130,7 @@ object TargetProfile extends HarrshLogging {
   }
 
   private def mergeUsingNonProgressRules(sid: RichSid)(profile: EntailmentProfile): EntailmentProfile = {
-    val merged = EntailmentProfileComposition.mergeUsingNonProgressRules(profile, sid)
+    val merged = MergeUsingNonProgressRules(profile, sid)
     if (merged != profile) {
       logger.debug(s"Updated target profile by applying non-progress rules:\n${merged.decompsOrEmptySet.mkString("\n")}")
     }
