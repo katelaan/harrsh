@@ -12,31 +12,33 @@ object EntailmentProfileComposition extends HarrshLogging {
     if (UseLogSplit) allPossibleDecompCompositionsLogSplit else allPossibleDecompCompositions
   }
 
-  def composeAll(sid: RichSid, profiles: Seq[EntailmentProfile], newOrderedParams: Seq[Var]): Option[EntailmentProfile] = {
+  def composeAll(sid: RichSid, profiles: Seq[EntailmentProfile]): Option[EntailmentProfile] = {
     logger.debug(s"Will compose the following ${profiles.size} profiles:\n" + profiles.mkString("\n"))
     assert(profiles forall (_.isConsistentWithFocus(sid)))
     for {
       combinedConstraints <- VarConstraints.combineEnsured(profiles.map(_.sharedConstraints))
-      composed <- composeWithSharedConstraints(sid, profiles, combinedConstraints, newOrderedParams)
+      composed <- composeWithSharedConstraints(sid, profiles, combinedConstraints)
     } yield composed
   }
 
-  private def composeWithSharedConstraints(sid: RichSid, profiles: Seq[EntailmentProfile], newSharedConstraints: VarConstraints, newOrderedParams: Seq[Var]): Option[EntailmentProfile] = {
+  private def composeWithSharedConstraints(sid: RichSid, profiles: Seq[EntailmentProfile], newSharedConstraints: VarConstraints): Option[EntailmentProfile] = {
     if (profiles.forall(_.isDecomposable)) {
-      composeDecomps(sid, profiles, newSharedConstraints, newOrderedParams)
+      composeDecomps(sid, profiles, newSharedConstraints)
     } else {
       logger.debug(s"Short-circuiting (propagating sink state) profile composition of:\n${profiles.mkString("\n")}")
-      Some(ProfileOfNondecomposableModels(newSharedConstraints, newOrderedParams))
+      Some(ProfileOfNondecomposableModels(newSharedConstraints, paramUnion(profiles)))
     }
   }
 
-  private def composeDecomps(sid: RichSid, profiles: Seq[EntailmentProfile], newSharedConstraints: VarConstraints, newOrderedParams: Seq[Var]): Option[EntailmentProfile] = {
+  private def paramUnion(profiles: Seq[EntailmentProfile]): Set[Var] = profiles.toSet[EntailmentProfile].flatMap(_.params)
+
+  private def composeDecomps(sid: RichSid, profiles: Seq[EntailmentProfile], newSharedConstraints: VarConstraints): Option[EntailmentProfile] = {
     val composedDecomps = CompositionFunction(sid, profiles map (_.decompsOrEmptySet))
     if (composedDecomps.isEmpty) {
       logger.debug(s"Composed profiles are contradictory => No composition result")
       None
     } else {
-      val res = ProfileOfDecomps(composedDecomps, newSharedConstraints, newOrderedParams)
+      val res = ProfileOfDecomps(composedDecomps, newSharedConstraints, paramUnion(profiles))
       logger.debug(s"Profile composition result:\n$res")
       Some(res)
     }

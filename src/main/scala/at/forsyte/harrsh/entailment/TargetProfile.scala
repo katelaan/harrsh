@@ -48,7 +48,7 @@ object TargetProfile extends HarrshLogging {
   }
 
   private def composeAndForget(profiles: Seq[EntailmentProfile], lab: SymbolicHeap, sid: RichSid): Option[EntailmentProfile] = {
-    val composed = EntailmentProfileComposition.composeAll(sid, profiles, lab.freeVars ++ lab.boundVars)
+    val composed = EntailmentProfileComposition.composeAll(sid, profiles)
     logger.debug(s"Target profile after initial composition:\n$composed")
     val processComposedProfile = (inCase(sid.hasEmptyBaseRules)(empClosure(sid))
       andThen filterOutInconsistentFocus(sid)

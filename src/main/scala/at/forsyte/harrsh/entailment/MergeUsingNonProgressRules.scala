@@ -23,7 +23,7 @@ object MergeUsingNonProgressRules extends HarrshLogging {
         decomp <- profile.decomps
         merged <- if (decomp.isEmpty) Seq(decomp) else useNonProgressRulesToMergeContexts(decomp, sid)
       } yield merged
-      ProfileOfDecomps(newDecomps, profile.sharedConstraints, profile.orderedParams)
+      ProfileOfDecomps(newDecomps, profile.sharedConstraints, profile.params)
     }
   }
 

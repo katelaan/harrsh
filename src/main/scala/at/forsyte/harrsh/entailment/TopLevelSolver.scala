@@ -19,8 +19,8 @@ trait TopLevelSolver extends HarrshLogging {
   private def pureProfile(atoms: Seq[PureAtom], computeEvenIfEmpty: Boolean): Option[EntailmentProfile] = {
     if (!computeEvenIfEmpty && atoms.isEmpty) None
     else {
-      val vars = atoms.flatMap(_.getVars).distinct
-      val constraints = VarConstraints.fromAtoms(vars.toSet, atoms)
+      val vars = atoms.toSet[PureAtom].flatMap(_.getVars)
+      val constraints = VarConstraints.fromAtoms(vars, atoms)
       val decomp = ContextDecomposition(Set.empty, constraints)
       val profile = ProfileOfDecomps(Set(decomp), constraints, vars.filter(!_.isNull))
       logger.debug(s"Created pure profile $profile from top-level atoms $atoms")
@@ -34,7 +34,7 @@ trait TopLevelSolver extends HarrshLogging {
       // Note: Because of ALL-SAT of the underlying SID, emptiness of the fixed point means that there is no way to
       // express the predicate wrt the RHS-SID as opposed to that the predicate is UNSAT. For this reason, we add
       // an empty profile in case the fixed point does not contain an entry for the predicate.
-      reachableForCall = reachable.getOrElse(call.name, Set(ProfileOfNondecomposableModels(Var.getFvSeq(call.args.length))))
+      reachableForCall = reachable.getOrElse(call.name, Set(ProfileOfNondecomposableModels(Var.getFvSeq(call.args.length).toSet)))
       _ = if (reachableForCall.isEmpty) throw new Exception(""+call)
       // We do not make the ALL-SAT assumption for the top-level formula. Instantiating profiles with the call args
       // can thus yield an inconsistent profile. We discard such profiles here

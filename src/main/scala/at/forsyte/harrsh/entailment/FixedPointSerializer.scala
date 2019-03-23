@@ -27,7 +27,7 @@ case class FixedPointSerializer(ei: EntailmentInstance) {
 
   private def serializeProfile(profile: EntailmentProfile): Stream[String] = {
     (Stream("PROFILE {",
-      s"  FVS: ${profile.orderedParams.mkString(", ")}")
+      s"  FVS: ${profile.params.toSeq.sorted.mkString(", ")}")
       ++ Some("  ACCEPTING").filter(_ => profile.isFinal(sid, rhsTopLevelConstraint))
       ++ Some("  SHARED: " + profile.sharedConstraints)
       ++ serializeContent(profile) ++ Stream("}"))

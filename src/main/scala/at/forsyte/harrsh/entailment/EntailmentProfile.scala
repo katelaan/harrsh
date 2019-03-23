@@ -11,7 +11,7 @@ sealed trait EntailmentProfile {
   assert(!sharedConstraints.isSpeculative)
 
   val sharedConstraints: VarConstraints
-  val orderedParams: Seq[Var]
+  val params: Set[Var]
 
   def isDecomposable: Boolean = this match {
     case _:ProfileOfNondecomposableModels => false
@@ -34,14 +34,14 @@ sealed trait EntailmentProfile {
 
   def applyToDecomps(f: Set[ContextDecomposition] => Set[ContextDecomposition]): EntailmentProfile
 
-  def overrideOrderedParams(newParams: Seq[Var]): EntailmentProfile = this match {
-    case p:ProfileOfNondecomposableModels => p.copy(orderedParams = newParams)
-    case p:ProfileOfDecomps => p.copy(orderedParams = newParams)
+  def overrideParams(newParams: Set[Var]): EntailmentProfile = this match {
+    case p:ProfileOfNondecomposableModels => p.copy(params = newParams)
+    case p:ProfileOfDecomps => p.copy(params = newParams)
   }
 
 }
 
-case class ProfileOfNondecomposableModels(override val sharedConstraints: VarConstraints, override val orderedParams: Seq[Var]) extends EntailmentProfile with CachedHashcode {
+case class ProfileOfNondecomposableModels(override val sharedConstraints: VarConstraints, override val params: Set[Var]) extends EntailmentProfile with CachedHashcode {
 
   override def isFinal(sid: RichSid, rhs: TopLevelConstraint): Boolean = false
 
@@ -49,16 +49,18 @@ case class ProfileOfNondecomposableModels(override val sharedConstraints: VarCon
 
   override def renameOrFail(sid: RichSid, to: Seq[Var]): Option[EntailmentProfile] = {
     // TODO: Some code duplication with the rename operation of decomposable profiles
-    val instantiation = orderedParams zip to
+    assert(params.toSeq.sorted == Var.getFvSeq(params.size),
+      s"Trying to instantiate profile $this with non-default paramaters $params")
+    val instantiation = Var.getFvSeq(params.size) zip to
     val update = InstantiationUpdate(instantiation, sharedConstraints.classes)
     for {
       updated <- update(sharedConstraints)
-    } yield ProfileOfNondecomposableModels(updated, to.distinct.filterNot(_.isNull))
+    } yield ProfileOfNondecomposableModels(updated, to.toSet.filterNot(_.isNull))
   }
 
   override def forget(varsToForget: Set[Var]): EntailmentProfile = {
     val newConstraints = DropperUpdate(varsToForget).unsafeUpdate(sharedConstraints)
-    ProfileOfNondecomposableModels(newConstraints, orderedParams.filterNot(varsToForget))
+    ProfileOfNondecomposableModels(newConstraints, params.filterNot(varsToForget))
   }
 
   override def toString: String = {
@@ -73,11 +75,11 @@ case class ProfileOfNondecomposableModels(override val sharedConstraints: VarCon
 
 object ProfileOfNondecomposableModels {
 
-  def apply(orderedParams: Seq[Var]): ProfileOfNondecomposableModels = ProfileOfNondecomposableModels(VarConstraints.fromAtoms(orderedParams, Seq.empty), orderedParams)
+  def apply(params: Set[Var]): ProfileOfNondecomposableModels = ProfileOfNondecomposableModels(VarConstraints.fromAtoms(params, Seq.empty), params)
 
 }
 
-case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val sharedConstraints: VarConstraints, override val orderedParams: Seq[Var]) extends EntailmentProfile with HarrshLogging with CachedHashcode {
+case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val sharedConstraints: VarConstraints, override val params: Set[Var]) extends EntailmentProfile with HarrshLogging with CachedHashcode {
 
   assert(decomps.nonEmpty)
 
@@ -96,8 +98,8 @@ case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val sha
     decomps.map(_.allocedVars).reduce(_ intersect _)
   }
 
-  if (!(nonPlaceholderVarsInContexts subsetOf orderedParams.toSet)) {
-    throw new IllegalArgumentException(s"Constructing state for $orderedParams, but profile contains FVs $nonPlaceholderVarsInContexts:\n${decomps.mkString("\n")}")
+  if (!(nonPlaceholderVarsInContexts subsetOf params)) {
+    throw new IllegalArgumentException(s"Constructing state for $params, but profile contains FVs $nonPlaceholderVarsInContexts:\n${decomps.mkString("\n")}")
   }
 
   override def isFinal(sid: RichSid, rhs: TopLevelConstraint): Boolean = {
@@ -119,21 +121,21 @@ case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val sha
   }
 
   private def instantiationUpdateFactory(to: Seq[Var]): Set[Set[Var]] => InstantiationUpdate = {
-    assert(to.size == orderedParams.size)
-    val instantiation = orderedParams zip to
+    assert(to.size == params.size, s"Profile $this doesn't have the same number of parameters as occur in instantiation $to")
+    val instantiation = Var.getFvSeq(params.size) zip to
     classes =>
       InstantiationUpdate(instantiation, classes)
   }
 
   override def renameOrFail(sid: RichSid, to: Seq[Var]): Option[EntailmentProfile] = {
-    logger.debug(s"Will rename $orderedParams to $to in $this")
+    logger.debug(s"Will rename ${params.toSeq.sorted} to $to in $this")
     val updateFactory = instantiationUpdateFactory(to)
     val res = for {
       // Rename shared constraints first, since this is generally where the inconsistency in renaming will come in (not only in the speculation),
       // so doing this first allows us to short-circuit the renaming process
       renamedSharedConstraints <- updateFactory(sharedConstraints.classes)(sharedConstraints)
       renamedDecomps = renameDecomps(sid, updateFactory)
-      renamedParams = to.distinct.filterNot(_.isNull)
+      renamedParams = to.toSet.filterNot(_.isNull)
       if renamedDecomps.nonEmpty
     } yield ProfileOfDecomps(renamedDecomps, renamedSharedConstraints, renamedParams)
 
@@ -154,7 +156,7 @@ case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val sha
       } yield restrictedToFreeVars
     }
 
-    val newParams = orderedParams filterNot varsToForget
+    val newParams = params filterNot varsToForget
     val newSharedConstraints = DropperUpdate(varsToForget).unsafeUpdate(sharedConstraints)
     val newDecomps = filterDecomps(decomps)
     if (newDecomps.isEmpty) {
@@ -173,12 +175,12 @@ case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val sha
     if (afterF.nonEmpty) {
       this.copy(decomps = afterF)
     } else {
-      ProfileOfNondecomposableModels(sharedConstraints, orderedParams)
+      ProfileOfNondecomposableModels(sharedConstraints, params)
     }
   }
 
   override def toString: String = {
-    "ProfileOfDecomps(\n" + decomps.mkString(",\n") + ",\n  params = " + orderedParams.mkString(", ") + "\n)"
+    "ProfileOfDecomps(\n" + decomps.mkString(",\n") + ",\n  params = {" + params.mkString(", ") + "}\n)"
   }
 
 }

@@ -156,7 +156,7 @@ object EntailmentResultToLatex {
 
     def stateToLatex(state: EntailmentProfile, isFinal: EntailmentProfile => Boolean): Stream[String] = {
       val finalStr = if (isFinal(state)) "\\textbf{FINAL} " else ""
-      val header = s"\\item ${finalStr}State/Profile with free variables ${state.orderedParams.mkString("$<", ", ", ">$")} and context decompositions:"
+      val header = s"\\item ${finalStr}State/Profile with free variables ${state.params.toSeq.sorted.mkString("$<", ", ", ">$")} and context decompositions:"
 
       val decompsStream = if (state.decompsOrEmptySet.isEmpty) {
         Stream("\\item No consistent context decomposition (failure state)")

@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.heapautomata.{HeapAutomaton, InconsistentState}
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.{FreeVar, Renaming}
+import at.forsyte.harrsh.seplog.{FreeVar, Renaming, Var}
 import at.forsyte.harrsh.seplog.inductive._
 
 /**
@@ -27,7 +27,7 @@ class EntailmentAutomaton(sid: RichSid, rhs: TopLevelConstraint) extends HeapAut
     s.isFinal(sid, rhs)
   }
 
-  override def inconsistentState(fvs: Seq[FreeVar]): State = EntailmentAutomaton.InconsistentState(fvs)
+  override def inconsistentState(fvs: Seq[FreeVar]): State = EntailmentAutomaton.InconsistentState(fvs.toSet)
 
   override def getTargetsFor(src: Seq[State], lab: SymbolicHeap) : Set[State] = {
     logger.debug(s"Computing target for $lab from source states:\n${src.mkString("\n")}")
@@ -41,7 +41,7 @@ object EntailmentAutomaton extends HarrshLogging {
   /**
     * An inconsistent state representing all "sink" states of the given parameter sequence
     */
-  def InconsistentState(orderedParams: Seq[FreeVar]) = ProfileOfNondecomposableModels(orderedParams)
+  def InconsistentState(params: Set[Var]) = ProfileOfNondecomposableModels(params)
 
   private def rename(sh: SymbolicHeap, perm: Seq[FreeVar]): SymbolicHeap = {
     val renamingPairs = sh.freeVars.zip(perm)

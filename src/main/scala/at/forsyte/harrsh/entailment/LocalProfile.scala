@@ -21,17 +21,17 @@ object LocalProfile extends HarrshLogging {
   private def computeLocalProfile(taggedRuleBody: (SymbolicHeap, RichSid)): EntailmentProfile = {
     val (lab, sid) = taggedRuleBody
     logger.debug(s"Will compute profile for local allocation of $lab")
-    val params = varsInLocalAllocation(lab)
+    val params = lab.allNonNullVars//varsInLocalAllocation(lab)
     // TODO: Use sharedConstraints as a starting point in constructing the constraints of the decomps
     val sharedConstraints = ensuredLocalConstraints(params, lab)
     val decomps = decompsOfLocalAllocation(params, lab, sid).filter(_.isConsistentWithFocus(sid))
 
     if (decomps.isEmpty) {
       logger.debug(s"No decompositions in local profile => Will record constraints $sharedConstraints")
-      ProfileOfNondecomposableModels(sharedConstraints, params)
+      ProfileOfNondecomposableModels(sharedConstraints, params.toSet)
     } else {
       logger.debug(s"Decompositions in local profile of $lab:\n${decomps.mkString("\n")}")
-      ProfileOfDecomps(decomps, sharedConstraints, params)
+      ProfileOfDecomps(decomps, sharedConstraints, params.toSet)
     }
   }
 
@@ -45,14 +45,14 @@ object LocalProfile extends HarrshLogging {
         else VarUnused
   }
 
-  private def ensuredLocalConstraints(params: Seq[Var], lab: SymbolicHeap): VarConstraints = {
+  private def ensuredLocalConstraints(params: Set[Var], lab: SymbolicHeap): VarConstraints = {
     val initialConstraints = VarConstraints.fromAtoms(params, Closure.fromSH(lab).asSetOfAtoms)
     val usageOf = usageLookupForHeap(lab)
     val usage = initialConstraints.usage map (pair => (pair._1, usageOf(pair._1)))
     initialConstraints.copy(usage = usage)
   }
 
-  private def decompsOfLocalAllocation(params: Seq[Var], lab: SymbolicHeap, sid: RichSid): Set[ContextDecomposition] = {
+  private def decompsOfLocalAllocation(params: Set[Var], lab: SymbolicHeap, sid: RichSid): Set[ContextDecomposition] = {
     if (lab.pointers.isEmpty) {
       Set(decompIfNoAllocation(params, lab))
     } else {
@@ -61,13 +61,13 @@ object LocalProfile extends HarrshLogging {
     }
   }
 
-  private def varsInLocalAllocation(lab: SymbolicHeap): Seq[Var] = {
-    val varsInPtrs = lab.pointers.flatMap(_.getNonNullVars)
-    val varsInPure = lab.pure.flatMap(_.getNonNullVars)
-    (varsInPtrs ++ varsInPure).distinct
-  }
+//  private def varsInLocalAllocation(lab: SymbolicHeap): Seq[Var] = {
+//    val varsInPtrs = lab.pointers.flatMap(_.getNonNullVars)
+//    val varsInPure = lab.pure.flatMap(_.getNonNullVars)
+//    (varsInPtrs ++ varsInPure).distinct
+//  }
 
-  private def decompIfNoAllocation(params: Seq[Var], lab: SymbolicHeap): ContextDecomposition = {
+  private def decompIfNoAllocation(params: Set[Var], lab: SymbolicHeap): ContextDecomposition = {
     logger.debug(s"No pointers in rule => only pure constraint in local profile")
     ContextDecomposition(Set.empty, VarConstraints.fromAtoms(params, lab.pure))
   }
