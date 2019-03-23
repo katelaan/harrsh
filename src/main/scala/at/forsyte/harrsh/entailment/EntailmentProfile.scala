@@ -3,6 +3,7 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.RichSid
+import at.forsyte.harrsh.util.CachedHashcode
 
 sealed trait EntailmentProfile {
 
@@ -40,7 +41,7 @@ sealed trait EntailmentProfile {
 
 }
 
-case class ProfileOfNondecomposableModels(override val sharedConstraints: VarConstraints, override val orderedParams: Seq[Var]) extends EntailmentProfile {
+case class ProfileOfNondecomposableModels(override val sharedConstraints: VarConstraints, override val orderedParams: Seq[Var]) extends EntailmentProfile with CachedHashcode {
 
   override def isFinal(sid: RichSid, rhs: TopLevelConstraint): Boolean = false
 
@@ -76,7 +77,7 @@ object ProfileOfNondecomposableModels {
 
 }
 
-case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val sharedConstraints: VarConstraints, override val orderedParams: Seq[Var]) extends EntailmentProfile with HarrshLogging {
+case class ProfileOfDecomps(decomps: Set[ContextDecomposition], override val sharedConstraints: VarConstraints, override val orderedParams: Seq[Var]) extends EntailmentProfile with HarrshLogging with CachedHashcode {
 
   assert(decomps.nonEmpty)
 

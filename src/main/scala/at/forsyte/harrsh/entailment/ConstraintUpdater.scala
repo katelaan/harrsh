@@ -359,18 +359,6 @@ case class DropperUpdate(varsToDrop: Set[Var]) extends ConstraintUpdater {
     }
   }
 
-//  private def updateSpeculativeDiseqs(diseqs: Set[DiseqConstraint]): Option[Set[DiseqConstraint]] = {
-//    //val PartitionedDiseqs(unaffected, newRewritten, nonrewritable) = VarConstraints.splitSpeculativeDiseqsOnDroppedVars(this, varsToDrop)
-//
-//    val updated = updateDiseqs(diseqs)
-//    if (updated.exists(_.isVacuous)) {
-//      logger.debug(s"Discarding constraints: Executing $this would lose speculative disequality among $diseqs")
-//      None
-//    } else {
-//      Some(updated)
-//    }
-//  }
-
   private def updateAndDropEmptyDiseqs(diseqs: Set[DiseqConstraint]): Set[DiseqConstraint] = {
     updateDiseqs(diseqs) filterNot (_.isVacuous)
   }

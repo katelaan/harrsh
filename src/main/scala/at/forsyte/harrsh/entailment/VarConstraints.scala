@@ -5,9 +5,9 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 import at.forsyte.harrsh.seplog.{NullConst, Var}
-import at.forsyte.harrsh.util.Combinators
+import at.forsyte.harrsh.util.{CachedHashcode, Combinators}
 
-case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstraint], speculativeDiseqs: Set[DiseqConstraint], speculativeEqs: Set[(Var, Var)], rewrittenSpeculation: Set[RewrittenBoundVarDiseqConstraint]) extends HarrshLogging {
+case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstraint], speculativeDiseqs: Set[DiseqConstraint], speculativeEqs: Set[(Var, Var)], rewrittenSpeculation: Set[RewrittenBoundVarDiseqConstraint]) extends HarrshLogging with CachedHashcode {
   // FIXME: Also need to try to express speculative eqs using non-dropped vars! (Which is only possible by passing the shared constraints, as we cannot otherwise reconstruct the underlying equality classes that could be used in rewriting.)
 
   assert(isWellFormed, s"$this is not well-formed")

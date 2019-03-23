@@ -3,8 +3,9 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.RichSid
+import at.forsyte.harrsh.util.CachedHashcode
 
-case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPredCall]) {
+case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPredCall]) extends CachedHashcode {
 
   lazy val labels: Seq[ContextPredCall] = Seq(root) ++ calls
 
