@@ -51,7 +51,7 @@ object ArgParser {
   private val unfoldingDepth = CommandLineOption(params.UnfoldingDepth, "int", Some("Max. depth of generated unfoldings"), inHelpMessage = true)
 
   private val startEntailmentWithSatCheckOption = CommandLineOption(params.StartEntailmentWithSatCheck, "bool", Some("First check if LHS is UNSAT (and the entailment thus valid) (default: false)"), inHelpMessage = true)
-  private val withPatternMatchingStageOption = CommandLineOption(params.WithPatternMatchingStage, "bool", Some("Try to solve with pattern matching (default: true)"), inHelpMessage = true)
+  private val withPatternMatchingStageOption = CommandLineOption(params.PatternMatchingLevel, "0..3", Some("Try to solve with pattern matching; 0: inactive,...,3: advanced (default: 3)"), inHelpMessage = true)
   private val computePerSideSidsOption = CommandLineOption(params.ComputePerSideSids, "bool", Some("Optimize fixed-point for the RHS of the query (default: true)"), inHelpMessage = true)
   private val computeSccsOption = CommandLineOption(params.ComputeSccs, "bool", Some("Try to split top-level query based on reachability (default: false"), inHelpMessage = false)
   private val useUnionSolverOption = CommandLineOption(params.UseUnionSolver, "bool", Some("Solve big queries with union profiles (default: false"), inHelpMessage = false)

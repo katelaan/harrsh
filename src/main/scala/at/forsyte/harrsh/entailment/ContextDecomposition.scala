@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
-import at.forsyte.harrsh.seplog.inductive.RichSid
+import at.forsyte.harrsh.seplog.inductive.{PredCall, RichSid}
 import at.forsyte.harrsh.util.CachedHashcode
 
 case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarConstraints) extends HarrshLogging with CachedHashcode {
@@ -220,4 +220,21 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     s"Decomp($ctxString;\n       $constraints; hash = ${this.hashCode})"
   }
 
+}
+
+object ContextDecomposition {
+  def fromTopLevelQuery(topLevelConstraint: TopLevelConstraint, sid: RichSid): ContextDecomposition = {
+    assert(topLevelConstraint.calls.distinct == topLevelConstraint.calls,
+      "Can't construct a decomposition from constraint with duplicate calls")
+    val vars = topLevelConstraint.nonNullVars
+    val constraints = VarConstraints.fromAtoms(vars, topLevelConstraint.pure)
+    def predCallToContextPredCall(call: PredCall): ContextPredCall = {
+      val paramsAsSets = call.args map constraints.classOf
+      val subst = Substitution(paramsAsSets)
+      ContextPredCall(sid(call.name), subst)
+    }
+    val calls = topLevelConstraint.calls map predCallToContextPredCall
+    val ctxs = calls.toSet[ContextPredCall] map (EntailmentContext(_, Set.empty))
+    ContextDecomposition(ctxs, constraints)
+  }
 }

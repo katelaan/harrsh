@@ -3,7 +3,9 @@ package at.forsyte.harrsh.entailment
 import at.forsyte.harrsh.entailment.EntailmentChecker.{EntailmentCheckerStats, EntailmentFixedPointStats}
 import at.forsyte.harrsh.main.{HarrshLogging, ProblemStatus, SatQuery}
 import at.forsyte.harrsh.main.ProblemStatus.{Correct, Incorrect, Unknown}
+import at.forsyte.harrsh.pure.{Closure, PureEntailment}
 import at.forsyte.harrsh.refinement.{RefinementAlgorithms, SatChecker}
+import at.forsyte.harrsh.seplog.inductive.{PredCall, RichSid}
 import at.forsyte.harrsh.util.IOUtils
 
 object SolverFactory extends HarrshLogging {
@@ -13,7 +15,7 @@ object SolverFactory extends HarrshLogging {
   def apply(config: EntailmentConfig): SolverStrategy[Unit] = {
     SolverStrategy.chain(
       GuardedStrategy(config.performInitialSatCheck, isLhsSatTactic),
-      GuardedStrategy(config.withPatternMatchingStage, patternMatchingTactic),
+      GuardedStrategy(config.patternMatchingLevel > 0, patternMatchingTactic(config.patternMatchingLevel)),
       fixedPointStrategy(config)
     )
   }
@@ -33,10 +35,64 @@ object SolverFactory extends HarrshLogging {
     }
   }
 
-  private def patternMatchingTactic: SolverStrategy[Unit] = {
+  private def patternMatchingTactic(level: Int): SolverStrategy[Unit] = {
     SolverStrategy.fromFunction{ (ei, _) =>
-      logger.warn("Pattern matching tactic not implemented.")
+      if (patternMatchingCanSucceed(ei)) {
+        logger.debug("Trying to solve query by pattern matching...")
+        val trivialMatchingResult = solveByImmediatePatternMatching(ei)
+        if (trivialMatchingResult == Unknown && level >= 2) solveByDecompMatching(ei, level) else trivialMatchingResult
+      } else {
+        logger.info("Skipping pattern-matching tactic based on success-prediction heuristic.")
+        Unknown
+      }
+    }
+  }
+
+  private def solveByImmediatePatternMatching(ei: EntailmentInstance): ProblemStatus = {
+    val res = (ei.lhs.topLevelConstraint.calls.toSet[PredCall] == ei.rhs.topLevelConstraint.calls.toSet[PredCall]) && {
+      PureEntailment.check(
+        Closure.fromSH(ei.lhs.topLevelConstraint.toSymbolicHeap),
+        Closure.fromSH(ei.rhs.topLevelConstraint.toSymbolicHeap))
+    }
+    if (res) {
+      logger.info(s"Entailment holds by pattern matching of ${ei.lhs.topLevelConstraint} |= ${ei.rhs.topLevelConstraint}")
+      Correct
+    } else {
       Unknown
+    }
+  }
+
+  private def patternMatchingCanSucceed(ei: EntailmentInstance): Boolean = {
+    // TODO: In principle there can be more sophisticated checks here; also, this discards some instances where pattern matching can succeed (non-progress rules whose application results in predicates of the RHS)
+    val lhs = ei.lhs.topLevelConstraint
+    val lhsLength = lhs.calls.length
+    val rhs = ei.rhs.topLevelConstraint
+    val rhsLength = rhs.calls.length
+    val rhsPreds = ei.rhs.sid.predIdents
+    Stream(
+      lhsLength >= rhsLength,
+      lhsLength == rhsLength || ei.rhs.sid.empClosedNonProgressRules.nonEmpty,
+      lhs.calls.forall(rhsPreds contains _.name)) forall (b => b)
+  }
+
+  private def solveByDecompMatching(ei: EntailmentInstance, level: Int): ProblemStatus = {
+    val lhsAsDecomp = ContextDecomposition.fromTopLevelQuery(ei.lhs.topLevelConstraint, ei.lhs.sid)
+    val lhsAfterMerging = if (level >= 3) mergeWithNoProgressRules(lhsAsDecomp, ei.rhs.sid) else Seq(lhsAsDecomp)
+    lhsAfterMerging.find(_.isFinal(ei.rhs.sid, ei.rhs.topLevelConstraint)) match {
+      case Some(finalDecomp) =>
+        logger.info(s"Successful pattern matching of ${ei.lhs.topLevelConstraint} |= ${ei.rhs.topLevelConstraint} => Entailment holds")
+        logger.info(s"Decomposition used for pattern matching:\n" + finalDecomp)
+        Correct
+      case None =>
+        Unknown
+    }
+  }
+
+  private def mergeWithNoProgressRules(decomp: ContextDecomposition, sid: RichSid): Seq[ContextDecomposition] = {
+    if (sid.empClosedNonProgressRules.nonEmpty) {
+      MergeUsingNonProgressRules.useNonProgressRulesToMergeContexts(decomp, sid)
+    } else {
+      Seq(decomp)
     }
   }
 

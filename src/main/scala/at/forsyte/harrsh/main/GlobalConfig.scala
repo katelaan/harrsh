@@ -22,7 +22,7 @@ object GlobalConfig {
     // Sat Checking
     val SatCheckingIncrementalFromNumCalls = "sat-incremental"
     // Entailment Checking
-    val WithPatternMatchingStage = "with-pattern-matching"
+    val PatternMatchingLevel = "pattern-matching"
     val ComputePerSideSids = "per-side-sid"
     val ComputeSccs = "compute-sccs"
     val StartEntailmentWithSatCheck = "with-sat-check"
@@ -53,7 +53,7 @@ object GlobalConfig {
     params.SatCheckingIncrementalFromNumCalls -> 6,
     // Entailment Checking
     params.StartEntailmentWithSatCheck -> false,
-    params.WithPatternMatchingStage -> true,
+    params.PatternMatchingLevel -> 3,
     params.ComputePerSideSids -> true,
     params.UseUnionSolver -> true,
     params.ComputeSccs -> false,
