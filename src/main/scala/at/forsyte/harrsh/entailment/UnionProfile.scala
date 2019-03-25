@@ -22,7 +22,7 @@ case class UnionProfile(taggedDecomps: Map[ContextDecomposition, ProfileIdTag], 
   }
 
   def mergeUsingNonProgressRules(sid: RichSid): UnionProfile = {
-    val merged = taggedDecomps.flatMap{
+    val merged = taggedDecomps.toSeq.flatMap{
       pair =>
         val mergedDecomps = MergeUsingNonProgressRules.useNonProgressRulesToMergeContexts(pair._1, sid)
         mergedDecomps.zip(Stream.continually(pair._2))
@@ -32,7 +32,7 @@ case class UnionProfile(taggedDecomps: Map[ContextDecomposition, ProfileIdTag], 
 
   def forget(varsToForget: Set[Var]): UnionProfile = {
     val filteredDecomps = for {
-      (decomp, tag) <- taggedDecomps
+      (decomp, tag) <- taggedDecomps.toSeq
       restricted <- decomp.forget(varsToForget)
     } yield (restricted, tag)
     val filteredParams = params filterNot varsToForget
@@ -50,6 +50,10 @@ case class UnionProfile(taggedDecomps: Map[ContextDecomposition, ProfileIdTag], 
 }
 
 object UnionProfile {
+
+  def apply(unmergedTaggedDecomps: Seq[(ContextDecomposition, ProfileIdTag)], params: Set[Var]): UnionProfile = {
+    UnionProfile(groupResults(unmergedTaggedDecomps), params)
+  }
 
   type ProductIdTag = Seq[Set[Int]]
 
@@ -122,18 +126,18 @@ object UnionProfile {
     groupResults(unmergedCompositionResults)
   }
 
-  private def allCompositionResults(sid: RichSid, fst: Map[ContextDecomposition, ProfileIdTag], snd: Map[ContextDecomposition, ProfileIdTag]): Map[ContextDecomposition, ProfileIdTag] = {
+  private def allCompositionResults(sid: RichSid, fst: Map[ContextDecomposition, ProfileIdTag], snd: Map[ContextDecomposition, ProfileIdTag]): Seq[(ContextDecomposition, ProfileIdTag)] = {
     for {
-      (left, leftTag) <- fst
+      (left, leftTag) <- fst.toSeq
       (right, rightTag) <- snd
       newTag = leftTag concat rightTag
       composed <- ContextDecompositionComposition(sid, left, right)
     } yield (composed, newTag)
   }
 
-  private def groupResults(unmergedCompositionResults: Map[ContextDecomposition, ProfileIdTag]): Map[ContextDecomposition, ProfileIdTag] = {
+  private def groupResults(unmergedCompositionResults: Seq[(ContextDecomposition, ProfileIdTag)]): Map[ContextDecomposition, ProfileIdTag] = {
     val grouped = unmergedCompositionResults.groupBy(_._1)
-    grouped.mapValues(_.values.reduce(_.union(_)))
+    grouped.mapValues(_.map(_._2).reduce(_.union(_)))
   }
 
 }
