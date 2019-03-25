@@ -37,7 +37,7 @@ object SplitMultiPointerRules extends HarrshLogging {
   }
 
   private case class Context(sid: RichSid, freeVarSeq: Seq[FreeVar], qvarNames: Seq[String], closure: Closure) {
-    def toFreeVar(bv: BoundVar) = FreeVar(qvarNames(bv.index - 1))
+    //def toFreeVar(bv: BoundVar) = FreeVar(qvarNames(bv.index - 1))
   }
 
   private def splitMultiPointerRules(sid: RichSid, pred: Predicate): Seq[FocusedPredicate] = {
@@ -71,7 +71,7 @@ object SplitMultiPointerRules extends HarrshLogging {
     }
   }
 
-  case class SymbolicHeapWithVarInfo(sh: SymbolicHeap, originalFvSubSeq: Seq[FreeVar], originalBoundVarsTurnedFreeVars: Seq[(BoundVar,FreeVar)], remainingOriginalBoundVars: Set[BoundVar])
+  case class SymbolicHeapWithVarInfo(sh: SymbolicHeap, originalFvSubSeq: Seq[FreeVar], originalBoundVarsTurnedFreeVars: Seq[(Var,FreeVar)], remainingOriginalBoundVars: Set[BoundVar])
 
   case class PtoFraction(head: PointsTo, allPtos: Seq[PointsTo], calls: Seq[PredCall], allTargets: Set[Var]) {
     def add(pto: PointsTo, closure: Closure) = PtoFraction(head, allPtos :+ pto, calls, allTargets ++ targets(pto, closure))
@@ -81,14 +81,18 @@ object SplitMultiPointerRules extends HarrshLogging {
     def toSymbolicHeap(ctx: Context, boundVarsThatBecomeFree: Set[BoundVar]): SymbolicHeapWithVarInfo = {
       val atoms = AtomContainer(Seq.empty, allPtos, calls)
       val (bvarsToRename, otherBvars) = boundVars.partition(boundVarsThatBecomeFree)
-      val bvarFvarPairs = bvarsToRename.toSeq map (v => (v,ctx.toFreeVar(v)))
-      val newFreeVars = bvarFvarPairs.map(_._2)
+//      val bvarFvarPairs = bvarsToRename.toSeq map (v => (v,ctx.toFreeVar(v)))
+//      val newFreeVars = bvarFvarPairs.map(_._2)
       val freeVarSubseq = ctx.freeVarSeq.filter(originalFreeVars)
-      val allFreeVars = freeVarSubseq ++ newFreeVars
-      val renaming = Renaming.fromPairs(bvarFvarPairs)
+//      val allFreeVars = freeVarSubseq ++ newFreeVars
+      val beforeRenaming = freeVarSubseq ++ bvarsToRename.toSeq
+      val renameTo = Var.getFvSeq(beforeRenaming.length)
+      val pairs = beforeRenaming zip renameTo
+      val bvarFvarPairs = pairs.drop(freeVarSubseq.length)
+      val renaming = Renaming.fromPairs(pairs)
       val withNewFreeVars = atoms.rename(renaming, avoidDoubleCapture = false)
       SymbolicHeapWithVarInfo(
-        sh = SymbolicHeap(withNewFreeVars.closeGapsInBoundVars, allFreeVars),
+        sh = SymbolicHeap(withNewFreeVars.closeGapsInBoundVars, /*allFreeVars*/ renameTo),
         originalFvSubSeq = freeVarSubseq,
         originalBoundVarsTurnedFreeVars = bvarFvarPairs,
         remainingOriginalBoundVars = otherBvars)
@@ -135,7 +139,7 @@ object SplitMultiPointerRules extends HarrshLogging {
     logger.debug("Will add calls to " + newPredCalls.mkString(", "))
     val newSh = SymbolicHeap(AtomContainer(pure, Seq(pto), newPredCalls).closeGapsInBoundVars, ctx.freeVarSeq)
     val boundVarsNotInNewSh = newPreds.toSet[FocusedPredicateWithCallInfo].flatMap(_.localBoundVars)
-    logger.debug(s"Will discard bound vars $boundVarsNotInNewSh which are now bound vars in a new predicate")
+    logger.debug(s"Will discard bound vars $boundVarsNotInNewSh which are now vars in a new predicate")
     val boundVarIndicesNotInNewSh = boundVarsNotInNewSh.map(_.index)
     val newQVarNames = ctx.qvarNames.zipWithIndex.filterNot(pair => boundVarIndicesNotInNewSh(pair._2 + 1)).map(_._1)
     val newRuleBody = RuleBody(newQVarNames, newSh)
@@ -167,7 +171,7 @@ object SplitMultiPointerRules extends HarrshLogging {
     }
   }
 
-  private def focusOf(ptoFrac: PtoFraction, originalBoundVarsTurnedFreeVars: Seq[(BoundVar, FreeVar)]): FocusedVar = {
+  private def focusOf(ptoFrac: PtoFraction, originalBoundVarsTurnedFreeVars: Seq[(Var, FreeVar)]): FocusedVar = {
     ptoFrac.head.from match {
       case fv: FreeVar => FocusedVar(fv, RootFocus)
       case bv: BoundVar => originalBoundVarsTurnedFreeVars.find(_._1 == bv) match {
