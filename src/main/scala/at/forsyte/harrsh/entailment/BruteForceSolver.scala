@@ -8,7 +8,7 @@ object BruteForceSolver extends TopLevelSolver {
     val sid = entailmentInstance.rhs.sid
     val lhsConstraint = entailmentInstance.lhs.topLevelConstraint
     val rhsConstraint = entailmentInstance.rhs.topLevelConstraint
-    val combinedProfiles = bruteForceCombinations(sid, lhsConstraint, profileForLhsPureConstraints, renamedProfiles)
+    val combinedProfiles = bruteForceCombinations(sid, lhsConstraint, profileForLhsPureConstraints, renamedProfiles).toSet
     logger.debug(combinedProfiles.size + " combined profile(s):\n" + combinedProfiles.mkString("\n"))
     checkIfProfilesAreFinal(combinedProfiles, sid, lhsConstraint, rhsConstraint)
   }
@@ -24,7 +24,7 @@ object BruteForceSolver extends TopLevelSolver {
     } yield restricted
   }
 
-  private def checkIfProfilesAreFinal(combinedProfiles: Seq[EntailmentProfile], sid: RichSid, lhsConstraint: TopLevelConstraint, rhsConstraint: TopLevelConstraint): Boolean = {
+  private def checkIfProfilesAreFinal(combinedProfiles: Set[EntailmentProfile], sid: RichSid, lhsConstraint: TopLevelConstraint, rhsConstraint: TopLevelConstraint): Boolean = {
     if (combinedProfiles.isEmpty) {
       logger.info(s"There is no profile for $lhsConstraint => $lhsConstraint is unsatisfiable => entailment holds.")
       true
