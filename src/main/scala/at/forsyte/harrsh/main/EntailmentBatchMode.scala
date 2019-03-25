@@ -2,7 +2,8 @@ package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.converters.{ConversionException, EntailmentFormatConverter}
 import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentConfig, EntailmentInstance}
-import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentStats
+import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentFixedPointStats
+import at.forsyte.harrsh.main.ProblemStatus.Unknown
 import at.forsyte.harrsh.parsers.{EntailmentParsers, QueryParser}
 import at.forsyte.harrsh.util.{IOUtils, StringUtils}
 import at.forsyte.harrsh.util.StringUtils.{AlignLeft, AlignRight}
@@ -18,7 +19,7 @@ object EntailmentBatchMode {
   val PathToDefaultEntailmentBenchmarks = "examples/entailment"
   val ResultTexFile = "entailment-stats.tex"
 
-  case class EntailmentResult(file: String, computedResult: Option[Boolean], time: Option[Long], timeout: Boolean, failureMsg: Option[String], stats: Option[EntailmentStats])
+  case class EntailmentResult(file: String, computedResult: ProblemStatus, time: Option[Long], timeout: Boolean, failureMsg: Option[String], stats: Option[EntailmentFixedPointStats])
 
   def convertAllEntailmentsInPath(inputPath: String, outputPath: Option[String], converter: EntailmentFormatConverter): Unit = {
     for {
@@ -100,7 +101,7 @@ object EntailmentBatchMode {
     val entries = bms map {
       res => Seq(
         res.file,
-        ""+res.computedResult.getOrElse("-"),
+        ""+res.computedResult.toBoolean.getOrElse("-"),
         ""+res.time.getOrElse("-"),
         if (res.timeout) "yes" else "no",
         res.failureMsg.getOrElse("-"))
@@ -113,7 +114,7 @@ object EntailmentBatchMode {
 
   private def exportResultsToLatex(results: Seq[(Option[EntailmentInstance], EntailmentResult)]): Unit = {
     val headings = Seq("File", "Query", "Status", "Time (ms)", "\\#profiles", "\\#decomps", "\\#contexts")
-    val fromStats = (maybeStats: Option[EntailmentStats], f: EntailmentStats => Any) => maybeStats.map(f).map(""+_).getOrElse("-")
+    val fromStats = (maybeStats: Option[EntailmentFixedPointStats], f: EntailmentFixedPointStats => Any) => maybeStats.map(f).map(""+_).getOrElse("-")
     val desc = (maybeEI: Option[EntailmentInstance], res: EntailmentResult) => maybeEI match {
       case Some(ei) => "$" + ei.lhs.topLevelConstraint + " \\models " + ei.rhs.topLevelConstraint + "$"
       case None => "-" //res.file.split("/").last.replace("_","\\_")
@@ -122,7 +123,7 @@ object EntailmentBatchMode {
       case (maybeEI, res) => Seq(
         res.file.split("/").last.replace("_","\\_"),
         desc(maybeEI, res),
-        ""+res.computedResult.getOrElse("-"),
+        ""+res.computedResult.toBoolean.getOrElse("-"),
         ""+res.time.getOrElse("-"),
         //if (res.timeout) "yes" else "no",
         //res.failureMsg.getOrElse("-"))
@@ -159,7 +160,7 @@ object EntailmentBatchMode {
     }
   }
 
-  case class BenchmarkTrace(instance: Option[EntailmentInstance], result: Option[Boolean], stats: Option[EntailmentStats], errorMsg: Option[String])
+  case class BenchmarkTrace(instance: Option[EntailmentInstance], result: ProblemStatus, stats: Option[EntailmentFixedPointStats], errorMsg: Option[String])
 
   def runBenchmarkWithTimeout(file: String, timeout: Duration): (Option[EntailmentInstance],EntailmentResult) = {
     val startTime = System.currentTimeMillis()
@@ -177,33 +178,33 @@ object EntailmentBatchMode {
     } catch {
       case e : TimeoutException =>
         println("Aborting entailment check after reaching timeout (" + timeout + ")")
-        (None, EntailmentResult(file, None, None, timeout = true, None, None))
+        (None, EntailmentResult(file, Unknown, None, timeout = true, None, None))
     }
   }
 
   def runBenchmark(file: String, suppressOutput: Boolean = false): BenchmarkTrace = {
     if (!suppressOutput) println(s"Checking $file...")
     QueryParser(file).toEntailmentInstance(computeSeparateSidsForEachSide = true, computeSccs = false) match {
-      case Failure(exception) => BenchmarkTrace(None, None, None, Some(s"Exception during parsing: ${exception.getMessage}"))
+      case Failure(exception) => BenchmarkTrace(None, Unknown, None, Some(s"Exception during parsing: ${exception.getMessage}"))
       case Success(instance) =>
         val res = runEntailmentInstance(instance, descriptionOfInstance = file.toString, suppressOutput)
         BenchmarkTrace(Some(instance), res._2, res._4, res._1)
     }
   }
 
-  private def runEntailmentInstance(instance: EntailmentInstance, descriptionOfInstance: String, suppressOutput: Boolean = false): (Option[String], Option[Boolean], Option[Boolean], Option[EntailmentStats]) = {
+  private def runEntailmentInstance(instance: EntailmentInstance, descriptionOfInstance: String, suppressOutput: Boolean = false): (Option[String], ProblemStatus, Option[Boolean], Option[EntailmentFixedPointStats]) = {
     val config = EntailmentConfig.fromGlobalConfig().copy(
       io = IOConfig.fromGlobalConfig().copy(reportProgress = false, exportToLatex = false, printResult = !suppressOutput)
     )
     Try {
       EntailmentChecker.check(descriptionOfInstance, instance, config)
     } match {
-      case Failure(exception) => (Some(s"Exception during entailment check: ${exception.getMessage}"), None, None, None)
+      case Failure(exception) => (Some(s"Exception during entailment check: ${exception.getMessage}"), Unknown, None, None)
       case Success((result, asExpected, stats)) =>
         if (asExpected.getOrElse(true))
-          (None, Some(result), asExpected, Some(stats))
+          (None, result, asExpected, stats)
         else
-          (Some("Unexpected result"), Some(result), asExpected, Some(stats))
+          (Some("Unexpected result"), result, asExpected, stats)
     }
   }
 

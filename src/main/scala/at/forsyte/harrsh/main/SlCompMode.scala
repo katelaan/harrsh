@@ -1,5 +1,7 @@
 package at.forsyte.harrsh.main
 
+import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentCheckerResult
+
 import scala.concurrent.duration.Duration
 import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentConfig, EntailmentInstance}
 import at.forsyte.harrsh.main.GlobalConfig.params
@@ -293,9 +295,9 @@ object SlCompMode {
   private def runEntailmentChecker(ei: EntailmentInstance) : ProblemStatus = {
     val verbose = GlobalConfig.getBoolean(params.Verbose)
     try {
-      val (res, stats) = EntailmentChecker.solve(ei, EntailmentConfig.fromGlobalConfig())
+      val EntailmentCheckerResult(res, stats) = EntailmentChecker.solve(ei, EntailmentConfig.fromGlobalConfig())
       if (verbose) println(stats)
-      if (res) ProblemStatus.Correct else ProblemStatus.Incorrect
+      res
     } catch {
       case e: Throwable =>
         println("Error: The entailment checker crashed with exception " + e.getMessage)

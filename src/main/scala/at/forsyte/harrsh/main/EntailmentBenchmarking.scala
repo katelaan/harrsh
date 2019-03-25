@@ -3,7 +3,7 @@ package at.forsyte.harrsh.main
 import java.util
 import java.util.concurrent.TimeUnit
 
-import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentStats
+import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentFixedPointStats
 import org.openjdk.jmh.annotations._
 import org.openjdk.jmh.results.{AverageTimeResult, RunResult}
 import org.openjdk.jmh.runner.Runner
@@ -74,8 +74,8 @@ sealed trait ToolOutput {
   }
 }
 
-case class Valid(stats: Option[EntailmentStats]) extends ToolOutput
-case class Invalid(stats: Option[EntailmentStats]) extends ToolOutput
+case class Valid(stats: Option[EntailmentFixedPointStats]) extends ToolOutput
+case class Invalid(stats: Option[EntailmentFixedPointStats]) extends ToolOutput
 case class ToolError(toolOutput: String) extends ToolOutput
 case object ToolOutputsUnknown extends ToolOutput
 case object ToolTimeout extends ToolOutput
@@ -205,7 +205,7 @@ object HarrshBenchmarking {
 
   def harrshResult(file: String): ToolOutput = {
     val trace = runHarrsh(file)
-    trace.result match {
+    trace.result.toBoolean match {
       case Some(value) =>
         if (value) Valid(trace.stats) else Invalid(trace.stats)
       case None => ToolError("")
