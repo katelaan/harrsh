@@ -101,9 +101,9 @@ object EntailmentResultToLatex {
     }
   }
 
-  object entailmentCheckingResultToLatex {
+  object entailmentFixedPointToLatex {
 
-    def apply(ei: EntailmentInstance, holds: Boolean, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentProfile]], transitions: Map[String, Set[(Seq[EntailmentProfile], RuleBody, EntailmentProfile)]]): String = {
+    def apply(ei: EntailmentInstance, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentProfile]], transitions: Map[String, Set[(Seq[EntailmentProfile], RuleBody, EntailmentProfile)]]): String = {
       val resultTex = entailmentCheckerResultToLatex(aut, statesByPred)
       val queryTex = s"$$${ei.lhs.topLevelConstraint.toSymbolicHeap.toLatex} \\models ${ei.rhs.topLevelConstraint.toSymbolicHeap.toLatex}$$"
       val combinedSid = Sid(startPred = "", description = "", preds = ei.lhs.sid.preds ++ ei.rhs.sid.preds.filterNot(ei.lhs.sid.preds.contains))
@@ -111,8 +111,6 @@ object EntailmentResultToLatex {
       latexTemplate.replace(ResultPlaceholder, resultTex)
         .replace(QueryPlaceholder, queryTex)
         .replace(SidPlaceholder, sidTex)
-        .replace(ExpectationPlaceholder, ei.entailmentHolds.map(_.toString).getOrElse("unspecified"))
-        .replace(EntailmentHoldsPlaceholder, holds.toString)
         .replace(TransitionPlaceholder, transitionsToLatex(transitions))
     }
 
@@ -177,8 +175,6 @@ object EntailmentResultToLatex {
   private val SidPlaceholder = "SIDPLACEHOLDER"
   private val QueryPlaceholder = "QUERYPLACEHOLDER"
   private val ResultPlaceholder = "RESULTPLACEHOLDER"
-  private val ExpectationPlaceholder = "EXPECTATIONPLACEHOLDER"
-  private val EntailmentHoldsPlaceholder = "EHPLACEHOLDER"
   private val TransitionPlaceholder = "TRANSPLACEHOLDER"
 
   private val latexTemplate = s"""\\documentclass{article}
@@ -215,10 +211,6 @@ object EntailmentResultToLatex {
                                 |\\item SID:
                                 |
                                 |$SidPlaceholder
-                                |
-                                |\\item Expected result: $ExpectationPlaceholder
-                                |
-                                |\\item Actual result: $EntailmentHoldsPlaceholder
                                 |\\end{itemize}
                                 |
                                 |\\section{Result}

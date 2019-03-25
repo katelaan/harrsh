@@ -1,9 +1,9 @@
 package at.forsyte.harrsh.main
 
-
+import GlobalConfig.params
 import at.forsyte.harrsh.Implicits
 import at.forsyte.harrsh.converters._
-import at.forsyte.harrsh.entailment.EntailmentChecker
+import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentConfig}
 import at.forsyte.harrsh.modelchecking.GreedyUnfoldingModelChecker
 import at.forsyte.harrsh.parsers.QueryParser
 import at.forsyte.harrsh.refinement.{DecisionProcedures, RefinementAlgorithms}
@@ -11,7 +11,7 @@ import at.forsyte.harrsh.seplog.inductive.SidUnfolding
 import at.forsyte.harrsh.util.{Combinators, IOUtils}
 import at.forsyte.harrsh.main.ExecutionMode._
 
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /**
   * The main command-line interface of Harrsh.
@@ -23,49 +23,61 @@ object Harrsh extends Implicits {
 
   def main(args : Array[String]) : Unit = {
 
-    val config: Config = ArgParser(args)
+    val (mode, file) = ArgParser(args)
 
     // Run in specified mode unless something is missing from the config
-    if (config.mode != Help && config.oFile.isEmpty) {
+    if (mode != Help && file == "") {
       println("No file specified => Terminating")
     }
-    else if (config.mode.requiresProp && config.oProp.isEmpty) {
+    else if (mode.requiresProp && !GlobalConfig.isDefinedAt(params.Property)) {
       println("No (valid) property specified => Terminating")
     } else {
-      Combinators.swallowExceptions(run, config.debug)(config)
+      Combinators.swallowExceptions[(ExecutionMode,String)](
+        pair => run(pair._1, pair._2),
+        GlobalConfig.getBoolean(params.Debug))(mode, file)
     }
   }
 
   /**
-    * Run Harrsh according to the given config
-    * @param config Configuration specifying what to run and how to run it
+    * Run Harrsh in the given mode
     */
-  private def run(config : Config) : Unit = config.mode match {
-      case Help =>
-        printUsage()
+  private def run(mode: ExecutionMode, file: String) : Unit = mode match {
+    case Help =>
+      println(ArgParser.usageMsg())
 
-      case ParseOnly =>
-        println(QueryParser(config.file))
+    case ParseOnly =>
+      println(QueryParser(file))
 
-      case Entailment =>
-        QueryParser(config.file).toEntailmentInstance(config.computeSidsForEachSideOfEntailment, config.computeSccsForTopLevelFormulas) match {
-          case Success(entailmentInstance) =>
-            val res = EntailmentChecker.solve(entailmentInstance)
-            println(if (res._1) "The entailment holds" else "The entailment does NOT hold")
-            println(res._2.prettyPrint)
-          case Failure(e) =>
-            println("Parsing the entailment input failed with exception: " + e.getMessage)
-        }
+    case Entailment =>
+      val entailmentConfig = EntailmentConfig.fromGlobalConfig()
+      QueryParser(file).toEntailmentInstance(entailmentConfig.computeSidsForEachSideOfEntailment, entailmentConfig.computeSccsForTopLevelFormulas) match {
+        case Success(entailmentInstance) =>
+          val res = EntailmentChecker.solve(entailmentInstance, entailmentConfig)
+          println(if (res._1) "The entailment holds" else "The entailment does NOT hold")
+          println(res._2.prettyPrint)
+        case Failure(e) =>
+          println("Parsing the entailment input failed with exception: " + e.getMessage)
+      }
 
-      case Decide =>
-        val task = RefinementQuery(config.file, config.prop)
-        val result = DecisionProcedures.decideInstance(task, config.timeout, config.verbose, config.reportProgress)
+    case Decide =>
+      GlobalConfig.getProp foreach { prop =>
+        val task = RefinementQuery(file, prop)
+        val result = DecisionProcedures.decideInstance(task,
+          GlobalConfig.getTimeoutForCurrentMode,
+          GlobalConfig.getBoolean(params.Verbose),
+          GlobalConfig.getBoolean(params.ReportProgress))
         MainIO.printAnalysisResult(task, result)
+      }
 
-      case Refine =>
-        println("Will refine SID definition in file " + config.file + " by " + config.prop)
-        val query = RefinementQuery(config.file, config.prop)
-        val result = RefinementAlgorithms.refineSID(query.sid, query.automaton, config.timeout, reportProgress = config.reportProgress)
+
+    case Refine =>
+      GlobalConfig.getProp foreach { prop =>
+        println(s"Will refine SID definition in file $file by $prop")
+        val query = RefinementQuery(file, prop)
+        val result = RefinementAlgorithms.refineSID(query.sid,
+          query.automaton,
+          GlobalConfig.getTimeoutForCurrentMode,
+          reportProgress = GlobalConfig.getBoolean(params.ReportProgress))
 
         result match {
           case Some(vsid) =>
@@ -79,140 +91,95 @@ object Harrsh extends Implicits {
           case None =>
             IOUtils.printWarningToConsole("Refinement failed.")
         }
+      }
 
-      case RefinementBatch =>
-        println("Will run all refinement benchmarks in " + config.file)
-        val tasks = MainIO.readTasksFromFile(config.file)
-        val (results, stats) = DecisionProcedures.decideInstances(tasks, config.timeout, config.verbose, config.reportProgress)
+    case RefinementBatch =>
+      println("Will run all refinement benchmarks in " + file)
+      val tasks = MainIO.readTasksFromFile(file)
+      val (results, stats) = DecisionProcedures.decideInstances(tasks,
+        GlobalConfig.getTimeoutForCurrentMode,
+        GlobalConfig.getBoolean(params.Verbose),
+        GlobalConfig.getBoolean(params.ReportProgress))
 
-        MainIO.writeBenchmarkFile(results, "previous-batch.bms")
-        MainIO.printAnalysisResults(results, stats)
+      MainIO.writeBenchmarkFile(results, "previous-batch.bms")
+      MainIO.printAnalysisResults(results, stats)
 
-        val diffs = DecisionProcedures.deviationsFromExpectations(results)
-        if (diffs.nonEmpty) {
-          println()
-          IOUtils.printWarningToConsole("Some analysis results differed from the expected results as specified in " + config.file)
-          for {
-            (taskConfig, result) <- diffs
-          } IOUtils.printWarningToConsole(taskConfig.fileNameString + " " + taskConfig.taskString + ": Expected " + taskConfig.status.toBoolean.get + ", actual result " + !result.isEmpty)
-        }
-        else {
-          println("All results are as expected.")
-        }
+      val diffs = DecisionProcedures.deviationsFromExpectations(results)
+      if (diffs.nonEmpty) {
+        println()
+        IOUtils.printWarningToConsole("Some analysis results differed from the expected results as specified in " + file)
+        for {
+          (taskConfig, result) <- diffs
+        } IOUtils.printWarningToConsole(taskConfig.fileNameString + " " + taskConfig.taskString + ": Expected " + taskConfig.status.toBoolean.get + ", actual result " + !result.isEmpty)
+      }
+      else {
+        println("All results are as expected.")
+      }
 
-      case EntailmentBatch =>
-        println("Will run all entailment benchmarks in " + config.file)
-        EntailmentBatchMode.runAllEntailmentsInPath(config.file, config.timeout)
+    case EntailmentBatch =>
+      println("Will run all entailment benchmarks in " + file)
+      EntailmentBatchMode.runAllEntailmentsInPath(file, GlobalConfig.getTimeoutForCurrentMode)
 
-      case TacasArtifact =>
-        println(s"TACAS artifact: Will run experiments specified in '${config.file}'")
-        EntailmentBenchmarking.runJmhBenchmarskForHarrsh(config.file)
+    case TacasArtifact =>
+      println(s"TACAS artifact: Will run experiments specified in '$file'")
+      EntailmentBenchmarking.runJmhBenchmarskForHarrsh(file)
 
-      case ConvertEntailmentBatch =>
-        val wrapper = (format: String, conv: EntailmentFormatConverter) => {
-          println(s"Will convert all benchmarks in ${config.file} to $format input format")
-          EntailmentBatchMode.convertAllEntailmentsInPath(config.file, None, conv)
-          println("Done.")
-        }
-        wrapper("SLCOMP", ToSlcompConverter)
-        wrapper("SLIDE", ToSlideFormat)
-        wrapper("SONGBIRD", ToSongbirdFormat)
-        wrapper("LaTeX", ToLatexConverter)
+    case ConvertEntailmentBatch =>
+      val wrapper = (format: String, conv: EntailmentFormatConverter) => {
+        println(s"Will convert all benchmarks in $file to $format input format")
+        EntailmentBatchMode.convertAllEntailmentsInPath(file, None, conv)
+        println("Done.")
+      }
+      wrapper("SLCOMP", ToSlcompConverter)
+      wrapper("SLIDE", ToSlideFormat)
+      wrapper("SONGBIRD", ToSongbirdFormat)
+      wrapper("LaTeX", ToLatexConverter)
 
-      case Show =>
-        val sid = QueryParser.getSidFromFile(config.file)
-        println(sid)
-        IOUtils.writeFile(PreviousSidFileName, sid.toHarrshFormat)
+    case Show =>
+      val sid = QueryParser.getSidFromFile(file)
+      println(sid)
+      IOUtils.writeFile(PreviousSidFileName, sid.toHarrshFormat)
 
-      case Unfold =>
-        val sid = QueryParser.getSidFromFile(config.file)
-        println(SidUnfolding.unfold(sid, config.unfoldingDepth, config.unfoldingsReduced).mkString("\n"))
+    case Unfold =>
+      val sid = QueryParser.getSidFromFile(file)
+      println(SidUnfolding.unfold(sid,
+        GlobalConfig.getInt(params.UnfoldingDepth),
+        GlobalConfig.getBoolean(params.UnfoldingsReduced)
+      ).mkString("\n"))
 
-      case Analyze =>
-        val sid = QueryParser.getSidFromFile(config.file)
-        RefinementAlgorithms.performFullAnalysis(sid, config.timeout, config.verbose)
+    case Analyze =>
+      val sid = QueryParser.getSidFromFile(file)
+      RefinementAlgorithms.performFullAnalysis(sid, GlobalConfig.getTimeoutForCurrentMode, GlobalConfig.getBoolean(params.Verbose))
 
-      case GetModel =>
-        println("Will compute model of SID in file " + config.file + " that satisfies property " + config.prop)
-        val query = RefinementQuery(config.file, config.prop)
-        val result = RefinementAlgorithms.refineSID(query.sid, query.automaton, config.timeout, reportProgress = config.reportProgress)
+    case GetModel =>
+      GlobalConfig.getProp foreach { prop =>
+        println("Will compute model of SID in file " + file + " that satisfies property " + prop)
+        val query = RefinementQuery(file, prop)
+        val result = RefinementAlgorithms.refineSID(query.sid,
+          query.automaton,
+          GlobalConfig.getTimeoutForCurrentMode,
+          Try { GlobalConfig.getInt(params.SatCheckingIncrementalFromNumCalls) }.toOption,
+          GlobalConfig.getBoolean(params.ReportProgress))
 
         result match {
           case Some(vsid) =>
             vsid._1.getModel match {
               case Some(model) => println(model)
-              case None => IOUtils.printWarningToConsole(s"No model of the SID satisfies ${config.prop}")
+              case None => IOUtils.printWarningToConsole(s"No model of the SID satisfies $prop")
             }
           case None =>
             IOUtils.printWarningToConsole("Refinement failed => Can't get model.")
         }
+      }
 
-      case ModelChecking =>
-        val sid = QueryParser.getSidFromFile(config.file)
-        val model = MainIO.getModelFromFile(config.modelFile)
+    case ModelChecking =>
+      Try { GlobalConfig.getString(params.ModelFile) } foreach { modelFile =>
+        val sid = QueryParser.getSidFromFile(file)
+        val model = MainIO.getModelFromFile(modelFile)
         val modelChecker = GreedyUnfoldingModelChecker
         val result = modelChecker.isModel(model, sid)
         println("Finished model checking. Result: " + result)
-  }
-
-  private def printUsage() = {
-    val helpMsg = """This is HARRSH. Usage:
-      |Entailment checking:
-      |  --entailment <relative-path-to-file>                discharge given entailment
-      |
-      |Refinement:
-      |  --refine <relative-path-to-sid-file> --prop <property>      refine sid by prop
-      |
-      |Decide property:
-      |  --decide <relative-path-to-sid-file> --prop <property>   check if sid has prop
-      |
-      |Batch / benchmarking modes:
-      |  --ebatch <relative-path-to-directory>                         entailment batch
-      |  --rbatch <relative-path-to-file-with-list-of-tasks>           refinement batch
-      |
-      |Analysis:
-      | --analyze <relative-path-to-sid-file>           analyze robustness of given sid
-      |
-      |Exploration mode:
-      |  --show <relative-path-to-sid-file>                        print sid to std out
-      |  --model <relative-path-to-sid-file> --prop <property>
-      |                                                  get model of sid that has prop
-      |  --unfold <relative-path-to-sid-file>     generate all unfoldings of the sid...
-      |     [--depth <depth>]                    ...up to depth <depth> (default: 3)...
-      |     [--reduced]                          ...showing only reduced symbolic heaps
-      |
-      |Optional arguments:
-      |  --timeout <timeout in s>                                      optional timeout
-      |  --showprogress                                    print progress of refinement
-      |  --verbose                                                  produce more output
-      |
-      |Properties:
-      |SAT                    Satisfiable unfoldings
-      |UNSAT                  Unsatisfiable unfoldings
-      |EST                    Established unfoldings
-      |NON-EST                Non-established unfoldings
-      |GF                     Garbage-free unfoldings
-      |GARB                   Unfoldings that may contain garbage
-      |ACYC                   Weakly acyclic unfoldings
-      |CYC                    Strongly cyclic unfoldings
-      |REACH[<var1>,<var2>]   Unfs. in which there must be a path from var1 to var2
-      |ALLOC[<vars>]          Unfs. in which at least the given <vars> are allocated
-      |PURE[<eqs>]            Unfs. in which at least the given pure constraints hold
-      |REL-TR[<vars>:<eqs>]   Unfs. that satify both ALLOC[<vars>] and PURE[<eqs>]
-      |TRACK[<vars>:<eqs>]    Unfs. in which EXACTLY the given constraints hold
-      |HASPTR                 Unfoldings that allocate memory
-      |MOD[n,d]               Unfoldings that allocate == " + "n mod d pointers
-      |
-      |where (without ANY whitespace!)
-      |  <var>   ==  null | x1 | x2 | x3 | ...
-      |  <vars>  ==  comma-separated list of <var>
-      |  <eq>    ==  <var>=<var> | <var>!=<var>
-      |  <eqs>   ==  comma-separated list of <eq>""".stripMargin
-
-    println(helpMsg)
-
-    //    Model checking mode:
-    //      --modelcheck <path-to-model> --spec <path-to-sid>       check if model |= spec
+      }
   }
 
 }

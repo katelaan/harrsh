@@ -21,6 +21,16 @@ sealed trait ProblemStatus {
     case Incorrect => Some(false)
     case Unknown => None
   }
+
+  def isCorrect: Boolean = this match {
+    case Correct => true
+    case _ => false
+  }
+
+  def isUnknown: Boolean = this match {
+    case Unknown => true
+    case _ => false
+  }
 }
 
 object ProblemStatus {

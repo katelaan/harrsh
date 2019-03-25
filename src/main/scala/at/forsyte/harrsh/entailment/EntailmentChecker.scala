@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.refinement.RefinementAlgorithms
-import at.forsyte.harrsh.util.CacheRegistry
+import at.forsyte.harrsh.util.{CacheRegistry, IOUtils}
 
 object EntailmentChecker extends HarrshLogging {
 
@@ -22,43 +22,34 @@ object EntailmentChecker extends HarrshLogging {
     * @param reportProgress Produce additional output to keep track of progress
     * @return Computed result + optionally whether the result is as expected?
     */
-  def check(description: String, entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, Option[Boolean], EntailmentStats) = {
+  def check(description: String, entailmentInstance: EntailmentInstance, config: EntailmentConfig): (Boolean, Option[Boolean], EntailmentStats) = {
     assume(entailmentInstance.usesDefaultFVs)
-    val (entailmentHolds,stats) = solve(entailmentInstance, reportProgress, printResult, exportToLatex)
+    val (entailmentHolds,stats) = solve(entailmentInstance, config)
     entailmentInstance.entailmentHolds match {
       case Some(shouldHold) =>
         val expectedResult = shouldHold == entailmentHolds
-        if (printResult) println(s"$description: Got expected result: $expectedResult")
+        if (config.io.printResult) println(s"$description: Got expected result: $expectedResult")
         if (!expectedResult) {
           println(s"WARNING: Unexpected result")
         }
         (entailmentHolds, Some(expectedResult), stats)
       case None =>
-        if (printResult) println(s"$description: No expected result specified. Computed result: $entailmentHolds")
+        if (config.io.printResult) println(s"$description: No expected result specified. Computed result: $entailmentHolds")
         (entailmentHolds, None, stats)
     }
   }
 
-  val UseUnionSolver = true
-  val Solver: TopLevelSolver = if (UseUnionSolver) UnionSolver else BruteForceSolver
-
   /**
     * Check whether the given entailment instance holds
     * @param entailmentInstance Instance to solve
-    * @param reportProgress Produce additional output to keep track of progress
+    * @param config Configuration
     * @return True iff the entailment holds
     */
-  def solve(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): (Boolean, EntailmentStats) = {
+  def solve(entailmentInstance: EntailmentInstance, config: EntailmentConfig): (Boolean, EntailmentStats) = {
     logger.info(s"Solving $entailmentInstance...")
     CacheRegistry.resetAllCaches()
-    val res@(holds, stats) = runSolver(Solver, entailmentInstance, reportProgress, printResult)
-
-    //    if (exportToLatex) {
-    //      print("Will export result to LaTeX...")
-    //      IOUtils.writeFile("entailment.tex", EntailmentResultToLatex.entailmentCheckingResultToLatex(entailmentInstance, entailmentHolds, aut, reachableStatesByPred, transitionsByHeadPred))
-    //      println(" Done.")
-    //    }
-
+    val solver: TopLevelSolver = if (config.useUnionSolver) UnionSolver else BruteForceSolver
+    val res@(holds, stats) = runSolver(solver, entailmentInstance, config)
     entailmentInstance.entailmentHolds foreach {
       shouldHold =>
         if (shouldHold != holds)
@@ -70,8 +61,8 @@ object EntailmentChecker extends HarrshLogging {
     res
   }
 
-  def runSolver(topLevelSolver: TopLevelSolver, entailmentInstance: EntailmentInstance, reportProgress: Boolean, printResult: Boolean): (Boolean, EntailmentStats) = {
-    val reachableStatesByPred = runEntailmentAutomaton(entailmentInstance, reportProgress, printResult)
+  def runSolver(topLevelSolver: TopLevelSolver, entailmentInstance: EntailmentInstance, config: EntailmentConfig): (Boolean, EntailmentStats) = {
+    val reachableStatesByPred = runEntailmentAutomaton(entailmentInstance, config)
     val entailmentHolds = topLevelSolver.checkValidity(entailmentInstance, reachableStatesByPred)
     val stats = entailmentStats(reachableStatesByPred)
     (entailmentHolds,stats)
@@ -88,13 +79,18 @@ object EntailmentChecker extends HarrshLogging {
     EntailmentStats(numExploredPreds, allProfiles.size, allDecomps.size, totalNumContexts)
   }
 
-  private def runEntailmentAutomaton(entailmentInstance: EntailmentInstance, reportProgress: Boolean = true, printResult: Boolean = true, exportToLatex: Boolean = true): Map[String, Set[EntailmentProfile]] = {
+  private def runEntailmentAutomaton(entailmentInstance: EntailmentInstance, config: EntailmentConfig): Map[String, Set[EntailmentProfile]] = {
     val EntailmentInstance(lhs, rhs, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhs.sid, rhs.topLevelConstraint)
-    val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhs.sid, aut, reportProgress)
+    val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhs.sid, aut, config.io.reportProgress)
 
-    if (printResult) {
+    if (config.io.printResult) {
       println(FixedPointSerializer(entailmentInstance)(reachableStatesByPred))
+    }
+    if (config.io.exportToLatex) {
+      print("Will export result to LaTeX...")
+      IOUtils.writeFile("entailment.tex", EntailmentResultToLatex.entailmentFixedPointToLatex(entailmentInstance, aut, reachableStatesByPred, transitionsByHeadPred))
+      println(" Done.")
     }
     reachableStatesByPred
   }

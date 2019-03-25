@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.main
 
 import at.forsyte.harrsh.converters.{ConversionException, EntailmentFormatConverter}
-import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentInstance}
+import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentConfig, EntailmentInstance}
 import at.forsyte.harrsh.entailment.EntailmentChecker.EntailmentStats
 import at.forsyte.harrsh.parsers.{EntailmentParsers, QueryParser}
 import at.forsyte.harrsh.util.{IOUtils, StringUtils}
@@ -182,7 +182,7 @@ object EntailmentBatchMode {
   }
 
   def runBenchmark(file: String, suppressOutput: Boolean = false): BenchmarkTrace = {
-    if (!suppressOutput) println(s"Checking $file...");
+    if (!suppressOutput) println(s"Checking $file...")
     QueryParser(file).toEntailmentInstance(computeSeparateSidsForEachSide = true, computeSccs = false) match {
       case Failure(exception) => BenchmarkTrace(None, None, None, Some(s"Exception during parsing: ${exception.getMessage}"))
       case Success(instance) =>
@@ -192,8 +192,11 @@ object EntailmentBatchMode {
   }
 
   private def runEntailmentInstance(instance: EntailmentInstance, descriptionOfInstance: String, suppressOutput: Boolean = false): (Option[String], Option[Boolean], Option[Boolean], Option[EntailmentStats]) = {
+    val config = EntailmentConfig.fromGlobalConfig().copy(
+      io = IOConfig.fromGlobalConfig().copy(reportProgress = false, exportToLatex = false, printResult = !suppressOutput)
+    )
     Try {
-      EntailmentChecker.check(descriptionOfInstance, instance, reportProgress = false, exportToLatex = false, printResult = !suppressOutput)
+      EntailmentChecker.check(descriptionOfInstance, instance, config)
     } match {
       case Failure(exception) => (Some(s"Exception during entailment check: ${exception.getMessage}"), None, None, None)
       case Success((result, asExpected, stats)) =>

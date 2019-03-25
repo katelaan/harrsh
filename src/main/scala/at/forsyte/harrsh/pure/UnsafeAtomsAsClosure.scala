@@ -1,6 +1,5 @@
 package at.forsyte.harrsh.pure
 
-import at.forsyte.harrsh.main.Config
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 
@@ -8,12 +7,6 @@ import at.forsyte.harrsh.seplog.inductive.PureAtom
   * Created by jkatelaa on 10/17/16.
   */
 private[pure] case class UnsafeAtomsAsClosure(closure : Set[PureAtom]) extends Closure {
-
-  if (Config.HeapAutomataSafeModeEnabled) {
-    val computedClosure = Closure.ofAtoms(closure).asSetOfAtoms
-    if (closure != computedClosure)
-      throw new IllegalStateException("Assumed " + closure + " is closure, but actual closure is" + computedClosure)
-  }
 
   override def getEquivalenceClass(v: Var, defaultToSingletonClass: Boolean = true): Set[Var] = {
     val otherMembers = closure.filter({
