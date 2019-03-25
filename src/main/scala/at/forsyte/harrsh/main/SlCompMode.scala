@@ -7,7 +7,7 @@ import at.forsyte.harrsh.entailment.{EntailmentChecker, EntailmentConfig, Entail
 import at.forsyte.harrsh.main.GlobalConfig.params
 import at.forsyte.harrsh.parsers.QueryParser.{FileExtensions, ParseException}
 import at.forsyte.harrsh.parsers.slcomp
-import at.forsyte.harrsh.refinement.{DecisionProcedures, RunSat}
+import at.forsyte.harrsh.refinement.{DecisionProcedures, RunSat, SatChecker}
 import at.forsyte.harrsh.util.{Combinators, IOUtils, StringUtils}
 
 import scala.util.{Failure, Success, Try}
@@ -238,32 +238,12 @@ object SlCompMode {
   private def execute(bm: Query): (ProblemStatus, Long) = {
     val timeout = GlobalConfig.getTimeoutForCurrentMode
     bm match {
-      case q: SatQuery => executeSatQuery(q, timeout)
+      case q: SatQuery => SatChecker(q, timeout)
       case q: EntailmentQuery => executeEntailmentQuery(q, timeout)
       case _ =>
         println("Input parsed to wrong query type.")
         (ProblemStatus.Unknown, 0)
     }
-  }
-
-  private def executeSatQuery(bm: SatQuery, timeout: Duration): (ProblemStatus, Long) = {
-    val verbose = GlobalConfig.getBoolean(params.Verbose)
-    val sid = bm.toIntegratedSid
-    val res: DecisionProcedures.AnalysisResult = DecisionProcedures.decideInstance(
-      sid,
-      RunSat.getAutomaton,
-      timeout,
-      None,
-      incrementalFromNumCalls = Some(GlobalConfig.getInt(params.SatCheckingIncrementalFromNumCalls)),
-      skipSinksAsSources = true,
-      verbose,
-      reportProgress = verbose)
-    val resStatus = if (res.timedOut) {
-      ProblemStatus.Unknown
-    } else {
-      if (res.isEmpty) ProblemStatus.Incorrect else ProblemStatus.Correct
-    }
-    (resStatus, res.analysisTime)
   }
 
   private def executeEntailmentQuery(bm: EntailmentQuery, timeout: Duration): (ProblemStatus, Long) = {

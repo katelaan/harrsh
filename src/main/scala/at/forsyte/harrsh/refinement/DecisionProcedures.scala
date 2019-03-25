@@ -52,6 +52,10 @@ object DecisionProcedures extends HarrshLogging {
     }
   }
 
+  def decideInstance(sid : SidLike, ha : HeapAutomaton, topLevelQuery: Option[SymbolicHeap], incrementalFromNumCalls: Option[Int], skipSinksAsSources : Boolean, verbose : Boolean, reportProgress : Boolean): Boolean = {
+    RefinementAlgorithms.onTheFlyRefinementWithEmptinessCheck(sid, ha, topLevelQuery, incrementalFromNumCalls, skipSinksAsSources = skipSinksAsSources, reportProgress = reportProgress)
+  }
+
   def decideInstances(queries : Seq[RefinementQuery], timeout : Duration, verbose : Boolean, reportProgress : Boolean): (Seq[(RefinementQuery,AnalysisResult)],AnalysisStatistics) = {
 
     val globalStartTime = System.currentTimeMillis()

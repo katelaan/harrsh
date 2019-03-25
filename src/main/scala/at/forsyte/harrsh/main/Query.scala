@@ -79,7 +79,7 @@ object RefinementQuery {
   }
 }
 
-case class SatQuery(sid: Sid, query: SymbolicHeap, override val status: ProblemStatus, override val fileName: Option[String]) extends Query {
+case class SatQuery(sid: SidLike, query: SymbolicHeap, override val status: ProblemStatus, override val fileName: Option[String]) extends Query {
 
   val StartPred = "ASSERT"
 

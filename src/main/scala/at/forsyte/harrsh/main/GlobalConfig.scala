@@ -14,7 +14,7 @@ object GlobalConfig {
     // General
     val Timeout = "timeout"
     val Verbose = "verbose"
-    val Debug= "debug"
+    val Debug = "debug"
     val ReportProgress = "report-progress"
     val PrintResult = "print-result"
     val ToLatex = "export-latex"
@@ -52,11 +52,11 @@ object GlobalConfig {
     // Sat Checking
     params.SatCheckingIncrementalFromNumCalls -> 6,
     // Entailment Checking
+    params.StartEntailmentWithSatCheck -> false,
     params.WithPatternMatchingStage -> true,
     params.ComputePerSideSids -> true,
     params.UseUnionSolver -> true,
     params.ComputeSccs -> false,
-    params.StartEntailmentWithSatCheck -> false,
     // SID Exploration
     params.UnfoldingsReduced -> false,
     params.UnfoldingDepth -> 3,

@@ -50,8 +50,17 @@ object ArgParser {
   private val unfoldingsReduced = CommandLineOption(params.UnfoldingsReduced, "bool", Some("Only generate reduced unfoldings"), inHelpMessage = true)
   private val unfoldingDepth = CommandLineOption(params.UnfoldingDepth, "int", Some("Max. depth of generated unfoldings"), inHelpMessage = true)
 
+  private val startEntailmentWithSatCheckOption = CommandLineOption(params.StartEntailmentWithSatCheck, "bool", Some("First check if LHS is UNSAT (and the entailment thus valid) (default: false)"), inHelpMessage = true)
+  private val withPatternMatchingStageOption = CommandLineOption(params.WithPatternMatchingStage, "bool", Some("Try to solve with pattern matching (default: true)"), inHelpMessage = true)
+  private val computePerSideSidsOption = CommandLineOption(params.ComputePerSideSids, "bool", Some("Optimize fixed-point for the RHS of the query (default: true)"), inHelpMessage = true)
+  private val computeSccsOption = CommandLineOption(params.ComputeSccs, "bool", Some("Try to split top-level query based on reachability (default: false"), inHelpMessage = false)
+  private val useUnionSolverOption = CommandLineOption(params.UseUnionSolver, "bool", Some("Solve big queries with union profiles (default: false"), inHelpMessage = false)
+
+  val UseUnionSolver = "union-solver"
+
   private val modes = Seq(
-    ModeDef(Entailment, "--entailment", Some("-e"), "file", "Entailment checking", inHelpMessage = true, Seq.empty, Seq.empty),
+    ModeDef(Entailment, "--entailment", Some("-e"), "file", "Entailment checking", inHelpMessage = true, Seq.empty,
+      Seq(startEntailmentWithSatCheckOption,withPatternMatchingStageOption,computePerSideSidsOption,computeSccsOption,useUnionSolverOption)),
     ModeDef(Decide, "--decide", Some("-d"), "file", "Check if the given SID has the given property", inHelpMessage = true, Seq(propOption), Seq.empty),
     ModeDef(Refine, "--refine", Some("-r"), "file", "Refine the given SID by the given property", inHelpMessage = true, Seq(propOption), Seq.empty),
     ModeDef(Analyze, "--analyze", Some("-a"), "file", "Analyze Robustness of given SID", inHelpMessage = true, Seq.empty, Seq.empty),

@@ -1,9 +1,9 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.entailment.EntailmentChecker.{EntailmentCheckerStats, EntailmentFixedPointStats}
-import at.forsyte.harrsh.main.{HarrshLogging, ProblemStatus}
+import at.forsyte.harrsh.main.{HarrshLogging, ProblemStatus, SatQuery}
 import at.forsyte.harrsh.main.ProblemStatus.{Correct, Incorrect, Unknown}
-import at.forsyte.harrsh.refinement.RefinementAlgorithms
+import at.forsyte.harrsh.refinement.{RefinementAlgorithms, SatChecker}
 import at.forsyte.harrsh.util.IOUtils
 
 object SolverFactory extends HarrshLogging {
@@ -42,9 +42,14 @@ object SolverFactory extends HarrshLogging {
 
   private def isLhsSatTactic: SolverStrategy[Unit] = {
     def isLhsSat(ei: EntailmentInstance): ProblemStatus = {
-      // TODO: Return true if LHS is UNSAT; otherwise return UNKNOWN
-      logger.warn("Sat checking tactic not implemented.")
-      Unknown
+      logger.debug("Will check if LHS is satisfiable. (If not, the entailment holds.)")
+      val satQuery = SatQuery(ei.lhs.sid, ei.lhs.topLevelConstraint.toSymbolicHeap, Unknown, None)
+      if (SatChecker(satQuery)) {
+        Unknown
+      } else {
+        logger.info(s"$satQuery is unsat => entailment holds")
+        Correct
+      }
     }
     SolverStrategy.fromFunction(isLhsSat _)
   }
