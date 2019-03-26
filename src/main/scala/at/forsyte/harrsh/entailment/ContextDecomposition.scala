@@ -90,28 +90,19 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
   private def replaceByPlaceholders(vars: Set[Var])= {
     // TODO: More efficient variable dropping for decomps?
     val update: ConstraintUpdater = renameVarsToFreshPlaceholders(vars)
-    val partsAfterDropping = parts map (_.updateSubst(update))
+    val partsAfterRenaming = parts map (_.updateSubst(update))
     val constraintsAfterRenaming = update.unsafeUpdate(constraints)
     val redundantPlaceholders = constraintsAfterRenaming.redundantPlaceholders ++ constraintsAfterRenaming.placeholders.filterNot{
-      ph => partsAfterDropping.exists(_.placeholders.contains(ph))
+      ph => partsAfterRenaming.exists(_.placeholders.contains(ph))
     }
-    logger.debug(s"Will drop redundant placeholders $redundantPlaceholders introduced when forgetting $vars")
-    val dropper = DropperUpdate(redundantPlaceholders)
-    val cleanedParts = partsAfterDropping.map(_.updateSubst(dropper))
-    logger.debug(s"Will drop $redundantPlaceholders from $constraintsAfterRenaming")
+    val finalComponents = if (redundantPlaceholders.nonEmpty) {
+      logger.debug(s"Will drop redundant placeholders $redundantPlaceholders introduced when forgetting $vars")
+      ContextDecomposition.safelyDropVars(partsAfterRenaming, constraintsAfterRenaming, redundantPlaceholders)
+    } else Some((partsAfterRenaming, constraintsAfterRenaming))
     for {
-      cleanedConstraints <- dropper(constraintsAfterRenaming)
-      if hasNamesForAllUsedParams(cleanedConstraints)
+      (cleanedParts, cleanedConstraints) <- finalComponents
+      if ContextDecomposition.hasNamesForAllUsedParams(cleanedConstraints)
     } yield ContextDecomposition(cleanedParts, cleanedConstraints).toPlaceholderNormalForm
-  }
-
-  private def hasNamesForAllUsedParams(cleanedConstraints: VarConstraints): Boolean = {
-    if (!cleanedConstraints.hasNamesForAllUsedParams) {
-      logger.debug(s"Discarding decomposition: After forgetting, a placeholder would be used in $cleanedConstraints")
-      false
-    } else {
-      true
-    }
   }
 
   // END compose, rename, forget
@@ -222,7 +213,8 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
 
 }
 
-object ContextDecomposition {
+object ContextDecomposition extends HarrshLogging {
+
   def fromTopLevelQuery(topLevelConstraint: TopLevelConstraint, sid: RichSid): ContextDecomposition = {
     assert(topLevelConstraint.calls.distinct == topLevelConstraint.calls,
       "Can't construct a decomposition from constraint with duplicate calls")
@@ -236,5 +228,23 @@ object ContextDecomposition {
     val calls = topLevelConstraint.calls map predCallToContextPredCall
     val ctxs = calls.toSet[ContextPredCall] map (EntailmentContext(_, Set.empty))
     ContextDecomposition(ctxs, constraints)
+  }
+
+  def safelyDropVars(parts: Set[EntailmentContext], constraints: VarConstraints, varsToDrop: Set[Var]): Option[(Set[EntailmentContext], VarConstraints)] = {
+    val dropper = DropperUpdate(varsToDrop)
+    val cleanedParts = parts.map(_.updateSubst(dropper))
+    logger.debug(s"Will drop $varsToDrop from $constraints")
+    for {
+      cleanedConstraints <- dropper(constraints)
+    } yield (cleanedParts, cleanedConstraints)
+  }
+
+  def hasNamesForAllUsedParams(constraints: VarConstraints): Boolean = {
+    if (!constraints.hasNamesForAllUsedParams) {
+      logger.debug(s"Discarding decomposition: After forgetting, a placeholder would be used in $constraints")
+      false
+    } else {
+      true
+    }
   }
 }
