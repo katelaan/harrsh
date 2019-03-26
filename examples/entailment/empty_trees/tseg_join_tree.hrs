@@ -1,0 +1,14 @@
+# Derived from the SL-COMP benchmark qf_shid_entl/tseg_join_tree.sb.smt2
+query {
+ tree(x2) * tseg(x1,x2) |= tree(x1)
+}
+sid {
+  tree <= emp : {null = x1} ;
+  tree <= x1 -> (y1, y2) * tree(y1) * tree(y2) ;
+  tseg <= emp : {x1 = x2} ;
+  tseg <= x1 -> (y1, y2) * tree(y1) * tseg(y2,x2) ;
+  tseg <= x1 -> (y1, y2) * tree(y2) * tseg(y1,x2)
+}
+info {
+  status = true
+}

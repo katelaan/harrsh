@@ -21,22 +21,27 @@ case class UnionProfile(taggedDecomps: Map[ContextDecomposition, ProfileIdTag], 
     }
   }
 
-  def mergeUsingNonProgressRules(sid: RichSid): UnionProfile = {
-    val merged = taggedDecomps.toSeq.flatMap{
+  def postProcess(boundVars: Set[Var], sid: RichSid): UnionProfile = {
+    mergeUsingNonProgressRules(sid).forget(boundVars)
+  }
+
+  private def applyToAllDecomps(f: ContextDecomposition => Iterable[ContextDecomposition]): UnionProfile = {
+    val afterApplication = taggedDecomps.toSeq.flatMap{
       pair =>
-        val mergedDecomps = MergeUsingNonProgressRules.useNonProgressRulesToMergeContexts(pair._1, sid)
-        mergedDecomps.zip(Stream.continually(pair._2))
+        val closedDecomps = f(pair._1)
+        closedDecomps.zip(Stream.continually(pair._2))
     }
-    UnionProfile(merged, params)
+    UnionProfile(afterApplication, params)
+  }
+
+  def mergeUsingNonProgressRules(sid: RichSid): UnionProfile = {
+    applyToAllDecomps(MergeUsingNonProgressRules.useNonProgressRulesToMergeContexts(_, sid))
   }
 
   def forget(varsToForget: Set[Var]): UnionProfile = {
-    val filteredDecomps = for {
-      (decomp, tag) <- taggedDecomps.toSeq
-      restricted <- decomp.forget(varsToForget)
-    } yield (restricted, tag)
-    val filteredParams = params filterNot varsToForget
-    UnionProfile(filteredDecomps, filteredParams)
+    applyToAllDecomps(_.forget(varsToForget)).copy(
+      params = params filterNot varsToForget
+    )
   }
 
   override def toString: String = {

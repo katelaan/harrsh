@@ -5,7 +5,7 @@ import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.RichSid
 import at.forsyte.harrsh.util.CachedHashcode
 
-case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPredCall]) extends CachedHashcode {
+case class EntailmentContext(root: ContextPredCall, calls: Set[ContextPredCall]) extends CachedHashcode {
 
   lazy val labels: Seq[ContextPredCall] = Seq(root) ++ calls
 
@@ -36,10 +36,6 @@ case class EntailmentContext private(root: ContextPredCall, calls: Set[ContextPr
 
   def redundantPlaceholders: Set[Var] = {
     classes flatMap redundantPlaceholdersInSet
-//    val equivalenceClasses = Substitution.extractVarEquivClasses(labels map (_.subst))
-//    val redundantVars = equivalenceClasses.flatMap(redundantPlaceholdersInSet)
-//    //logger.trace(s"Redundant vars: $redundantVars")
-//    redundantVars
   }
 
   private def redundantPlaceholdersInSet(vs: Set[Var]): Set[Var] = {

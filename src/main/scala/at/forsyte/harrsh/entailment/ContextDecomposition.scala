@@ -114,8 +114,15 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
     } else if (parts.size > rhs.size) {
       false
     } else {
-      val lhsRoots = parts map (_.root)
-      parts.forall(_.isConcrete) && rhs.isImpliedBy(lhsRoots, constraints, sid.predsWithEmptyModels)
+      EmpClosure(sid).makeConcrete(this) match {
+        case Some(partsAfterEmpClosure) =>
+          assert(partsAfterEmpClosure.forall(_.isConcrete))
+          val lhsRoots = partsAfterEmpClosure map (_.root)
+          rhs.isImpliedBy(lhsRoots, constraints, sid.predsWithEmptyModels)
+        case None =>
+          logger.debug("Contexts contains leaves that cannot be dropped => Decomposition is non-final")
+          false
+      }
     }
     logger.trace(s"Checking whether $this is final w.r.t. $rhs => $res")
     res

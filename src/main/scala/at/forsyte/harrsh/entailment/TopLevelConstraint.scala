@@ -30,6 +30,7 @@ case class TopLevelConstraint(calls: Seq[PredCall], pure: Seq[PureAtom]) extends
   }
 
   private def heapEntailmentHolds(lhs: Set[ContextPredCall], lhsConstraints: VarConstraints, predsWithEmptyModels: EmptyPredicates): Boolean = {
+    logger.debug(s"Will check heap entailment of $lhs against $this using $lhsConstraints")
     val lhsByPred: Map[String, Set[ContextPredCall]] = lhs.groupBy(_.pred.head)
     val rhsByPred = calls.groupBy(_.name)
     val occurringPreds = lhsByPred.keySet ++ rhsByPred.keySet

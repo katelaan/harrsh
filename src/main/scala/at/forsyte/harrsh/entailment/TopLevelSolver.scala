@@ -53,7 +53,7 @@ trait TopLevelSolver extends HarrshLogging {
     // Otherwise, we would get the empty profile for the LHS emp and would thus erroneously conclude that
     // there is no consistent profile for emp
     val profileForLhsPureConstraints = pureProfile(lhsConstraint.pure, computeEvenIfEmpty = lhsConstraint.calls.isEmpty)
-    logger.debug("Instantiated and filtered profiles are:\n" + FixedPointSerializer(entailmentInstance)(profileForLhsPureConstraints.toSet +: feasibleCallProfiles))
+    logger.debug("Instantiated and filtered profiles are:\n" + FixedPointSerializer(entailmentInstance, markFinalProfiles = true)(profileForLhsPureConstraints.toSet +: feasibleCallProfiles))
     (profileForLhsPureConstraints, feasibleCallProfiles)
   }
 

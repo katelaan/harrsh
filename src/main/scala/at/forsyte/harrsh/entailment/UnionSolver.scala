@@ -33,7 +33,7 @@ object UnionSolver extends TopLevelSolver {
         true
       case Some(profile) =>
         logger.debug("Composed union profile (to which we will apply merge and forget operations):\n" + profile)
-        val processed = profile.mergeUsingNonProgressRules(sid).forget(lhsConstraint.boundVars)
+        val processed = profile.postProcess(lhsConstraint.boundVars, sid)
         logger.debug("Final union profile:\n" + processed)
         checkValidityOf(processed, sid, rhsConstraint)
     }

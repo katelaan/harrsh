@@ -122,7 +122,7 @@ object SolverFactory extends HarrshLogging {
     val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhs.sid, aut, config.io.reportProgress)
 
     if (config.io.printResult) {
-      println(FixedPointSerializer(entailmentInstance)(reachableStatesByPred))
+      println(FixedPointSerializer(entailmentInstance, markFinalProfiles = false)(reachableStatesByPred))
     }
     if (config.io.exportToLatex) {
       print("Will export result to LaTeX...")

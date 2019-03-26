@@ -1,6 +1,6 @@
 package at.forsyte.harrsh.entailment
 
-case class FixedPointSerializer(ei: EntailmentInstance) {
+case class FixedPointSerializer(ei: EntailmentInstance, markFinalProfiles: Boolean) {
 
   private val sid = ei.rhs.sid
   private val rhsTopLevelConstraint = ei.rhs.topLevelConstraint
@@ -28,7 +28,7 @@ case class FixedPointSerializer(ei: EntailmentInstance) {
   private def serializeProfile(profile: EntailmentProfile): Stream[String] = {
     (Stream("PROFILE {",
       s"  FVS: ${profile.params.toSeq.sorted.mkString(", ")}")
-      ++ Some("  ACCEPTING").filter(_ => profile.isFinal(sid, rhsTopLevelConstraint))
+      ++ Some("  ACCEPTING").filter(_ => markFinalProfiles).filter(_ => profile.isFinal(sid, rhsTopLevelConstraint))
       ++ Some("  SHARED: " + profile.sharedConstraints)
       ++ serializeContent(profile) ++ Stream("}"))
   }

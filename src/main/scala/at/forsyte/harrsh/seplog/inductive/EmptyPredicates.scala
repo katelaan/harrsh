@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.seplog.inductive
 
+import at.forsyte.harrsh.entailment.ContextPredCall
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.seplog.{Renaming, Var}
@@ -16,6 +17,8 @@ class EmptyPredicates(val underlying: Map[String, Set[Set[PureAtom]]]) {
   def apply(pred: Predicate): Set[Set[PureAtom]] = apply(pred.head)
 
   def apply(call: PredCall): Set[Set[PureAtom]] = EmptyPredicates.instantiatedPureConstraints(call.args, apply(call.name))
+
+  def apply(call: ContextPredCall): Set[Set[PureAtom]] = EmptyPredicates.instantiatedPureConstraints(call.subst.toSeq.map(_.head), apply(call.pred))
 
 }
 

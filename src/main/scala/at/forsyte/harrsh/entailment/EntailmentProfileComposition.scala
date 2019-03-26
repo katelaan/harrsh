@@ -4,12 +4,58 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.{HarrshCache, UnboundedCache}
+import at.forsyte.harrsh.util.Combinators.inCase
 
 object EntailmentProfileComposition extends HarrshLogging {
 
   val UseLogSplit: Boolean = false
   val CompositionFunction: (RichSid, Seq[Set[ContextDecomposition]]) => Set[ContextDecomposition] = {
     if (UseLogSplit) allPossibleDecompCompositionsLogSplit else allPossibleDecompCompositions
+  }
+
+  def composeAndDropVars(profiles: Seq[EntailmentProfile], varsToDrop: Set[Var], sid: RichSid, performEmpClosure: Boolean): Option[EntailmentProfile] = {
+    val composed = composeAll(sid, profiles)
+    logger.debug(s"Target profile after initial composition:\n$composed")
+    composed map (postProcessProfile(_, varsToDrop, sid, performEmpClosure))
+  }
+
+  /**
+    * Compute the emp- and non-progress closure to & drop the given vars from the given profile
+    * @param profile Profile to process
+    * @param varsToDrop Vars that will be dropped *after* the closure computation
+    * @param sid SID from which emp/non-progres rules & focus information will be taken
+    * @return
+    */
+  def postProcessProfile(profile: EntailmentProfile, varsToDrop: Set[Var], sid: RichSid, performEmpClosure: Boolean): EntailmentProfile = {
+    (inCase(performEmpClosure && sid.hasEmptyBaseRules)(EmpClosure(sid).apply)
+      // Note: If we don't perform emp-closure, the profile may still contain contexts with null in root position
+      // We therefore must *not* do the consistency check *unless* we also do emp closure
+      andThen inCase(performEmpClosure)(filterOutInconsistentFocus(sid))
+      andThen inCase(sid.hasRecursiveRulesWithoutPointers)(mergeUsingNonProgressRules(sid))
+      andThen dropVars(varsToDrop))(profile)
+  }
+
+  private def filterOutInconsistentFocus(sid: RichSid)(profile: EntailmentProfile) = {
+    profile.applyToDecomps(_.filter(_.isConsistentWithFocus(sid)))
+  }
+
+  private def mergeUsingNonProgressRules(sid: RichSid)(profile: EntailmentProfile): EntailmentProfile = {
+    val merged = MergeUsingNonProgressRules(profile, sid)
+    if (merged != profile) {
+      logger.debug(s"Updated target profile by applying non-progress rules:\n${merged.decompsOrEmptySet.mkString("\n")}")
+    }
+    merged
+  }
+
+  private def dropVars(varsToDrop: Set[Var])(profile: EntailmentProfile): EntailmentProfile = {
+    // Bound variables are not visible from outside the transition, so we remove them from the results
+    // Note that some decompositions may be removed in the process
+    if (varsToDrop.nonEmpty) {
+      logger.debug(s"Will forget vars $varsToDrop in intermediate profile $profile")
+      profile.forget(varsToDrop)
+    } else {
+      profile
+    }
   }
 
   def composeAll(sid: RichSid, profiles: Seq[EntailmentProfile]): Option[EntailmentProfile] = {

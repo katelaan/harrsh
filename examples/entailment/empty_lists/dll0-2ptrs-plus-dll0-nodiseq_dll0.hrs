@@ -1,11 +1,16 @@
-# Corresponds to the SL-COMP benchmark qf_shid_entl/dll-vc17.smt2
+# Derived from the SL-COMP benchmark qf_shid_entl/dll-vc17.smt2
+# In this variant, we don't explicitly assert x2 != x3, since this holds in all models of the LHS automatically:
+# Since both x4 and x3 are alloced, it holds that x4 != x3. Now there are two cases:
+# 1) the DLL is empty. In this case x2 = x4 and x1 = x3 and thus x2 != x3
+# 2) the DLL is non-empty. In this case, x2 is allocated and thus x2 != x3
 query {
  x3 -> (x2, null) * x4 -> (null, x1) * dll(x2,x1,x3,x4) |= dll(x3,x4,null,null)
 }
+
 sid {
   dll <= emp : {x1 = x4, x2 = x3} ;
   dll <= x1 -> (y1, x3) * dll(y1,x2,x1,x4) : {x1 != x4, x2 != x3}
 }
 info {
-  status = false
+  status = true
 }

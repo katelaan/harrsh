@@ -163,7 +163,7 @@ class EntailmentAutomatonTest extends HarrshTableTest with TestValues {
 
         val reach = refine(rhsSid, rhsCall, lhsSid)
         val ei = makeEI(lhsSid, rhsSid, rhsCall, shouldHold)
-        info("Refinement result: " + FixedPointSerializer(ei)(reach))
+        info("Refinement result: " + FixedPointSerializer(ei, markFinalProfiles = true)(reach))
         verifyEntailment(ei, reach) shouldEqual shouldHold
     }
   }
