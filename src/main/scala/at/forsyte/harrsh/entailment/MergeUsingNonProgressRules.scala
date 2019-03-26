@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.seplog.{BoundVar, Var}
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
@@ -53,10 +54,10 @@ object MergeUsingNonProgressRules extends HarrshLogging {
     }
     val callsInRule = shiftedRule.body.predCalls
     val roots = decomp.parts map (_.root)
-    if (callsInRule.size > roots.size)
-    // The rule contains more calls than the ETypes has parts => Rule can't be applicable
+    if (callsInRule.size > roots.size) {
+      // The rule contains more calls than the decomposition has parts => Rule can't be applicable
       None
-    else {
+    } else {
       // FIXME: More efficient choice of possible pairings for matching (don't brute force over all seqs)
       val possibleMatchings = Combinators.allSeqsWithoutRepetitionOfLength(callsInRule.length, roots)
       possibleMatchings.toStream.flatMap(tryMergeGivenRoots(decomp, shiftedRule, pred, _)).headOption
@@ -112,8 +113,19 @@ object MergeUsingNonProgressRules extends HarrshLogging {
     logger.debug(s"Roots that were matched: $rootsToMerge")
     logger.debug(s"Will apply $rule to merge:\n${ctxsToMerge.mkString("\n")}")
     logger.debug(s"Merge based on variable assignment $assignmentsByVar")
-    // Note: Not all variables of the rule need to be involved in the matching, that's why we must supply default targets
-    val subst = Substitution(rule.body.freeVars map (v => assignmentsByVar.getOrElse(v, decomp.constraints.classOf(v))))
+    val closureOfRule = Closure.ofAtoms(rule.body.pure)
+    val lookup = (v: Var) => {
+      val lookedUp = for {
+        // Because of possible aliasing with bound variables, it's not enoough to simply look up the free var v in the assignment
+        // We must look up everything equivalent to the free var v
+        eq <- closureOfRule.getEquivalenceClass(v)
+        assigned <- assignmentsByVar.getOrElse(eq, Set.empty)
+      } yield assigned
+      // Not all variables of the rule need to be involved in the matching, that's why we must supply default targets
+      if (lookedUp.nonEmpty) lookedUp else decomp.constraints.classOf(v)
+    }
+    val subst = Substitution(rule.body.freeVars map lookup)
+    logger.debug(s"Computed substitution $subst")
     val newRoot = ContextPredCall(pred, subst)
     val concatenatedLeaves = ctxsToMerge.flatMap(_.calls)
     val ctxAfterMerging = EntailmentContext(newRoot, concatenatedLeaves)

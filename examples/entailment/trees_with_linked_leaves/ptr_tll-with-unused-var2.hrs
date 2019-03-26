@@ -1,0 +1,17 @@
+# Corresponds to SL-COMP benchmark qf_shid_entl/tll_slk-12.smt2
+# Besides the unused variable in the tll definition (see examples/entailment/trees_with_linked_leaves/ptr_tll-with-unused-var.hrs),
+# this example makes computing the closure of rules without allocation more complicated by using bound variables in the
+# definition of etll.
+query {
+ x13 -> (x7, x1, x8, x11) : {x13 = x9, x3 = x2, null = x8, x6 = x4, x7 = x5, x13 = x12, x11 = x10} |= etll(x12,x5,x10,x9) : {x12 = x9, x13 = x9, x3 = x2, null = x8, x6 = x4, x7 = x5, x13 = x12, x11 = x10}
+# The above can be simplified to:
+# x1 -> (x2, x3, null, x4) |= etll(x1, x2, x4, x1)
+}
+sid {
+  tll <= x1 -> (y2, y3, y4, y1) : {null = y4, x1 = x3, x4 = y1} ;
+  tll <= x1 -> (y1, y7, y8, y9) * tll(y7,y2,y3,y10) * tll(y8,y4,y5,y6) : {null != y8, x2 = y1, x1 = y2, x3 = y3, x1 = y4, y5 = y10, x4 = y6} ;
+  etll <= tll(x1,y1,x4,y2) : {x2 = y1, x3 = y2}
+}
+info {
+  status = true
+}
