@@ -1,0 +1,10 @@
+query {
+ x2 -> x3 * ls(x1,x2) * ls(x3,null) |= ls(x1,x3) * ls(x3,null)
+}
+sid {
+  ls <= emp : {x1 = x2} ;
+  ls <= x1 -> y1 * ls(y1,x2) : {null != x1, x1 != x2}
+}
+info {
+  status = true
+}
