@@ -12,7 +12,7 @@ import scala.util.Try
 
 object SplitMultiPointerRules extends HarrshLogging {
 
-  type FocusedPredicate = (Predicate, FocusedVar)
+  type FocusedPredicate = (Predicate, Option[FocusedVar])
 
   /**
     * Split all multi-pointer rules in a rooted SID into single-pointer rules, thus establishing progress.
@@ -29,8 +29,10 @@ object SplitMultiPointerRules extends HarrshLogging {
       sinks = sinks)
   }
 
-  private def toRootSinkMaps(pairs: Seq[(String, FocusedVar)]): (Map[String,FreeVar], Map[String,FreeVar]) = {
-    val (taggedRoots, taggedSinks) = pairs.partition(_._2.dir == RootFocus)
+  private def toRootSinkMaps(pairs: Seq[(String, Option[FocusedVar])]): (Map[String,FreeVar], Map[String,FreeVar]) = {
+    val (taggedRoots, taggedSinks) = pairs.collect{
+      case (pred,Some(fv)) => (pred,fv)
+    }.partition(_._2.dir == RootFocus)
     def removeTag[A](taggedVal: (A,FocusedVar)): (A,FreeVar) = (taggedVal._1, taggedVal._2.fv)
     def toUntaggedMap[A,B,Tag](seq: Seq[(A,FocusedVar)]): Map[A,FreeVar] = seq.map(removeTag).toMap
     (toUntaggedMap(taggedRoots), toUntaggedMap(taggedSinks))
@@ -48,11 +50,11 @@ object SplitMultiPointerRules extends HarrshLogging {
         case (rule, index) => splitRule(sid, rule, PrefixOfUnfoldingAuxiliaryPreds + pred.head + index + "_")
       }
       val (transformedRules, newPreds) = afterSplitting.unzip
-      val updatedPred = (Predicate(pred.head, oneOrLess ++ transformedRules), sid.focus(pred.head))
+      val updatedPred = (Predicate(pred.head, oneOrLess ++ transformedRules), sid.focusOption(pred.head))
       logger.debug("Predicate after splitting: " + updatedPred)
       updatedPred +: newPreds.flatten
     } else {
-      Seq((pred, sid.focus(pred.head)))
+      Seq((pred, sid.focusOption(pred.head)))
     }
   }
 
@@ -148,7 +150,7 @@ object SplitMultiPointerRules extends HarrshLogging {
     (newRuleBody, newFocusedPreds)
   }
 
-  case class FocusedPredicateWithCallInfo(pred: Predicate, focus: FocusedVar, varsToPassToCall: Seq[Var], localBoundVars: Set[BoundVar])
+  case class FocusedPredicateWithCallInfo(pred: Predicate, focus: Option[FocusedVar], varsToPassToCall: Seq[Var], localBoundVars: Set[BoundVar])
 
   def makePredicates(ctx: Context, ptoFrac: PtoFraction, boundVarsThatBecomeFree: Set[BoundVar], prefix: String): Seq[FocusedPredicateWithCallInfo] = {
     if (ptoFrac.allPtos.size == 1) {
@@ -161,7 +163,7 @@ object SplitMultiPointerRules extends HarrshLogging {
       )
       Seq(FocusedPredicateWithCallInfo(
         Predicate(prefix, Seq(RuleBody(qvarNames, shWithVarInfo.sh))),
-        focus = root,
+        focus = Some(root),
         varsToPassToCall = shWithVarInfo.originalFvSubSeq ++ shWithVarInfo.originalBoundVarsTurnedFreeVars.map(_._1),
         localBoundVars = shWithVarInfo.remainingOriginalBoundVars
       ))

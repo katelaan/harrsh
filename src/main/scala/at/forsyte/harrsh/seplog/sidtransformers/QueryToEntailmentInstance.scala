@@ -23,7 +23,18 @@ object QueryToEntailmentInstance extends HarrshLogging {
       }
       lhs = processEntailmentQuerySide(lhsAux, parseResult.lhs, sidWithAuxPreds, computeSeparateSidsForEachSide, computeSccs, isLhs = true)
       rhs = processEntailmentQuerySide(rhsAux, parseResult.rhs, sidWithAuxPreds, computeSeparateSidsForEachSide, computeSccs, isLhs = false)
+      _ = assertDirectionality("LHS", lhs.sid)
+      _ = assertDirectionality("RHS", rhs.sid)
     } yield EntailmentInstance(lhs, rhs, parseResult.status.toBoolean)
+  }
+
+  private def assertDirectionality(side: String, sid: RichSid): Unit = {
+    if (!sid.isFocused || sid.hasMixedFocus) {
+      val msg = if (sid.hasMixedFocus) "has mixed focus" else "is not focused"
+      val fullMsg = s"$side $msg: $sid\nRooted preds: ${sid.roots}\nReverse-rooted preds: ${sid.sinks}\nUnfocused preds: ${sid.unfocusedPreds}"
+      //logger.warn(fullMsg)
+      throw new NotImplementedError("SID outside supported fragment: " + fullMsg)
+    }
   }
 
   private def logTransformationResult(instance: EntailmentInstance): EntailmentInstance = {

@@ -100,12 +100,7 @@ object SidDirectionalityAnnotator {
       RichSid.fromSid(sid, roots)
     } else {
       val sinks = computeSinks(sid)
-      val res = RichSid.fromSid(sid, roots, sinks)
-      if (!res.isFocused) {
-        val msg = s"$sid is unfocused (rooted preds: ${roots.keys.mkString(", ")}, preds w/ sinks: ${sinks.keys.mkString(", ")})"
-        throw PreprocessingException(msg)
-      }
-      res
+      RichSid.fromSid(sid, roots, sinks)
     }
   }
 

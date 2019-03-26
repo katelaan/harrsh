@@ -14,12 +14,20 @@ case class RichSid(override val startPred : String,
   lazy val isReverseRooted: Boolean = sinks.size == preds.size
   lazy val isFocused: Boolean = (roots ++ sinks).size == preds.size
   lazy val hasMixedFocus: Boolean = isFocused && !isRooted && !isReverseRooted
+  lazy val unfocusedPreds: Seq[String] = preds.map(_.head).filterNot(p => roots.isDefinedAt(p) || sinks.isDefinedAt(p))
 
   lazy val hasEmptyBaseRules: Boolean = predsWithEmptyModels.nonEmpty
   lazy val hasRecursiveRulesWithoutPointers: Boolean = preds.exists(pred => pred.rules.exists(_.hasCallsButNoPointers))
 
   def focus(head: String): FocusedVar = {
     roots.get(head).map(FocusedVar(_, RootFocus)).getOrElse(FocusedVar(sinks(head), SinkFocus))
+  }
+
+  def focusOption(head: String): Option[FocusedVar] = {
+    Seq(
+      roots.get(head).map(FocusedVar(_, RootFocus)),
+      sinks.get(head).map(FocusedVar(_, SinkFocus))
+    ).find(_.nonEmpty).flatten
   }
 
   lazy val rootParamIndex: Map[String, Int] = {
