@@ -7,5 +7,5 @@ sid {
   ls <= x1 -> y1 * ls(y1,x2) : {null != x1, x1 != x2}
 }
 info {
-  status = true
+  status = false
 }
