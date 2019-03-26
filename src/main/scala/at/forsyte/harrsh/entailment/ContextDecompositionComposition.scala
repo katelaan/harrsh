@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.main.HarrshLogging
+import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.RichSid
 import at.forsyte.harrsh.util.{HarrshCache, UnboundedCache}
 
@@ -61,26 +62,34 @@ object ContextDecompositionComposition extends HarrshLogging {
     allMergeOptions(sid, Seq.empty, unionDecomp.parts.toSeq, unionDecomp.constraints)
   }
 
+  private def restrictMergeResult(processed: Seq[EntailmentContext], constraints: VarConstraints, placeholdersAfterMerge: Set[Var]) = {
+    logger.debug(s"Will restrict placeholders to $placeholdersAfterMerge in merge result:\n${processed.mkString("\n")}")
+    val maybeRes = for {
+      cleanedConstraints <- constraints.restrictPlaceholdersTo(placeholdersAfterMerge)
+      composed = ContextDecomposition(processed.toSet, cleanedConstraints)
+      res = composed.toPlaceholderNormalForm
+    } yield res
+    maybeRes match {
+      case None =>
+        logger.debug(s"Merging failed because placeholders were used in speculation in $constraints of processed contexts\n${processed.mkString("\n")}")
+        Seq.empty
+      case Some(res) =>
+        logger.debug(s"New merge result: $res")
+        Seq(res)
+    }
+  }
+
   private def allMergeOptions(sid: RichSid, processed: Seq[EntailmentContext], unprocessed: Seq[EntailmentContext], constraints: VarConstraints): Seq[ContextDecomposition] = {
     logger.debug(s"Computing merge options; already processed:\n${processed.mkString("\n")}\nStill unprocessed:\n${unprocessed.mkString("\n")}\nCurrent constraints: $constraints")
 
     if (unprocessed.isEmpty) {
       val occurringVarSets = processed.toSet[EntailmentContext].flatMap(_.labels).flatMap(_.subst.toSeq)
       val placeholders = occurringVarSets.flatten.filter(PlaceholderVar.isPlaceholder)
-      logger.debug(s"Will restrict placeholders to $placeholders in merge result:\n${processed.mkString("\n")}")
-      val maybeRes = for {
-        cleanedConstraints <- constraints.restrictPlaceholdersTo(placeholders)
-        composed = ContextDecomposition(processed.toSet, cleanedConstraints)
-        res = composed.toPlaceholderNormalForm
-      } yield res
-      maybeRes match {
-        case None =>
-          logger.debug(s"Merging failed because placeholders were used in speculation in $constraints of processed contexts\n${processed.mkString("\n")}")
-          Seq.empty
-        case Some(res) =>
-          logger.debug(s"New merge result: $res")
-          Seq(res)
-      }
+      val constraintPlaceholders = constraints.placeholders
+      if (placeholders != constraintPlaceholders)
+        restrictMergeResult(processed, constraints, placeholders)
+      else
+        Seq(ContextDecomposition(processed.toSet, constraints).toPlaceholderNormalForm)
     } else {
       for {
         (nowProcessed, stillUnprocessed, newConstraints) <- optionalMerge(sid, processed, unprocessed, constraints)

@@ -227,15 +227,16 @@ object VarConstraints extends HarrshLogging {
     }
 
     private def expressWithout(varsToDrop: Set[Var], droppedSide: Set[Var], keptSide: Set[Var], container: VarConstraints): Option[RewrittenBoundVarDiseqConstraint] = {
-      val keptSideIsAlloced = container.usage(keptSide) == VarAllocated
+      val droppedSideIsAllocated = container.usage(droppedSide) == VarAllocated
 
       // Collect ensured disequalities mentioning the dropped side. In that case, the constraint will be implied if we can later prove
       // an equality among the other argument of an ensured disequality and the kept side
       val ensuredDiseqsWithDroppedVar = container.ensuredDiseqs.filter(diseq => diseq.underlying.contains(droppedSide) && !diseq.containsOnly(varsToDrop))
       val equalitiesToProve = ensuredDiseqsWithDroppedVar.flatMap(_.underlying) - droppedSide
 
-      if (keptSideIsAlloced || equalitiesToProve.nonEmpty) {
-        Some(RewrittenBoundVarDiseqConstraint(keptSide, equalitiesToProve, isAllocOrNullSufficient = keptSideIsAlloced))
+      if (droppedSideIsAllocated || equalitiesToProve.nonEmpty) {
+        logger.debug(s"Rewriting $this: We can prove later that $keptSide is equal to any of ${equalitiesToProve.mkString(",")}. Can also prove that $keptSide is allocated or null: $droppedSideIsAllocated")
+        Some(RewrittenBoundVarDiseqConstraint(keptSide, equalitiesToProve, isAllocOrNullSufficient = droppedSideIsAllocated))
       } else {
         logger.debug(s"It's impossible to express $droppedSide != $keptSide without $varsToDrop => Will discard constraints")
         None
@@ -305,13 +306,16 @@ object VarConstraints extends HarrshLogging {
   }
 
   def updateRewrittenConstraints(f: ConstraintUpdater, newUsage: VarUsageByLabel, rewritten: Set[RewrittenBoundVarDiseqConstraint]): Option[Set[RewrittenBoundVarDiseqConstraint]] = {
-    val updated = rewritten map (_.update(f)) filterNot (_.isImpliedBy(newUsage))
-    if (updated.exists(_.isUnsat)) {
-      logger.debug("After an update, a rewritten constraint has become unsatisfiable")
-      None
-    } else {
-      Some(updated)
-    }
+    if (rewritten.nonEmpty) {
+      val updated = rewritten map (_.update(f)) filterNot (_.isImpliedBy(newUsage))
+      logger.debug(s"Rewrote constraints:\n${rewritten.mkString("\n")} into\n${updated.mkString("\n")}")
+      if (updated.exists(_.isUnsat)) {
+        logger.debug("After an update, a rewritten constraint has become unsatisfiable")
+        None
+      } else {
+        Some(updated)
+      }
+    } else Some(rewritten)
   }
 
   case class PartitionedDiseqs(unaffected: Set[DiseqConstraint], rewritten: Set[RewrittenBoundVarDiseqConstraint], nonrewritable: Set[DiseqConstraint])
@@ -400,10 +404,5 @@ object VarConstraints extends HarrshLogging {
     // If both arguments of a disequality are contained in the equivalence class, that's a contradiction
     diseqs.exists(_ subsetOf cls)
   }
-
-//  private def notEqualInClosure(constraint: DiseqConstraint, closure: Closure): Boolean = {
-//    def getClass(vs: Set[Var]): Set[Var] = vs.flatMap(closure.getEquivalenceClass(_))
-//    getClass(constraint.underlying.head).intersect(getClass(constraint.underlying.tail.head)).isEmpty
-//  }
 
 }

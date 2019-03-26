@@ -1,3 +1,4 @@
+# Derived from SL-COMP benchmark qf_shid_entl/22.tst.smt2
 query {
  x2 -> x3 * ls(x1,x2) * ls(x3,null) |= ls(x1,x3) * ls(x3,null)
 }

@@ -294,7 +294,7 @@ object BijectiveRenamingUpdate extends HarrshLogging {
     BijectiveRenamingUpdate(pairs.mkString(", "), renaming)
   }
 
-  def placeholderNormalFormUpdater(orderedNodeLabels: Seq[ContextPredCall]): ConstraintUpdater = {
+  def placeholderNormalFormUpdater(orderedNodeLabels: Seq[ContextPredCall]): Option[ConstraintUpdater] = {
     logger.trace("Will order placeholders in order of occurrence in " + orderedNodeLabels)
     val found = mutable.Set.empty[PlaceholderVar]
     val order = new mutable.ListBuffer[PlaceholderVar]()
@@ -311,8 +311,12 @@ object BijectiveRenamingUpdate extends HarrshLogging {
     val renameFrom = order map (_.toFreeVar)
     val renameTo = (1 to order.size) map (PlaceholderVar(_).toFreeVar)
     val pairs = renameFrom.zip(renameTo)
-    logger.trace("Will establish placeholder normalform via update " + pairs)
-    fromPairs(pairs)
+    if (pairs.exists(p => p._1 != p._2)) {
+      logger.trace("Will establish placeholder normalform via update " + pairs)
+      Some(fromPairs(pairs))
+    } else {
+      None
+    }
   }
 
 }

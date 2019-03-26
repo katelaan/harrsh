@@ -128,23 +128,30 @@ case class ContextDecomposition(parts: Set[EntailmentContext], constraints: VarC
   def hasNonNullNamesForAllRootParams(sid: RichSid): Boolean = parts.forall(_.hasNonNullNamesForRootParams(sid))
 
   def toPlaceholderNormalForm: ContextDecomposition = {
-    // TODO Perhaps get rid of the first step, see assertion at the beginning of the class
+    // TODO Perhaps get rid of the first step
     val withoutRedundancies = dropRedundantPlaceholders
     val orderedLabels = withoutRedundancies.orderedParts flatMap (_.labels)
-    val establishNormalForm = BijectiveRenamingUpdate.placeholderNormalFormUpdater(orderedLabels)
-    // Can never fail since we simply rename things without identifying them, so _.get is safe
-    // Note: It does not matter for correctness what we pass to mayEnsureEqualities here, since we apply a bijection
-    withoutRedundancies.updateSubst(establishNormalForm).get
+    BijectiveRenamingUpdate.placeholderNormalFormUpdater(orderedLabels) match {
+      case Some(establishNormalForm) =>
+        // Can never fail since we simply rename things without identifying them, so _.get is safe
+        // Note: It does not matter for correctness what we pass to mayEnsureEqualities here, since we apply a bijection
+        withoutRedundancies.updateSubst(establishNormalForm).get
+      case None =>
+        // Already in normalform
+        withoutRedundancies
+    }
   }
 
   private def dropRedundantPlaceholders: ContextDecomposition = {
-    val dropper = DropperUpdate(redundantPlaceholders)
-    val partsAfterDropping = parts map (_.updateSubst(dropper))
-    val constraintsAfterDropping = dropper.unsafeUpdate(constraints)
-    ContextDecomposition(partsAfterDropping, constraintsAfterDropping)
+    if (redundantPlaceholders.nonEmpty) {
+      val dropper = DropperUpdate(redundantPlaceholders)
+      val partsAfterDropping = parts map (_.updateSubst(dropper))
+      val constraintsAfterDropping = dropper.unsafeUpdate(constraints)
+      ContextDecomposition(partsAfterDropping, constraintsAfterDropping)
+    } else this
   }
 
-  private def redundantPlaceholders: Set[Var] = {
+  private lazy val redundantPlaceholders: Set[Var] = {
     parts flatMap (_.redundantPlaceholders)
   }
 
