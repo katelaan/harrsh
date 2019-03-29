@@ -5,7 +5,10 @@ import at.forsyte.harrsh.main.{HarrshLogging, ProblemStatus, SatQuery}
 import at.forsyte.harrsh.main.ProblemStatus.{Correct, Incorrect, Unknown}
 import at.forsyte.harrsh.pure.{Closure, PureEntailment}
 import at.forsyte.harrsh.refinement.{RefinementAlgorithms, SatChecker}
+//import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive.{PredCall, RichSid}
+//import at.forsyte.harrsh.seplog.sidtransformers.GraphInterfaceAnnotator
+//import at.forsyte.harrsh.seplog.sidtransformers.GraphInterfaceAutomaton.GraphInterface
 import at.forsyte.harrsh.util.IOUtils
 
 object SolverFactory extends HarrshLogging {
@@ -24,12 +27,48 @@ object SolverFactory extends HarrshLogging {
     computeFixedPoint(config) andThen topLevelSolver(config)
   }
 
+//  private def constraintByInterface(topLevelConstraint: TopLevelConstraint, interfaces: Map[String, GraphInterface]): Map[GraphInterface, PredCall] = {
+//    (topLevelConstraint.calls map (call => (interfaces(call.name).rename(Var.getFvSeq(call.args.length), call.args), call))).toMap
+//  }
+//
+//  private def splitBasedOnInterface(ei: EntailmentInstance): Seq[EntailmentInstance] = {
+//    val unionSid = ei.lhs.sid.copy(preds = (ei.lhs.sid.preds ++ ei.rhs.sid.preds).distinct)
+//    val interfaces = GraphInterfaceAnnotator(unionSid)
+//    logger.warn(s"Computed the following interfaces: $interfaces")
+//    val lhsByIf = constraintByInterface(ei.lhs.topLevelConstraint, interfaces)
+//    val rhsByIf = constraintByInterface(ei.rhs.topLevelConstraint, interfaces)
+//    logger.warn(s"Instantiated LHS interfaces:\n${lhsByIf.mkString("\n")}")
+//    logger.warn(s"Instantiated RHS interfaces:\n${rhsByIf.mkString("\n")}")
+//    val shared = lhsByIf.keySet intersect rhsByIf.keySet
+//    val unmatchedLhs = lhsByIf.filterKeys(!shared(_)).values
+//    val unmatchedRhs = rhsByIf.filterKeys(!shared(_)).values
+//    val unmatchedLhsConstraint = TopLevelConstraint(unmatchedLhs.toSeq, ei.lhs.topLevelConstraint.pure)
+//    val unmatchedRhsConstraint = TopLevelConstraint(unmatchedRhs.toSeq, ei.rhs.topLevelConstraint.pure)
+//    val unmatchedInstance = EntailmentInstance(
+//      EntailmentQuerySide(ei.lhs.sid, unmatchedLhsConstraint, ei.lhs.originalAssertion),
+//      EntailmentQuerySide(ei.rhs.sid, unmatchedRhsConstraint, ei.rhs.originalAssertion),
+//      ei.entailmentHolds)
+//    val otherInstances: Seq[EntailmentInstance] = shared.toSeq map (gif => toInstance(ei, lhsByIf(gif), rhsByIf(gif)))
+//    unmatchedInstance +: otherInstances
+//  }
+
+  private def toInstance(originalEi: EntailmentInstance, lhsCall: PredCall, rhsCall: PredCall): EntailmentInstance = {
+    EntailmentInstance(
+      EntailmentQuerySide(originalEi.lhs.sid, TopLevelConstraint(Seq(lhsCall), Seq.empty), lhsCall.toSymbolicHeap),
+      EntailmentQuerySide(originalEi.rhs.sid, TopLevelConstraint(Seq(rhsCall), Seq.empty), rhsCall.toSymbolicHeap),
+      originalEi.entailmentHolds
+    )
+  }
+
   private def topLevelSolver(config: EntailmentConfig): SolverStrategy[FixedPoint] = {
     makeStats andThen topLevelSolverFrom(if (config.useUnionSolver) UnionSolver else BruteForceSolver)
   }
 
   private def topLevelSolverFrom(solver: TopLevelSolver): SolverStrategy[FixedPoint] = {
     SolverStrategy.fromFunction { case (ei: EntailmentInstance, fp: FixedPoint) =>
+//      val split = splitBasedOnInterface(ei)
+//      logger.warn(s"We could split $ei into\n${split.mkString("\n")}")
+
       val isValid = solver.checkValidity(ei, fp)
       if (isValid) Correct else Incorrect
     }

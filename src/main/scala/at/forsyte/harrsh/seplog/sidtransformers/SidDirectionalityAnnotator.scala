@@ -29,7 +29,6 @@ class SidDirectionalityAnnotator(sid: SidLike, direction: FocusDirection) extend
         root <- uniqueFocus(currentAnnotation, pred)
       } yield (pred.head, root)
       if (discoveredFocusVariables.isEmpty) {
-        val unrooted = sid.preds.map(_.head).toSet[String] -- currentAnnotation.keySet
         currentAnnotation
       } else {
         val extendedAnnotation = currentAnnotation ++ discoveredFocusVariables

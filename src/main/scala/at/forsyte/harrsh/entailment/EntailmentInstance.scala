@@ -12,15 +12,19 @@ case class EntailmentQuerySide(sid: RichSid, topLevelConstraint: TopLevelConstra
 
 case class EntailmentInstance(lhs: EntailmentQuerySide, rhs: EntailmentQuerySide, entailmentHolds: Option[Boolean]) {
 
-  override def toString: String = prettyPrint
+  private def statusStr = entailmentHolds match {
+    case None => "unknown"
+    case Some(b) => ""+b
+  }
+
+  override def toString: String = {
+    val ppSid = (sid: RichSid) => sid.toHarrshFormat.map("    " +).mkString("\n")
+    s"${lhs.topLevelConstraint} |= ${rhs.topLevelConstraint}\nLHS-SID {\n${ppSid(lhs.sid)}\n}\nRHS-SID {\n${ppSid(rhs.sid)}\n}\nStatus: $statusStr"
+  }
 
   def prettyPrint: String = {
     val idt = StringUtils.indent(4)_
-    val status = entailmentHolds match {
-      case None => "unknown"
-      case Some(b) => ""+b
-    }
-    s"EntailmentInstance {\n  LHS {\n${idt(lhs.prettyPrint)}\n  }\n  RHS {\n${idt(rhs.prettyPrint)}\n  }\n  Status: $status}"
+    s"EntailmentInstance {\n  LHS {\n${idt(lhs.prettyPrint)}\n  }\n  RHS {\n${idt(rhs.prettyPrint)}\n  }\n  Status: $statusStr}"
   }
 
   def sidPropertiesToString: String = {
