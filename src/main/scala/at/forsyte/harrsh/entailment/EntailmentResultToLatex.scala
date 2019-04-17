@@ -121,21 +121,27 @@ object EntailmentResultToLatex {
         (pred, ts) <- transitions
         predStr = s"\\subsection{Transitions for \\texttt{${Predicate.predicateHeadToLatex(pred)}}}\n\\begin{itemize}\n"
         endStr = "\\end{itemize}\n"
-      } yield predStr + ts.map(transitionToLatex).map("\\item Transition: " + _).mkString("\n\n") + endStr
+      } yield predStr + ts.toSeq.sortBy(_.newInIteration).map(transitionToLatex).map("\\item Transition: " + _).mkString("\n\n") + endStr
       byPred.mkString("\n\n")
     }
 
     private def transitionToLatex(transition: Transition[EntailmentProfile]) : String = {
-      val Transition(srcStates, body, Some(localState), headPredicate, trgState) = transition
+      val Transition(srcStates, body, Some(localState), headPredicate, trgState, iteration) = transition
       val localStr = entailmentCheckerResultToLatex.stateToLatex(localState).mkString("\n").drop(5)
       val srcStrs = (srcStates map (s => entailmentCheckerResultToLatex.stateToLatex(s).mkString("\n"))).mkString("\n\n")
       val srcStrInItemize = if (srcStrs.nonEmpty) s"\\begin{itemize}$srcStrs\\end{itemize}" else srcStrs
       val bodyStr = '$' + body.toLatex + '$'
       val trgStr = entailmentCheckerResultToLatex.stateToLatex(trgState).mkString("\n").drop(5)
-      s"\\begin{itemize} \\item Rule body: $bodyStr\n \\item Local profile: $localStr\n \\item Source profiles:\n\n \n$srcStrInItemize\n \\item Target profile:\n $trgStr \\end{itemize}"
+      s"""\\begin{itemize}
+         |  \\item Computed in iteration: $iteration
+         |  \\item Rule body: $bodyStr
+         |  \\item Local profile: $localStr
+         |  \\item Source profiles:
+         |
+         |  $srcStrInItemize
+         |  \\item Target profile: $trgStr
+         |\\end{itemize}""".stripMargin
     }
-
-
   }
 
   object entailmentCheckerResultToLatex {

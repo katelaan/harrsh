@@ -89,7 +89,7 @@ case class RefinementInstance(sid: SidLike,
       val stateToIndex : Map[ha.State, Int] = states.toSeq.zipWithIndex.toMap
 
       val innerRules = for {
-        Transition(states, body, _, head, headState) <- reachedTransitions.underlying.toSeq
+        Transition(states, body, _, head, headState, _) <- reachedTransitions.underlying.toSeq
       } yield (head+stateToIndex(headState), RuleBody(
         qvarNames = body.boundVars.toSeq map (_.toString),
         body = SymbolicHeap.addTagsToPredCalls(body, states map (s => ""+stateToIndex(s)))))
@@ -139,15 +139,16 @@ case class RefinementInstance(sid: SidLike,
                                        reached : ReachedStates,
                                        break: FlagWrapper,
                                        callsToInstantiate : Seq[String],
-                                       picked: Seq[ha.State] = Seq.empty,
-                                       target: Option[ha.State] = None) : Stream[Transition[ha.State]] = {
+                                       picked: Seq[ha.State],
+                                       target: Option[ha.State],
+                                       iteration: Int) : Stream[Transition[ha.State]] = {
     val isGoal = mode == OnTheFly && head == pred
     if (callsToInstantiate.isEmpty) {
       val trg = target.get
       if (isGoal && ha.isFinal(trg)) {
         break.flag = true
       }
-      Stream(Transition(picked, body, None, head, target.get))
+      Stream(Transition(picked, body, None, head, target.get, iteration))
     } else {
       for {
         next <- (reached.reachedStatesForPred(callsToInstantiate.head) filter (s => (!skipSinksAsSources) || ha.isNonSink(s))).toStream
@@ -155,7 +156,7 @@ case class RefinementInstance(sid: SidLike,
         extended = picked :+ next
         partialTarget <- ha.getPartialTargetsFor(extended, body)
         if ha.isNonSink(partialTarget)
-        completed <- incrementalInstantiation(head, body, reached, break, callsToInstantiate.tail, extended, Some(partialTarget))
+        completed <- incrementalInstantiation(head, body, reached, break, callsToInstantiate.tail, extended, Some(partialTarget), iteration)
       } yield completed
     }
   }
@@ -164,7 +165,8 @@ case class RefinementInstance(sid: SidLike,
                                             body: SymbolicHeap,
                                             reached : ReachedStates,
                                             previousTransitions : Transitions,
-                                            break: FlagWrapper): Stream[Transition[ha.State]] = {
+                                            break: FlagWrapper,
+                                            iteration: Int): Stream[Transition[ha.State]] = {
     val previousCombinations = previousTransitions.combinations
     // In on-the-fly refinement, short-circuit when a final state for the target pred is reached
     val isGoal = mode == OnTheFly && head == pred
@@ -178,7 +180,7 @@ case class RefinementInstance(sid: SidLike,
       }
       transition <- {
         logger.debug("Yes, targets not computed previously, get targets for " + body)
-        val trg = ha.getTransitionsFor(src, body, head)
+        val trg = ha.getTransitionsFor(src, body, head, iteration)
         if (isGoal && trg.exists(t => ha.isFinal(t.headState))) {
           break.flag = true
         }
@@ -195,7 +197,8 @@ case class RefinementInstance(sid: SidLike,
   case class FlagWrapper(var flag: Boolean)
 
   private def performSingleIteration(reached : ReachedStates,
-                                     previousTransitions : Transitions): Stream[Transition[ha.State]] = {
+                                     previousTransitions : Transitions,
+                                     iteration: Int): Stream[Transition[ha.State]] = {
     var break = FlagWrapper(false)
     for {
       pred <- sid.preds.toStream
@@ -205,10 +208,10 @@ case class RefinementInstance(sid: SidLike,
       if !break.flag
       _ = logger.debug(s"[$head]: Looking at defined sources for $head <= $body")
       transition <- if (!skipSinksAsSources || shouldTryAllSources(body)) {
-        considerAllSourceCombinations(head, body, reached, previousTransitions, break)
+        considerAllSourceCombinations(head, body, reached, previousTransitions, break, iteration)
       } else {
         logger.debug(s"[$head]: ${body.predCalls.size} calls => Will perform incremental instantiation")
-        incrementalInstantiation(head, body, reached, break, body.identsOfCalledPreds)
+        incrementalInstantiation(head, body, reached, break, body.identsOfCalledPreds, Seq.empty, None, iteration)
       }
     } yield transition
   }
@@ -225,7 +228,7 @@ case class RefinementInstance(sid: SidLike,
       RefinementState(empty = false, reached, Transitions.empty)
     } else {
       logger.debug("Beginning iteration #" + iteration)
-      val iterationResult = performSingleIteration(reached, transitions)
+      val iterationResult = performSingleIteration(reached, transitions, iteration)
       val newPairs = iterationResult map (t => (t.headPredicate, t.headState))
       val newReachedStates = reached ++ newPairs
 

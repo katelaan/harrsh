@@ -36,11 +36,11 @@ trait HeapAutomaton extends HarrshLogging {
     (None, None, getTargetsFor(src, lab))
   }
 
-  def getTransitionsFor(src : Seq[State], lab : SymbolicHeap, head: String) : Set[HeapAutomaton.Transition[State]] = {
+  def getTransitionsFor(src : Seq[State], lab : SymbolicHeap, head: String, iteration: Int) : Set[HeapAutomaton.Transition[State]] = {
     val (localState, instantiatedSourceStates, targets) = getTargetsAndLocalStatesFor(src, lab)
     for {
       target <- targets
-    } yield HeapAutomaton.Transition(instantiatedSourceStates.getOrElse(src), lab, localState, head, target)
+    } yield HeapAutomaton.Transition(instantiatedSourceStates.getOrElse(src), lab, localState, head, target, iteration)
   }
 
   def implementsPartialTargets: Boolean = false
@@ -56,6 +56,6 @@ trait HeapAutomaton extends HarrshLogging {
 
 object HeapAutomaton {
 
-  case class Transition[State](srcStates: Seq[State], body: SymbolicHeap, localState: Option[State], headPredicate: String, headState: State)
+  case class Transition[State](srcStates: Seq[State], body: SymbolicHeap, localState: Option[State], headPredicate: String, headState: State, newInIteration: Int)
 
 }

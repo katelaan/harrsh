@@ -25,12 +25,12 @@ class EntailmentAutomaton(sid: RichSid, rhs: TopLevelConstraint) extends HeapAut
 
   override def getTargetsFor(src: Seq[State], lab: SymbolicHeap) : Set[State] = {
     logger.debug(s"Computing target for $lab from source states:\n${src.mkString("\n")}")
-    getTransitionsFor(src, lab, head="DON'T CARE").map(_.headState)
+    getTransitionsFor(src, lab, head = "DON'T CARE", iteration = 0).map(_.headState)
   }
 
-  override def getTransitionsFor(src : Seq[State], lab : SymbolicHeap, head: String) : Set[Transition[EntailmentProfile]] = {
+  override def getTransitionsFor(src : Seq[State], lab : SymbolicHeap, head: String, iteration: Int) : Set[Transition[EntailmentProfile]] = {
     logger.debug(s"Computing target for $lab from source states:\n${src.mkString("\n")}")
-    TargetProfile(src, lab, sid).getTransition(lab, head).toSet
+    TargetProfile(src, lab, sid).getTransition(lab, head, iteration).toSet
   }
 
 }

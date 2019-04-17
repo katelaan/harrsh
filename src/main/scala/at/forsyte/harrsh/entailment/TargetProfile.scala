@@ -5,24 +5,25 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive._
 
 sealed trait TargetProfile {
-  def getTransition(body: SymbolicHeap, head: String): Option[Transition[EntailmentProfile]]
+  def getTransition(body: SymbolicHeap, head: String, iteration: Int): Option[Transition[EntailmentProfile]]
 }
 
 case object InconsistentProfile extends TargetProfile with HarrshLogging {
-  override def getTransition(body: SymbolicHeap, head: String): Option[Transition[EntailmentProfile]] = {
+  override def getTransition(body: SymbolicHeap, head: String, iteration: Int): Option[Transition[EntailmentProfile]] = {
     logger.debug(s"Transition undefined (inconsistent source instantiations or inconsistent composition)")
     None
   }
 }
 
 case class ConsistentTargetProfile(localProfile: EntailmentProfile, renamedSourceStates: RenamedSourceStates, targetProfile: EntailmentProfile) extends TargetProfile {
-  override def getTransition(body: SymbolicHeap, head: String): Option[Transition[EntailmentProfile]] = {
+  override def getTransition(body: SymbolicHeap, head: String, iteration: Int): Option[Transition[EntailmentProfile]] = {
     Some(Transition(
       renamedSourceStates.renamedProfilesByState,
       body,
       Some(localProfile),
       head,
-      targetProfile))
+      targetProfile,
+      iteration))
   }
 }
 
