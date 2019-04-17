@@ -1,6 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.entailment.EntailmentChecker.{EntailmentCheckerStats, EntailmentFixedPointStats}
+import at.forsyte.harrsh.heapautomata.HeapAutomaton.Transition
 import at.forsyte.harrsh.main.{HarrshLogging, IOConfig, ProblemStatus, SatQuery}
 import at.forsyte.harrsh.main.ProblemStatus.{Correct, Incorrect, Unknown}
 import at.forsyte.harrsh.pure.{Closure, PureEntailment}
@@ -158,7 +159,7 @@ object SolverFactory extends HarrshLogging {
   private def runEntailmentAutomaton(config: EntailmentConfig)(entailmentInstance: EntailmentInstance): Map[String, Set[EntailmentProfile]] = {
     val EntailmentInstance(lhs, rhs, _) = entailmentInstance
     val aut = new EntailmentAutomaton(rhs.sid, rhs.topLevelConstraint)
-    val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhs.sid, aut, config.io.reportProgress)
+    val (reachableStatesByPred, transitionsByHeadPred: Map[String, Set[Transition[EntailmentProfile]]]) = RefinementAlgorithms.fullRefinementTrace(lhs.sid, aut, config.io.reportProgress)
 
     if (config.io.printResult) {
       println(FixedPointSerializer(entailmentInstance, markFinalProfiles = false)(reachableStatesByPred))

@@ -5,7 +5,7 @@ import at.forsyte.harrsh.heapautomata.utils.TrackingInfo
 import at.forsyte.harrsh.main._
 import at.forsyte.harrsh.seplog._
 import at.forsyte.harrsh.seplog.Var._
-import at.forsyte.harrsh.util.{Combinators, StringUtils, ToLatex}
+import at.forsyte.harrsh.util.{Combinators, ToLatex}
 import ToLatex._
 import at.forsyte.harrsh.seplog
 
@@ -277,20 +277,14 @@ object SymbolicHeap extends HarrshLogging {
   implicit val symbolicHeapToLatex: ToLatex[SymbolicHeap] = (sh: SymbolicHeap, naming: Naming) => {
     val indexedNaming = Var.Naming.indexify(naming)
 
-    val prefix = (sh.boundVars map indexedNaming map ("\\exists "+_)).mkString(" ")
+    val prefix = (sh.boundVars map (_.toLatex(indexedNaming)) map ("\\exists "+_)).mkString(" ")
     val spatialString = if (sh.pointers.isEmpty && sh.predCalls.isEmpty) {
       "\\emp"
     } else {
       (sh.pointers.map(_.toLatex(indexedNaming)) ++ sh.predCalls.map(_.toLatex(indexedNaming))).mkString(" * ")
     }
     val pureString = if (sh.pure.isEmpty) "" else sh.pure.map(_.toLatex(indexedNaming)).mkString(" : \\{", ", ", "\\}")
-    val unicodeString = prefix + (if (prefix.isEmpty) "" else "\\colon~") + spatialString + pureString
-
-    StringUtils.literalReplacements(Seq(
-      "\u03b1" -> "\\alpha",
-      "__" -> "\\beta_",
-      NullConst.toString -> "\\nil"
-    ), unicodeString)
+    prefix + (if (prefix.isEmpty) "" else "\\colon~") + spatialString + pureString
   }
 
 }

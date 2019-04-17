@@ -9,16 +9,20 @@ sealed trait RenamedSourceStates {
     case ConsistentRenamedSourceStates(_) => true
   }
 
+  val renamedProfilesByState: Seq[EntailmentProfile]
+
   def +:(other: EntailmentProfile) : Seq[EntailmentProfile]
 }
 
 case object InconsistentRenamedSourceStates extends RenamedSourceStates {
 
+  override val renamedProfilesByState: Seq[Nothing] = Seq.empty
+
   def +:(other: EntailmentProfile) : Seq[EntailmentProfile] = throw new IllegalStateException("Can't process inconsistent source states")
 
 }
 
-case class ConsistentRenamedSourceStates(renamedProfilesByState: Seq[EntailmentProfile]) extends RenamedSourceStates {
+case class ConsistentRenamedSourceStates(override val renamedProfilesByState: Seq[EntailmentProfile]) extends RenamedSourceStates {
 
   def +:(localProfile: EntailmentProfile) : Seq[EntailmentProfile] = {
     localProfile +: renamedProfilesByState

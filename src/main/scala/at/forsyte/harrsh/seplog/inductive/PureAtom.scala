@@ -2,8 +2,9 @@ package at.forsyte.harrsh.seplog.inductive
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.Var.Naming
-import at.forsyte.harrsh.seplog.{NullConst, Renaming, Var}
+import at.forsyte.harrsh.seplog.{Renaming, Var}
 import at.forsyte.harrsh.util.ToLatex
+import at.forsyte.harrsh.util.ToLatex._
 
 /**
   * Created by jkatelaa on 10/3/16.
@@ -42,7 +43,7 @@ case class PureAtom(l: Var, r: Var, isEquality: Boolean) extends SepLogAtom with
 object PureAtom {
 
   implicit val pureAtomToLatex: ToLatex[PureAtom] = (atom: PureAtom, naming: Naming) => {
-    naming(atom.l) + (if (atom.isEquality) " = " else " \\neq ") + naming(atom.r)
+    atom.l.toLatex(naming) + (if (atom.isEquality) " = " else " \\neq ") + atom.r.toLatex(naming)
   }
 
 }

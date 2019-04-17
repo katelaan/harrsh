@@ -1,21 +1,29 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.heapautomata.HeapAutomaton.Transition
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive._
 
 sealed trait TargetProfile {
-  def get: Option[EntailmentProfile]
+  def getTransition(body: SymbolicHeap, head: String): Option[Transition[EntailmentProfile]]
 }
 
 case object InconsistentProfile extends TargetProfile with HarrshLogging {
-  override def get: Option[EntailmentProfile] = {
+  override def getTransition(body: SymbolicHeap, head: String): Option[Transition[EntailmentProfile]] = {
     logger.debug(s"Transition undefined (inconsistent source instantiations or inconsistent composition)")
     None
   }
 }
 
-case class ConsistentTargetProfile(targetProfile: EntailmentProfile) extends TargetProfile {
-  override def get: Option[EntailmentProfile] = Some(targetProfile)
+case class ConsistentTargetProfile(localProfile: EntailmentProfile, renamedSourceStates: RenamedSourceStates, targetProfile: EntailmentProfile) extends TargetProfile {
+  override def getTransition(body: SymbolicHeap, head: String): Option[Transition[EntailmentProfile]] = {
+    Some(Transition(
+      renamedSourceStates.renamedProfilesByState,
+      body,
+      Some(localProfile),
+      head,
+      targetProfile))
+  }
 }
 
 object TargetProfile extends HarrshLogging {
@@ -40,7 +48,7 @@ object TargetProfile extends HarrshLogging {
         InconsistentProfile
       case Some(composed) =>
         logger.debug("Composition result: " + composed)
-        ConsistentTargetProfile(composed)
+        ConsistentTargetProfile(local, instantiatedProfiles, composed)
     }
   }
 

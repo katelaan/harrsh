@@ -3,6 +3,7 @@ package at.forsyte.harrsh.seplog.inductive
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog.{NullConst, Renaming, Var}
 import at.forsyte.harrsh.util.ToLatex
+import at.forsyte.harrsh.util.ToLatex._
 
 /**
   * Created by jens on 2/28/17.
@@ -29,7 +30,7 @@ case class PredCall(name : String, args : Seq[Var]) extends SepLogAtom {
 
 object PredCall {
   implicit val predCallToLatex: ToLatex[PredCall] = (predCall: PredCall, naming: Naming) => {
-    val argString = predCall.args.map(naming).mkString(",")
+    val argString = predCall.args.map(_.toLatex(naming)).mkString(",")
     s"\\RuleName{${Predicate.predicateHeadToLatex(predCall.name)}}($argString)"
   }
 }

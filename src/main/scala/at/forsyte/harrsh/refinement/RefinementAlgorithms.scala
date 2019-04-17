@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.refinement
 
+import at.forsyte.harrsh.heapautomata.HeapAutomaton.Transition
 import at.forsyte.harrsh.heapautomata._
 import at.forsyte.harrsh.seplog.inductive._
 import at.forsyte.harrsh.util.Combinators
@@ -39,17 +40,16 @@ object RefinementAlgorithms {
     }.map(_._1)
   }
   
-  def fullRefinementTrace(sid: SidLike, ha: HeapAutomaton, reportProgress: Boolean = false): (Map[String, Set[ha.State]], Map[String,Set[(Seq[ha.State], RuleBody, ha.State)]]) = {
+  def fullRefinementTrace(sid: SidLike, ha: HeapAutomaton, reportProgress: Boolean = false): (Map[String, Set[ha.State]], Map[String,Set[Transition[ha.State]]]) = {
     // TODO: Make this more readable & reduce code duplication wrt. allReachableStates
     val res = RefinementInstance(sid, ha, None, RefinementInstance.FullRefinement, None, skipSinksAsSources = false, reportProgress).run
     val typedResultStates = res.reachedStates.pairs.map {
       case (str, state) => (str, state.asInstanceOf[ha.State])
     }
     val statesByPred: Map[String, Set[ha.State]] = typedResultStates.groupBy(_._1).mapValues(pairs => pairs.map(_._2))
-    val transitions = res.reachedTransitions map {
-      te => (te.headPredicate, (te.srcStates.map(_.asInstanceOf[ha.State]), sid(te.headPredicate).rules.find(_.body == te.body).get, te.headState.asInstanceOf[ha.State]))
+    val transitionMap: Map[String, Set[Transition[ha.State]]] = {
+      res.reachedTransitions.underlying.groupBy(_.headPredicate) mapValues (_ map (_.asInstanceOf[Transition[ha.State]]))
     }
-    val transitionMap: Map[String,Set[(Seq[ha.State], RuleBody, ha.State)]] = transitions.groupBy(_._1).mapValues(pairs => pairs.map(_._2))
     (statesByPred, transitionMap)
   }
 

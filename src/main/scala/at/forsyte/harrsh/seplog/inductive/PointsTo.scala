@@ -1,8 +1,9 @@
 package at.forsyte.harrsh.seplog.inductive
 
-import at.forsyte.harrsh.seplog.{NullConst, Renaming, Var}
+import at.forsyte.harrsh.seplog.{Renaming, Var}
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.util.ToLatex
+import at.forsyte.harrsh.util.ToLatex._
 
 /**
   * Created by jens on 3/14/17.
@@ -29,8 +30,8 @@ object PointsTo {
   def apply(from : Var, to : Var) : PointsTo = PointsTo(from, Seq(to))
 
   implicit val pointsToToLatex: ToLatex[PointsTo] = (pointsTo: PointsTo, naming: Naming) => {
-    val argString = pointsTo.to.map(naming).mkString(",")
-    s"${naming(pointsTo.from)} \\rightarrow ($argString)"
+    val argString = pointsTo.to.map(_.toLatex(naming)).mkString(",")
+    s"${pointsTo.from.toLatex(naming)} \\rightarrow ($argString)"
   }
 
 

@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.seplog
 
 import at.forsyte.harrsh.seplog.inductive.{PointsTo, PureAtom}
-import at.forsyte.harrsh.util.StringUtils
+import at.forsyte.harrsh.util.{StringUtils, ToLatex}
 
 import scala.collection.SortedSet
 
@@ -79,12 +79,23 @@ case class BoundVar(index: Int) extends Var {
 
 object Var {
 
-  implicit def ord[T <: Var]: Ordering[T] = Ordering.fromLessThan(_<_)
-
   val NullString = "null"
   val NilString = "nil"
   val BoundVarPrefix = "\u03b1"
   val FreeVarDefaultPrefix = "x"
+
+  implicit def ord[T <: Var]: Ordering[T] = Ordering.fromLessThan(_<_)
+
+  private val latexReplacements = Seq(
+    "\u03b1" -> "\\alpha",
+    "__" -> "\\beta_",
+    NilString -> "\\nil",
+    NullString -> "\\nil"
+  )
+
+  implicit val varToLatex: ToLatex[Var] = (v: Var, naming: Naming) => {
+    StringUtils.literalReplacements(latexReplacements, naming(v))
+  }
 
   def isNullString(s: String): Boolean = {
     s == NullString || s == NilString

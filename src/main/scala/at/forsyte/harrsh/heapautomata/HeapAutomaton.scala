@@ -2,8 +2,6 @@ package at.forsyte.harrsh.heapautomata
 
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.inductive.SymbolicHeap
-import at.forsyte.harrsh.util.Combinators
-import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 /**
   * Created by jens on 10/15/16.
@@ -34,6 +32,17 @@ trait HeapAutomaton extends HarrshLogging {
     */
   def getTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State]
 
+  def getTargetsAndLocalStatesFor(src : Seq[State], lab : SymbolicHeap) : (Option[State], Option[Seq[State]], Set[State]) = {
+    (None, None, getTargetsFor(src, lab))
+  }
+
+  def getTransitionsFor(src : Seq[State], lab : SymbolicHeap, head: String) : Set[HeapAutomaton.Transition[State]] = {
+    val (localState, instantiatedSourceStates, targets) = getTargetsAndLocalStatesFor(src, lab)
+    for {
+      target <- targets
+    } yield HeapAutomaton.Transition(instantiatedSourceStates.getOrElse(src), lab, localState, head, target)
+  }
+
   def implementsPartialTargets: Boolean = false
 
   /**
@@ -42,5 +51,11 @@ trait HeapAutomaton extends HarrshLogging {
   def getPartialTargetsFor(src : Seq[State], lab : SymbolicHeap) : Set[State] = throw new NotImplementedError("No partial target computation for this heap automaton")
 
   override def toString = description
+
+}
+
+object HeapAutomaton {
+
+  case class Transition[State](srcStates: Seq[State], body: SymbolicHeap, localState: Option[State], headPredicate: String, headState: State)
 
 }

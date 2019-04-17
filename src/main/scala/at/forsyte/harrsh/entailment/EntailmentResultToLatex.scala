@@ -1,14 +1,22 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.heapautomata.HeapAutomaton.Transition
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var.Naming
-import at.forsyte.harrsh.seplog.inductive.{Predicate, PureAtom, RuleBody, Sid}
+import at.forsyte.harrsh.seplog.inductive.{Predicate, Sid}
 import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
 
 object EntailmentResultToLatex {
 
   val decompToLatex: ToLatex[ContextDecomposition] = (a: ContextDecomposition, _: Naming) => decompositionToLatexLines(a).mkString("\n")
+
+  private def varToMath(v: Var) = v.toLatex(Naming.indexify(Naming.DefaultNaming))
+
+  private def varsToMath(vs: Iterable[Var]) = {
+    val mathVars = vs map varToMath
+    if (mathVars.size == 1) mathVars.head else mathVars.mkString("\\{", ",", "\\}")
+  }
 
   object decompositionToLatexLines {
 
@@ -58,11 +66,6 @@ object EntailmentResultToLatex {
       rootTikz ++ callsTikz ++ fitTikz
     }
 
-    private val varsToMath = (v: Var) => Naming.indexify(Naming.DefaultNaming)(v) match {
-      case "null" => "\\nil"
-      case other => other
-    }
-
 //    private def pureConstraintToTikz(pureConstraints: PureConstraintTracker, ctxRootId: String, nodeId: String, style: String): Option[String] = {
 //      val pureAtomsToLatex = (deqs: Set[PureAtom]) =>
 //        if (deqs.isEmpty) {
@@ -93,36 +96,16 @@ object EntailmentResultToLatex {
 
       val (pred, subst) = (nodeLabel.pred, nodeLabel.subst)
       val paramLabels = (pred.params, subst.toSeq).zipped.map {
-        case (from, to) => annotateWithUsageInfo(to)(to.map(varsToMath).mkString(","))
+        case (from, to) => annotateWithUsageInfo(to)(varsToMath(to))
       }
       val tikzNodeLabel = '$' + "\\mathtt{" + pred.headToLatex + "}" + paramLabels.mkString("(", ", ", ")") + '$'
       Stream(s"\\node[$NodeLabelStyleClass,$style] ($nodeId) {$tikzNodeLabel};")
     }
   }
 
-//    private def nodeLabelToLatexLines(nodeLabel: ContextPredCall, usageInfo: VarUsageByLabel, nodeId: String, style: String): Stream[String] = {
-//      val tikzNodeLabel = nodeLabel.symbolicHeapLabel
-//      val annotateWithUsageInfo = (vs: Set[Var]) => {
-//        usageInfo(vs) match {
-//          case VarUnused => ""
-//          case VarAllocated => "\\overset{\\rightsquigarrow}"
-//          case VarReferenced => "\\overset{\\leftsquigarrow}"
-//        }
-//      }
-//
-//      val (pred, subst) = (nodeLabel.pred, nodeLabel.subst)
-//      val pairs = (pred.params, subst.toSeq).zipped.map {
-//        case (from, to) => s"${annotateWithUsageInfo(to)}{${varsToMath(from)}}" + " \\rightarrow " + to.map(varsToMath).mkString(",")
-//      }
-//      val substLatex = '$' + pairs.mkString(";") + '$'
-//
-//      Stream(s"\\node[$NodeLabelStyleClass,$style] ($nodeId) {$tikzNodeLabel \\nodepart{two} \\footnotesize $substLatex};")
-//    }
-//  }
-
   object entailmentFixedPointToLatex {
 
-    def apply(ei: EntailmentInstance, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentProfile]], transitions: Map[String, Set[(Seq[EntailmentProfile], RuleBody, EntailmentProfile)]]): String = {
+    def apply(ei: EntailmentInstance, aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentProfile]], transitions: Map[String, Set[Transition[EntailmentProfile]]]): String = {
       val resultTex = entailmentCheckerResultToLatex(aut, statesByPred)
       val queryTex = s"$$${ei.lhs.topLevelConstraint.toSymbolicHeap.toLatex} \\models ${ei.rhs.topLevelConstraint.toSymbolicHeap.toLatex}$$"
       val combinedSid = Sid(startPred = "", description = "", preds = ei.lhs.sid.preds ++ ei.rhs.sid.preds.filterNot(ei.lhs.sid.preds.contains))
@@ -133,7 +116,7 @@ object EntailmentResultToLatex {
         .replace(TransitionPlaceholder, transitionsToLatex(transitions))
     }
 
-    private def transitionsToLatex(transitions: Map[String, Set[(Seq[EntailmentProfile], RuleBody, EntailmentProfile)]]): String = {
+    private def transitionsToLatex(transitions: Map[String, Set[Transition[EntailmentProfile]]]): String = {
       val byPred = for {
         (pred, ts) <- transitions
         predStr = s"\\subsection{Transitions for \\texttt{${Predicate.predicateHeadToLatex(pred)}}}\n\\begin{itemize}\n"
@@ -142,14 +125,14 @@ object EntailmentResultToLatex {
       byPred.mkString("\n\n")
     }
 
-    private def transitionToLatex(transition: (Seq[EntailmentProfile], RuleBody, EntailmentProfile)) : String = {
-      val (srcs, rule, trg) = transition
-      // TODO: Remove code duplication
-      val srcStrs = (srcs map (s => entailmentCheckerResultToLatex.stateToLatex(trg, s => false).mkString("\n"))).mkString("\n\n")
+    private def transitionToLatex(transition: Transition[EntailmentProfile]) : String = {
+      val Transition(srcStates, body, Some(localState), headPredicate, trgState) = transition
+      val localStr = entailmentCheckerResultToLatex.stateToLatex(localState).mkString("\n").drop(5)
+      val srcStrs = (srcStates map (s => entailmentCheckerResultToLatex.stateToLatex(s).mkString("\n"))).mkString("\n\n")
       val srcStrInItemize = if (srcStrs.nonEmpty) s"\\begin{itemize}$srcStrs\\end{itemize}" else srcStrs
-      val bodyStr = '$' + rule.body.toLatex(rule.naming).replaceAllLiterally("α", """\alpha""") + '$'
-      val trgStr = entailmentCheckerResultToLatex.stateToLatex(trg, _ => false).mkString("\n").drop(5)
-      s"\\begin{itemize}\\item Source states:\n\n \n$srcStrInItemize\n \\item Rule body: $bodyStr\n \\item Target state:\n $trgStr \\end{itemize}"
+      val bodyStr = '$' + body.toLatex + '$'
+      val trgStr = entailmentCheckerResultToLatex.stateToLatex(trgState).mkString("\n").drop(5)
+      s"\\begin{itemize} \\item Rule body: $bodyStr\n \\item Local profile: $localStr\n \\item Source profiles:\n\n \n$srcStrInItemize\n \\item Target profile:\n $trgStr \\end{itemize}"
     }
 
 
@@ -158,22 +141,20 @@ object EntailmentResultToLatex {
   object entailmentCheckerResultToLatex {
 
     def apply(aut: EntailmentAutomaton, statesByPred: Map[String, Set[EntailmentProfile]]): String = {
-      val isFinal = (s: EntailmentProfile) => aut.isFinal(s)
-      statesToLatex(statesByPred, isFinal)
+      statesToLatex(statesByPred)
     }
 
-    def statesToLatex(statesByPred: Map[String, Set[EntailmentProfile]], isFinal: EntailmentProfile => Boolean): String = {
-      val lines = Stream("\\begin{itemize}") ++ statesByPred.toStream.flatMap(pair => Stream("\\item") ++ predToLatex(pair._1, pair._2, isFinal)).map(indent) ++ Stream("\\end{itemize}")
+    def statesToLatex(statesByPred: Map[String, Set[EntailmentProfile]]): String = {
+      val lines = Stream("\\begin{itemize}") ++ statesByPred.toStream.flatMap(pair => Stream("\\item") ++ predToLatex(pair._1, pair._2)).map(indent) ++ Stream("\\end{itemize}")
       lines.mkString("\n")
     }
 
-    def predToLatex(pred: String, states: Set[EntailmentProfile], isFinal: EntailmentProfile => Boolean): Stream[String] = {
-      Stream(s"Reachable states for \\texttt{${Predicate.predicateHeadToLatex(pred)}}:", "\\begin{itemize}") ++ states.toStream.flatMap(s => stateToLatex(s, isFinal)).map(indent) ++ Stream("\\end{itemize}")
+    def predToLatex(pred: String, states: Set[EntailmentProfile]): Stream[String] = {
+      Stream(s"Reachable profiles for \\texttt{${Predicate.predicateHeadToLatex(pred)}}:", "\\begin{itemize}") ++ states.toStream.flatMap(s => stateToLatex(s)).map(indent) ++ Stream("\\end{itemize}")
     }
 
-    def stateToLatex(state: EntailmentProfile, isFinal: EntailmentProfile => Boolean): Stream[String] = {
-      val finalStr = if (isFinal(state)) "\\textbf{FINAL} " else ""
-      val header = s"\\item ${finalStr}State/Profile with free variables ${state.params.toSeq.sorted.mkString("$<", ", ", ">$")} and context decompositions:"
+    def stateToLatex(state: EntailmentProfile): Stream[String] = {
+      val header = s"\\item Profile with free variables ${state.params.toSeq.sorted.map(EntailmentResultToLatex.varToMath).mkString("$\\langle ", ", ", "\\rangle$")} and context decompositions:"
 
       val decompsStream = if (state.decompsOrEmptySet.isEmpty) {
         Stream("\\item No consistent context decomposition (failure state)")

@@ -1,5 +1,6 @@
 package at.forsyte.harrsh.entailment
 
+import at.forsyte.harrsh.heapautomata.HeapAutomaton.Transition
 import at.forsyte.harrsh.heapautomata.{HeapAutomaton, InconsistentState}
 import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.seplog.{FreeVar, Renaming, Var}
@@ -11,13 +12,6 @@ import at.forsyte.harrsh.seplog.inductive._
   * @param rhs The predicate call on the right-hand side of the entailment.
   */
 class EntailmentAutomaton(sid: RichSid, rhs: TopLevelConstraint) extends HeapAutomaton with InconsistentState {
-
-  // The entailment checker only works for rooted SIDs that satisfy progress
-  // TODO: Check rootedness and progress for the part of the SID that does not correspond to the top-level predicate?
-  //assert(sid.isRooted)
-  //assert(sid.satisfiesProgress)
-
-  //if (sid.preds.flatMap(_.rules).exists(!_.hasPointer)) throw new IllegalArgumentException("For the right-hand side of the entailment there is currently no support for rules that don't allocate memory")
 
   override val description: String = s"EntailmentAutomaton($rhs)"
 
@@ -31,7 +25,12 @@ class EntailmentAutomaton(sid: RichSid, rhs: TopLevelConstraint) extends HeapAut
 
   override def getTargetsFor(src: Seq[State], lab: SymbolicHeap) : Set[State] = {
     logger.debug(s"Computing target for $lab from source states:\n${src.mkString("\n")}")
-    TargetProfile(src, lab, sid).get.toSet
+    getTransitionsFor(src, lab, head="DON'T CARE").map(_.headState)
+  }
+
+  override def getTransitionsFor(src : Seq[State], lab : SymbolicHeap, head: String) : Set[Transition[EntailmentProfile]] = {
+    logger.debug(s"Computing target for $lab from source states:\n${src.mkString("\n")}")
+    TargetProfile(src, lab, sid).getTransition(lab, head).toSet
   }
 
 }

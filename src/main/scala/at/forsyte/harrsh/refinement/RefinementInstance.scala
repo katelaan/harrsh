@@ -4,8 +4,8 @@ import java.text.SimpleDateFormat
 
 import RefinementInstance._
 import at.forsyte.harrsh.heapautomata.HeapAutomaton
+import at.forsyte.harrsh.heapautomata.HeapAutomaton.Transition
 import at.forsyte.harrsh.main.HarrshLogging
-import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.inductive._
 
 import scala.annotation.tailrec
@@ -32,10 +32,10 @@ case class RefinementInstance(sid: SidLike,
   val pred: String = sid.startPred
   logger.debug("Will run refinement with goal predicate " + pred)
 
-  type TransitionTargetCombination = (Seq[ha.State], SymbolicHeap, String)
-  type IterationResult = Seq[((String, ha.State), TransitionTargetCombination)]
-
   case class ReachedStates(pairs: Set[(String, ha.State)], cachedFinalStates: Option[Set[ha.State]] = None) {
+
+    lazy val allReachedStates: Set[ha.State] = pairs.map(_._2)
+
     // TODO: These are just the final states for the start predicate. Need to modify this when we pass a top-level query
     val finalStates : Set[ha.State] = cachedFinalStates.getOrElse{
       ReachedStates.finalStates(pairs)
@@ -59,66 +59,24 @@ case class RefinementInstance(sid: SidLike,
     def finalStates(pairs: Iterable[(String, ha.State)]): Set[ha.State] = pairs.filter(isFinal).map(_._2).toSet
   }
 
-  case class TransitionInstance(srcStates: Seq[ha.State], body: SymbolicHeap, headPredicate: String, headState: ha.State)
+  case class Transitions(underlying: Set[Transition[ha.State]]) {
 
-  /**
-    * Mapping from src, label and head predicate to target state for reconstructing the full assignment
-    * (Only used in computation of full refinement, not in on-the-fly refinement.)
-    */
-  case class TransitionsToTrgStateMap(map: Map[TransitionTargetCombination, Set[ha.State]] = Map.empty) {
+    type TransitionTargetCombination = (Seq[ha.State], SymbolicHeap, String)
+    lazy val combinations: Set[TransitionTargetCombination] = underlying map (t => (t.srcStates, t.body, t.headPredicate))
 
-    def apply(k: TransitionTargetCombination) = map(k)
-
-    def extendWith(kvPairs: Seq[((Seq[ha.State], SymbolicHeap, String), ha.State)]): TransitionsToTrgStateMap = {
-      // TODO: Stateless solution
-      var newMap = map
-      for ((k,v) <- kvPairs) {
-        if (newMap.isDefinedAt(k)) {
-          newMap = newMap + (k -> (newMap(k) + v))
-        } else {
-          newMap = newMap + (k -> Set(v))
-        }
-      }
-      TransitionsToTrgStateMap(newMap)
-    }
-  }
-
-  case class Transitions(combinations: Set[TransitionTargetCombination], maybeCombsToStates: Option[TransitionsToTrgStateMap] = None) {
-
-    def extend(iterationResult: IterationResult): Transitions = {
-      val newCombs = iterationResult map (_._2)
-      val unionCombs = combinations ++ newCombs
-
-      val extendedTargets = maybeCombsToStates map { combsToStates =>
-        // Remember the targets of each of the combinations we tried
-        val kvPairs = iterationResult map {
-          case ((_, trg), comb) => (comb, trg)
-        }
-        combsToStates.extendWith(kvPairs)
-      }
-
-      Transitions(unionCombs, extendedTargets)
-    }
-
-    def toTransitionInstances : Set[TransitionInstance] = {
-      val maybeInstances = maybeCombsToStates map { combsToStates =>
-        for {
-          comb <- combinations
-          trg <- combsToStates(comb)
-        } yield TransitionInstance(comb._1, comb._2, comb._3, trg)
-      }
-
-      maybeInstances.getOrElse(Set.empty)
+    def extend(iterationResult: Iterable[Transition[ha.State]]): Transitions = {
+      Transitions(underlying ++ iterationResult)
     }
 
   }
+
   object Transitions {
-    def empty: Transitions = Transitions(Set.empty, if (mode == FullRefinement) Some(TransitionsToTrgStateMap()) else None)
+    def empty: Transitions = Transitions(Set.empty)
   }
 
   case class RefinementState(empty: Boolean,
                              reachedStates: ReachedStates,
-                             reachedTransitions: Set[TransitionInstance])
+                             reachedTransitions: Transitions)
   {
 
     /**
@@ -127,11 +85,11 @@ case class RefinementInstance(sid: SidLike,
       */
     def toSID : (Sid,Boolean) = {
       // Assign suffixes to each state
-      val states : Set[ha.State] = (for (TransitionInstance(states, _, _, headState) <- reachedTransitions) yield states :+ headState).flatten
+      val states : Set[ha.State] = reachedStates.allReachedStates
       val stateToIndex : Map[ha.State, Int] = states.toSeq.zipWithIndex.toMap
 
       val innerRules = for {
-        TransitionInstance(states, body, head, headState) <- reachedTransitions.toSeq
+        Transition(states, body, _, head, headState) <- reachedTransitions.underlying.toSeq
       } yield (head+stateToIndex(headState), RuleBody(
         qvarNames = body.boundVars.toSeq map (_.toString),
         body = SymbolicHeap.addTagsToPredCalls(body, states map (s => ""+stateToIndex(s)))))
@@ -182,14 +140,14 @@ case class RefinementInstance(sid: SidLike,
                                        break: FlagWrapper,
                                        callsToInstantiate : Seq[String],
                                        picked: Seq[ha.State] = Seq.empty,
-                                       target: Option[ha.State] = None) : Stream[(Seq[ha.State],ha.State)] = {
+                                       target: Option[ha.State] = None) : Stream[Transition[ha.State]] = {
     val isGoal = mode == OnTheFly && head == pred
     if (callsToInstantiate.isEmpty) {
       val trg = target.get
       if (isGoal && ha.isFinal(trg)) {
         break.flag = true
       }
-      Stream((picked, target.get))
+      Stream(Transition(picked, body, None, head, target.get))
     } else {
       for {
         next <- (reached.reachedStatesForPred(callsToInstantiate.head) filter (s => (!skipSinksAsSources) || ha.isNonSink(s))).toStream
@@ -206,7 +164,7 @@ case class RefinementInstance(sid: SidLike,
                                             body: SymbolicHeap,
                                             reached : ReachedStates,
                                             previousTransitions : Transitions,
-                                            break: FlagWrapper): Stream[(Seq[ha.State],ha.State)] = {
+                                            break: FlagWrapper): Stream[Transition[ha.State]] = {
     val previousCombinations = previousTransitions.combinations
     // In on-the-fly refinement, short-circuit when a final state for the target pred is reached
     val isGoal = mode == OnTheFly && head == pred
@@ -218,16 +176,15 @@ case class RefinementInstance(sid: SidLike,
         logger.debug("Computing targets for " + head + " <= " + body + " from source " + src + " ?")
         !previousCombinations.contains((src, body, head))
       }
-      trg <- {
+      transition <- {
         logger.debug("Yes, targets not computed previously, get targets for " + body)
-        val trg = ha.getTargetsFor(src, body)
-        if (isGoal && trg.exists(ha.isFinal)) {
-          //println("Found target")
+        val trg = ha.getTransitionsFor(src, body, head)
+        if (isGoal && trg.exists(t => ha.isFinal(t.headState))) {
           break.flag = true
         }
         trg
       }
-    } yield (src, trg)
+    } yield transition
   }
 
   private def shouldTryAllSources(sh: SymbolicHeap) = {
@@ -238,7 +195,7 @@ case class RefinementInstance(sid: SidLike,
   case class FlagWrapper(var flag: Boolean)
 
   private def performSingleIteration(reached : ReachedStates,
-                                     previousTransitions : Transitions): IterationResult = {
+                                     previousTransitions : Transitions): Stream[Transition[ha.State]] = {
     var break = FlagWrapper(false)
     for {
       pred <- sid.preds.toStream
@@ -247,13 +204,13 @@ case class RefinementInstance(sid: SidLike,
       RuleBody(_, body) <- pred.rules
       if !break.flag
       _ = logger.debug(s"[$head]: Looking at defined sources for $head <= $body")
-      (src,trg) <- if (!skipSinksAsSources || shouldTryAllSources(body)) {
+      transition <- if (!skipSinksAsSources || shouldTryAllSources(body)) {
         considerAllSourceCombinations(head, body, reached, previousTransitions, break)
       } else {
         logger.debug(s"[$head]: ${body.predCalls.size} calls => Will perform incremental instantiation")
         incrementalInstantiation(head, body, reached, break, body.identsOfCalledPreds)
       }
-    } yield ((head, trg), (src,body,head))
+    } yield transition
   }
 
   @tailrec
@@ -265,11 +222,11 @@ case class RefinementInstance(sid: SidLike,
       // There is a derivation that reaches a final state, refined language nonempty
       // We only continue the fixed-point computation if we're interested in the full refinement; otherwise we return false
       logger.debug("Reached " + reached.finalStates.head + " => language is non-empty")
-      RefinementState(empty = false, reached, Set.empty)
+      RefinementState(empty = false, reached, Transitions.empty)
     } else {
       logger.debug("Beginning iteration #" + iteration)
       val iterationResult = performSingleIteration(reached, transitions)
-      val newPairs = iterationResult map (_._1)
+      val newPairs = iterationResult map (t => (t.headPredicate, t.headState))
       val newReachedStates = reached ++ newPairs
 
       logger.debug("Refinement iteration: #" + iteration + " " + (if (newPairs.isEmpty) "--" else newPairs.mkString(", ")))
@@ -282,14 +239,14 @@ case class RefinementInstance(sid: SidLike,
           logger.debug("=> Language is empty")
         }
 
-        val transitionInstances: Set[TransitionInstance] = if (mode == FullRefinement) {
+        val newTransitions = if (mode == FullRefinement) {
           // Only extend in FullRefinement mode -- otherwise this is unnecessary extra computation
-          transitions.extend(iterationResult).toTransitionInstances
+          transitions.extend(iterationResult)
         } else {
-          Set.empty
+          transitions
         }
 
-        RefinementState(empty = true, reached, transitionInstances)
+        RefinementState(empty = true, reached, newTransitions)
       } else {
         // Fixed point not yet reached, recurse
         val updatedTransitions = transitions.extend(iterationResult)
