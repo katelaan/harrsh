@@ -30,6 +30,6 @@ case class PredCall(name : String, args : Seq[Var]) extends SepLogAtom {
 object PredCall {
   implicit val predCallToLatex: ToLatex[PredCall] = (predCall: PredCall, naming: Naming) => {
     val argString = predCall.args.map(naming).mkString(",")
-    s"\\RuleName{${predCall.name}}($argString)"
+    s"\\RuleName{${Predicate.predicateHeadToLatex(predCall.name)}}($argString)"
   }
 }

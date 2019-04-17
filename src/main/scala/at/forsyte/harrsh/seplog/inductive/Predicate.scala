@@ -28,4 +28,12 @@ case class Predicate(head: String, rules: Seq[RuleBody]) {
     ruleStrings.mkString("\n")
   }
 
+  def headToLatex = Predicate.predicateHeadToLatex(head)
+
+}
+
+object Predicate {
+
+  def predicateHeadToLatex(head: String) = head.replaceAllLiterally("_", "\\_")
+
 }

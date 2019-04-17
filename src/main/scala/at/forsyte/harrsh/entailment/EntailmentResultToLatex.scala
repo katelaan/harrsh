@@ -2,7 +2,7 @@ package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var.Naming
-import at.forsyte.harrsh.seplog.inductive.{PureAtom, RuleBody, Sid}
+import at.forsyte.harrsh.seplog.inductive.{Predicate, PureAtom, RuleBody, Sid}
 import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
 
@@ -82,24 +82,43 @@ object EntailmentResultToLatex {
 //    }
 
     private def nodeLabelToLatexLines(nodeLabel: ContextPredCall, usageInfo: VarUsageByLabel, nodeId: String, style: String): Stream[String] = {
-      val tikzNodeLabel = nodeLabel.symbolicHeapLabel
-      val annotateWithUsageInfo = (vs: Set[Var]) => {
-        usageInfo(vs) match {
+      def annotateWithUsageInfo(vs: Set[Var])(latex: String) = {
+        val prefix = usageInfo(vs) match {
           case VarUnused => ""
           case VarAllocated => "\\overset{\\rightsquigarrow}"
           case VarReferenced => "\\overset{\\leftsquigarrow}"
         }
+        prefix + "{" + latex + "}"
       }
 
       val (pred, subst) = (nodeLabel.pred, nodeLabel.subst)
-      val pairs = (pred.params, subst.toSeq).zipped.map {
-        case (from, to) => s"${annotateWithUsageInfo(to)}{${varsToMath(from)}}" + " \\rightarrow " + to.map(varsToMath).mkString(",")
+      val paramLabels = (pred.params, subst.toSeq).zipped.map {
+        case (from, to) => annotateWithUsageInfo(to)(to.map(varsToMath).mkString(","))
       }
-      val substLatex = '$' + pairs.mkString(";") + '$'
-
-      Stream(s"\\node[$NodeLabelStyleClass,$style] ($nodeId) {$tikzNodeLabel \\nodepart{two} \\footnotesize $substLatex};")
+      val tikzNodeLabel = '$' + "\\mathtt{" + pred.headToLatex + "}" + paramLabels.mkString("(", ", ", ")") + '$'
+      Stream(s"\\node[$NodeLabelStyleClass,$style] ($nodeId) {$tikzNodeLabel};")
     }
   }
+
+//    private def nodeLabelToLatexLines(nodeLabel: ContextPredCall, usageInfo: VarUsageByLabel, nodeId: String, style: String): Stream[String] = {
+//      val tikzNodeLabel = nodeLabel.symbolicHeapLabel
+//      val annotateWithUsageInfo = (vs: Set[Var]) => {
+//        usageInfo(vs) match {
+//          case VarUnused => ""
+//          case VarAllocated => "\\overset{\\rightsquigarrow}"
+//          case VarReferenced => "\\overset{\\leftsquigarrow}"
+//        }
+//      }
+//
+//      val (pred, subst) = (nodeLabel.pred, nodeLabel.subst)
+//      val pairs = (pred.params, subst.toSeq).zipped.map {
+//        case (from, to) => s"${annotateWithUsageInfo(to)}{${varsToMath(from)}}" + " \\rightarrow " + to.map(varsToMath).mkString(",")
+//      }
+//      val substLatex = '$' + pairs.mkString(";") + '$'
+//
+//      Stream(s"\\node[$NodeLabelStyleClass,$style] ($nodeId) {$tikzNodeLabel \\nodepart{two} \\footnotesize $substLatex};")
+//    }
+//  }
 
   object entailmentFixedPointToLatex {
 
@@ -117,7 +136,7 @@ object EntailmentResultToLatex {
     private def transitionsToLatex(transitions: Map[String, Set[(Seq[EntailmentProfile], RuleBody, EntailmentProfile)]]): String = {
       val byPred = for {
         (pred, ts) <- transitions
-        predStr = s"\\subsection{Transitions for \\texttt{$pred}}\n\\begin{itemize}\n"
+        predStr = s"\\subsection{Transitions for \\texttt{${Predicate.predicateHeadToLatex(pred)}}}\n\\begin{itemize}\n"
         endStr = "\\end{itemize}\n"
       } yield predStr + ts.map(transitionToLatex).map("\\item Transition: " + _).mkString("\n\n") + endStr
       byPred.mkString("\n\n")
@@ -149,7 +168,7 @@ object EntailmentResultToLatex {
     }
 
     def predToLatex(pred: String, states: Set[EntailmentProfile], isFinal: EntailmentProfile => Boolean): Stream[String] = {
-      Stream(s"Reachable states for \\texttt{$pred}:", "\\begin{itemize}") ++ states.toStream.flatMap(s => stateToLatex(s, isFinal)).map(indent) ++ Stream("\\end{itemize}")
+      Stream(s"Reachable states for \\texttt{${Predicate.predicateHeadToLatex(pred)}}:", "\\begin{itemize}") ++ states.toStream.flatMap(s => stateToLatex(s, isFinal)).map(indent) ++ Stream("\\end{itemize}")
     }
 
     def stateToLatex(state: EntailmentProfile, isFinal: EntailmentProfile => Boolean): Stream[String] = {
@@ -197,8 +216,7 @@ object EntailmentResultToLatex {
                                 |\\usetikzlibrary{backgrounds,arrows,shapes,positioning,fit}
                                 |
                                 |\\tikzset{$DecompStyleClass/.style={background rectangle/.style={fill=orange!30}, show background rectangle}}
-                                |\\tikzset{$NodeLabelStyleClass/.style={draw,rectangle split, rectangle split
-                                |    parts=2,inner sep=2pt}}
+                                |\\tikzset{$NodeLabelStyleClass/.style={draw,rectangle,inner sep=2pt}}
                                 |\\tikzset{$MissingStyleClass/.style={fill=red!30}}
                                 |
                                 |\\begin{document}

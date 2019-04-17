@@ -24,4 +24,6 @@ object IOConfig {
     )
   }
 
+  val EntailmentResultLatexFile = "entailment.tex"
+
 }

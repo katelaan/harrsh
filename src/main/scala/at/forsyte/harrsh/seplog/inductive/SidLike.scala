@@ -67,13 +67,13 @@ object SidLike {
       pred <- a.preds
       rule <- predToLatex(pred)
     } yield rule
-    """\[\begin{array}{rcl}""" + rulesStr.mkString("\n", "\\\\\n", "\n") + """\end{array}\]"""
+    """$\begin{array}{rcl}""" + rulesStr.mkString("\n", "\\\\\n", "\n") + """\end{array}$"""
   }
 
   private def predToLatex(pred: Predicate): Seq[String] = {
     for {
       rule <- pred.rules
-    } yield s"  \\RuleName{${pred.head}} &\\Longleftarrow& ${rule.body.toLatex(rule.naming)}"
+    } yield s"  \\RuleName{${pred.headToLatex}} &\\Longleftarrow& ${rule.body.toLatex(rule.naming)}"
   }
 
 }

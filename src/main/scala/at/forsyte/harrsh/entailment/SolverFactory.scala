@@ -1,7 +1,7 @@
 package at.forsyte.harrsh.entailment
 
 import at.forsyte.harrsh.entailment.EntailmentChecker.{EntailmentCheckerStats, EntailmentFixedPointStats}
-import at.forsyte.harrsh.main.{HarrshLogging, ProblemStatus, SatQuery}
+import at.forsyte.harrsh.main.{HarrshLogging, IOConfig, ProblemStatus, SatQuery}
 import at.forsyte.harrsh.main.ProblemStatus.{Correct, Incorrect, Unknown}
 import at.forsyte.harrsh.pure.{Closure, PureEntailment}
 import at.forsyte.harrsh.refinement.{RefinementAlgorithms, SatChecker}
@@ -164,8 +164,8 @@ object SolverFactory extends HarrshLogging {
       println(FixedPointSerializer(entailmentInstance, markFinalProfiles = false)(reachableStatesByPred))
     }
     if (config.io.exportToLatex) {
-      print("Will export result to LaTeX...")
-      IOUtils.writeFile("entailment.tex", EntailmentResultToLatex.entailmentFixedPointToLatex(entailmentInstance, aut, reachableStatesByPred, transitionsByHeadPred))
+      print(s"Will export result to LaTeX file ${IOConfig.EntailmentResultLatexFile}...")
+      IOUtils.writeFile(IOConfig.EntailmentResultLatexFile, EntailmentResultToLatex.entailmentFixedPointToLatex(entailmentInstance, aut, reachableStatesByPred, transitionsByHeadPred))
       println(" Done.")
     }
     reachableStatesByPred

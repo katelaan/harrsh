@@ -74,40 +74,4 @@ object EntailmentChecker extends HarrshLogging {
     }
   }
 
-//  def runSolver(topLevelSolver: TopLevelSolver, entailmentInstance: EntailmentInstance, config: EntailmentConfig): (Boolean, EntailmentStats) = {
-//    val reachableStatesByPred = runEntailmentAutomaton(entailmentInstance, config)
-//    val entailmentHolds = topLevelSolver.checkValidity(entailmentInstance, reachableStatesByPred)
-//    val stats = entailmentStats(reachableStatesByPred)
-//    (entailmentHolds,stats)
-//  }
-
-//  def entailmentStats(reachableStatesByPred: Map[String, Set[EntailmentProfile]]): EntailmentStats = {
-//    val numExploredPreds = reachableStatesByPred.size
-//    val allProfiles = reachableStatesByPred.values.flatten.toList
-//    val allDecomps: Seq[ContextDecomposition] = for {
-//      c <- allProfiles
-//      s <- c.decompsOrEmptySet
-//    } yield s
-//    val totalNumContexts = allDecomps.map(_.parts.size).sum
-//    EntailmentStats(numExploredPreds, allProfiles.size, allDecomps.size, totalNumContexts)
-//  }
-//
-//  private def runEntailmentAutomaton(entailmentInstance: EntailmentInstance, config: EntailmentConfig): Map[String, Set[EntailmentProfile]] = {
-//    val EntailmentInstance(lhs, rhs, _) = entailmentInstance
-//    val aut = new EntailmentAutomaton(rhs.sid, rhs.topLevelConstraint)
-//    val (reachableStatesByPred, transitionsByHeadPred) = RefinementAlgorithms.fullRefinementTrace(lhs.sid, aut, config.io.reportProgress)
-//
-//    if (config.io.printResult) {
-//      println(FixedPointSerializer(entailmentInstance)(reachableStatesByPred))
-//    }
-//    if (config.io.exportToLatex) {
-//      print("Will export result to LaTeX...")
-//      IOUtils.writeFile("entailment.tex", EntailmentResultToLatex.entailmentFixedPointToLatex(entailmentInstance, aut, reachableStatesByPred, transitionsByHeadPred))
-//      println(" Done.")
-//    }
-//    reachableStatesByPred
-//  }
-
-
-
 }
