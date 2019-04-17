@@ -4,87 +4,68 @@ import at.forsyte.harrsh.heapautomata.HeapAutomaton.Transition
 import at.forsyte.harrsh.seplog.Var
 import at.forsyte.harrsh.seplog.Var.Naming
 import at.forsyte.harrsh.seplog.inductive.{Predicate, Sid}
-import at.forsyte.harrsh.util.ToLatex
 import at.forsyte.harrsh.util.ToLatex._
 
 object EntailmentResultToLatex {
 
-  val decompToLatex: ToLatex[ContextDecomposition] = (a: ContextDecomposition, _: Naming) => decompositionToLatexLines(a).mkString("\n")
+  private def indent(s : String) = "  " + s
 
-  private def varToMath(v: Var) = v.toLatex(Naming.indexify(Naming.DefaultNaming))
+  private def indent(ss : Stream[String]): Stream[String] = ss map indent
 
-  private def varsToMath(vs: Iterable[Var]) = {
-    val mathVars = vs map varToMath
-    if (mathVars.size == 1) mathVars.head else mathVars.mkString("\\{", ",", "\\}")
+  def inTikzPic(lines: Stream[String], style: Option[String] = None): Stream[String] = {
+    val styleString = style.map('[' + _ + ']').getOrElse("")
+    Stream(s"\\begin{tikzpicture}$styleString") ++ lines ++ Stream("\\end{tikzpicture}")
+  }
+
+  private def positioning(prefix: String, dir: String, currId: Int) = {
+    if (currId > 0) {
+      val anchor = if (dir == "below") ".west, anchor=west" else ""
+      val distance = if (dir == "below") "12" else "2"
+      dir + "=" + distance + "mm of " + prefix + (currId-1) + anchor
+    } else ""
   }
 
   object decompositionToLatexLines {
 
-    // TODO: Less hacky latex conversion
+    def apply(decomp: ContextDecomposition, nodeId: String, position: String): Stream[String] = {
+      val partsWithNodeIds = decomp.parts.toSeq.zipWithIndex map (pair => (pair._1, "c"+pair._2, positioning("c", "right", pair._2)))
+      val partsTikz = partsWithNodeIds.toStream flatMap (pair => contextToLatexLines(pair._1, pair._2, pair._3, decomp.constraints.usage))
+      val constraintsTikz = constraintsToLatexLines(decomp.constraints, positioning("c", "right", partsWithNodeIds.size))
+      Stream(s"\\node[$DecompStyleClass,$position] ($nodeId) {") ++ indent(inTikzPic(partsTikz ++ constraintsTikz)) ++ Stream("};")
+    }
 
-    def apply(decomp: ContextDecomposition): Stream[String] = {
-      val ordered = decomp.parts.toStream
+    def contextToLatexLines(ctx: EntailmentContext, ctxId: String, position: String, usageInfo: VarUsageByLabel): Stream[String] = {
+      val text = (ctx.root +: ctx.calls.toSeq).map(nodeLabelToLatex(_, usageInfo)).mkString(", ")
+      Stream(s"\\node[$ContextStyleClass, $position] ($ctxId) {$text};")
+    }
 
-      // FIXME: Include pure constraints in latex (which used to be per context, but are now per decomposition, so we need to make some changes about node id, positioning etc)
-      //val diseqId = ctxId + "_diseqs"
-      //val diseqsTikz = pureConstraintToTikz(decomp.pureConstraints, rootId, diseqId, s"right=of $rootId")
-      val tifpics = ordered.zipWithIndex.flatMap {
-        case (ctx, ix) =>
-          val style = if (ix == 0) "" else {
-            val bottomLeft = if (ordered(ix - 1).calls.nonEmpty) s"ctx${ix-1}_0" else s"ctx${ix-1}_root"
-              s"below=5mm of $bottomLeft"
-          }
-          contextToLatexLines(ctx, decomp.constraints.usage, "ctx" + ix, style)
+    def diseqToLatex(constraint: VarConstraints.DiseqConstraint): String = {
+      val pair = constraint.toPair
+      Var.indexedVarsToLatex(pair._1) + " \\neq " + Var.indexedVarsToLatex(pair._2)
+    }
+
+    def speculativeEqToLatex(eq: (Var,Var)): String = {
+      Var.indexedVarToLatex(eq._1) + " = " + Var.indexedVarToLatex(eq._2)
+    }
+
+    private def constraintsToLatexLines(constraints: VarConstraints, position: String): Stream[String] = {
+      val positions = Seq(position, positioning("constraints", "right", 1))
+      val ensuredConstraints = (EnsuredStyleClass, constraints.ensuredDiseqs.map(diseqToLatex))
+      val missingConstraints = (MissingStyleClass,
+        constraints.speculativeDiseqs.map(diseqToLatex)
+          ++ constraints.speculativeEqs.map(speculativeEqToLatex)
+          ++ constraints.rewrittenSpeculation.map(_.toLatex))
+      val constraintLists = Stream(ensuredConstraints, missingConstraints).filterNot(_._2.isEmpty)
+      val constraintNodes = constraintLists.zipWithIndex.zip(positions).map{
+        case (((style, list), index), pos) => (list.mkString("$", " \\wedge ", "$"), style, pos, index)
       }
-      inTikzPic(tifpics, Some(DecompStyleClass))
-    }
-
-    def inTikzPic(lines: Stream[String], style: Option[String] = None): Stream[String] = {
-      val styleString = style.map('[' + _ + ']').getOrElse("")
-      Stream(s"\\begin{tikzpicture}$styleString") ++ lines ++ Stream("\\end{tikzpicture}")
-    }
-
-    def contextToLatexLines(ctx: EntailmentContext, usageInfo: VarUsageByLabel, ctxId: String, rootStyle: String): Stream[String] = {
-      val rootId = ctxId + "_root"
-      val fitId = ctxId + "_fit"
-
-      val EntailmentContext(root, leaves) = ctx
-      val rootTikz = nodeLabelToLatexLines(root, usageInfo, rootId, rootStyle)
-
-
-      val callsTikz = leaves.toStream.zipWithIndex.flatMap {
-        case (leaf, ix) =>
-          val position = if (ix == 0) s"below=2mm of $rootId" else s"right=of ${ctxId}_${ix-1}"
-          nodeLabelToLatexLines(leaf, usageInfo, ctxId + "_" + ix, s"missing,$position")
+      constraintNodes map {
+        case (text, style, pos, id) =>
+          s"\\node[$style, $pos] (constraints$id) {$text};"
       }
-      val callIds = (0 until leaves.size) map (ctxId + "_" + _)
-      val nodeIds = Seq(rootId) ++ callIds
-      val fitConstraint = nodeIds.map("(" + _ + ")").mkString(" ")
-
-      val fitTikz = Stream(s"\\node[draw=black!50, fit={$fitConstraint}] ($fitId) {};")
-
-      rootTikz ++ callsTikz ++ fitTikz
     }
 
-//    private def pureConstraintToTikz(pureConstraints: PureConstraintTracker, ctxRootId: String, nodeId: String, style: String): Option[String] = {
-//      val pureAtomsToLatex = (deqs: Set[PureAtom]) =>
-//        if (deqs.isEmpty) {
-//          "---"
-//        } else {
-//          deqs.map(a => s"$$${varsToMath(a.l)} ${if (a.isEquality) "=" else "\\neq"} ${varsToMath(a.r)}$$").mkString(", ")
-//        }
-//
-//      if (pureConstraints.ensured.nonEmpty || pureConstraints.missing.nonEmpty) {
-//        val ensuredLabel = s"Guaranteed: ${pureAtomsToLatex(pureConstraints.ensured)}"
-//        val missingLabel = s"Missing: ${pureAtomsToLatex(pureConstraints.missing)}"
-//        val missingStyle = if (pureConstraints.missing.nonEmpty) s"$MissingStyleClass," else ""
-//        Some(s"\\node[$NodeLabelStyleClass,$style,${missingStyle}right=2mm of $ctxRootId] ($nodeId) {\\footnotesize $ensuredLabel \\nodepart{two} \\footnotesize $missingLabel};")
-//      } else {
-//        None
-//      }
-//    }
-
-    private def nodeLabelToLatexLines(nodeLabel: ContextPredCall, usageInfo: VarUsageByLabel, nodeId: String, style: String): Stream[String] = {
+    private def nodeLabelToLatex(nodeLabel: ContextPredCall, usageInfo: VarUsageByLabel): String = {
       def annotateWithUsageInfo(vs: Set[Var])(latex: String) = {
         val prefix = usageInfo(vs) match {
           case VarUnused => ""
@@ -96,10 +77,9 @@ object EntailmentResultToLatex {
 
       val (pred, subst) = (nodeLabel.pred, nodeLabel.subst)
       val paramLabels = (pred.params, subst.toSeq).zipped.map {
-        case (from, to) => annotateWithUsageInfo(to)(varsToMath(to))
+        case (from, to) => annotateWithUsageInfo(to)(Var.indexedVarsToLatex(to))
       }
-      val tikzNodeLabel = '$' + "\\mathtt{" + pred.headToLatex + "}" + paramLabels.mkString("(", ", ", ")") + '$'
-      Stream(s"\\node[$NodeLabelStyleClass,$style] ($nodeId) {$tikzNodeLabel};")
+      '$' + "\\mathtt{" + pred.headToLatex + "}" + paramLabels.mkString("(", ", ", ")") + '$'
     }
   }
 
@@ -160,23 +140,21 @@ object EntailmentResultToLatex {
     }
 
     def stateToLatex(state: EntailmentProfile): Stream[String] = {
-      val header = s"\\item Profile with free variables ${state.params.toSeq.sorted.map(EntailmentResultToLatex.varToMath).mkString("$\\langle ", ", ", "\\rangle$")} and context decompositions:"
+      val header = s"\\item Profile with free variables ${state.params.toSeq.sorted.map(Var.indexedVarToLatex).mkString("$\\langle ", ", ", "\\rangle$")}:"
 
-      val decompsStream = if (state.decompsOrEmptySet.isEmpty) {
-        Stream("\\item No consistent context decomposition (failure state)")
-      } else {
-        Stream("\\item Decompositions:", "\\begin{enumerate}") ++ state.decompsOrEmptySet.toStream.flatMap(decomp => Stream("\\item") ++ decompositionToLatexLines(decomp)) ++ Stream("\\end{enumerate}")
-      }
-
-      Stream(header, "\\begin{itemize}") ++ decompsStream ++ Stream("\\end{itemize}")
+      val decompsWithNodeNames = state.decompsOrEmptySet.toSeq.sortBy(_.parts.size).zipWithIndex.map(pair => (pair._1, "d" + pair._2, positioning("d", "below", pair._2)))
+      val decompLines = decompsWithNodeNames.flatMap(pair => decompositionToLatexLines(pair._1, pair._2, pair._3))
+      val nodesToFit = decompsWithNodeNames.map(_._2).map('(' + _ + ')').mkString("")
+      val allLines = decompLines.toStream ++ Stream("\\begin{scope}[on background layer]", s"  \\node[profile,fit=$nodesToFit] {};", "\\end{scope}")
+      Stream(header, "") ++ indent(inTikzPic(allLines))
     }
-
-    private def indent(s : String) = "  " + s
 
   }
 
+  private val ProfileStyleClass = "profile"
   private val DecompStyleClass = "decomp"
-  private val NodeLabelStyleClass = "pcall"
+  private val ContextStyleClass = "ctx"
+  private val EnsuredStyleClass = "ensured"
   private val MissingStyleClass = "missing"
   private val SidPlaceholder = "SIDPLACEHOLDER"
   private val QueryPlaceholder = "QUERYPLACEHOLDER"
@@ -186,8 +164,11 @@ object EntailmentResultToLatex {
   private val latexTemplate = s"""\\documentclass{article}
                                 |\\usepackage[a2paper, landscape]{geometry}
                                 |\\usepackage{amsmath,amssymb}
+                                |\\usepackage{xcolor}
+                                |\\DefineNamedColor{named}{azul2}{RGB}{40,96,127}
                                 |
                                 |\\newcommand{\\nil}{\\ensuremath{\\textnormal{\\textbf{null}}}}
+                                |\\newcommand{\\emp}{\\ensuremath{\\textnormal{\\textbf{emp}}}}
                                 |\\newcommand{\\RuleName}[1]{\\mathtt{#1}}
                                 |
                                 |\\makeatletter
@@ -202,9 +183,11 @@ object EntailmentResultToLatex {
                                 |\\usepackage{tikz}
                                 |\\usetikzlibrary{backgrounds,arrows,shapes,positioning,fit}
                                 |
-                                |\\tikzset{$DecompStyleClass/.style={background rectangle/.style={fill=orange!30}, show background rectangle}}
-                                |\\tikzset{$NodeLabelStyleClass/.style={draw,rectangle,inner sep=2pt}}
-                                |\\tikzset{$MissingStyleClass/.style={fill=red!30}}
+                                |\\tikzset{$ProfileStyleClass/.style={fill=azul2!50}}
+                                |\\tikzset{$DecompStyleClass/.style={fill=azul2!30}}
+                                |\\tikzset{$ContextStyleClass/.style={fill=white}}
+                                |\\tikzset{$EnsuredStyleClass/.style={fill=green!20}}
+                                |\\tikzset{$MissingStyleClass/.style={fill=red!20}}
                                 |
                                 |\\begin{document}
                                 |

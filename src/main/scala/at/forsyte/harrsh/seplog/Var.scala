@@ -97,6 +97,13 @@ object Var {
     StringUtils.literalReplacements(latexReplacements, naming(v))
   }
 
+  def indexedVarToLatex(v: Var): String = varToLatex.toLatex(v, Naming.indexify(Naming.DefaultNaming))
+
+  def indexedVarsToLatex(vs: Iterable[Var]): String = {
+    val mathVars = vs map indexedVarToLatex
+    if (mathVars.size == 1) mathVars.head else mathVars.mkString("\\{", ",", "\\}")
+  }
+
   def isNullString(s: String): Boolean = {
     s == NullString || s == NilString
   }

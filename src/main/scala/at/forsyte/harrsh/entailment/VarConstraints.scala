@@ -5,7 +5,7 @@ import at.forsyte.harrsh.main.HarrshLogging
 import at.forsyte.harrsh.pure.Closure
 import at.forsyte.harrsh.seplog.inductive.PureAtom
 import at.forsyte.harrsh.seplog.{NullConst, Var}
-import at.forsyte.harrsh.util.{CachedHashcode, Combinators}
+import at.forsyte.harrsh.util.{CachedHashcode, Combinators, ToLatex}
 
 case class VarConstraints(usage: VarUsageByLabel, ensuredDiseqs: Set[DiseqConstraint], speculativeDiseqs: Set[DiseqConstraint], speculativeEqs: Set[(Var, Var)], rewrittenSpeculation: Set[RewrittenBoundVarDiseqConstraint]) extends HarrshLogging with CachedHashcode {
   // FIXME: Also need to try to express speculative eqs using non-dropped vars! (Which is only possible by passing the shared constraints, as we cannot otherwise reconstruct the underlying equality classes that could be used in rewriting.)
@@ -298,6 +298,23 @@ object VarConstraints extends HarrshLogging {
       val allStrs = (allocStr +: eqStrs.toSeq).filterNot(_.isEmpty)
       if (allStrs.size > 1) {
         allStrs.mkString("[", "\u2228", "]")
+      } else {
+        allStrs.head
+      }
+    }
+
+  }
+
+  object RewrittenBoundVarDiseqConstraint {
+
+    implicit val rewrittenConstraintToLatex: ToLatex[RewrittenBoundVarDiseqConstraint] = (c, naming) => {
+      val allocStr = if (c.isAllocOrNullSufficient) s"\\mathsf{alloced\\_or\\_null}(${c.remainingDiseqSide.mkString(",")})" else ""
+      val eqStrs = c.classesDiseqFromLostVar map {
+        diseq => Var.indexedVarsToLatex(c.remainingDiseqSide) + " \\neq " + Var.indexedVarsToLatex(diseq)
+      }
+      val allStrs = (allocStr +: eqStrs.toSeq).filterNot(_.isEmpty)
+      if (allStrs.size > 1) {
+        allStrs.mkString("\\left(", " \\vee ", "\\right)")
       } else {
         allStrs.head
       }
