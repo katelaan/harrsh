@@ -31,7 +31,8 @@ object PointsTo {
 
   implicit val pointsToToLatex: ToLatex[PointsTo] = (pointsTo: PointsTo, naming: Naming) => {
     val argString = pointsTo.to.map(_.toLatex(naming)).mkString(",")
-    s"${pointsTo.from.toLatex(naming)} \\rightarrow ($argString)"
+    val parensString = if (pointsTo.to.size > 1) s"($argString)" else argString
+    s"${pointsTo.from.toLatex(naming)} \\rightarrow $parensString"
   }
 
 
