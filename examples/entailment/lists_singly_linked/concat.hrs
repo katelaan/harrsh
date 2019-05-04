@@ -1,0 +1,16 @@
+query {
+  ls(x1,x2) * ls(x2,x3) |= ls2(x1,x3)
+}
+sid {
+  # possibly cyclic list segment of length at least 1
+  ls <= x1 -> x2;
+  ls <= x1 -> y * ls(y,x2);
+  # possibly cyclic list segment of length at least 2
+  # note that I'm using an auxiliary predicate to ensure progress
+  aux <= x1 -> x2;
+  ls2 <= x1->y * aux(y, x2);
+  ls2 <= x1->y * ls2(y,x2)
+}
+info {
+  status = true
+}

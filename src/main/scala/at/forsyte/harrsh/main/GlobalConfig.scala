@@ -55,7 +55,7 @@ object GlobalConfig {
     params.StartEntailmentWithSatCheck -> false,
     params.PatternMatchingLevel -> 3,
     params.ComputePerSideSids -> true,
-    params.UseUnionSolver -> true,
+    params.UseUnionSolver -> false,
     params.ComputeSccs -> false,
     // SID Exploration
     params.UnfoldingsReduced -> false,

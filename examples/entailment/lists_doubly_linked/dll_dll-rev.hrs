@@ -1,11 +1,11 @@
 query {
-  DLL_plus(x1,null,x2,null) |= DLL_plus_rev(x1,null,x2,null)
+  dll(x1,null,x2,null) |= dll_rev(x1,null,x2,null)
 }
 sid {
-  DLL_plus <= x1 -> (x2, x4) : {x1 = x3} ;
-  DLL_plus <= x1 -> (x2, y) * DLL_plus(y,x1,x3,x4) ;
-  DLL_plus_rev <= x1 -> (x2, x4) : {x1 = x3} ;
-  DLL_plus_rev <= x3 -> (y, x4) * DLL_plus_rev(x1,x2,y,x3) ;
+  dll <= x1 -> (x2, x4) : {x1 = x3} ;
+  dll <= x1 -> (x2, y) * dll(y,x1,x3,x4) ;
+  dll_rev <= x3 -> (x2, x4) : {x1 = x3} ;
+  dll_rev <= x3 -> (y, x4) * dll_rev(x1,x2,y,x3) ;
 }
 info {
   status = true

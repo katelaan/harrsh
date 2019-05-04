@@ -1,0 +1,27 @@
+# Adaptation of an example contributed by Radu Iosif to the Harrsh input format
+query {
+  p(x1,x4,x3) * p(x2,x4,x3) * q(x3,x5,x6) |= r(x1,x4,x5,x3) * r(x2,x4,x6,x3)
+}
+sid {
+  # p is a list segment from x1 to x3 and all nodes point to x2 also.
+  # Note that this is established because x2 is a parameter; we can also use it only in a context where x2 is allocated
+  p <= x1 -> (x2,x3);
+  p <= x1 -> (x2,u) * p(u,x2,x3);
+
+  # q is a list segment from x1 to nil in which all nodes point to either x2 or x3, but not to both. 
+  q <= x1 -> (x2,nil);
+  q <= x1 -> (x3,nil); 
+  q <= x1 -> (x2,u) * p(u,x2,nil);
+  q <= x1 -> (x3,u) * p(u,x3,nil);
+
+  # r is a list segment from x1 either to x4 or nil, in which each node points to x2 or x3 (and we can have combinations of both)
+  r <= x1 -> (x2,nil);
+  r <= x1 -> (x3,nil);
+  r <= x1 -> (x2,x4);
+  r <= x1 -> (x3,x4);
+  r <= x1 -> (x2,u) * r(u,x2,x3,x4);
+  r <= x1 -> (x3,u) * r(u,x2,x3,x4)
+}
+info {
+  status = true
+}
