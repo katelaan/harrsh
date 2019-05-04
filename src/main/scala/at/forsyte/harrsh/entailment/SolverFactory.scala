@@ -62,15 +62,15 @@ object SolverFactory extends HarrshLogging {
   }
 
   private def topLevelSolver(config: EntailmentConfig): SolverStrategy[FixedPoint] = {
-    makeStats andThen topLevelSolverFrom(if (config.useUnionSolver) UnionSolver else BruteForceSolver)
+    makeStats andThen topLevelSolverFrom(if (config.useUnionSolver) UnionSolver else BruteForceSolver, config.io.exportToLatex)
   }
 
-  private def topLevelSolverFrom(solver: TopLevelSolver): SolverStrategy[FixedPoint] = {
+  private def topLevelSolverFrom(solver: TopLevelSolver, exportToLatex: Boolean): SolverStrategy[FixedPoint] = {
     SolverStrategy.fromFunction { case (ei: EntailmentInstance, fp: FixedPoint) =>
 //      val split = splitBasedOnInterface(ei)
 //      logger.warn(s"We could split $ei into\n${split.mkString("\n")}")
 
-      val isValid = solver.checkValidity(ei, fp)
+      val isValid = solver.checkValidity(ei, fp, exportToLatex)
       if (isValid) Correct else Incorrect
     }
   }
@@ -165,8 +165,8 @@ object SolverFactory extends HarrshLogging {
       println(FixedPointSerializer(entailmentInstance, markFinalProfiles = false)(reachableStatesByPred))
     }
     if (config.io.exportToLatex) {
-      print(s"Will export result to LaTeX file ${IOConfig.EntailmentResultLatexFile}...")
-      IOUtils.writeFile(IOConfig.EntailmentResultLatexFile, EntailmentResultToLatex.entailmentFixedPointToLatex(entailmentInstance, aut, reachableStatesByPred, transitionsByHeadPred))
+      print(s"Will export fixed point to LaTeX file ${IOConfig.EntailmentFixedPointLatexFile}...")
+      IOUtils.writeFile(IOConfig.EntailmentFixedPointLatexFile, EntailmentResultToLatex.entailmentFixedPointToLatex(entailmentInstance, aut, reachableStatesByPred, transitionsByHeadPred))
       println(" Done.")
     }
     reachableStatesByPred

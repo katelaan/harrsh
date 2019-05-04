@@ -7,7 +7,7 @@ object UnionSolver extends TopLevelSolver {
 
   // TODO: After each composition step, forget all bound vars that don't occur later
 
-  override def checkValidityOfInstantiation(entailmentInstance: EntailmentInstance, maybeLhsPureProfile: Option[EntailmentProfile], renamedCallProfileSets: Seq[Set[EntailmentProfile]]): Boolean = {
+  override def checkValidityOfInstantiation(entailmentInstance: EntailmentInstance, maybeLhsPureProfile: Option[EntailmentProfile], renamedCallProfileSets: Seq[Set[EntailmentProfile]], exportToLatex: Boolean): Boolean = {
     assert(renamedCallProfileSets forall (_.nonEmpty))
     assert(renamedCallProfileSets forall(ps => ps.forall(_.isDecomposable)))
 

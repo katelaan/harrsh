@@ -7,14 +7,14 @@ import at.forsyte.harrsh.seplog.inductive.{PureAtom, RichSid}
 
 trait TopLevelSolver extends HarrshLogging {
 
-  def checkValidity(entailmentInstance: EntailmentInstance, reachable: Map[String, Set[EntailmentProfile]]): Boolean = {
+  def checkValidity(entailmentInstance: EntailmentInstance, reachable: Map[String, Set[EntailmentProfile]], exportToLatex: Boolean): Boolean = {
     TopLevelSolver.applyIfInstantiation(
-      checkValidityOfInstantiation(entailmentInstance, _, _),
+      checkValidityOfInstantiation(entailmentInstance, _, _, exportToLatex),
       computeLhsProfilesForComposition(reachable, entailmentInstance)
     )
   }
 
-  def checkValidityOfInstantiation(entailmentInstance: EntailmentInstance, maybeLhsPureProfile: Option[EntailmentProfile], renamedCallProfileSets: Seq[Set[EntailmentProfile]]): Boolean
+  def checkValidityOfInstantiation(entailmentInstance: EntailmentInstance, maybeLhsPureProfile: Option[EntailmentProfile], renamedCallProfileSets: Seq[Set[EntailmentProfile]], exportToLatex: Boolean): Boolean
 
   private def pureProfile(atoms: Seq[PureAtom], computeEvenIfEmpty: Boolean): Option[EntailmentProfile] = {
     if (!computeEvenIfEmpty && atoms.isEmpty) None

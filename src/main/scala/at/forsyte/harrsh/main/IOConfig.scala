@@ -24,6 +24,7 @@ object IOConfig {
     )
   }
 
-  val EntailmentResultLatexFile = "entailment.tex"
+  val EntailmentFixedPointLatexFile = "entailment_fixedpoint.tex"
+  val EntailmentToplevelLatexFile = "entailment_toplevel.tex"
 
 }
